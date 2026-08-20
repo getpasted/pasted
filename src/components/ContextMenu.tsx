@@ -17,12 +17,10 @@ import {
   StickyNote,
   ListPlus,
   Pin,
-  PinOff,
   Trash2,
   Trash,
   Sparkles,
   Shield,
-  ShieldOff,
   RotateCcw,
   Check,
 } from 'lucide-react';
@@ -42,7 +40,8 @@ interface ContextMenuProps {
   onOpenTransformations: () => void;
   onAddNote: () => void;
   onDeleteNote?: () => void;
-  onAddToStack: () => void;
+  isQueued: boolean;
+  onToggleQueue: () => void;
   onTogglePin: () => void;
   onToggleProtected?: () => void;
   onDelete: (e?: React.MouseEvent) => void;
@@ -66,7 +65,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   onOpenTransformations,
   onAddNote,
   onDeleteNote,
-  onAddToStack,
+  isQueued,
+  onToggleQueue,
   onTogglePin,
   onToggleProtected,
   onDelete,
@@ -79,12 +79,11 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   const [transforms, setTransforms] = useState<SavedTransform[]>([]);
   const [isLoadingTransforms, setIsLoadingTransforms] = useState(false);
   const isAltPressed = useAltKeyPressed();
-  const isExplicitlyProtected = clip.is_explicitly_protected ?? clip.is_protected ?? false;
-  const inheritedProtectionOnly = Boolean(clip.is_protected) && !isExplicitlyProtected;
-  const protectionToggleDisabled = Boolean(clip.hotkey) || inheritedProtectionOnly;
+  const protectedByBin = Boolean(clip.protecting_bin_ids?.length);
+  const protectionToggleDisabled = Boolean(clip.hotkey) || protectedByBin;
 
   useEffect(() => {
-    if (!features.transformations || !viewPolicy.canRunPipelines || clip.content_type === 'file') return;
+    if (!features.transformations || !viewPolicy.canRunManualTransforms || clip.content_type === 'file') return;
     let cancelled = false;
     setIsLoadingTransforms(true);
     invoke<SavedTransform[]>('get_intent_transforms')
@@ -98,7 +97,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [clip.content_type, features.transformations, viewPolicy.canRunPipelines]);
+  }, [clip.content_type, features.transformations, viewPolicy.canRunManualTransforms]);
 
   const setSubmenuOpen = (submenu: 'bins' | 'workflow', open: boolean) => {
     setActiveSubmenu((current) => open ? submenu : current === submenu ? null : current);
@@ -193,7 +192,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
       )}
 
       {/* Workflow Submenu */}
-      {features.transformations && viewPolicy.canRunPipelines && clip.content_type !== 'file' && (
+      {features.transformations && viewPolicy.canRunManualTransforms && clip.content_type !== 'file' && (
         <MenuSubmenu
           label={translate('component.contextMenu.workflow')}
           icon={<Workflow className="theme-workflow-text h-3.5 w-3.5" />}
@@ -266,31 +265,36 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         </button>
       )}
 
-      {/* Add to Stack */}
-      {features.queue && viewPolicy.canOrganize && clip.content_type !== 'file' && Boolean(clip.text_content) && <button
+      {/* Toggle Queue */}
+      {features.queue && viewPolicy.canOrganize && clip.content_type !== 'file' && Boolean(clip.text_content) && <MenuItem
         onClick={() => {
-          onAddToStack();
+          onToggleQueue();
           onClose();
         }}
-        className="theme-menu-item w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md"
+        role="menuitemcheckbox"
+        aria-checked={isQueued}
+        active={isQueued}
+        className="gap-2.5 px-3 py-1.5"
       >
         <ListPlus className="theme-queue-text w-3.5 h-3.5" />
-        <span>{translate('component.contextMenu.addToQueue')}</span>
-      </button>}
+        <span>{isQueued
+          ? translate('component.clipCard.removeFromQueue')
+          : translate('component.contextMenu.addToQueue')}</span>
+        {isQueued && <Check className="ms-auto h-3.5 w-3.5" aria-hidden="true" />}
+      </MenuItem>}
 
       {/* Toggle Pin */}
-      {features.pinning && viewPolicy.canOrganize && <button
+      {features.pinning && viewPolicy.canOrganize && <MenuItem
         onClick={() => {
           onTogglePin();
           onClose();
         }}
-        className="theme-menu-item w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md"
+        role="menuitemcheckbox"
+        aria-checked={Boolean(clip.is_pinned)}
+        active={Boolean(clip.is_pinned)}
+        className="gap-2.5 px-3 py-1.5"
       >
-        {clip.is_pinned ? (
-          <PinOff className="theme-text-muted w-3.5 h-3.5" />
-        ) : (
-          <Pin className="w-3.5 h-3.5 pin-icon" />
-        )}
+        <Pin className="w-3.5 h-3.5 pin-icon" />
         <span>
           {selectedCount && selectedCount > 1
             ? clip.is_pinned
@@ -300,32 +304,35 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             ? translate('action.unpin')
             : translate('action.pin')}
         </span>
-      </button>}
+        {clip.is_pinned && <Check className="ms-auto h-3.5 w-3.5" aria-hidden="true" />}
+      </MenuItem>}
 
       {/* Toggle Protected */}
       {features.protection && viewPolicy.canOrganize && onToggleProtected && (
-        <button
+        <MenuItem
           onClick={() => {
             onToggleProtected();
             onClose();
           }}
           disabled={protectionToggleDisabled}
+          role="menuitemcheckbox"
+          aria-checked={Boolean(clip.is_protected)}
+          active={Boolean(clip.is_protected)}
           title={clip.hotkey
             ? translate('component.clipPreview.removeHotkeyBeforeUnprotecting')
-            : inheritedProtectionOnly
+            : protectedByBin
               ? translate('component.clipPreview.protectedByBin')
               : undefined}
-          className="theme-menu-item w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md"
+          className="gap-2.5 px-3 py-1.5"
         >
-          {clip.is_protected && !protectionToggleDisabled ? (
-            <ShieldOff className="theme-text-muted w-3.5 h-3.5" />
-          ) : (
-            <Shield className="theme-status-info-text w-3.5 h-3.5" />
-          )}
-          <span>{protectionToggleDisabled
-            ? translate('component.contextMenu.protectedAutomatically')
-            : clip.is_protected ? translate('action.unprotect') : translate('action.protect')}</span>
-        </button>
+          <Shield className="theme-status-info-text w-3.5 h-3.5" />
+          <span>{clip.hotkey
+            ? translate('component.contextMenu.protectedByHotkey')
+            : protectedByBin
+              ? translate('component.contextMenu.protectedByBin')
+              : clip.is_protected ? translate('action.unprotect') : translate('action.protect')}</span>
+          {clip.is_protected && <Check className="ms-auto h-3.5 w-3.5" aria-hidden="true" />}
+        </MenuItem>
       )}
 
       <MenuDivider />

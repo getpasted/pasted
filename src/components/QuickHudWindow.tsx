@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AlertCircle, LoaderCircle, Search, Sparkles, X } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { clipsApi } from '../api/clips';
 import { listen } from '@tauri-apps/api/event';
-import { ClipItem, ClipSearchResult, getClipFileSummary } from '../types';
+import { ClipItem, getClipFileSummary } from '../types';
 import { OverflowText } from './OverflowText';
 import { SafeRasterImage } from './SafeRasterImage';
 import { translate } from '../localization/runtime';
@@ -36,9 +37,7 @@ export const QuickHudWindow: React.FC = () => {
     const revision = ++fetchRevisionRef.current;
     setSearchFailed(false);
     try {
-      const result = await invoke<ClipSearchResult>('search_clips', {
-        request: { query: search, limit: 9, offset: 0 },
-      });
+      const result = await clipsApi.search({ query: search, limit: 9, offset: 0 });
       if (revision !== fetchRevisionRef.current) return;
       setClips(result.items);
       setSelectedIndex(0);

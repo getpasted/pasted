@@ -34,14 +34,17 @@ const localeNameCollator = new Intl.Collator('en', { sensitivity: 'base' });
 const sortedLocales = [...manifest.locales].sort((left, right) => (
   localeNameCollator.compare(left.nativeName, right.nativeName)
 ));
-const catalogModules = import.meta.glob('../locales/*.json', {
-  eager: true,
+const catalogModules = import.meta.glob([
+  '../locales/*.json',
+  '!../locales/en.json',
+  '!../locales/manifest.json',
+], {
   import: 'default',
-}) as Record<string, Catalog>;
-const catalogs = Object.fromEntries(manifest.locales.map((locale) => {
-  const path = `../locales/${locale.catalog}`;
-  return [locale.code, catalogModules[path]];
-})) as Record<string, Catalog | undefined>;
+}) as Record<string, () => Promise<Catalog>>;
+const catalogs: Record<string, Catalog | undefined> = {
+  [manifest.defaultLocale]: englishCatalogData as Catalog,
+};
+const catalogLoads = new Map<string, Promise<void>>();
 const listeners = new Set<() => void>();
 const warnedKeys = new Set<string>();
 
@@ -92,6 +95,7 @@ export interface LocalizationSnapshot {
   configuredLanguage: string;
   locale: string;
   direction: 'ltr' | 'rtl';
+  catalogReady: boolean;
 }
 
 let snapshot: LocalizationSnapshot;
@@ -102,16 +106,44 @@ function createSnapshot(): LocalizationSnapshot {
     configuredLanguage,
     locale,
     direction: manifest.locales.find(({ code }) => code === locale)?.direction ?? 'ltr',
+    catalogReady: Boolean(catalogs[locale]),
   };
 }
 
 snapshot = createSnapshot();
 setPresentationLocale(snapshot.locale);
+loadCurrentCatalog();
 
 function publish() {
   snapshot = createSnapshot();
   setPresentationLocale(snapshot.locale);
   listeners.forEach((listener) => listener());
+}
+
+function loadCatalog(locale: string): Promise<void> {
+  if (catalogs[locale]) return Promise.resolve();
+  const existing = catalogLoads.get(locale);
+  if (existing) return existing;
+  const definition = manifest.locales.find(({ code }) => code === locale);
+  const loader = definition ? catalogModules[`../locales/${definition.catalog}`] : undefined;
+  if (!loader) return Promise.resolve();
+  const load = loader()
+    .then((catalog) => {
+      catalogs[locale] = catalog;
+    })
+    .catch((error) => {
+      console.error(`Failed to load locale ${locale}:`, error);
+    })
+    .finally(() => catalogLoads.delete(locale));
+  catalogLoads.set(locale, load);
+  return load;
+}
+
+function loadCurrentCatalog() {
+  const locale = snapshot.locale;
+  void loadCatalog(locale).then(() => {
+    if (snapshot.locale === locale) publish();
+  });
 }
 
 export function setConfiguredLanguage(language: string) {
@@ -124,10 +156,14 @@ export function setConfiguredLanguage(language: string) {
     // SQLite remains authoritative when browser storage is unavailable.
   }
   publish();
+  loadCurrentCatalog();
 }
 
 export function refreshSystemLocale() {
-  if (configuredLanguage === 'system') publish();
+  if (configuredLanguage === 'system') {
+    publish();
+    loadCurrentCatalog();
+  }
 }
 
 export function subscribeLocalization(listener: () => void) {

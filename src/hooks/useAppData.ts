@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import type { Bin, ClipCollectionSummary, ClipItem, Pipeline, SequentialStatus } from '../types';
+import type { Bin, ClipCollectionSummary, ClipItem, ManualTransform, SequentialStatus } from '../types';
 import { sortClipsForTimeline } from '../utils/clipOrder';
 import { soundManager } from '../utils/sound';
+import { APP_EVENTS, type ClipboardPauseChangedEvent } from '../utils/appEvents';
+import { transformsApi } from '../api/transforms';
+import { clipsApi } from '../api/clips';
+import { binsApi } from '../api/bins';
 import { safeInvoke as invoke } from '../utils/tauri';
 
 function readCachedArray<T>(key: string): T[] {
@@ -79,7 +83,7 @@ export function useAppData() {
   const [allClips, setAllClips] = useState<ClipItem[]>(() => normalizeClipItems(readCachedArray('pasted_cache_clips')));
   const [trashedClips, setTrashedClips] = useState<ClipItem[]>([]);
   const [bins, setBins] = useState<Bin[]>(() => readCachedArray('pasted_cache_bins'));
-  const [pipelines, setPipelines] = useState<Pipeline[]>([]);
+  const [manualTransforms, setManualTransforms] = useState<ManualTransform[]>([]);
   const [sequentialStatus, setSequentialStatus] = useState<SequentialStatus | null>(null);
   const [totalClipCount, setTotalClipCount] = useState(0);
   const [totalTrashCount, setTotalTrashCount] = useState(0);
@@ -96,7 +100,7 @@ export function useAppData() {
 
   const fetchClipCollectionSummary = useCallback(async () => {
     try {
-      const summary = await invoke<ClipCollectionSummary>('get_clip_collection_summary');
+      const summary = await clipsApi.collectionSummary();
       setClipCollectionSummary(summary);
       setTotalClipCount(summary.activeCount);
       setTotalTrashCount(summary.trashCount);
@@ -107,7 +111,7 @@ export function useAppData() {
 
   const fetchClips = useCallback(async () => {
     try {
-      const clips = normalizeClipItems(await invoke<unknown[]>('get_clips', {
+      const clips = normalizeClipItems(await clipsApi.list({
         binId: null,
         onlyPinned: false,
         limit: Math.max(CLIP_PAGE_SIZE, activeOffsetRef.current),
@@ -124,7 +128,7 @@ export function useAppData() {
 
   const fetchTrashedClips = useCallback(async () => {
     try {
-      const clips = normalizeClipItems(await invoke<unknown[]>('get_trashed_clips', {
+      const clips = normalizeClipItems(await clipsApi.listTrash({
         limit: Math.max(CLIP_PAGE_SIZE, trashOffsetRef.current),
         offset: 0,
       }));
@@ -141,7 +145,7 @@ export function useAppData() {
     activeLoadingRef.current = true;
     setIsLoadingMoreClips(true);
     try {
-      const page = normalizeClipItems(await invoke<unknown[]>('get_clips', {
+      const page = normalizeClipItems(await clipsApi.list({
         binId: null,
         onlyPinned: false,
         limit: CLIP_PAGE_SIZE,
@@ -163,7 +167,7 @@ export function useAppData() {
     trashLoadingRef.current = true;
     setIsLoadingMoreTrash(true);
     try {
-      const page = normalizeClipItems(await invoke<unknown[]>('get_trashed_clips', {
+      const page = normalizeClipItems(await clipsApi.listTrash({
         limit: CLIP_PAGE_SIZE,
         offset: trashOffsetRef.current,
       }));
@@ -180,7 +184,7 @@ export function useAppData() {
 
   const fetchBins = useCallback(async () => {
     try {
-      const nextBins = await invoke<Bin[]>('get_bins');
+      const nextBins = await binsApi.list();
       setBins(nextBins);
       try {
         localStorage.setItem('pasted_cache_bins', JSON.stringify(nextBins));
@@ -192,9 +196,9 @@ export function useAppData() {
     }
   }, []);
 
-  const fetchPipelines = useCallback(async () => {
+  const fetchManualTransforms = useCallback(async () => {
     try {
-      setPipelines(await invoke<Pipeline[]>('get_pipelines'));
+      setManualTransforms(await transformsApi.listManual());
     } catch (error) {
       console.error('Failed to fetch manual Transforms:', error);
     }
@@ -231,7 +235,7 @@ export function useAppData() {
       setTotalClipCount((previous) => previous + 1);
     }
     try {
-      await invoke('restore_clip', { id: clipId });
+      await clipsApi.restore(clipId);
       await fetchClipCollectionSummary();
     } catch (error) {
       console.error('Failed to restore clip:', error);
@@ -245,7 +249,7 @@ export function useAppData() {
     setTrashedClips((previous) => previous.filter((clip) => clip.id !== clipId));
     setTotalTrashCount((previous) => Math.max(0, previous - 1));
     try {
-      await invoke('purge_clip_permanently', { id: clipId });
+      await clipsApi.purge(clipId);
       await fetchClipCollectionSummary();
     } catch (error) {
       console.error('Failed to permanently delete clip:', error);
@@ -260,7 +264,7 @@ export function useAppData() {
       return retained;
     });
     try {
-      await invoke('empty_trash');
+      await clipsApi.emptyTrash();
       await fetchClipCollectionSummary();
     } catch (error) {
       console.error('Failed to empty trash:', error);
@@ -273,7 +277,7 @@ export function useAppData() {
     void Promise.all([
       fetchClips(),
       fetchBins(),
-      fetchPipelines(),
+      fetchManualTransforms(),
       fetchSequentialStatus(),
       fetchTrashedClips(),
       invoke<boolean>('is_clipboard_paused')
@@ -285,13 +289,13 @@ export function useAppData() {
     return () => {
       cancelled = true;
     };
-  }, [fetchBins, fetchClipCollectionSummary, fetchClips, fetchPipelines, fetchSequentialStatus, fetchTrashedClips]);
+  }, [fetchBins, fetchClipCollectionSummary, fetchClips, fetchManualTransforms, fetchSequentialStatus, fetchTrashedClips]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !(window as any).__TAURI_INTERNALS__) return;
 
     let ignoredStatusTimer: ReturnType<typeof setTimeout> | undefined;
-    const unlistenClip = listen<ClipItem | { id: number }>('clip-added', (event) => {
+    const unlistenClip = listen<ClipItem | { id: number }>(APP_EVENTS.clipAdded, (event) => {
       const payload = normalizeClipItem(event.payload);
       if (payload && isCompleteClipEvent(payload)) {
         setAllClips((previous) => {
@@ -306,18 +310,18 @@ export function useAppData() {
       }
       soundManager.playCopySound();
     });
-    const unlistenSequential = listen<SequentialStatus>('sequential-updated', (event) => {
+    const unlistenSequential = listen<SequentialStatus>(APP_EVENTS.sequentialUpdated, (event) => {
       setSequentialStatus(event.payload);
     });
-    const unlistenBlacklist = listen<{ app_name: string }>('blacklist-clip-ignored', (event) => {
+    const unlistenBlacklist = listen<{ app_name: string }>(APP_EVENTS.blacklistClipIgnored, (event) => {
       setIgnoredAppStatus({ app_name: event.payload.app_name, timestamp: Date.now() });
       if (ignoredStatusTimer) clearTimeout(ignoredStatusTimer);
       ignoredStatusTimer = setTimeout(() => setIgnoredAppStatus(null), 4000);
     });
-    const unlistenPause = listen<{ is_paused: boolean }>('clipboard-pause-changed', (event) => {
-      setIsClipboardPaused(event.payload.is_paused);
+    const unlistenPause = listen<ClipboardPauseChangedEvent>(APP_EVENTS.clipboardPauseChanged, (event) => {
+      setIsClipboardPaused(event.payload.isPaused);
     });
-    const unlistenLibraryChanged = listen('clip-library-changed', () => {
+    const unlistenLibraryChanged = listen(APP_EVENTS.clipLibraryChanged, () => {
       void Promise.all([fetchClips(), fetchTrashedClips()]);
     });
     // Native backends should deliver every clip-added event while Pasted is in
@@ -345,7 +349,7 @@ export function useAppData() {
     setTrashedClips,
     bins,
     setBins,
-    pipelines,
+    manualTransforms,
     sequentialStatus,
     totalClipCount,
     totalTrashCount,
@@ -362,7 +366,7 @@ export function useAppData() {
     isLoadingMoreClips,
     isLoadingMoreTrash,
     fetchBins,
-    fetchPipelines,
+    fetchManualTransforms,
     fetchSequentialStatus,
     toggleClipboardPause,
     restoreClip,

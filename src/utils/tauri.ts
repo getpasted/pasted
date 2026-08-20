@@ -2,6 +2,12 @@ import { invoke as tauriInvoke } from '@tauri-apps/api/core';
 import { CONTENT_TYPES } from './contentTypes';
 import { getClipFilePaths, getClipOriginKind } from '../types';
 import { clipMatchesSearch, parseClipSearch } from './clipSearch';
+import { handleActivityBrowserMock } from '../mocks/browser/activity';
+import { handleBackupBrowserMock } from '../mocks/browser/backup';
+import { handleAnalyticsBrowserMock } from '../mocks/browser/analytics';
+import { handleClipBrowserMock } from '../mocks/browser/clips';
+import { handleBinBrowserMock } from '../mocks/browser/bins';
+import { handleAnalysisBrowserMock } from '../mocks/browser/analysis';
 
 type MockClip = {
   id: number;
@@ -219,7 +225,23 @@ let mockLibraryLocation = {
   isDefault: true,
 };
 
-const mockPipelines = [
+type MockPipeline = {
+  id: number;
+  stableRef: string;
+  name: string;
+  hotkey: string | null;
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+  steps: Array<{
+    position: number;
+    operationRef: string;
+    configJson: string | null;
+    failurePolicy: string;
+  }>;
+};
+
+let mockManualTransforms: MockPipeline[] = [
   {
     id: 1,
     stableRef: 'transform:mock-uppercase',
@@ -241,6 +263,18 @@ const mockPipelines = [
     steps: [{ position: 0, operationRef: 'builtin:clean_url_tracking', configJson: null, failurePolicy: 'stop' }],
   },
 ];
+
+let mockOperations: Array<{
+  id: number;
+  stable_id: string;
+  name: string;
+  op_type: string;
+  config: string | null;
+  category: string;
+  created_at: string;
+}> = [];
+let mockSettings: Record<string, string> = {};
+let mockClipboardPaused = false;
 
 let mockIntelligenceConnections: Array<{
   id: string;
@@ -316,15 +350,15 @@ function mockSmartActionSuggestions(text: string) {
     email: /email|extract_emails/,
     phone: /phone|extract_phones/,
   };
-  const actions = mockPipelines
+  const actions = mockManualTransforms
     .slice(0, 256)
-    .flatMap((pipeline) => {
-      const searchable = `${pipeline.name} ${pipeline.steps.map((step) => step.operationRef).join(' ')}`.toLowerCase();
+    .flatMap((manualTransform) => {
+      const searchable = `${manualTransform.name} ${manualTransform.steps.map((step) => step.operationRef).join(' ')}`.toLowerCase();
       const reasons = signals.filter((signal) => signalPatterns[signal]?.test(searchable));
       return reasons.length ? [{
-        transformRef: pipeline.stableRef,
-        transformName: pipeline.name,
-        transformRevision: pipeline.revision,
+        transformRef: manualTransform.stableRef,
+        transformName: manualTransform.name,
+        transformRevision: manualTransform.revision,
         reasons,
       }] : [];
     })
@@ -338,19 +372,17 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     return tauriInvoke<T>(cmd, args);
   }
   console.warn(`[safeInvoke mock] ${cmd}`);
+  for (const result of [
+    handleActivityBrowserMock(cmd),
+    handleBackupBrowserMock(cmd),
+    handleAnalyticsBrowserMock(cmd, mockClips),
+    handleClipBrowserMock(cmd, args, mockClips, withMockProtection),
+    handleBinBrowserMock(cmd, mockBins, mockClips),
+    handleAnalysisBrowserMock(cmd),
+  ]) {
+    if (result.matched) return result.value as T;
+  }
   switch (cmd) {
-    case 'get_clips': {
-      const offset = Math.max(0, Number(args?.offset ?? 0));
-      const limit = Math.max(1, Number(args?.limit ?? 10_000));
-      return mockClips
-        .filter((clip) => {
-          const binId = Number(args?.binId);
-          return clip.is_trashed === 0
-            && (!Number.isInteger(binId) || binId <= 0 || clip.bin_ids.includes(binId));
-        })
-        .slice(offset, offset + limit)
-        .map((clip) => ({ ...withMockProtection(clip), content_types: [...(clip.content_types ?? [])], bin_ids: [...clip.bin_ids] })) as unknown as T;
-    }
     case 'search_clips': {
       const request = (args?.request ?? {}) as Record<string, unknown>;
       const query = String(request.query ?? '');
@@ -386,40 +418,12 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         offset,
       } as unknown as T;
     }
-    case 'get_bins':
-      return mockBins.map((bin) => ({
-        ...bin,
-      clip_count: mockClips.filter((clip) => clip.is_trashed === 0 && clip.bin_ids.includes(bin.id)).length,
-      })) as unknown as T;
-    case 'get_analytics_summary': {
-      const active = mockClips.filter((clip) => clip.is_trashed === 0);
-      const countBy = (values: string[]) => Object.entries(values.reduce<Record<string, number>>((counts, value) => {
-        counts[value] = (counts[value] ?? 0) + 1;
-        return counts;
-      }, {}));
-      return {
-        total_clips: active.length,
-        total_chars: active.reduce((total, clip) => total + clip.text_content.length, 0),
-        top_sources: countBy(active.map((clip) => clip.source)).map(([name, count]) => ({ name, count })),
-        clip_types: countBy(active.map((clip) => clip.content_type === 'image' || clip.content_type === 'file' ? clip.content_type : 'text'))
-          .map(([clip_type, count]) => ({ clip_type, count })),
-        file_formats: [],
-        content_types: countBy(active.flatMap((clip) => [...new Set(clip.content_types ?? [])]))
-          .map(([content_type, count]) => ({ content_type, count })),
-        daily_activity: [],
-      } as unknown as T;
-    }
-    case 'get_pipelines':
-      return mockPipelines as unknown as T;
+    case 'get_manual_transforms':
+      return mockManualTransforms as unknown as T;
     case 'get_content_classifiers':
       return mockClassifiers.map((classifier) => ({ ...classifier, patterns: [...classifier.patterns] })) as unknown as T;
     case 'get_content_extractors':
       return mockExtractors.map((extractor) => ({ ...extractor, recipe: structuredClone(extractor.recipe), defaultRecipe: extractor.defaultRecipe ? structuredClone(extractor.defaultRecipe) : null, defaults: extractor.defaults ? { ...extractor.defaults } : null })) as unknown as T;
-    case 'get_content_inspectors':
-      return [
-        { stableRef: 'inspector:structure-v1', name: 'Structure', description: 'Measures stable clip structure without retaining clipboard contents.', inputContract: 'clip', outputContract: 'structural_metadata', priority: 0, isBuiltin: true, engine: null, isAvailable: true, unavailableReason: null },
-        { stableRef: 'inspector:media-metadata-v1', name: 'Media Metadata', description: 'Reads bounded audio and video metadata locally.', inputContract: 'file_references', outputContract: 'media_metadata', priority: 10, isBuiltin: true, engine: 'ffprobe-cli-v1', isAvailable: true, unavailableReason: null },
-      ] as unknown as T;
     case 'choose_extractor_executable':
       return '/mock/bin/custom-extractor' as unknown as T;
     case 'choose_extractor_resource_file':
@@ -541,7 +545,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         { stableRef: 'suggestion:smart-actions-v1', kind: 'suggestion', name: 'Smart Actions', description: 'Suggests saved Transforms from content-free analysis signals.', groupLabel: 'Content Analysis', icon: 'Lightbulb', enabled: null, isBuiltin: true, isArchived: false, sortOrder: 0, revision: 1, inputContract: 'analyzable_text+structural_metadata', outputContract: 'suggestions', analysisPass: 'suggest', participantContract: { stableRef: 'suggestion:smart-actions-v1', name: 'Smart Actions', pass: 'suggest', priority: 0, requires: ['analyzable_text', 'structural_metadata'], provides: ['suggestions'] }, typeRelations: [], createdAt: '', updatedAt: '', capabilities: { canEdit: false, canDuplicate: false, canDelete: false, canDisable: false, canRestore: false } },
         ...mockExtractors.map((extractor) => ({ stableRef: extractor.stableRef, kind: 'extractor', name: extractor.name, description: extractor.description, groupLabel: 'Content Analysis', icon: 'ScanText', enabled: extractor.enabled, isBuiltin: extractor.isBuiltin, isArchived: false, sortOrder: extractor.priority, revision: 1, inputContract: extractor.inputContract, outputContract: extractor.outputContract, analysisPass: 'extract', participantContract: { stableRef: extractor.stableRef, name: extractor.name, pass: 'extract', priority: extractor.priority, requires: [extractor.inputContract], provides: [extractor.outputContract, 'analyzable_text'] }, typeRelations: extractor.inputContract === 'image' ? [{ kind: 'accepts', typeId: 'image' }] : extractor.inputContract === 'file_references' ? [{ kind: 'accepts', typeId: 'file' }] : [], createdAt: '', updatedAt: '', capabilities: { canEdit: true, canDuplicate: true, canDelete: true, canDisable: true, canRestore: extractor.isBuiltin } })),
         ...mockClassifiers.map((classifier) => ({ stableRef: classifier.stable_ref, kind: 'classifier', name: classifier.name, description: classifier.description, groupLabel: null, icon: 'FileText', enabled: classifier.enabled, isBuiltin: classifier.is_builtin, isArchived: false, sortOrder: classifier.priority, revision: 1, inputContract: 'text', outputContract: `set_type:${classifier.content_type}`, analysisPass: 'classify', participantContract: { stableRef: classifier.stable_ref, name: classifier.name, pass: 'classify', priority: classifier.priority, requires: ['analyzable_text'], provides: ['classification'] }, typeRelations: [{ kind: 'classifies_as', typeId: classifier.content_type }], createdAt: '', updatedAt: '', capabilities: { canEdit: true, canDuplicate: true, canDelete: true, canDisable: true, canRestore: classifier.is_builtin } })),
-        ...mockPipelines.map((pipeline) => ({ stableRef: pipeline.stableRef, kind: 'transform', name: pipeline.name, description: '', groupLabel: 'Manual Transforms', icon: 'Workflow', enabled: null, isBuiltin: false, isArchived: false, sortOrder: pipeline.id, revision: pipeline.revision, inputContract: 'text', outputContract: 'preserve_type', analysisPass: null, createdAt: pipeline.createdAt, updatedAt: pipeline.updatedAt, capabilities: { canEdit: true, canDuplicate: true, canDelete: true, canDisable: false, canRestore: false } })),
+        ...mockManualTransforms.map((manualTransform) => ({ stableRef: manualTransform.stableRef, kind: 'transform', name: manualTransform.name, description: '', groupLabel: 'Manual Transforms', icon: 'Workflow', enabled: null, isBuiltin: false, isArchived: false, sortOrder: manualTransform.id, revision: manualTransform.revision, inputContract: 'text', outputContract: 'preserve_type', analysisPass: null, createdAt: manualTransform.createdAt, updatedAt: manualTransform.updatedAt, capabilities: { canEdit: true, canDuplicate: true, canDelete: true, canDisable: false, canRestore: false } })),
       ];
       return items.filter((item) => !kind || item.kind === kind) as unknown as T;
     }
@@ -763,9 +767,9 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return null as unknown as T;
     }
     case 'execute_transformation': {
-      const request = args?.request as { input?: string; target?: { kind?: string; transformRef?: string; pipelineRef?: string; operationRef?: string } } | undefined;
+      const request = args?.request as { input?: string; target?: { kind?: string; transformRef?: string; operationRef?: string } } | undefined;
       const input = request?.input || '';
-      const targetRef = request?.target?.transformRef || request?.target?.pipelineRef || request?.target?.operationRef || '';
+      const targetRef = request?.target?.transformRef || request?.target?.operationRef || '';
       const output = request?.target?.kind === 'transform'
         ? `# ${input}`
         : targetRef.includes('uppercase') ? input.toUpperCase() : input;
@@ -777,7 +781,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         durationMs: request?.target?.kind === 'transform' ? 260 : 1,
       } as unknown as T;
     }
-    case 'preview_pipeline_steps': {
+    case 'preview_manual_transform_steps': {
       const input = typeof args?.input === 'string' ? args.input : '';
       const steps = Array.isArray(args?.steps) ? args.steps : [];
       const output = steps.reduce((current: string, step: { operationRef?: string }) => (
@@ -990,42 +994,10 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       updateMockSequentialStatus();
       return combined as unknown as T;
     }
-    case 'get_trashed_clips': {
-      const offset = Math.max(0, Number(args?.offset ?? 0));
-      const limit = Math.max(1, Number(args?.limit ?? 10_000));
-      return mockClips.filter((clip) => clip.is_trashed !== 0).slice(offset, offset + limit) as unknown as T;
-    }
-    case 'get_clip_collection_summary': {
-      const active = mockClips.filter((clip) => clip.is_trashed === 0);
-      const countBy = (key: 'content_type' | 'source') => [...active.reduce((counts, clip) => counts.set(String(clip[key]), (counts.get(String(clip[key])) ?? 0) + 1), new Map<string, number>())];
-      const contentTypeCounts = [...active.reduce((counts, clip) => {
-        [...new Set(clip.content_types ?? [])].forEach((contentType) => {
-          counts.set(contentType, (counts.get(contentType) ?? 0) + 1);
-        });
-        return counts;
-      }, new Map<string, number>())];
-      const fileFormatCounts = [...active.reduce((counts, clip) => {
-        [...new Set(clip.file_formats ?? [])].forEach((fileFormat) => {
-          counts.set(fileFormat, (counts.get(fileFormat) ?? 0) + 1);
-        });
-        return counts;
-      }, new Map<string, number>())];
-      return {
-        activeCount: active.length,
-        trashCount: mockClips.length - active.length,
-        pinnedCount: active.filter((clip) => clip.is_pinned).length,
-        protectedCount: active.filter((clip) => clip.is_protected).length,
-        notedCount: active.filter((clip) => Boolean(clip.note?.trim())).length,
-        clipTypeCounts: countBy('content_type').map(([clip_type, count]) => ({ clip_type, count })),
-        fileFormatCounts: fileFormatCounts.map(([file_format, count]) => ({ file_format, count })),
-        typeCounts: contentTypeCounts.map(([content_type, count]) => ({ content_type, count })),
-        sourceCounts: countBy('source').map(([name, count]) => ({ name, count })),
-      } as unknown as T;
-    }
     case 'is_clipboard_paused':
-      return false as unknown as T;
+      return mockClipboardPaused as unknown as T;
     case 'get_all_app_settings':
-      return {} as unknown as T;
+      return { ...mockSettings } as unknown as T;
     case 'get_app_lock_status':
       return { ...mockAppLockStatus } as unknown as T;
     case 'quit_app':
@@ -1081,40 +1053,6 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         skippedCount: 1,
         historyCapacityAdjustedTo: 1200,
       } as unknown as T;
-    case 'export_backup_file':
-      return `/mock/Pasted_Library_Archive_${new Date().toISOString().slice(0, 10)}.json` as unknown as T;
-    case 'choose_import_file':
-      return {
-        path: '/mock/Pasted_History_and_Organization.json',
-        name: 'Pasted_History_and_Organization.json',
-        kind: 'organization',
-        format: 'json',
-        sizeBytes: 184_320,
-        library: {
-          schemaVersion: 1,
-          clipCount: 248,
-          binCount: 7,
-          operationCount: 5,
-          transformCount: 12,
-          classifierCount: 4,
-          contentTypeCount: 9,
-        },
-      } as unknown as T;
-    case 'import_inspected_file':
-      return { importedCount: 248, duplicateCount: 0 } as unknown as T;
-    case 'export_full_backup_file':
-      return {
-        path: `/mock/Pasted_Full_Backup_${new Date().toISOString().slice(0, 10)}.pastedbackup`,
-        createdAt: new Date().toISOString(),
-        sizeBytes: 2_457_600,
-      } as unknown as T;
-    case 'restore_full_backup_file':
-      return {
-        recoveryPath: '/mock/Pasted_Pre_Restore.pastedbackup',
-        backupCreatedAt: new Date().toISOString(),
-      } as unknown as T;
-    case 'consume_pending_full_restore_client_state':
-      return null as unknown as T;
     case 'get_library_location':
       return mockLibraryLocation as unknown as T;
     case 'get_storage_protection':
@@ -1159,13 +1097,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return report as unknown as T;
     }
     case 'get_operations':
-      return [] as unknown as T;
-    case 'get_activity_logs':
-      return [] as unknown as T;
-    case 'export_activity_json':
-      return JSON.stringify({ schemaVersion: 1, exportedAt: new Date().toISOString(), resource: { 'service.name': 'Pasted' }, entries: [] }, null, 2) as unknown as T;
-    case 'export_activity_csv':
-      return 'timestamp,observed_timestamp,event_name,severity_text,body,category,outcome,attributes_json\n' as unknown as T;
+      return mockOperations.map((operation) => ({ ...operation })) as unknown as T;
     case 'get_clip_versions':
       return [] as unknown as T;
     case 'get_clip_version_count':
@@ -1429,7 +1361,209 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
       if (clip) clip.is_protected = clip.is_protected ? 0 : 1;
       return null as unknown as T;
     }
+    case 'batch_protect_clips': {
+      const ids = Array.isArray(args?.ids) ? args.ids.map(Number) : [];
+      for (const clip of mockClips) {
+        if (ids.includes(clip.id)) clip.is_protected = args?.protectedState ? 1 : 0;
+      }
+      return {
+        action: args?.protectedState ? 'protect' : 'unprotect',
+        requestedCount: ids.length,
+        changedCount: ids.length,
+        skippedCount: 0,
+        clipIds: ids,
+      } as unknown as T;
+    }
+    case 'enforce_activity_retention':
+    case 'enforce_clip_retention':
+    case 'enforce_revision_retention':
+    case 'enforce_trash_retention':
+    case 'perform_titlebar_double_click':
+    case 'play_system_sound':
+    case 'set_dock_visibility':
+    case 'set_linux_native_menu_theme':
+    case 'set_overlay_cursor':
+    case 'set_titlebar_direction':
+    case 'toggle_hud_window':
+      return undefined as unknown as T;
+    case 'create_operation': {
+      const id = Math.max(0, ...mockOperations.map((operation) => operation.id)) + 1;
+      const operation = {
+        id,
+        stable_id: `custom:${id}`,
+        name: String(args?.name ?? 'Custom Operation'),
+        op_type: String(args?.opType ?? 'regex'),
+        config: typeof args?.config === 'string' ? args.config : null,
+        category: String(args?.category ?? 'Custom Operations'),
+        created_at: new Date().toISOString(),
+      };
+      mockOperations.push(operation);
+      return operation as unknown as T;
+    }
+    case 'update_operation': {
+      const operation = mockOperations.find(({ id }) => id === Number(args?.id));
+      if (operation) {
+        operation.name = String(args?.name ?? operation.name);
+        operation.op_type = String(args?.opType ?? operation.op_type);
+        operation.config = typeof args?.config === 'string' ? args.config : null;
+        operation.category = String(args?.category ?? operation.category);
+      }
+      return undefined as unknown as T;
+    }
+    case 'duplicate_operation': {
+      const source = mockOperations.find(({ stable_id }) => stable_id === String(args?.reference));
+      if (!source) throw new Error('Operation was not found');
+      const id = Math.max(0, ...mockOperations.map((operation) => operation.id)) + 1;
+      const duplicate = {
+        ...source,
+        id,
+        stable_id: `custom:${id}`,
+        name: String(args?.name ?? `${source.name} Copy`),
+      };
+      mockOperations.push(duplicate);
+      return duplicate as unknown as T;
+    }
+    case 'delete_operation':
+      mockOperations = mockOperations.filter(({ id }) => id !== Number(args?.id));
+      return undefined as unknown as T;
+    case 'create_manual_transform': {
+      const id = Math.max(0, ...mockManualTransforms.map((manualTransform) => manualTransform.id)) + 1;
+      const now = new Date().toISOString();
+      const manualTransform = {
+        id,
+        stableRef: `transform:mock-${id}`,
+        name: String(args?.name ?? 'Untitled Transform'),
+        hotkey: typeof args?.hotkey === 'string' ? args.hotkey : null,
+        revision: 1,
+        createdAt: now,
+        updatedAt: now,
+        steps: Array.isArray(args?.steps) ? args.steps : [],
+      };
+      mockManualTransforms.push(manualTransform);
+      return manualTransform as unknown as T;
+    }
+    case 'update_manual_transform': {
+      const manualTransform = mockManualTransforms.find(({ stableRef }) => stableRef === String(args?.transformRef));
+      if (!manualTransform) throw new Error('Transform was not found');
+      manualTransform.name = String(args?.name ?? manualTransform.name);
+      manualTransform.steps = Array.isArray(args?.steps) ? args.steps as typeof manualTransform.steps : manualTransform.steps;
+      manualTransform.hotkey = typeof args?.hotkey === 'string' ? args.hotkey : null;
+      manualTransform.revision += 1;
+      manualTransform.updatedAt = new Date().toISOString();
+      return manualTransform as unknown as T;
+    }
+    case 'update_manual_transform_hotkey': {
+      const manualTransform = mockManualTransforms.find(({ stableRef }) => stableRef === String(args?.transformRef));
+      if (manualTransform) manualTransform.hotkey = typeof args?.hotkey === 'string' ? args.hotkey : null;
+      return undefined as unknown as T;
+    }
+    case 'delete_manual_transform':
+      mockManualTransforms = mockManualTransforms.filter(({ stableRef }) => stableRef !== String(args?.transformRef));
+      return undefined as unknown as T;
+    case 'get_transforms':
+      return [
+        ...mockManualTransforms.map((manualTransform) => ({
+          ...manualTransform,
+          authoringKind: 'manual',
+          executionCharacter: 'replayable',
+          connectionId: null,
+          plan: null,
+        })),
+        ...mockSavedTransforms.map((transform) => ({
+          ...transform,
+          authoringKind: 'intent',
+          executionCharacter: 'interpretive',
+          steps: [],
+        })),
+      ] as unknown as T;
+    case 'get_capture_feedback_clip': {
+      const clip = mockClips.find(({ id }) => id === Number(args?.id));
+      if (!clip) throw new Error('Clip was not found');
+      return {
+        id: clip.id,
+        contentType: clip.content_type,
+        previewText: clip.text_content.slice(0, 280),
+        source: clip.source,
+        isPinned: Boolean(clip.is_pinned),
+        isProtected: Boolean(clip.is_protected),
+        isTrashed: Boolean(clip.is_trashed),
+      } as unknown as T;
+    }
+    case 'get_installed_applications':
+      return ['Finder', 'Safari', 'Terminal'] as unknown as T;
+    case 'install_cli_to_path':
+      return '/mock/bin/pasted' as unknown as T;
+    case 'open_backing_page':
+    case 'open_emoji_picker':
+    case 'request_accessibility_permission':
+      return true as unknown as T;
+    case 'paste_clip_by_id':
+      return undefined as unknown as T;
+    case 'register_app_setting_hotkey':
+    case 'register_hud_hotkey': {
+      const key = String(args?.key ?? 'hudHotkey');
+      mockSettings[key] = String(args?.value ?? args?.hotkey ?? '');
+      return undefined as unknown as T;
+    }
+    case 'register_app_setting_hotkeys': {
+      const values = args?.values as Record<string, string> | undefined;
+      if (values) mockSettings = { ...mockSettings, ...values };
+      return undefined as unknown as T;
+    }
+    case 'resolve_logical_shortcut_key':
+      return String(args?.fallback ?? '') as unknown as T;
+    case 'save_app_setting':
+      mockSettings[String(args?.key ?? '')] = String(args?.value ?? '');
+      return undefined as unknown as T;
+    case 'save_app_settings': {
+      const values = args?.values as Record<string, string> | undefined;
+      if (values) mockSettings = { ...mockSettings, ...values };
+      return undefined as unknown as T;
+    }
+    case 'toggle_clipboard_pause':
+      mockClipboardPaused = !mockClipboardPaused;
+      return mockClipboardPaused as unknown as T;
+    case 'remove_clip_bin': {
+      const clip = mockClips.find(({ id }) => id === Number(args?.clipId));
+      const binId = Number(args?.binId);
+      if (!clip) throw new Error('Clip was not found');
+      clip.bin_ids = clip.bin_ids.filter((id) => id !== binId);
+      if (clip.bin_id === binId) clip.bin_id = null;
+      return {
+        mutation: { action: 'remove_bin', requestedCount: 1, changedCount: 1, skippedCount: 0, clipIds: [clip.id] },
+        updatedClips: [{ ...clip }],
+      } as unknown as T;
+    }
+    case 'trash_unpinned_clips':
+      mockClips.forEach((clip) => {
+        if (!clip.is_pinned && !clip.is_protected) clip.is_trashed = 1;
+      });
+      return undefined as unknown as T;
+    case 'purge_unpinned_clips':
+      mockClips = mockClips.filter((clip) => clip.is_pinned || clip.is_protected);
+      return undefined as unknown as T;
+    case 'update_bin_hotkey': {
+      const bin = mockBins.find(({ id }) => id === Number(args?.id));
+      if (bin) bin.hotkey = typeof args?.hotkey === 'string' ? args.hotkey : null;
+      return undefined as unknown as T;
+    }
+    case 'export_clips_json':
+      return JSON.stringify(mockClips) as unknown as T;
+    case 'export_clips_csv':
+      return 'id,content_type,text_content,source,created_at\n' as unknown as T;
+    case 'transform_text': {
+      const input = String(args?.input ?? '');
+      const filterType = String(args?.filterType ?? '');
+      if (filterType === 'uppercase') return input.toUpperCase() as unknown as T;
+      if (filterType === 'lowercase') return input.toLowerCase() as unknown as T;
+      if (filterType === 'trim') return input.trim() as unknown as T;
+      if (filterType === 'regex') {
+        const config = JSON.parse(String(args?.config ?? '{}')) as { pattern?: string; replacement?: string };
+        return input.replace(new RegExp(config.pattern ?? '', 'g'), config.replacement ?? '') as unknown as T;
+      }
+      return input as unknown as T;
+    }
     default:
-      return null as unknown as T;
+      throw new Error(`Unsupported browser IPC command: ${cmd}`);
   }
 }

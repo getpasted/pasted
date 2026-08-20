@@ -30,7 +30,7 @@ export function TransformWorkspaceHeader({
           title={translate('component.transformWorkspaceHeader.library')}
           aria-selected={activeWorkspace === 'transforms'}
           onClick={() => onChange('transforms')}
-          className={`transform-workspace-tab pipelines flex h-8 items-center gap-2 rounded-lg px-3 text-xs font-semibold transition-colors ${activeWorkspace === 'transforms' ? 'is-active' : ''}`}
+          className={`transform-workspace-tab manual-transforms flex h-8 items-center gap-2 rounded-lg px-3 text-xs font-semibold transition-colors ${activeWorkspace === 'transforms' ? 'is-active' : ''}`}
         >
           <Workflow className="w-4 h-4" />
           <span className="hidden xl:inline">{translate('component.transformWorkspaceHeader.library')}</span>
@@ -54,7 +54,7 @@ export function TransformWorkspaceHeader({
           title={translate('destination.playground')}
           aria-selected={activeWorkspace === 'playground'}
           onClick={() => onChange('playground')}
-          className={`transform-workspace-tab pipelines flex h-8 items-center gap-2 rounded-lg px-3 text-xs font-semibold transition-colors ${activeWorkspace === 'playground' ? 'is-active' : ''}`}
+          className={`transform-workspace-tab manual-transforms flex h-8 items-center gap-2 rounded-lg px-3 text-xs font-semibold transition-colors ${activeWorkspace === 'playground' ? 'is-active' : ''}`}
         >
           <Play className="w-4 h-4" />
           <span className="hidden xl:inline">{translate('destination.playground')}</span>

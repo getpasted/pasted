@@ -7,6 +7,8 @@ import { safeInvoke as invoke } from '../utils/tauri';
 import { FEATURE_SETTING_KEYS } from '../utils/features';
 import { clampAppZoom } from '../utils/appZoom';
 import { isConfiguredLanguage, setConfiguredLanguage } from '../localization/runtime';
+import { APP_EVENTS, type AppSettingChangedEvent } from '../utils/appEvents';
+import { settingsApi } from '../api/settings';
 
 const DEFAULT_SETTINGS: AppSettings = {
   onboardingVersion: 0,
@@ -205,11 +207,6 @@ function readCachedTheme(): AppSettings['themeMode'] {
   }
 }
 
-interface AppSettingChanged {
-  key: string;
-  value: string;
-}
-
 export function useAppSettings() {
   const [appSettings, setAppSettings] = useState<AppSettings>(() => ({
     ...DEFAULT_SETTINGS,
@@ -224,7 +221,7 @@ export function useAppSettings() {
 
   useEffect(() => {
     let cancelled = false;
-    invoke<Record<string, string>>('get_all_app_settings')
+    settingsApi.load()
       .then((saved) => {
         if (cancelled || !saved) return;
         setAppSettings((current) => {
@@ -257,7 +254,7 @@ export function useAppSettings() {
     let disposed = false;
     let unlistenSetting: (() => void) | undefined;
 
-    void listen<AppSettingChanged>('app-setting-changed', ({ payload }) => {
+    void listen<AppSettingChangedEvent>(APP_EVENTS.appSettingChanged, ({ payload }) => {
       if (!payload || disposed) return;
       if (!(payload.key in DEFAULT_SETTINGS)) return;
       const parsed = parseSavedSettings({ [payload.key]: payload.value });
@@ -372,13 +369,13 @@ export function useAppSettings() {
     } catch {
       // SQLite remains the source of truth when the browser cache is unavailable.
     }
-    invoke('save_app_setting', { key: 'blacklistApps', value: JSON.stringify(blacklistApps) }).catch(console.error);
+    settingsApi.save('blacklistApps', JSON.stringify(blacklistApps)).catch(console.error);
   }, [blacklistApps, settingsHydrated]);
 
   useEffect(() => () => {
     Object.values(saveTimersRef.current).forEach(clearTimeout);
     for (const [key, value] of Object.entries(pendingSettingsRef.current)) {
-      invoke('save_app_setting', { key, value }).catch(console.error);
+      settingsApi.save(key, value).catch(console.error);
     }
   }, []);
 
@@ -401,7 +398,7 @@ export function useAppSettings() {
         delete saveTimersRef.current[key];
         delete pendingSettingsRef.current[key];
       }
-      invoke('save_app_settings', { values }).catch(console.error);
+      settingsApi.saveMany(values).catch(console.error);
       return;
     }
     for (const [key, value] of entries) {
@@ -418,7 +415,7 @@ export function useAppSettings() {
       pendingSettingsRef.current[key] = String(value);
       if (saveTimersRef.current[key]) clearTimeout(saveTimersRef.current[key]);
       saveTimersRef.current[key] = setTimeout(() => {
-        invoke('save_app_setting', { key, value: pendingSettingsRef.current[key] }).catch(console.error);
+        settingsApi.save(key, pendingSettingsRef.current[key]).catch(console.error);
         delete saveTimersRef.current[key];
         delete pendingSettingsRef.current[key];
       }, 250);

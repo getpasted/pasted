@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Copy, Edit3, Play, Sparkles, Trash2, Workflow } from 'lucide-react';
-import type { Operation, Pipeline, SavedTransform } from '../types';
+import type { Operation, ManualTransform, SavedTransform } from '../types';
 import { HotkeyRecorder } from './HotkeyRecorder';
 import { RegistryEditorActions } from './RegistryEditorActions';
 import { RegistryDetailHeader } from './RegistryDetailHeader';
@@ -16,53 +16,53 @@ import { useFeatures } from '../hooks/useFeatures';
 type LibrarySelection = { stableRef: string };
 type TransformLibraryItem =
   | { storage: 'saved'; stableRef: string; updatedAt: string; item: SavedTransform }
-  | { storage: 'manual'; stableRef: string; updatedAt: string; item: Pipeline };
+  | { storage: 'manual'; stableRef: string; updatedAt: string; item: ManualTransform };
 
 interface TransformationLibraryProps {
   transforms: SavedTransform[];
-  pipelines: Pipeline[];
+  manualTransforms: ManualTransform[];
   operations: Operation[];
   filter: string;
   filterOptions: TransformCategoryOption[];
   onFilterChange: (filter: string) => void;
   onCreateTransform: () => void;
-  onCreatePipeline: () => void;
+  onCreateManualTransform: () => void;
   onTestTransform: (transform: SavedTransform) => void;
-  onTestPipeline: (pipeline: Pipeline) => void;
+  onTestManualTransform: (manualTransform: ManualTransform) => void;
   onEditTransform: (transform: SavedTransform) => void;
-  onEditPipeline: (pipeline: Pipeline) => void;
+  onEditManualTransform: (manualTransform: ManualTransform) => void;
   onDuplicateTransform: (transform: SavedTransform) => void;
-  onDuplicatePipeline: (pipeline: Pipeline) => void;
+  onDuplicateManualTransform: (manualTransform: ManualTransform) => void;
   onDeleteTransform: (transform: SavedTransform) => void;
-  onDeletePipeline: (pipeline: Pipeline) => void;
-  onPipelineHotkeyChange: (pipeline: Pipeline, hotkey: string | null) => void;
+  onDeleteManualTransform: (manualTransform: ManualTransform) => void;
+  onManualTransformHotkeyChange: (manualTransform: ManualTransform, hotkey: string | null) => void;
 }
 
 export function TransformationLibrary({
   transforms,
-  pipelines,
+  manualTransforms,
   operations,
   filter,
   filterOptions,
   onFilterChange,
   onCreateTransform,
-  onCreatePipeline,
+  onCreateManualTransform,
   onTestTransform,
-  onTestPipeline,
+  onTestManualTransform,
   onEditTransform,
-  onEditPipeline,
+  onEditManualTransform,
   onDuplicateTransform,
-  onDuplicatePipeline,
+  onDuplicateManualTransform,
   onDeleteTransform,
-  onDeletePipeline,
-  onPipelineHotkeyChange,
+  onDeleteManualTransform,
+  onManualTransformHotkeyChange,
 }: TransformationLibraryProps) {
   const features = useFeatures();
   const [selection, setSelection] = useState<LibrarySelection | null>(null);
   const visibleItems = useMemo<TransformLibraryItem[]>(() => {
     const items: TransformLibraryItem[] = [
       ...transforms.map((item) => ({ storage: 'saved' as const, stableRef: item.stableRef, updatedAt: item.updatedAt, item })),
-      ...pipelines.map((item) => ({ storage: 'manual' as const, stableRef: item.stableRef, updatedAt: item.updatedAt, item })),
+      ...manualTransforms.map((item) => ({ storage: 'manual' as const, stableRef: item.stableRef, updatedAt: item.updatedAt, item })),
     ];
     return items
       .filter((candidate) => {
@@ -72,7 +72,7 @@ export function TransformationLibrary({
         return filter === (isAssisted ? 'assisted' : 'local');
       })
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
-  }, [filter, pipelines, transforms]);
+  }, [filter, manualTransforms, transforms]);
   const effectiveItem = visibleItems.find(({ stableRef }) => stableRef === selection?.stableRef) ?? visibleItems[0] ?? null;
 
   return (
@@ -80,10 +80,10 @@ export function TransformationLibrary({
       <TransformLibraryToolbar
         createLabel={translate('component.transformationLibrary.newTransform')}
         onCreate={onCreateTransform}
-        secondaryAction={{ get label() { return translate('component.transformationLibrary.buildManually'); }, onClick: onCreatePipeline }}
+        secondaryAction={{ get label() { return translate('component.transformationLibrary.buildManually'); }, onClick: onCreateManualTransform }}
       >
         <TransformCategorySelect
-          accent="pipelines"
+          accent="manual-transforms"
           value={filter}
           options={filterOptions}
           onChange={onFilterChange}
@@ -107,7 +107,7 @@ export function TransformationLibrary({
                     selected={effectiveItem?.stableRef === candidate.stableRef}
                     onSelect={() => setSelection({ stableRef: candidate.stableRef })}
                     icon={<span className="theme-badge grid h-8 w-8 place-items-center rounded-lg border">
-                      {semanticSteps > 0 ? <Sparkles className="transform-accent pipelines h-4 w-4" /> : <Workflow className="transform-accent pipelines h-4 w-4" />}
+                      {semanticSteps > 0 ? <Sparkles className="transform-accent manual-transforms h-4 w-4" /> : <Workflow className="transform-accent manual-transforms h-4 w-4" />}
                     </span>}
                     title={candidate.item.name}
                     subtitle={semanticSteps > 0 ? translate('component.transformationLibrary.aiAssisted') : translate('component.transformationLibrary.localReplayable')}
@@ -120,7 +120,7 @@ export function TransformationLibrary({
             {visibleItems.length === 0 && (
               <div className="grid min-h-56 place-items-center px-4 text-center">
                 <div>
-                  <Workflow className="transform-accent pipelines mx-auto mb-2 h-5 w-5" />
+                  <Workflow className="transform-accent manual-transforms mx-auto mb-2 h-5 w-5" />
                   <p className="theme-text-main text-xs font-semibold">{translate('component.transformationLibrary.nothingInThisViewYet')}</p>
                   <p className="theme-text-muted mt-1 text-[10px]">{translate('component.transformationLibrary.createOrManuallyBuildATransformToAddItToTheLibrary')}</p>
                 </div>
@@ -140,14 +140,14 @@ export function TransformationLibrary({
               onDelete={() => onDeleteTransform(effectiveItem.item)}
             />
           ) : effectiveItem?.storage === 'manual' ? (
-            <PipelineDetails
-              pipeline={effectiveItem.item}
+            <ManualTransformDetails
+              manualTransform={effectiveItem.item}
               operations={operations}
-              onTest={() => onTestPipeline(effectiveItem.item)}
-              onEdit={() => onEditPipeline(effectiveItem.item)}
-              onDuplicate={() => onDuplicatePipeline(effectiveItem.item)}
-              onDelete={() => onDeletePipeline(effectiveItem.item)}
-              onHotkeyChange={features.hotkeys ? (hotkey) => onPipelineHotkeyChange(effectiveItem.item, hotkey) : undefined}
+              onTest={() => onTestManualTransform(effectiveItem.item)}
+              onEdit={() => onEditManualTransform(effectiveItem.item)}
+              onDuplicate={() => onDuplicateManualTransform(effectiveItem.item)}
+              onDelete={() => onDeleteManualTransform(effectiveItem.item)}
+              onHotkeyChange={features.hotkeys ? (hotkey) => onManualTransformHotkeyChange(effectiveItem.item, hotkey) : undefined}
             />
           ) : (
             <div className="grid min-h-72 place-items-center text-center"><p className="theme-text-muted text-xs">{translate('component.transformationLibrary.selectOrCreateALibraryItem')}</p></div>
@@ -181,7 +181,7 @@ function TransformDetails({
     : translate('component.transformationLibrary.localReplayable');
   return (
     <div className="flex h-full flex-col gap-4">
-      <RegistryDetailHeader icon={semanticSteps > 0 ? <Sparkles className="h-5 w-5" /> : <Workflow className="h-5 w-5" />} title={transform.name} meta={translate('component.transformationLibrary.transformRevisionRevision', { revision: transform.revision })} iconClassName="transform-accent pipelines" />
+      <RegistryDetailHeader icon={semanticSteps > 0 ? <Sparkles className="h-5 w-5" /> : <Workflow className="h-5 w-5" />} title={transform.name} meta={translate('component.transformationLibrary.transformRevisionRevision', { revision: transform.revision })} iconClassName="transform-accent manual-transforms" />
       <div className="theme-subtle-surface rounded-xl border p-3">
         <p className="theme-text-main text-xs font-semibold">{transform.plan.summary || transform.plan.intent}</p>
         <p className="theme-text-muted mt-1 text-[10px]">{provenance}</p>
@@ -210,8 +210,8 @@ function TransformDetails({
   );
 }
 
-function PipelineDetails({
-  pipeline,
+function ManualTransformDetails({
+  manualTransform,
   operations,
   onTest,
   onEdit,
@@ -219,7 +219,7 @@ function PipelineDetails({
   onDelete,
   onHotkeyChange,
 }: {
-  pipeline: Pipeline;
+  manualTransform: ManualTransform;
   operations: Operation[];
   onTest: () => void;
   onEdit: () => void;
@@ -231,13 +231,13 @@ function PipelineDetails({
     <div className="flex h-full flex-col gap-4">
       <RegistryDetailHeader
         icon={<Workflow className="h-5 w-5" />}
-        title={pipeline.name}
-        meta={translate('component.transformationLibrary.transformLocalBuilderRevisionRevision', { revision: pipeline.revision })}
-        trailing={onHotkeyChange ? <HotkeyRecorder value={pipeline.hotkey} onChange={onHotkeyChange} /> : undefined}
-        iconClassName="transform-accent pipelines"
+        title={manualTransform.name}
+        meta={translate('component.transformationLibrary.transformLocalBuilderRevisionRevision', { revision: manualTransform.revision })}
+        trailing={onHotkeyChange ? <HotkeyRecorder value={manualTransform.hotkey} onChange={onHotkeyChange} /> : undefined}
+        iconClassName="transform-accent manual-transforms"
       />
       <ol className="space-y-2">
-        {pipeline.steps.map((step, index) => (
+        {manualTransform.steps.map((step, index) => (
           <LibraryStep
             key={`${step.operationRef}-${index}`}
             index={index}

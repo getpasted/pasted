@@ -45,7 +45,7 @@ export function ClipTransformBar({
             type="button"
             onClick={onApply}
             disabled={isRunning || !hasPreview}
-            className="transform-workspace-action pipelines flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+            className="transform-workspace-action manual-transforms flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
             title={translate('component.clipTransformBar.applyAndSaveRevision')}
           >
             {isRunning

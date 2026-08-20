@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import { safeInvoke as invoke } from '../utils/tauri';
+import { analysisApi } from '../api/analysis';
 import {
   BarChart3,
   PieChart,
@@ -25,6 +25,7 @@ import { useLocalization } from '../localization/LocalizationProvider';
 import { translate } from '../localization/runtime';
 import { localizedContentTypeGroupLabel } from '../localization/presentation';
 import { contentTypeLabel } from '../utils/contentTypes';
+import { APP_EVENTS } from '../utils/appEvents';
 
 interface SourceStat {
   name: string;
@@ -71,7 +72,7 @@ export const AnalyticsView: React.FC = () => {
   const loadStats = async () => {
     setLoadError(null);
     try {
-      const data = await invoke<AnalyticsSummary>('get_analytics_summary');
+      const data = await analysisApi.analyticsSummary<AnalyticsSummary>();
       setSummary(data);
     } catch (e) {
       console.error('Failed to fetch analytics summary:', e);
@@ -105,8 +106,8 @@ export const AnalyticsView: React.FC = () => {
     refresh();
     scheduleLocalMidnightRefresh();
     if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) {
-      unlisteners.push(listen('clip-added', refresh));
-      unlisteners.push(listen('clip-library-changed', refresh));
+      unlisteners.push(listen(APP_EVENTS.clipAdded, refresh));
+      unlisteners.push(listen(APP_EVENTS.clipLibraryChanged, refresh));
       unlisteners.push(listen('tauri://focus', refresh));
     }
 

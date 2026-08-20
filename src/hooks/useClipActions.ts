@@ -1,6 +1,7 @@
 import { useCallback, useState, type Dispatch, type SetStateAction } from 'react';
-import { type AppSettings, type Bin, type ClipItem, type Pipeline, type SavedTransform } from '../types';
+import { type AppSettings, type Bin, type ClipItem, type ManualTransform, type SavedTransform } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { clipsApi } from '../api/clips';
 import { sortClipsForTimeline } from '../utils/clipOrder';
 import { soundManager } from '../utils/sound';
 import { runTransformation } from '../utils/transformExecution';
@@ -9,10 +10,6 @@ import { htmlToPlainText } from '../utils/plainText';
 interface AssignOptions {
   includeSelection?: boolean;
   playSound?: boolean;
-}
-
-interface BinAssignmentOutcome {
-  updatedClips: ClipItem[];
 }
 
 interface ClipActionsInput {
@@ -30,6 +27,7 @@ interface ClipActionsInput {
   fetchClips: () => Promise<void>;
   fetchTrashedClips: () => Promise<void>;
   fetchSequentialStatus: () => Promise<void>;
+  queuedIndexMap: Map<string, number>;
   onCollectionChanged: () => Promise<void>;
   keepTrashedClipsVisible: boolean;
   onClipsRepositioned?: (ids: number[]) => void;
@@ -50,6 +48,7 @@ export function useClipActions({
   fetchClips,
   fetchTrashedClips,
   fetchSequentialStatus,
+  queuedIndexMap,
   onCollectionChanged,
   keepTrashedClipsVisible,
   onClipsRepositioned,
@@ -117,8 +116,8 @@ export function useClipActions({
       : previous);
 
     const request = isBatch
-      ? invoke('batch_pin_clips', { ids: targetIds, pinState: nextPinState })
-      : invoke('toggle_pin_clip', { id });
+      ? clipsApi.setPinned(targetIds, nextPinState)
+      : clipsApi.togglePin(id);
     void request
       .then(onCollectionChanged)
       .catch((error) => {
@@ -130,7 +129,7 @@ export function useClipActions({
   const toggleProtected = useCallback((id: number) => {
     const current = allClips.find((clip) => clip.id === id);
     const explicit = current?.is_explicitly_protected ?? current?.is_protected ?? false;
-    if (!current || current.hotkey || (current.is_protected && !explicit)) return;
+    if (!current || current.hotkey || current.protecting_bin_ids?.length) return;
     const nextExplicit = !explicit;
     const update = (clip: ClipItem) => clip.id === id ? {
       ...clip,
@@ -187,7 +186,7 @@ export function useClipActions({
       ? { ...previous, is_pinned: pinState, pin_order: pinState ? 0 : previous.pin_order }
       : previous);
 
-    void invoke('batch_pin_clips', { ids: idsToChange, pinState })
+    void clipsApi.setPinned(idsToChange, pinState)
       .then(onCollectionChanged)
       .catch((error) => {
         console.error('Failed to set pinned state:', error);
@@ -202,6 +201,7 @@ export function useClipActions({
     const idsToChange = allClips
       .filter((clip) => targetIds.includes(clip.id)
         && !clip.hotkey
+        && (protectedState || !clip.protecting_bin_ids?.length)
         && Boolean(clip.is_explicitly_protected ?? clip.is_protected) !== protectedState)
       .map((clip) => clip.id);
     if (idsToChange.length === 0) return;
@@ -222,7 +222,7 @@ export function useClipActions({
       }
       : previous);
 
-    void invoke('batch_protect_clips', { ids: idsToChange, protectedState })
+    void clipsApi.setProtected(idsToChange, protectedState)
       .then(onCollectionChanged)
       .catch((error) => {
         console.error('Failed to set protected state:', error);
@@ -269,10 +269,10 @@ export function useClipActions({
     setTotalClipCount((previous) => Math.max(0, previous - ids.length));
 
     const request = permanently
-      ? Promise.all(ids.map((id) => invoke('purge_clip_permanently', { id })))
+      ? Promise.all(ids.map((id) => clipsApi.purge(id)))
       : ids.length > 1
-        ? invoke('batch_trash_clips', { ids })
-        : invoke('delete_clip', { id: ids[0] });
+        ? clipsApi.trashMany(ids)
+        : clipsApi.trash(ids[0]);
     void request
       // Moving a clip to Trash is already fully represented in local clip,
       // selection, Bin-count, Trash-count, and total-count state. Refetching
@@ -304,18 +304,14 @@ export function useClipActions({
   const copyClip = useCallback(async (clip: ClipItem) => {
     try {
       if (clip.content_type === 'image' || clip.content_type === 'file') {
-        await invoke('copy_clip_by_id', { clipId: clip.id });
+        await clipsApi.copyById(clip.id);
         soundManager.playCopySound();
         return;
       }
       const text = settings.alwaysPastePlainText && clip.text_content
         ? htmlToPlainText(clip.text_content)
         : clip.text_content;
-      await invoke('copy_clip_to_system', {
-        text,
-        imageBase64: null,
-        filePaths: null,
-      });
+      await clipsApi.copyContent(text, null);
       soundManager.playCopySound();
     } catch (error) {
       console.error('Failed to copy clip:', error);
@@ -334,21 +330,34 @@ export function useClipActions({
       : [clipId];
     const targetClips = allClips.filter((clip) => targetIds.includes(clip.id));
     const manualBinIds = new Set(bins.filter((bin) => !bin.smart_rule).map((bin) => bin.id));
+    const targetBinProtects = binId !== null
+      && Boolean(bins.find((bin) => bin.id === binId)?.protect_clips);
 
     const updateClip = (clip: ClipItem) => {
       if (!targetIds.includes(clip.id)) return clip;
       const currentBinIds = clip.bin_ids || [];
+      const currentProtectingBinIds = clip.protecting_bin_ids || [];
+      const explicitlyProtected = clip.is_explicitly_protected
+        ?? (Boolean(clip.is_protected) && !clip.hotkey && currentProtectingBinIds.length === 0);
       if (binId === null) {
+        const nextProtectingBinIds = currentProtectingBinIds.filter((id) => !manualBinIds.has(id));
         return {
           ...clip,
           bin_id: null,
           bin_ids: currentBinIds.filter((id) => !manualBinIds.has(id)),
+          protecting_bin_ids: nextProtectingBinIds,
+          is_protected: explicitlyProtected || Boolean(clip.hotkey) || nextProtectingBinIds.length > 0,
         };
       }
+      const nextProtectingBinIds = targetBinProtects && !currentProtectingBinIds.includes(binId)
+        ? [...currentProtectingBinIds, binId]
+        : currentProtectingBinIds;
       return {
         ...clip,
         bin_id: binId,
         bin_ids: currentBinIds.includes(binId) ? currentBinIds : [...currentBinIds, binId],
+        protecting_bin_ids: nextProtectingBinIds,
+        is_protected: explicitlyProtected || Boolean(clip.hotkey) || nextProtectingBinIds.length > 0,
       };
     };
     setAllClips((previous) => previous.map(updateClip));
@@ -385,10 +394,7 @@ export function useClipActions({
 
     try {
       if (targetIds.length > 1) {
-        const outcome = await invoke<BinAssignmentOutcome>('batch_assign_bin_clips', {
-          ids: targetIds,
-          binId,
-        });
+        const outcome = await clipsApi.assignManyToBin(targetIds, binId);
         if (outcome.updatedClips.length > 0) {
           const updatedById = new Map(outcome.updatedClips.map((clip) => [clip.id, clip]));
           setAllClips((previous) => previous.map((clip) => updatedById.get(clip.id) ?? clip));
@@ -397,7 +403,7 @@ export function useClipActions({
             : previous);
         }
       } else {
-        const transformedClip = await invoke<ClipItem | null>('assign_clip_bin', { clipId, binId });
+        const transformedClip = await clipsApi.assignBin(clipId, binId);
         if (transformedClip) {
           // Replace the optimistic snapshot immediately so the selected
           // inspector and its metadata update in the same frame as the card.
@@ -440,10 +446,19 @@ export function useClipActions({
     const updateClip = (clip: ClipItem) => {
       if (clip.id !== clipId) return clip;
       const nextBinIds = (clip.bin_ids || []).filter((id) => id !== binId);
+      const nextProtectingBinIds = (clip.protecting_bin_ids || []).filter((id) => id !== binId);
       const nextPrimary = clip.bin_id === binId
         ? nextBinIds.find((id) => manualBinIds.has(id)) ?? null
         : clip.bin_id;
-      return { ...clip, bin_id: nextPrimary, bin_ids: nextBinIds };
+      const explicitlyProtected = clip.is_explicitly_protected
+        ?? (Boolean(clip.is_protected) && !clip.hotkey && (clip.protecting_bin_ids?.length ?? 0) === 0);
+      return {
+        ...clip,
+        bin_id: nextPrimary,
+        bin_ids: nextBinIds,
+        protecting_bin_ids: nextProtectingBinIds,
+        is_protected: explicitlyProtected || Boolean(clip.hotkey) || nextProtectingBinIds.length > 0,
+      };
     };
     setAllClips((previous) => previous.map(updateClip));
     setSelectedClip((previous) => previous ? updateClip(previous) : previous);
@@ -454,7 +469,7 @@ export function useClipActions({
     )));
 
     try {
-      const outcome = await invoke<BinAssignmentOutcome>('remove_clip_bin', { clipId, binId });
+      const outcome = await clipsApi.removeBin(clipId, binId);
       const updatedClip = outcome.updatedClips[0];
       if (updatedClip) {
         setAllClips((previous) => previous.map((clip) => clip.id === clipId ? updatedClip : clip));
@@ -467,9 +482,9 @@ export function useClipActions({
     }
   }, [bins, fetchBins, fetchClips, setAllClips, setBins, setSelectedClip]);
 
-  const runPipelineForClip = useCallback(async (
+  const runManualTransformForClip = useCallback(async (
     clip: ClipItem,
-    pipeline: Pipeline,
+    manualTransform: ManualTransform,
     destination: 'copy' | 'paste' = 'copy',
   ) => {
     if (!clip.text_content) return;
@@ -477,14 +492,14 @@ export function useClipActions({
       await runClipTransformationJob(clip.id, async () => {
         const transformed = await runTransformation(
           clip.text_content!,
-          { kind: 'pipeline', pipelineRef: pipeline.stableRef },
+          { kind: 'manual_transform', transformRef: manualTransform.stableRef },
           { sourceClipId: clip.id, destination },
         );
         if (destination === 'paste') {
           await invoke('paste_text_to_frontmost', { text: transformed.output });
           soundManager.playPasteSound();
         } else {
-          await invoke('copy_clip_to_system', { text: transformed.output, imageBase64: null });
+          await clipsApi.copyContent(transformed.output, null);
           soundManager.playCopySound();
         }
       });
@@ -502,7 +517,7 @@ export function useClipActions({
           { kind: 'transform', transformRef: transform.stableRef },
           { sourceClipId: clip.id, destination: 'copy' },
         );
-        await invoke('copy_clip_to_system', { text: transformed.output, imageBase64: null });
+        await clipsApi.copyContent(transformed.output, null);
         soundManager.playCopySound();
       });
     } catch (error) {
@@ -525,6 +540,18 @@ export function useClipActions({
     }
   }, [fetchSequentialStatus]);
 
+  const toggleSequentialStack = useCallback(async (clip: ClipItem) => {
+    const item = clip.content_type === 'file' ? null : clip.text_content;
+    if (!item) return;
+    const queueIndex = queuedIndexMap.get(item);
+    if (queueIndex === undefined) {
+      await addToSequentialStack(clip);
+      return;
+    }
+    await invoke('remove_sequential_item_by_index', { index: queueIndex - 1 });
+    await fetchSequentialStatus();
+  }, [addToSequentialStack, fetchSequentialStatus, queuedIndexMap]);
+
   const updateClipNoteLocally = useCallback((clipId: number, note: string | null) => {
     setAllClips((previous) => previous.map((clip) => clip.id === clipId ? { ...clip, note } : clip));
     setSelectedClip((previous) => previous?.id === clipId ? { ...previous, note } : previous);
@@ -533,7 +560,7 @@ export function useClipActions({
   const deleteNoteFromClip = useCallback(async (clipId: number) => {
     updateClipNoteLocally(clipId, null);
     try {
-      await invoke('update_clip_note', { clipId, note: null });
+      await clipsApi.updateNote(clipId, null);
       await onCollectionChanged();
     } catch (error) {
       console.error('Failed to delete clip note:', error);
@@ -551,9 +578,10 @@ export function useClipActions({
     copyClip,
     assignClipToBin,
     removeClipFromBin,
-    runPipelineForClip,
+    runManualTransformForClip,
     runTransformForClip,
     addToSequentialStack,
+    toggleSequentialStack,
     updateClipNoteLocally,
     deleteNoteFromClip,
     transformingClipIds,

@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Settings } from 'lucide-react';
-import { AppSettings, BlacklistApp, Pipeline, Bin } from '../types';
+import { AppSettings, BlacklistApp, ManualTransform, Bin } from '../types';
 import { SettingsTabs, type SettingsTab } from './SettingsTabs';
 import { SettingsBlacklistPanel } from './SettingsBlacklistPanel';
 import { SettingsGeneralPanel } from './SettingsGeneralPanel';
@@ -24,8 +24,8 @@ interface SettingsModalProps {
   onAddBlacklistApp: (appName: string) => void;
   onRemoveBlacklistApp: (appId: string) => void;
   onToggleBlacklistRule: (appId: string, rule: 'ignoreText' | 'ignoreImages' | 'ignoreFiles' | 'ignoreHotkeys') => void;
-  pipelines?: Pipeline[];
-  onRefreshPipelines?: () => void;
+  manualTransforms?: ManualTransform[];
+  onRefreshManualTransforms?: () => void;
   bins?: Bin[];
   onRefreshBins?: () => void;
   onRefreshClips?: () => void;
@@ -46,8 +46,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onAddBlacklistApp,
   onRemoveBlacklistApp,
   onToggleBlacklistRule,
-  pipelines = [],
-  onRefreshPipelines,
+  manualTransforms = [],
+  onRefreshManualTransforms,
   bins = [],
   onRefreshBins,
   onRefreshClips,
@@ -134,10 +134,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <SettingsHotkeysPanel
             settings={settings}
             bins={bins}
-            pipelines={pipelines}
+            manualTransforms={manualTransforms}
             onUpdateSettings={onUpdateSettings}
             onRefreshBins={onRefreshBins}
-            onRefreshPipelines={onRefreshPipelines}
+            onRefreshManualTransforms={onRefreshManualTransforms}
           />
         )}
 
@@ -160,7 +160,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div className="settings-primary-well theme-panel rounded-2xl border p-6">
               <SettingsSyncPanel
                 onRefreshBins={onRefreshBins}
-                onRefreshPipelines={onRefreshPipelines}
+                onRefreshManualTransforms={onRefreshManualTransforms}
                 onRefreshClips={onRefreshClips}
                 onRefreshTrashedClips={onRefreshTrashedClips}
                 analyticsEnabled={settings.enableAnalytics}
@@ -170,7 +170,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
             <SettingsResetPanel
               onRefreshBins={onRefreshBins}
-              onRefreshPipelines={onRefreshPipelines}
+              onRefreshManualTransforms={onRefreshManualTransforms}
               onRefreshClips={onRefreshClips}
               onRefreshTrashedClips={onRefreshTrashedClips}
             />

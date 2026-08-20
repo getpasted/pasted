@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronDown, Folder, Plus, Minus } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { binsApi } from '../api/bins';
 import { Bin, TransformDefinition } from '../types';
 import { formatEmojiIcon } from '../utils/emoji';
 import { detectDesktopPlatform } from '../utils/platform';
@@ -539,27 +540,26 @@ export const BinModal: React.FC<BinModalProps> = ({
 
     try {
       if (editingBin) {
-        await invoke('update_bin', {
-          id: editingBin.id,
+        await binsApi.update(editingBin.id, {
           name: name.trim(),
           icon: icon || '📂',
           color: selectedColor,
           smartRule: smartRuleJson,
         });
-        await invoke('set_bin_transform_ref', { binId: editingBin.id, transformRef: transformRef || null });
+        await binsApi.setTransform(editingBin.id, transformRef || null);
         if (modalTab === 'bin' && features.protection) {
-          await invoke('update_bin_protection', { id: editingBin.id, protectClips });
+          await binsApi.updateProtection(editingBin.id, protectClips);
         }
       } else {
-        const created = await invoke<Bin>('create_bin', {
+        const created = await binsApi.create({
           name: name.trim(),
           icon: icon || '📂',
           color: selectedColor,
           smartRule: smartRuleJson,
         });
-        await invoke('set_bin_transform_ref', { binId: created.id, transformRef: transformRef || null });
+        await binsApi.setTransform(created.id, transformRef || null);
         if (modalTab === 'bin' && features.protection && protectClips) {
-          await invoke('update_bin_protection', { id: created.id, protectClips: true });
+          await binsApi.updateProtection(created.id, true);
         }
       }
       setName('');
@@ -876,23 +876,23 @@ export const BinModal: React.FC<BinModalProps> = ({
           {features.protection && (
             <div className="flex items-center gap-3">
               <span className="w-20 shrink-0 text-end text-xs font-semibold theme-text-muted">
-                {translate('component.binModal.protection')}
+                {translate('component.binModal.protect')}
               </span>
               <div className="theme-surface flex min-w-0 flex-1 items-center justify-between gap-3 rounded-xl border p-3">
                 <div className="min-w-0">
                   <div className="text-xs font-semibold theme-text-main">
-                    {translate('component.binModal.protectClipsInThisBin')}
+                    {translate('component.binModal.clipsInThisBinAreSafeFromDeletion')}
                   </div>
-                  <p className="mt-0.5 text-[11px] theme-text-muted">
-                    {modalTab === 'smart'
-                      ? translate('component.binModal.smartBinsCannotProtectClips')
-                      : translate('component.binModal.binProtectionDoesNotChangeClipProtection')}
-                  </p>
+                  {modalTab === 'smart' && (
+                    <p className="mt-0.5 text-[11px] theme-text-muted">
+                      {translate('component.binModal.smartBinsCannotProtectClips')}
+                    </p>
+                  )}
                 </div>
                 <SettingsSwitch
                   checked={modalTab === 'bin' && protectClips}
                   disabled={modalTab === 'smart'}
-                  label={translate('component.binModal.protectClipsInThisBin')}
+                  label={translate('component.binModal.clipsInThisBinAreSafeFromDeletion')}
                   onClick={() => setProtectClips((value) => !value)}
                 />
               </div>

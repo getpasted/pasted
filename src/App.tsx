@@ -1,24 +1,20 @@
-import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { safeInvoke as invoke } from './utils/tauri';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { listen } from '@tauri-apps/api/event';
-import { ClipItem, Bin, getClipFileSummary, type ClipMutationSummary } from './types';
+import { APP_EVENTS } from './utils/appEvents';
+import { ClipItem, Bin, getClipFileSummary } from './types';
 import { Sidebar } from './components/Sidebar';
 import { ClipCard } from './components/ClipCard';
 import { EmptyClipList } from './components/EmptyClipList';
 import { PinnedClipShelf } from './components/PinnedClipShelf';
 import { ClipPreview } from './components/ClipPreview';
 import { SequentialQueueBar } from './components/SequentialQueueBar';
-import { TransformationsView } from './components/TransformationsView';
 import type { TransformWorkspace } from './components/TransformWorkspaceHeader';
-import { SettingsModal } from './components/SettingsModal';
 import type { SettingsTab } from './components/SettingsTabs';
 import { BinModal } from './components/BinModal';
 import { ContextMenu } from './components/ContextMenu';
 import { QuickHudWindow } from './components/QuickHudWindow';
-import { ActivityLogView } from './components/ActivityLogView';
-import { AnalyticsView } from './components/AnalyticsView';
-import { HelpView, type HelpTopic } from './components/HelpView';
+import type { HelpTopic } from './components/HelpView';
 import { BinContextMenu } from './components/BinContextMenu';
 import { DeleteBinDialog } from './components/DeleteBinDialog';
 import { ClipNoteDialog } from './components/ClipNoteDialog';
@@ -27,7 +23,7 @@ import { OverflowText } from './components/OverflowText';
 import { handleWindowDragDoubleClick, startWindowDrag } from './utils/windowDrag';
 import { useColumnResize } from './hooks/useColumnResize';
 import { useAppSettings } from './hooks/useAppSettings';
-import { useClipViews } from './hooks/useClipViews';
+import { useClipViews, useLiveClipSnapshot } from './hooks/useClipViews';
 import { useClipBinDrag } from './hooks/useClipBinDrag';
 import { useStableVerticalReorder } from './hooks/useStableVerticalReorder';
 import { getClipViewPolicy } from './utils/clipViewPolicy';
@@ -55,6 +51,14 @@ import { translate } from './localization/runtime';
 import { localizedSourceName } from './localization/presentation';
 import { MacRtlWindowControls } from './components/MacRtlWindowControls';
 import { SearchErrorNotice } from './components/SearchErrorNotice';
+import { useAppEvent } from './hooks/useAppEvent';
+import { clipsApi } from './api/clips';
+import { binsApi } from './api/bins';
+const TransformationsView = lazy(() => import('./components/TransformationsView').then(({ TransformationsView: component }) => ({ default: component })));
+const SettingsModal = lazy(() => import('./components/SettingsModal').then(({ SettingsModal: component }) => ({ default: component })));
+const ActivityLogView = lazy(() => import('./components/ActivityLogView').then(({ ActivityLogView: component }) => ({ default: component })));
+const AnalyticsView = lazy(() => import('./components/AnalyticsView').then(({ AnalyticsView: component }) => ({ default: component })));
+const HelpView = lazy(() => import('./components/HelpView').then(({ HelpView: component }) => ({ default: component })));
 
 const TRANSIENT_SCROLL_SURFACE_SELECTOR = [
   '.surface-scroll-region',
@@ -71,7 +75,7 @@ const TRANSIENT_SCROLL_SURFACE_SELECTOR = [
 ].join(', ');
 
 export default function App() {
-  const { direction, locale } = useLocalization();
+  const { catalogReady, direction, locale } = useLocalization();
   const previousTitlebarDirectionRef = useRef(direction);
   const [restoredUiState] = useState(readAppUiState);
   const [isHudView, setIsHudView] = useState<boolean>(false);
@@ -170,7 +174,7 @@ export default function App() {
     setTrashedClips,
     bins,
     setBins,
-    pipelines,
+    manualTransforms,
     sequentialStatus: seqStatus,
     totalClipCount,
     totalTrashCount,
@@ -187,7 +191,7 @@ export default function App() {
     isLoadingMoreClips,
     isLoadingMoreTrash,
     fetchBins,
-    fetchPipelines,
+    fetchManualTransforms,
     fetchSequentialStatus,
     toggleClipboardPause: handleToggleClipboardPause,
     restoreClip: handleRestoreClip,
@@ -198,23 +202,23 @@ export default function App() {
   useEffect(() => {
     const splash = document.getElementById('startup-splash');
     if (!splash) return;
-    if (isHudView) {
+    if (isHudView && catalogReady) {
       splash.remove();
       return;
     }
-    if (!settingsHydrated || !initialDataLoaded) return;
+    if (!catalogReady || !settingsHydrated || !initialDataLoaded) return;
 
     return dismissStartupSplash(splash);
-  }, [initialDataLoaded, isHudView, settingsHydrated]);
+  }, [catalogReady, initialDataLoaded, isHudView, settingsHydrated]);
 
   useEffect(() => {
-    if (!settingsHydrated || !initialDataLoaded) return undefined;
+    if (!catalogReady || !settingsHydrated || !initialDataLoaded) return undefined;
     document.documentElement.dataset.pastedContentReady = 'true';
     window.dispatchEvent(new Event('pasted-app-content-ready'));
     return () => {
       delete document.documentElement.dataset.pastedContentReady;
     };
-  }, [initialDataLoaded, settingsHydrated]);
+  }, [catalogReady, initialDataLoaded, settingsHydrated]);
 
   const [selectedClip, setSelectedClip] = useState<ClipItem | null>(null);
   const [selectedClipIds, setSelectedClipIds] = useState<Set<number>>(new Set());
@@ -306,27 +310,12 @@ export default function App() {
     }
   }, [bins, currentTab, initialDataLoaded, selectedBinId, settingsHydrated]);
 
-  useEffect(() => {
-    if (isHudView) return undefined;
-    const unlisteners: Array<() => void> = [];
-    let disposed = false;
-    void listen<string>('navigate-tab', (event) => navigateToTab(event.payload)).then((unlisten) => {
-      if (disposed) unlisten();
-      else unlisteners.push(unlisten);
-    });
-    void listen<number>('navigate-bin', (event) => {
+  useAppEvent<string>(APP_EVENTS.navigateTab, navigateToTab, !isHudView);
+  useAppEvent<number>(APP_EVENTS.navigateBin, (binId) => {
       if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
-      setSelectedBinId(event.payload);
+      setSelectedBinId(binId);
       setCurrentTab('bin');
-    }).then((unlisten) => {
-      if (disposed) unlisten();
-      else unlisteners.push(unlisten);
-    });
-    return () => {
-      disposed = true;
-      unlisteners.forEach((unlisten) => unlisten());
-    };
-  }, [isHudView, navigateToTab]);
+  }, !isHudView);
 
   const enterSearchView = useCallback(() => {
     if (currentTab !== 'search') setCurrentTab('search');
@@ -915,6 +904,7 @@ export default function App() {
   }, [clearClipSelection]);
 
   const binsById = useMemo(() => new Map(bins.map((bin) => [bin.id, bin])), [bins]);
+  const currentContextMenuClip = useLiveClipSnapshot(contextMenu?.clip ?? null, allClips, trashedClips);
   const selectedClipViewPolicy = getClipViewPolicy(currentTab, selectedClip);
   const hasRestrictedSelection = Array.from(selectedClipIds).some((id) => {
     const selected = displayedClips.find((clip) => clip.id === id);
@@ -933,6 +923,7 @@ export default function App() {
     removeClipFromBin,
     runTransformForClip: handleRunTransformForClip,
     addToSequentialStack: handleAddToSequentialStack,
+    toggleSequentialStack: handleToggleSequentialStack,
     updateClipNoteLocally: handleUpdateClipNoteLocally,
     deleteNoteFromClip: handleDeleteNoteFromClip,
     transformingClipIds,
@@ -952,6 +943,7 @@ export default function App() {
     fetchClips,
     fetchTrashedClips,
     fetchSequentialStatus,
+    queuedIndexMap,
     onCollectionChanged: fetchClipCollectionSummary,
     keepTrashedClipsVisible: currentTab === 'search',
     onClipsRepositioned: requestRepositionedClipReveal,
@@ -1094,19 +1086,14 @@ export default function App() {
   };
 
   const handleRestoreAllTrashedClips = async () => {
-    const summary = await invoke<ClipMutationSummary>('restore_all_trashed_clips');
+    const summary = await clipsApi.restoreAll();
     await Promise.all([fetchClips(), fetchTrashedClips(), fetchBins(), fetchClipCollectionSummary()]);
     return summary.changedCount;
   };
 
-  useEffect(() => {
-    if (isHudView) return undefined;
-    let disposed = false;
-    let unlistenMenuAction: (() => void) | undefined;
-
-    void listen<string>('app-menu-action', (event) => {
+  useAppEvent<string>(APP_EVENTS.appMenuAction, (action) => {
       if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
-      switch (event.payload) {
+      switch (action) {
         case 'new-bin':
           if (!enabledFeatures.bins) break;
           setEditingBin(null);
@@ -1159,7 +1146,7 @@ export default function App() {
             fetchClips(),
             fetchTrashedClips(),
             fetchBins(),
-            fetchPipelines(),
+            fetchManualTransforms(),
             fetchSequentialStatus(),
             fetchClipCollectionSummary(),
           ]);
@@ -1167,37 +1154,7 @@ export default function App() {
         default:
           break;
       }
-    }).then((unlisten) => {
-      if (disposed) unlisten();
-      else unlistenMenuAction = unlisten;
-    });
-
-    return () => {
-      disposed = true;
-      unlistenMenuAction?.();
-    };
-  }, [
-    fetchBins,
-    fetchClips,
-    fetchPipelines,
-    fetchSequentialStatus,
-    fetchTrashedClips,
-    appSettings.textSize,
-    enabledFeatures,
-    handleBatchTrash,
-    handleCopyClip,
-    handleDeleteClip,
-    handlePurgeClipPermanently,
-    handleToggleClipboardPause,
-    handleTogglePin,
-    handleToggleProtected,
-    handleUpdateSettings,
-    isHudView,
-    resetColumnWidths,
-    selectedClip,
-    selectedClipIds,
-    selectedClipViewPolicy,
-  ]);
+  }, !isHudView);
 
   if (isHudView) {
     return <FeatureProvider features={enabledFeatures}><QuickHudWindow /></FeatureProvider>;
@@ -1298,10 +1255,10 @@ export default function App() {
       )}
 
       {/* Main Content Area */}
-      {currentTab === 'transformations' ? (
+      <Suspense fallback={null}>{currentTab === 'transformations' ? (
         <TransformationsView
-          pipelines={pipelines}
-          onRefreshPipelines={fetchPipelines}
+          manualTransforms={manualTransforms}
+          onRefreshManualTransforms={fetchManualTransforms}
           activeWorkspace={activeTransformWorkspace}
           onActiveWorkspaceChange={setActiveTransformWorkspace}
         />
@@ -1322,7 +1279,7 @@ export default function App() {
           onAddBlacklistApp={handleAddBlacklistApp}
           onRemoveBlacklistApp={handleRemoveBlacklistApp}
           onToggleBlacklistRule={handleToggleBlacklistRule}
-          onRefreshPipelines={fetchPipelines}
+          onRefreshManualTransforms={fetchManualTransforms}
           bins={bins}
           onRefreshBins={fetchBins}
           onRefreshClips={fetchClips}
@@ -1629,7 +1586,7 @@ export default function App() {
                         ...previous.filter((clip) => !clip.is_pinned && !idSet.has(clip.id)),
                       ]);
                     });
-                    invoke('batch_pin_clips', { ids, pinState: true }).then(fetchClipCollectionSummary).catch((err) => {
+                    clipsApi.setPinned(ids, true).then(fetchClipCollectionSummary).catch((err) => {
                       console.error(err);
                       fetchClips();
                     });
@@ -1653,7 +1610,7 @@ export default function App() {
                         : clip);
                       return sortClipsForTimeline(updated);
                     });
-                    invoke('batch_pin_clips', { ids, pinState: false }).then(fetchClipCollectionSummary).catch((err) => {
+                    clipsApi.setPinned(ids, false).then(fetchClipCollectionSummary).catch((err) => {
                       console.error(err);
                       fetchClips();
                     });
@@ -1701,7 +1658,7 @@ export default function App() {
             viewPolicy={selectedClipViewPolicy}
             bins={bins}
             viewedBinId={isBinCollection ? selectedBinId : null}
-            pipelines={pipelines}
+            manualTransforms={manualTransforms}
             onUpdateClip={handlePreviewClipUpdate}
             onAssignBin={handleAssignBin}
             onRemoveBin={removeClipFromBin}
@@ -1718,35 +1675,36 @@ export default function App() {
             filePreviewMaxMb={appSettings.filePreviewMaxMb}
           />
         </div>
-      )}
+      )}</Suspense>
 
       {/* Right Click Context Menu */}
-      {contextMenu && (
+      {contextMenu && currentContextMenuClip && (
         <ContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
-          clip={contextMenu.clip}
-          viewPolicy={getClipViewPolicy(currentTab, contextMenu.clip)}
-          selectedCount={selectedClipIds.has(contextMenu.clip.id) ? selectedClipIds.size : 1}
+          clip={currentContextMenuClip}
+          viewPolicy={getClipViewPolicy(currentTab, currentContextMenuClip)}
+          selectedCount={selectedClipIds.has(currentContextMenuClip.id) ? selectedClipIds.size : 1}
           bins={bins}
           onClose={() => setContextMenu(null)}
-          onCopy={() => handleCopyClip(contextMenu.clip)}
+          onCopy={() => handleCopyClip(currentContextMenuClip)}
           onAssignBin={(binId) => assignClipToBin(
-            contextMenu.clip.id,
+            currentContextMenuClip.id,
             binId,
             { includeSelection: true },
           )}
-          onRemoveBin={(binId) => removeClipFromBin(contextMenu.clip.id, binId)}
-          onRunTransform={(transform) => handleRunTransformForClip(contextMenu.clip, transform)}
+          onRemoveBin={(binId) => removeClipFromBin(currentContextMenuClip.id, binId)}
+          onRunTransform={(transform) => handleRunTransformForClip(currentContextMenuClip, transform)}
           onOpenTransformations={() => navigateToTab('transformations')}
-          onAddNote={() => handlePromptAddNote(contextMenu.clip)}
-          onDeleteNote={() => handleDeleteNoteFromClip(contextMenu.clip.id)}
-          onAddToStack={() => handleAddToSequentialStack(contextMenu.clip)}
-          onTogglePin={() => handleTogglePin(contextMenu.clip.id)}
-          onToggleProtected={() => handleToggleProtected(contextMenu.clip.id)}
-          onDelete={(e) => handleDeleteClip(contextMenu.clip.id, e?.altKey)}
-          onRestore={() => handleRestoreClip(contextMenu.clip.id)}
-          onPurge={() => handlePurgeClipPermanently(contextMenu.clip.id)}
+          onAddNote={() => handlePromptAddNote(currentContextMenuClip)}
+          onDeleteNote={() => handleDeleteNoteFromClip(currentContextMenuClip.id)}
+          isQueued={Boolean(currentContextMenuClip.text_content && queuedIndexMap.has(currentContextMenuClip.text_content))}
+          onToggleQueue={() => void handleToggleSequentialStack(currentContextMenuClip)}
+          onTogglePin={() => handleTogglePin(currentContextMenuClip.id)}
+          onToggleProtected={() => handleToggleProtected(currentContextMenuClip.id)}
+          onDelete={(e) => handleDeleteClip(currentContextMenuClip.id, e?.altKey)}
+          onRestore={() => handleRestoreClip(currentContextMenuClip.id)}
+          onPurge={() => handlePurgeClipPermanently(currentContextMenuClip.id)}
           trashEnabled={appSettings.enableTrash}
         />
       )}
@@ -1797,11 +1755,7 @@ export default function App() {
           onCancel={() => setBinToDelete(null)}
           onConfirm={async (bin, disposition, destinationBinId) => {
             try {
-              await invoke('delete_bin', {
-                id: bin.id,
-                disposition,
-                destinationBinId,
-              });
+              await binsApi.delete(bin.id, disposition, destinationBinId);
               setBinToDelete(null);
               await Promise.all([fetchBins(), fetchClips(), fetchTrashedClips()]);
               if (selectedBinId === bin.id) {
@@ -1826,7 +1780,7 @@ export default function App() {
             handleUpdateClipNoteLocally(clip.id, note);
             setNotePromptClip(null);
             try {
-              await invoke('update_clip_note', { clipId: clip.id, note });
+              await clipsApi.updateNote(clip.id, note);
               await fetchClipCollectionSummary();
             } catch (error) {
               console.error(error);

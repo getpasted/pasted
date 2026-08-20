@@ -355,9 +355,8 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   const headerSpacingClass = isSmall ? 'mb-0.5' : isLarge ? 'mb-2' : 'mb-1';
   const noteSummary = features.notes ? getClipNoteSummary(clip.note) : '';
   const isTrashMode = viewPolicy.state === 'trash';
-  const isExplicitlyProtected = clip.is_explicitly_protected ?? clip.is_protected ?? false;
-  const inheritedProtectionOnly = Boolean(clip.is_protected) && !isExplicitlyProtected;
-  const protectionToggleDisabled = Boolean(clip.hotkey) || inheritedProtectionOnly;
+  const protectedByBin = Boolean(clip.protecting_bin_ids?.length);
+  const protectionToggleDisabled = Boolean(clip.hotkey) || protectedByBin;
   const attributeTintClass = isTrashMode
     ? 'clip-card-trashed'
     : features.protection && clip.is_protected
@@ -523,7 +522,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
               aria-label={translate('component.clipCard.protectedClip')}
               title={clip.hotkey
                 ? translate('component.clipCard.protectedByHotkey')
-                : inheritedProtectionOnly
+                : protectedByBin
                   ? translate('component.clipCard.protectedByBin')
                   : translate('component.clipCard.protected')}
               className="clip-meta-item clip-meta-icon-only clip-protected-accent"
@@ -536,7 +535,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
               role="img"
               aria-label={translate('component.clipCard.transformedClip')}
               title={translate('component.clipCard.transformed')}
-              className="clip-meta-item clip-meta-icon-only transform-accent pipelines"
+              className="clip-meta-item clip-meta-icon-only transform-accent manual-transforms"
             >
               <Workflow className="clip-meta-icon" />
             </span>
@@ -754,7 +753,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
                 }`}
                 title={clip.hotkey
                   ? translate('component.clipPreview.removeHotkeyBeforeUnprotecting')
-                  : inheritedProtectionOnly
+                  : protectedByBin
                     ? translate('component.clipPreview.protectedByBin')
                     : clip.is_protected ? UI_COPY.unprotect : UI_COPY.protect}
               >

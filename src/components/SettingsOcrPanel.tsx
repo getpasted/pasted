@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ScanText, Square } from 'lucide-react';
 import type { OcrBackfillStatus } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { analysisApi } from '../api/analysis';
 import { ActionButton } from './AppDialogLayout';
 import { SettingsSubsectionHeader } from './SettingsSubsectionHeader';
 import { useToast } from './ToastProvider';
@@ -26,7 +27,7 @@ export function SettingsOcrPanel() {
   const refresh = async () => {
     try {
       setStatus(await invoke<OcrBackfillStatus>('get_ocr_backfill_status'));
-      setExtractors(await invoke<ContentExtractor[]>('get_content_extractors'));
+      setExtractors(await analysisApi.listExtractors<ContentExtractor>());
     } catch (error) {
       showToast({ tone: 'error', message: translate('component.settingsOcrPanel.ocrStatusCouldNotBeLoadedValue', { value: String(error) }) });
     }
@@ -37,7 +38,7 @@ export function SettingsOcrPanel() {
     const poll = () => {
       Promise.all([
         invoke<OcrBackfillStatus>('get_ocr_backfill_status'),
-        invoke<ContentExtractor[]>('get_content_extractors'),
+        analysisApi.listExtractors<ContentExtractor>(),
       ])
         .then(([next, loadedExtractors]) => {
           if (!cancelled) {

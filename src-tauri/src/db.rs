@@ -9,6 +9,8 @@ use std::path::{Path, PathBuf};
 
 use crate::external_import::ExternalTextClip;
 
+mod clip_protection;
+
 const BACKUP_SCHEMA_VERSION: u32 = 12;
 const FULL_BACKUP_FORMAT_VERSION: i64 = 1;
 const PENDING_CLIENT_STATE_SETTING: &str = "pendingFullBackupClientState";
@@ -1730,6 +1732,21 @@ fn column_exists(conn: &Connection, table: &str, column: &str) -> Result<bool> {
     Ok(false)
 }
 
+fn add_column_if_missing(
+    conn: &Connection,
+    table: &str,
+    column: &str,
+    definition: &str,
+) -> Result<()> {
+    if !column_exists(conn, table, column)? {
+        conn.execute(
+            &format!("ALTER TABLE {table} ADD COLUMN {column} {definition}"),
+            [],
+        )?;
+    }
+    Ok(())
+}
+
 fn migrate_app_exclusion_hotkey_setting(conn: &Connection) -> Result<()> {
     if !table_exists(conn, "settings")? {
         return Ok(());
@@ -1769,6 +1786,64 @@ fn migrate_app_exclusion_hotkey_setting(conn: &Connection) -> Result<()> {
             params![serialized],
         )?;
     }
+    Ok(())
+}
+
+struct NamedMigration {
+    key: &'static str,
+    apply: fn(&Connection) -> Result<()>,
+}
+
+fn run_named_migrations(conn: &Connection, migrations: &[NamedMigration]) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS schema_migrations (
+            key TEXT PRIMARY KEY,
+            applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )",
+        [],
+    )?;
+    for migration in migrations {
+        let applied: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE key = ?1)",
+            [migration.key],
+            |row| row.get(0),
+        )?;
+        if applied {
+            continue;
+        }
+        let transaction = conn.unchecked_transaction()?;
+        (migration.apply)(&transaction)?;
+        transaction.execute(
+            "INSERT INTO schema_migrations (key) VALUES (?1)",
+            [migration.key],
+        )?;
+        transaction.commit()?;
+    }
+    Ok(())
+}
+
+fn migrate_transform_activity_terminology(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "UPDATE activity_logs
+         SET event_type = replace(event_type, 'recipe_', 'transform_'),
+             description = replace(replace(description, 'Recipes', 'Transforms'), 'Recipe', 'Transform')
+         WHERE event_type LIKE '%recipe%' OR description LIKE '%Recipe%'",
+        [],
+    )?;
+    Ok(())
+}
+
+fn backfill_current_transformation(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "UPDATE clips SET current_transformation_id = (
+            SELECT id FROM clip_transformations
+            WHERE clip_id = clips.id
+            ORDER BY created_at DESC, rowid DESC LIMIT 1
+         )
+         WHERE current_transformation_id IS NULL
+           AND EXISTS (SELECT 1 FROM clip_transformations WHERE clip_id = clips.id)",
+        [],
+    )?;
     Ok(())
 }
 
@@ -2834,37 +2909,28 @@ impl DbState {
             [],
         )?;
 
-        // Migrations if existing tables don't have new columns
-        let _ = conn.execute("ALTER TABLE clips ADD COLUMN note TEXT", []);
-        let _ = conn.execute(
-            "ALTER TABLE clips ADD COLUMN is_trashed INTEGER DEFAULT 0",
-            [],
-        );
-        let _ = conn.execute("ALTER TABLE clips ADD COLUMN trashed_at DATETIME", []);
-        let _ = conn.execute(
-            "ALTER TABLE clips ADD COLUMN is_protected INTEGER DEFAULT 0",
-            [],
-        );
-        let _ = conn.execute("ALTER TABLE clips ADD COLUMN shortcut TEXT", []);
-        let _ = conn.execute("ALTER TABLE clips ADD COLUMN image_path TEXT", []);
-        let _ = conn.execute(
-            "ALTER TABLE clips ADD COLUMN pin_order INTEGER DEFAULT 0",
-            [],
-        );
-        let _ = conn.execute(
-            "ALTER TABLE clips ADD COLUMN current_transformation_id TEXT",
-            [],
-        );
-        let _ = conn.execute(
-            "ALTER TABLE clips ADD COLUMN ocr_status TEXT NOT NULL DEFAULT 'not_applicable'",
-            [],
-        );
-        let _ = conn.execute("ALTER TABLE clips ADD COLUMN ocr_input_hash TEXT", []);
-        let _ = conn.execute("ALTER TABLE clips ADD COLUMN ocr_engine_version TEXT", []);
-        let _ = conn.execute("ALTER TABLE clips ADD COLUMN ocr_extractor_ref TEXT", []);
-        let _ = conn.execute("ALTER TABLE clips ADD COLUMN ocr_extractor_name TEXT", []);
-        let _ = conn.execute("ALTER TABLE clips ADD COLUMN ocr_attempted_at DATETIME", []);
-        let _ = conn.execute("ALTER TABLE clips ADD COLUMN ocr_error TEXT", []);
+        // Every additive migration distinguishes an existing column from a real
+        // SQLite failure. Never discard ALTER TABLE errors during startup.
+        add_column_if_missing(&conn, "clips", "note", "TEXT")?;
+        add_column_if_missing(&conn, "clips", "is_trashed", "INTEGER DEFAULT 0")?;
+        add_column_if_missing(&conn, "clips", "trashed_at", "DATETIME")?;
+        add_column_if_missing(&conn, "clips", "is_protected", "INTEGER DEFAULT 0")?;
+        add_column_if_missing(&conn, "clips", "shortcut", "TEXT")?;
+        add_column_if_missing(&conn, "clips", "image_path", "TEXT")?;
+        add_column_if_missing(&conn, "clips", "pin_order", "INTEGER DEFAULT 0")?;
+        add_column_if_missing(&conn, "clips", "current_transformation_id", "TEXT")?;
+        add_column_if_missing(
+            &conn,
+            "clips",
+            "ocr_status",
+            "TEXT NOT NULL DEFAULT 'not_applicable'",
+        )?;
+        add_column_if_missing(&conn, "clips", "ocr_input_hash", "TEXT")?;
+        add_column_if_missing(&conn, "clips", "ocr_engine_version", "TEXT")?;
+        add_column_if_missing(&conn, "clips", "ocr_extractor_ref", "TEXT")?;
+        add_column_if_missing(&conn, "clips", "ocr_extractor_name", "TEXT")?;
+        add_column_if_missing(&conn, "clips", "ocr_attempted_at", "DATETIME")?;
+        add_column_if_missing(&conn, "clips", "ocr_error", "TEXT")?;
         conn.execute(
             "UPDATE clips
              SET ocr_status = CASE
@@ -2904,20 +2970,14 @@ impl DbState {
              ON clips (content_type, ocr_status, is_trashed, id)",
             [],
         )?;
-        let _ = conn.execute("ALTER TABLE bins ADD COLUMN smart_rule TEXT", []);
-        let _ = conn.execute(
-            "ALTER TABLE bins ADD COLUMN bin_type TEXT DEFAULT 'category'",
-            [],
-        );
-        let _ = conn.execute("ALTER TABLE bins ADD COLUMN shortcut TEXT", []);
-        let _ = conn.execute(
-            "ALTER TABLE bins ADD COLUMN protect_clips INTEGER NOT NULL DEFAULT 0",
-            [],
-        );
+        add_column_if_missing(&conn, "bins", "smart_rule", "TEXT")?;
+        add_column_if_missing(&conn, "bins", "bin_type", "TEXT DEFAULT 'category'")?;
+        add_column_if_missing(&conn, "bins", "shortcut", "TEXT")?;
+        add_column_if_missing(&conn, "bins", "protect_clips", "INTEGER NOT NULL DEFAULT 0")?;
 
         migrate_clip_source_schema(&conn)?;
 
-        let _ = conn.execute(
+        conn.execute(
             "CREATE TABLE IF NOT EXISTS clip_versions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 clip_id INTEGER NOT NULL REFERENCES clips(id) ON DELETE CASCADE,
@@ -2925,12 +2985,12 @@ impl DbState {
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )",
             [],
-        );
-        let _ = conn.execute(
+        )?;
+        conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_clip_versions_clip_id ON clip_versions(clip_id, created_at DESC)",
             [],
-        );
-        let _ = conn.execute("ALTER TABLE clip_versions ADD COLUMN context_json TEXT", []);
+        )?;
+        add_column_if_missing(&conn, "clip_versions", "context_json", "TEXT")?;
 
         conn.execute(
             "CREATE TABLE IF NOT EXISTS clip_analysis_classifications (
@@ -4486,64 +4546,23 @@ impl DbState {
                 [],
             )?;
         }
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS schema_migrations (
-                key TEXT PRIMARY KEY,
-                applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-            )",
-            [],
+        run_named_migrations(
+            conn,
+            &[
+                NamedMigration {
+                    key: "appExclusionHotkeysV1",
+                    apply: migrate_app_exclusion_hotkey_setting,
+                },
+                NamedMigration {
+                    key: "transformTerminologyV1",
+                    apply: migrate_transform_activity_terminology,
+                },
+                NamedMigration {
+                    key: "currentTransformationBackfillV1",
+                    apply: backfill_current_transformation,
+                },
+            ],
         )?;
-        let app_exclusion_hotkeys_migrated: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM schema_migrations WHERE key = 'appExclusionHotkeysV1'",
-            [],
-            |row| row.get(0),
-        )?;
-        if app_exclusion_hotkeys_migrated == 0 {
-            migrate_app_exclusion_hotkey_setting(conn)?;
-            conn.execute(
-                "INSERT INTO schema_migrations (key) VALUES ('appExclusionHotkeysV1')",
-                [],
-            )?;
-        }
-        let transform_terms_migrated: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM schema_migrations WHERE key = 'transformTerminologyV1'",
-            [],
-            |row| row.get(0),
-        )?;
-        if transform_terms_migrated == 0 {
-            conn.execute(
-                "UPDATE activity_logs
-                 SET event_type = replace(event_type, 'recipe_', 'transform_'),
-                     description = replace(replace(description, 'Recipes', 'Transforms'), 'Recipe', 'Transform')
-                 WHERE event_type LIKE '%recipe%' OR description LIKE '%Recipe%'",
-                [],
-            )?;
-            conn.execute(
-                "INSERT INTO schema_migrations (key) VALUES ('transformTerminologyV1')",
-                [],
-            )?;
-        }
-        let provenance_backfilled: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM schema_migrations WHERE key = 'currentTransformationBackfillV1'",
-            [],
-            |row| row.get(0),
-        )?;
-        if provenance_backfilled == 0 {
-            conn.execute(
-                "UPDATE clips SET current_transformation_id = (
-                    SELECT id FROM clip_transformations
-                    WHERE clip_id = clips.id
-                    ORDER BY created_at DESC, rowid DESC LIMIT 1
-                 )
-                 WHERE current_transformation_id IS NULL
-                   AND EXISTS (SELECT 1 FROM clip_transformations WHERE clip_id = clips.id)",
-                [],
-            )?;
-            conn.execute(
-                "INSERT INTO schema_migrations (key) VALUES ('currentTransformationBackfillV1')",
-                [],
-            )?;
-        }
 
         Ok(())
     }
@@ -7944,85 +7963,6 @@ impl DbState {
             [],
         )?;
         Ok(())
-    }
-
-    pub fn toggle_protected(&self, id: i64) -> Result<bool> {
-        let conn = self.conn.lock();
-        let current_protected: i32 = conn
-            .query_row(
-                "SELECT is_protected FROM clips WHERE id = ?1",
-                params![id],
-                |r| r.get(0),
-            )
-            .unwrap_or(0);
-        drop(conn);
-        let new_protected = current_protected == 0;
-        self.batch_protect_clips(vec![id], new_protected)?;
-        Ok(new_protected)
-    }
-
-    pub fn batch_protect_clips(
-        &self,
-        ids: Vec<i64>,
-        protected_state: bool,
-    ) -> Result<ClipMutationSummary> {
-        let requested_count = ids.len();
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction()?;
-        if !protected_state && !ids.is_empty() {
-            let ids_json = serde_json::to_string(&ids)
-                .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
-            let shortcut_count: i64 = tx.query_row(
-                "SELECT COUNT(*) FROM clips
-                 WHERE id IN (SELECT CAST(value AS INTEGER) FROM json_each(?1))
-                   AND NULLIF(TRIM(shortcut), '') IS NOT NULL",
-                params![ids_json],
-                |row| row.get(0),
-            )?;
-            if shortcut_count > 0 {
-                return Err(rusqlite::Error::InvalidParameterName(
-                    "Remove the clip hotkey before removing explicit protection".into(),
-                ));
-            }
-        }
-        let mut changed_ids = Vec::new();
-        for id in ids {
-            let changed = tx.execute(
-                "UPDATE clips SET is_protected = ?1
-                 WHERE id = ?2 AND COALESCE(is_protected, 0) != ?1",
-                params![if protected_state { 1 } else { 0 }, id],
-            )?;
-            if changed > 0 {
-                changed_ids.push(id);
-            }
-        }
-        tx.commit()?;
-        if !changed_ids.is_empty() {
-            let event_type = if changed_ids.len() == 1 {
-                "clip_protected_toggled"
-            } else {
-                "clips_protected_toggled"
-            };
-            let verb = if protected_state {
-                "Protected"
-            } else {
-                "Unprotected"
-            };
-            let _ = self.log_activity_internal(
-                &conn,
-                event_type,
-                &format!("{} {}", verb, describe_clip_ids(&changed_ids)),
-            );
-        }
-        Ok(ClipMutationSummary::new(
-            if protected_state {
-                "protect"
-            } else {
-                "unprotect"
-            },
-            requested_count,
-            changed_ids,
-        ))
     }
 
     pub fn toggle_pin(&self, id: i64) -> Result<bool> {
@@ -13601,6 +13541,71 @@ mod tests {
             std::thread::current().id()
         ));
         DbState::new(db_file).expect("Failed to create test DB")
+    }
+
+    #[test]
+    fn additive_migrations_are_idempotent_without_swallowing_sqlite_failures() {
+        let connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute("CREATE TABLE example (id INTEGER)", [])
+            .unwrap();
+
+        add_column_if_missing(&connection, "example", "label", "TEXT").unwrap();
+        add_column_if_missing(&connection, "example", "label", "TEXT").unwrap();
+        assert!(column_exists(&connection, "example", "label").unwrap());
+
+        let error = add_column_if_missing(&connection, "missing_table", "label", "TEXT")
+            .expect_err("a missing migration target must fail startup");
+        assert!(error.to_string().contains("no such table"));
+    }
+
+    #[test]
+    fn named_migrations_mark_only_successful_atomic_steps() {
+        fn fail_after_write(conn: &Connection) -> Result<()> {
+            conn.execute("CREATE TABLE should_roll_back (id INTEGER)", [])?;
+            Err(rusqlite::Error::InvalidQuery)
+        }
+        fn succeed(conn: &Connection) -> Result<()> {
+            conn.execute("CREATE TABLE migrated_table (id INTEGER)", [])?;
+            Ok(())
+        }
+
+        let conn = Connection::open_in_memory().unwrap();
+        let failure = run_named_migrations(
+            &conn,
+            &[NamedMigration {
+                key: "failingV1",
+                apply: fail_after_write,
+            }],
+        );
+        assert!(failure.is_err());
+        assert!(!table_exists(&conn, "should_roll_back").unwrap());
+        let marked: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE key = 'failingV1')",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(!marked);
+
+        run_named_migrations(
+            &conn,
+            &[NamedMigration {
+                key: "successfulV1",
+                apply: succeed,
+            }],
+        )
+        .unwrap();
+        run_named_migrations(
+            &conn,
+            &[NamedMigration {
+                key: "successfulV1",
+                apply: succeed,
+            }],
+        )
+        .unwrap();
+        assert!(table_exists(&conn, "migrated_table").unwrap());
     }
 
     fn search_test_clips(db: &DbState, query: &str) -> Vec<ClipItem> {
@@ -20086,6 +20091,44 @@ mod tests {
         assert_eq!(cleared.is_explicitly_protected, Some(true));
         assert!(db.get_clip_hotkeys().unwrap().is_empty());
 
+        db.batch_protect_clips(vec![clip.id], false).unwrap();
+        assert!(!db.get_clip_by_id(clip.id).unwrap().is_protected);
+    }
+
+    #[test]
+    fn protecting_bin_blocks_unprotect_after_clip_hotkey_is_removed() {
+        let db = setup_test_db();
+        let bin = db
+            .create_bin("Protected Bin", "🛡️", "default", None)
+            .unwrap();
+        let clip = db
+            .save_clip(
+                "text",
+                Some("hotkey and bin protection"),
+                None,
+                None,
+                "hotkey-bin-protection-precedence",
+                "Tests",
+            )
+            .unwrap();
+
+        db.update_bin_protection(bin.id, true).unwrap();
+        db.update_clip_hotkey(clip.id, Some("Alt+Shift+8")).unwrap();
+        db.assign_to_bin(clip.id, Some(bin.id)).unwrap();
+        db.update_clip_hotkey(clip.id, None).unwrap();
+
+        let protected = db.get_clip_by_id(clip.id).unwrap();
+        assert!(protected.is_protected);
+        assert_eq!(protected.is_explicitly_protected, Some(true));
+        assert_eq!(protected.protecting_bin_ids, vec![bin.id]);
+        assert!(db.batch_protect_clips(vec![clip.id], false).is_err());
+        assert!(db
+            .get_clip_by_id(clip.id)
+            .unwrap()
+            .is_explicitly_protected
+            .unwrap());
+
+        db.assign_to_bin(clip.id, None).unwrap();
         db.batch_protect_clips(vec![clip.id], false).unwrap();
         assert!(!db.get_clip_by_id(clip.id).unwrap().is_protected);
     }

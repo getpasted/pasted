@@ -15,10 +15,12 @@ import { collectBackupClientState } from '../utils/backupClientState';
 import { SettingsSwitch } from './SettingsSwitch';
 import { useLocalization } from '../localization/LocalizationProvider';
 import { translate } from '../localization/runtime';
+import { activityApi } from '../api/activity';
+import { backupApi } from '../api/backup';
 
 interface SettingsSyncPanelProps {
   onRefreshBins?: () => void;
-  onRefreshPipelines?: () => void;
+  onRefreshManualTransforms?: () => void;
   onRefreshClips?: () => void;
   onRefreshTrashedClips?: () => void;
   analyticsEnabled?: boolean;
@@ -63,17 +65,6 @@ function loadStorageProtection(force = false): Promise<StorageProtectionInfo> {
       storageProtectionRequest = null;
     });
   return storageProtectionRequest;
-}
-
-interface FullBackupReport {
-  path: string;
-  createdAt: string;
-  sizeBytes: number;
-}
-
-interface FullRestoreReport {
-  recoveryPath: string;
-  backupCreatedAt: string;
 }
 
 interface LibraryArchiveInspection {
@@ -190,7 +181,7 @@ function ExportDataRow({
 
 export function SettingsSyncPanel({
   onRefreshBins,
-  onRefreshPipelines,
+  onRefreshManualTransforms,
   onRefreshClips,
   onRefreshTrashedClips,
   analyticsEnabled = false,
@@ -294,7 +285,7 @@ export function SettingsSyncPanel({
 
   const handleExport = async () => {
     try {
-      const savedPath = await invoke<string | null>('export_backup_file');
+      const savedPath = await backupApi.exportTransfer();
       if (savedPath) showToast({ tone: 'success', get message() { return translate('component.settingsSyncPanel.historyAndOrganizationDataExportedSuccessfully'); } });
     } catch (error) {
       console.error('History and organization export failed:', error);
@@ -305,8 +296,8 @@ export function SettingsSyncPanel({
   const downloadActivityExport = async (format: 'json' | 'csv') => {
     try {
       const contents = format === 'json'
-        ? await invoke<string>('export_activity_json')
-        : await invoke<string>('export_activity_csv');
+        ? await activityApi.exportJson()
+        : await activityApi.exportCsv();
       const url = URL.createObjectURL(new Blob([contents], {
         type: format === 'json' ? 'application/json' : 'text/csv',
       }));
@@ -346,7 +337,7 @@ export function SettingsSyncPanel({
     setIsInspectingImport(true);
     setImportInspectionError(null);
     try {
-      const inspection = await invoke<ImportFileInspection | null>('choose_import_file');
+      const inspection = await backupApi.chooseImport<ImportFileInspection>();
       if (inspection) setImportInspection(inspection);
     } catch (error) {
       console.error('Import file inspection failed:', error);
@@ -363,15 +354,15 @@ export function SettingsSyncPanel({
     const transitionStartedAt = performance.now();
     setIsImporting(true);
     try {
-      const report = await invoke<Record<string, number>>('import_inspected_file', {
-        path: selected.path,
-        kind: selected.kind,
-        format: selected.format,
-      });
+      const report = await backupApi.importInspected<Record<string, number>>(
+        selected.path,
+        selected.kind,
+        selected.format,
+      );
       if (selected.kind === 'organization') {
         await Promise.all([
           Promise.resolve(onRefreshBins?.()),
-          Promise.resolve(onRefreshPipelines?.()),
+          Promise.resolve(onRefreshManualTransforms?.()),
           Promise.resolve(onRefreshClips?.()),
           Promise.resolve(onRefreshTrashedClips?.()),
         ]);
@@ -435,9 +426,7 @@ export function SettingsSyncPanel({
   const handleCreateFullBackup = async () => {
     setIsCreatingFullBackup(true);
     try {
-      const report = await invoke<FullBackupReport | null>('export_full_backup_file', {
-        clientStateJson: collectBackupClientState(),
-      });
+      const report = await backupApi.exportFull(collectBackupClientState());
       if (report) showToast({ tone: 'success', get message() { return translate('component.settingsSyncPanel.fullBackupCreatedSuccessfully'); } });
     } catch (error) {
       console.error('Full backup creation failed:', error);
@@ -451,10 +440,10 @@ export function SettingsSyncPanel({
     setIsRestoreConfirmOpen(false);
     setIsRestoringFullBackup(true);
     try {
-      const report = await invoke<FullRestoreReport | null>('restore_full_backup_file', {
-        currentClientStateJson: collectBackupClientState(),
-        backupPath: importInspection?.kind === 'backup' ? importInspection.path : undefined,
-      });
+      const report = await backupApi.restoreFull(
+        collectBackupClientState(),
+        importInspection?.kind === 'backup' ? importInspection.path : undefined,
+      );
       if (!report) {
         setIsRestoringFullBackup(false);
         return;

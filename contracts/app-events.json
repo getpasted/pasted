@@ -1,0 +1,13 @@
+{
+  "APP_LOCK_CHANGED": { "typescript": "appLockChanged", "name": "app-lock-changed" },
+  "APP_MENU_ACTION": { "typescript": "appMenuAction", "name": "app-menu-action" },
+  "APP_SETTING_CHANGED": { "typescript": "appSettingChanged", "name": "app-setting-changed" },
+  "BLACKLIST_CLIP_IGNORED": { "typescript": "blacklistClipIgnored", "name": "blacklist-clip-ignored" },
+  "CLIPBOARD_PAUSE_CHANGED": { "typescript": "clipboardPauseChanged", "name": "clipboard-pause-changed" },
+  "CLIP_ADDED": { "typescript": "clipAdded", "name": "clip-added" },
+  "CLIP_LIBRARY_CHANGED": { "typescript": "clipLibraryChanged", "name": "clip-library-changed" },
+  "HOTKEY_REGISTRATION_CHANGED": { "typescript": "hotkeyRegistrationChanged", "name": "hotkey-registration-changed" },
+  "NAVIGATE_BIN": { "typescript": "navigateBin", "name": "navigate-bin" },
+  "NAVIGATE_TAB": { "typescript": "navigateTab", "name": "navigate-tab" },
+  "SEQUENTIAL_UPDATED": { "typescript": "sequentialUpdated", "name": "sequential-updated" }
+}

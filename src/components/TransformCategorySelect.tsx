@@ -6,7 +6,7 @@ import { translate } from '../localization/runtime';
 export type TransformCategoryOption = MenuSelectOption;
 
 interface TransformCategorySelectProps {
-  accent: 'pipelines' | 'operations';
+  accent: 'manual-transforms' | 'operations';
   value: string;
   options: TransformCategoryOption[];
   onChange: (value: string) => void;

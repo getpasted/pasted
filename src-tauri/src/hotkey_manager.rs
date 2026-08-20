@@ -7,7 +7,6 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 #[cfg(target_os = "linux")]
 use futures_util::StreamExt;
 
-use crate::commands;
 use crate::db::DbState;
 use crate::features::{self, Feature};
 use crate::sequential_paste::SequentialQueueState;
@@ -22,9 +21,9 @@ pub enum AppHotkeyAction {
     PopCopyQueue,
     PasteClip(usize),
     PasteClipById(i64),
-    PasteWithPipeline(String),
-    CopyWithLastPipeline,
-    PasteWithLastPipeline,
+    PasteWithManualTransform(String),
+    CopyWithLastManualTransform,
+    PasteWithLastManualTransform,
     OpenBin(i64),
 }
 
@@ -254,31 +253,30 @@ impl HotkeyManager {
 
         if feature_enabled(Feature::Transformations) {
             // Last-Transform hotkeys
-            let copy_last_pipeline_sc = get_setting("copyLastPipelineHotkey", "");
+            let copy_last_manual_transform_sc = get_setting("copyLastPipelineHotkey", "");
             add_hotkey(
                 "copy-last-transform".into(),
                 "Copy with the last Advanced Transform".into(),
-                copy_last_pipeline_sc,
-                AppHotkeyAction::CopyWithLastPipeline,
+                copy_last_manual_transform_sc,
+                AppHotkeyAction::CopyWithLastManualTransform,
             );
-            let paste_last_pipeline_sc = get_setting("pasteLastPipelineHotkey", "");
+            let paste_last_manual_transform_sc = get_setting("pasteLastPipelineHotkey", "");
             add_hotkey(
                 "paste-last-transform".into(),
                 "Paste with the last Advanced Transform".into(),
-                paste_last_pipeline_sc,
-                AppHotkeyAction::PasteWithLastPipeline,
+                paste_last_manual_transform_sc,
+                AppHotkeyAction::PasteWithLastManualTransform,
             );
 
             // Per-Transform hotkeys
-            for (id, name, hotkey) in db
-                .get_pipeline_hotkeys()
-                .map_err(|error| error.to_string())?
+            for (id, name, hotkey) in
+                crate::manual_transform_service::hotkeys(&db).map_err(|error| error.to_string())?
             {
                 add_hotkey(
                     format!("transform-{id}"),
                     format!("Run {name}"),
                     Some(hotkey),
-                    AppHotkeyAction::PasteWithPipeline(format!("transform:{id}")),
+                    AppHotkeyAction::PasteWithManualTransform(format!("transform:{id}")),
                 );
             }
         }
@@ -336,7 +334,7 @@ impl HotkeyManager {
         let mut hotkey_counts = HashMap::<Shortcut, usize>::new();
 
         for spec in specs {
-            let Some(shortcuts) = commands::parse_shortcut_str_for_current_layout(&spec.hotkey)
+            let Some(shortcuts) = crate::keyboard_shortcuts::parse_for_current_layout(&spec.hotkey)
             else {
                 issues.push(HotkeyRegistrationIssue {
                     hotkey: spec.hotkey,
@@ -667,7 +665,7 @@ impl HotkeyManager {
         if matches!(&action, AppHotkeyAction::LockApp) {
             let db = app.state::<Arc<DbState>>();
             let state = app.state::<Arc<crate::app_lock::AppLockState>>();
-            let status = match commands::lock_app_state(&db, &state) {
+            let status = match crate::app_lock::lock_enabled(&db, &state) {
                 Ok(status) => status,
                 Err(error) => {
                     eprintln!("[Pasted Hotkeys] Could not lock Pasted: {error}");
@@ -700,7 +698,7 @@ impl HotkeyManager {
         let clipboard_action_guard = Arc::clone(&self.clipboard_action_guard);
         if let Err(error) = app.run_on_main_thread(move || match action {
             AppHotkeyAction::ToggleHud => {
-                let _ = commands::toggle_hud_window(app_handle.clone());
+                let _ = crate::hud_window::toggle(&app_handle);
             }
             AppHotkeyAction::ToggleMainWindow => {
                 if let Some(w) = app_handle.get_webview_window("main") {
@@ -749,7 +747,7 @@ impl HotkeyManager {
                     };
                     let seq = queue_app.state::<Arc<SequentialQueueState>>();
                     let db = queue_app.state::<Arc<DbState>>();
-                    let _ = commands::paste_next_queue_item(&seq, &db, &queue_app);
+                    let _ = crate::queue_actions::paste_item(&seq, &db, &queue_app, 0, false);
                 });
             }
             AppHotkeyAction::PasteClip(index) => {
@@ -773,7 +771,9 @@ impl HotkeyManager {
                     let Some(clip) = clips.first() else {
                         return;
                     };
-                    if let Err(error) = commands::paste_clip_from_hud(&db, &paste_app, clip.id) {
+                    if let Err(error) =
+                        crate::clipboard_actions::paste_hud_clip(&db, &paste_app, clip.id)
+                    {
                         eprintln!("[Pasted HUD] {error}");
                     }
                 });
@@ -788,12 +788,36 @@ impl HotkeyManager {
                     let Some(db) = paste_app.try_state::<Arc<DbState>>() else {
                         return;
                     };
-                    if let Err(error) = commands::paste_clip_from_hotkey(&db, &paste_app, clip_id) {
+                    if let Err(error) = crate::clipboard_actions::paste_clip(
+                        &db,
+                        &paste_app,
+                        clip_id,
+                        crate::clipboard_actions::PasteOrigin::ClipHotkey,
+                    ) {
                         eprintln!("[Pasted Clip Hotkey] {error}");
                     }
                 });
             }
-            AppHotkeyAction::PasteWithPipeline(pipeline_ref) => {
+            AppHotkeyAction::PasteWithManualTransform(manual_transform_ref) => {
+                let transform_app = app_handle.clone();
+                let action_guard = Arc::clone(&clipboard_action_guard);
+                std::thread::spawn(move || {
+                    let Some(_execution) = action_guard.try_lock() else {
+                        return;
+                    };
+                    let Some(db) = transform_app.try_state::<Arc<DbState>>() else {
+                        return;
+                    };
+                    if let Err(error) = crate::clipboard_actions::execute_transform(
+                        &db,
+                        Some(&manual_transform_ref),
+                        true,
+                    ) {
+                        eprintln!("[Pasted Transform Hotkey] {error}");
+                    }
+                });
+            }
+            AppHotkeyAction::CopyWithLastManualTransform => {
                 let transform_app = app_handle.clone();
                 let action_guard = Arc::clone(&clipboard_action_guard);
                 std::thread::spawn(move || {
@@ -804,13 +828,13 @@ impl HotkeyManager {
                         return;
                     };
                     if let Err(error) =
-                        commands::execute_clipboard_pipeline(&db, Some(&pipeline_ref), true)
+                        crate::clipboard_actions::execute_transform(&db, None, false)
                     {
-                        eprintln!("[Pasted Transform Hotkey] {error}");
+                        eprintln!("[Pasted Last Manual Transform Copy] {error}");
                     }
                 });
             }
-            AppHotkeyAction::CopyWithLastPipeline => {
+            AppHotkeyAction::PasteWithLastManualTransform => {
                 let transform_app = app_handle.clone();
                 let action_guard = Arc::clone(&clipboard_action_guard);
                 std::thread::spawn(move || {
@@ -820,23 +844,9 @@ impl HotkeyManager {
                     let Some(db) = transform_app.try_state::<Arc<DbState>>() else {
                         return;
                     };
-                    if let Err(error) = commands::execute_clipboard_pipeline(&db, None, false) {
-                        eprintln!("[Pasted Last Pipeline Copy] {error}");
-                    }
-                });
-            }
-            AppHotkeyAction::PasteWithLastPipeline => {
-                let transform_app = app_handle.clone();
-                let action_guard = Arc::clone(&clipboard_action_guard);
-                std::thread::spawn(move || {
-                    let Some(_execution) = action_guard.try_lock() else {
-                        return;
-                    };
-                    let Some(db) = transform_app.try_state::<Arc<DbState>>() else {
-                        return;
-                    };
-                    if let Err(error) = commands::execute_clipboard_pipeline(&db, None, true) {
-                        eprintln!("[Pasted Last Pipeline Paste] {error}");
+                    if let Err(error) = crate::clipboard_actions::execute_transform(&db, None, true)
+                    {
+                        eprintln!("[Pasted Last Manual Transform Paste] {error}");
                     }
                 });
             }
@@ -1352,7 +1362,7 @@ mod tests {
     #[test]
     fn test_hotkey_manager_maps_actions() {
         let mgr = HotkeyManager::new();
-        let sc = commands::parse_shortcut_str("CmdOrCtrl+Shift+V").unwrap();
+        let sc = crate::keyboard_shortcuts::parse("CmdOrCtrl+Shift+V").unwrap();
 
         {
             let mut map = mgr.action_map.write();

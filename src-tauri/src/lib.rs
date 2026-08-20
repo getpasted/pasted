@@ -1,10 +1,14 @@
 pub mod analysis_contract;
 pub mod analysis_execution;
+pub mod app_event_names;
+pub mod app_events;
 mod app_exclusions;
 pub mod app_lock;
 mod app_menu;
+pub mod application_error;
 pub mod bin_assignment;
 pub mod classification_execution;
+pub mod clipboard_actions;
 mod clipboard_fingerprint;
 mod clipboard_monitor;
 mod commands;
@@ -22,6 +26,7 @@ pub mod extractor_recipe;
 pub mod features;
 mod filter_engine;
 mod hotkey_manager;
+pub mod hud_window;
 pub mod inspection_execution;
 pub mod installation_diagnostics;
 pub mod intelligence_connections;
@@ -29,20 +34,26 @@ pub mod intelligence_executor;
 mod intelligence_provider;
 mod intelligence_scheduler;
 mod keyboard_layout;
+pub mod keyboard_shortcuts;
 pub mod library_items;
 pub mod library_storage;
 #[cfg(target_os = "linux")]
 mod linux_native_theme;
 pub mod live_app;
 pub mod localization;
+pub mod manual_transform_service;
 pub mod ocr;
 #[cfg(test)]
 mod operation_plugins;
 mod operation_registry;
+pub mod paste_automation;
 mod paste_target;
+pub mod platform_capabilities;
+pub mod queue_actions;
 pub mod resource_limits;
 mod sequential_paste;
 pub mod settings_activity;
+pub mod settings_service;
 pub mod smart_bins;
 pub mod storage_protection;
 pub mod suggestion_execution;
@@ -409,7 +420,7 @@ pub fn run() {
                 }
             }
 
-            // Register all saved HUD, Pipeline, Bin, and clip hotkeys.
+            // Register all saved HUD, Manual Transform, Bin, and clip hotkeys.
             keyboard_layout::start_layout_monitor(app.handle().clone());
             let _ = commands::register_all_app_shortcuts(app.handle());
 
@@ -611,12 +622,12 @@ pub fn run() {
             commands::create_bin,
             commands::update_bin,
             commands::delete_bin,
-            commands::get_pipelines,
-            commands::create_pipeline,
-            commands::update_pipeline,
-            commands::update_pipeline_hotkey,
-            commands::delete_pipeline,
-            commands::preview_pipeline_steps,
+            commands::get_manual_transforms,
+            commands::create_manual_transform,
+            commands::update_manual_transform,
+            commands::update_manual_transform_hotkey,
+            commands::delete_manual_transform,
+            commands::preview_manual_transform_steps,
             commands::get_operations,
             commands::get_intelligence_connections,
             commands::detect_intelligence_connections,

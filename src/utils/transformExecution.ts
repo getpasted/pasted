@@ -12,7 +12,7 @@ import { safeInvoke as invoke } from './tauri';
 export type TransformationExecutionTarget =
   | { kind: 'transform'; transformRef: string }
   | { kind: 'operation'; operationRef: string }
-  | { kind: 'pipeline'; pipelineRef: string };
+  | { kind: 'manual_transform'; transformRef: string };
 
 interface RunTransformationOptions {
   sourceClipId?: number | null;
@@ -71,7 +71,7 @@ export function runTransformation(
   return startTransformation(input, target, options).promise;
 }
 
-export function startPipelinePreview(
+export function startManualTransformPreview(
   input: string,
   steps: Array<{
     operationRef: string;
@@ -82,7 +82,7 @@ export function startPipelinePreview(
   const clientRequestId = createRequestId();
   return {
     clientRequestId,
-    promise: invoke<string>('preview_pipeline_steps', { input, steps, clientRequestId }),
+    promise: invoke<string>('preview_manual_transform_steps', { input, steps, clientRequestId }),
     cancel: () => cancelTransformRequest(clientRequestId),
   };
 }

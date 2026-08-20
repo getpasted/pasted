@@ -14,6 +14,7 @@ const settingsCatalogCopy = [...settings.matchAll(/translate\('([^']+)'/g)]
   })
   .join('\n');
 const reset = read('src/components/SettingsResetPanel.tsx');
+const backupApi = read('src/api/backup.ts');
 const clientState = read('src/utils/backupClientStateCodec.ts');
 
 assert.match(database, /rusqlite::backup::Backup::new/, 'Full Backup must use SQLite online backup semantics');
@@ -28,20 +29,26 @@ assert.match(
 );
 assert.match(database, /full_backup_round_trip_covers_every_durable_table_and_interface_state/, 'Full Backup must have a table-coverage round-trip test');
 assert.match(database, /full_restore_rejects_invalid_embedded_state_before_replacing_library/, 'Full Restore must test pre-activation rejection');
+assert.doesNotMatch(database, /let _ = conn\.execute\("ALTER TABLE/,
+  'Schema migrations must not swallow ALTER TABLE failures');
+assert.match(database, /fn add_column_if_missing/,
+  'Additive schema migrations must explicitly distinguish existing columns from failures');
 
 for (const command of ['export_full_backup_file', 'restore_full_backup_file']) {
   assert.match(commands, new RegExp(`pub async fn ${command}`), `GUI must expose ${command}`);
 }
 assert.match(cli, /"backup" =>/, 'CLI must expose the shared full-backup workflow');
 assert.match(cli, /"restore" =>[\s\S]*?--yes/, 'CLI Full Restore must require explicit confirmation');
-assert.match(reset, /export_full_backup_file/, 'Factory Reset must offer a truthful Full Backup safeguard');
+assert.match(reset, /backupApi\.exportFull/, 'Factory Reset must offer a truthful Full Backup safeguard through the Backup client');
+assert.match(backupApi, /export_full_backup_file/, 'The Backup client must expose Full Backup creation');
 assert.match(clientState, /BACKED_UP_LOCAL_STORAGE_KEYS/, 'Full Backup must carry meaningful interface state');
 assert.match(database, /preflight_library_archive\(&payload\)/, 'Portable transfer must complete preflight before opening a write transaction');
 assert.match(database, /inspect_library_archive_json/, 'Portable-transfer preflight must be independently testable');
 assert.match(database, /library_archive_reimport_updates_stable_identities_without_duplicates/, 'Portable transfer must retain an idempotence regression test');
 assert.match(commands, /pub async fn choose_import_file[\s\S]*?inspect_library_archive_json/, 'The GUI file chooser must preflight portable transfers asynchronously');
 assert.match(commands, /choose_import_file[\s\S]*?spawn_blocking/, 'File validation must not block the app UI thread');
-assert.match(settings, /choose_import_file/, 'The GUI import must inspect a file before presenting an action');
+assert.match(settings, /backupApi\.chooseImport/, 'The GUI import must inspect a file before presenting an action');
+assert.match(backupApi, /choose_import_file/, 'The Backup client must expose inspected file selection');
 assert.match(settings, /translate\('component\.settingsSyncPanel\.updatesRecognizableMatchesAddsNewDataAndKeepsUnrelatedData'\)/,
   'The GUI must explain merge semantics');
 

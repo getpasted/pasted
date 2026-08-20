@@ -3,7 +3,7 @@ import fs from 'node:fs';
 
 const read = (path) => fs.readFileSync(path, 'utf8');
 const englishCatalog = JSON.parse(read('src/locales/en.json'));
-const pipelineEditor = read('src/components/PipelineEditorModal.tsx');
+const manualTransformEditor = read('src/components/ManualTransformEditorModal.tsx');
 const commands = read('src-tauri/src/commands.rs');
 const service = read('src-tauri/src/transformation_service.rs');
 const suggestion = read('src-tauri/src/content_suggestions.rs');
@@ -20,22 +20,22 @@ const transformationPlayground = read('src/components/TransformationPlayground.t
 const cli = read('src-tauri/src/bin/pasted_cli.rs');
 const transformStorageDecision = read('docs/TRANSFORM_STORAGE_DECISION.md');
 const compactEditorTypography = [
-  'src/components/PipelineEditorModal.tsx',
+  'src/components/ManualTransformEditorModal.tsx',
   'src/components/OperationEditorModal.tsx',
   'src/components/IntentTransformComposer.tsx',
   'src/components/TransformationLibrary.tsx',
 ].map(read).join('\n');
 
-assert.match(pipelineEditor, /startPipelinePreview\(testInput, steps\.map\(compilePipelineStep\)\)/,
-  'The Pipeline editor must preview the complete unsaved Pipeline through the shared executor');
-assert.doesNotMatch(pipelineEditor, /invoke<string>\('transform_text'/,
-  'The Pipeline editor must not preview built-ins through the legacy bridge');
-assert.match(commands, /pub async fn preview_pipeline_steps/,
-  'The GUI must expose canonical unsaved Pipeline previews');
-assert.match(service, /pub fn preview_pipeline_steps/,
-  'Unsaved Pipeline preview must live in the shared Rust transformation service');
+assert.match(manualTransformEditor, /startManualTransformPreview\(testInput, steps\.map\(compileManualTransformStep\)\)/,
+  'The Manual Transform editor must preview the complete unsaved manual Transform through the shared executor');
+assert.doesNotMatch(manualTransformEditor, /invoke<string>\('transform_text'/,
+  'The Manual Transform editor must not preview built-ins through the legacy bridge');
+assert.match(commands, /pub async fn preview_manual_transform_steps/,
+  'The GUI must expose canonical unsaved manual Transform previews');
+assert.match(service, /pub fn preview_manual_transform_steps/,
+  'Unsaved manual Transform preview must live in the shared Rust transformation service');
 assert.match(service, /unsaved_pipeline_preview_uses_the_canonical_operation_executor/,
-  'Canonical Pipeline preview must retain native regression coverage');
+  'Canonical manual Transform preview must retain native regression coverage');
 assert.doesNotMatch(compactEditorTypography, /\btext-(?:sm|base|lg|xl|2xl)\b/,
   'Transformation editors must use the compact GUI typography scale');
 assert.doesNotMatch(operationEditor, /<datalist|list="custom-operation-categories"/,
@@ -56,8 +56,8 @@ assert.equal(englishCatalog['component.transformationPlayground.runATransformOrO
   'Run a Transform or Operation without changing a clip.');
 assert.match(cli, /db\.get_transform_definitions\(\)\?/,
   'The primary Transform CLI listing must use the canonical definition facade');
-assert.match(service, /ExecutionTarget::Pipeline \{ pipeline_ref \} => ExecutionTarget::Transform/,
-  'The canonical Transform executor must normalize legacy Pipeline targets immediately');
+assert.match(service, /ExecutionTarget::ManualTransform \{ transform_ref \} => ExecutionTarget::Transform/,
+  'The canonical Transform executor must normalize manual Transform targets immediately');
 assert.match(cli, /let target = ExecutionTarget::Transform/,
   'The primary Transform CLI runner must remain storage-agnostic');
 for (const lifecycleCommand of ['"get"', '"create" | "new"', '"update" | "edit"', '"duplicate" | "copy"', '"delete" | "remove"']) {
@@ -77,7 +77,7 @@ assert.match(database, /legacy_pipelines_migrate_atomically_to_canonical_transfo
 assert.match(transformStorageDecision, /stores every reusable Transform in `saved_transforms`/,
   'The 1.0 storage decision must document the canonical single-table model');
 
-for (const command of ['create_pipeline', 'delete_pipeline']) {
+for (const command of ['create_manual_transform', 'delete_manual_transform']) {
   const start = commands.indexOf(`pub fn ${command}`);
   assert.notEqual(start, -1, `${command} must remain available`);
   const body = commands.slice(start, start + 900);

@@ -15,6 +15,7 @@ interface LocalizationContextValue {
   configuredLanguage: string;
   locale: string;
   direction: 'ltr' | 'rtl';
+  catalogReady: boolean;
   locales: readonly LocaleDefinition[];
   t: typeof translate;
   formatNumber: (value: number, options?: Intl.NumberFormatOptions) => string;
