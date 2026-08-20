@@ -200,6 +200,8 @@ jobs:
             librsvg2-dev \
             patchelf
       - run: npm ci
+      - name: Build headless CLI
+        run: cargo build --manifest-path src-tauri/Cargo.toml --locked --release --no-default-features --features cli --bin pasted
       - run: npm run tauri -- build --bundles appimage
       - name: Extract Linux AppImage payload for SBOM
         run: |
@@ -258,6 +260,8 @@ jobs:
         with:
           workspaces: src-tauri
       - run: npm ci
+      - name: Build headless CLI
+        run: cargo build --manifest-path src-tauri/Cargo.toml --locked --release --no-default-features --features cli --bin pasted
       - name: Build unsigned Windows installer
         run: npm run tauri -- build --bundles nsis
       - name: Extract Windows installer payload for SBOM

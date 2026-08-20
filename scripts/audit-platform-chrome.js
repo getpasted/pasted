@@ -116,8 +116,13 @@ assert.match(linuxThemeSource, /gtk::StyleContext::add_provider_for_screen/);
 assert.match(linuxThemeSource, /menubar > menuitem:hover/);
 assert.match(
   cargoManifest,
-  /arboard = \{ version = "3\.4", features = \["wayland-data-control"\] \}/,
-  'Linux clipboard history needs Wayland data-control instead of an XWayland fallback',
+  /arboard = \{ version = "3\.4", features = \["wayland-data-control"\], optional = true \}/,
+  'Linux clipboard history needs an optional Wayland data-control dependency instead of an XWayland fallback',
+);
+assert.match(
+  cargoManifest,
+  /gui = \[[\s\S]*"dep:arboard"[\s\S]*\]/,
+  'The GUI feature must retain ownership of clipboard integration',
 );
 assert.match(windowDragSource, /isInteractiveTitlebarTarget\(event\.target\)/);
 assert.match(windowDragSource, /document\.documentElement\.dataset\.platform !== 'macos'/);

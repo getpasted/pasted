@@ -193,7 +193,9 @@ jobs:
           workspaces: src-tauri
           shared-key: native-debug1-macos
       - name: Compile native tests and binaries
-        run: cargo test --manifest-path src-tauri/Cargo.toml --no-run --locked
+        run: |
+          cargo test --manifest-path src-tauri/Cargo.toml --no-run --locked
+          cargo check --manifest-path src-tauri/Cargo.toml --locked --no-default-features --features cli --bin pasted
 
   smoke-linux:
     name: Smoke Linux x86_64
@@ -245,7 +247,9 @@ jobs:
           workspaces: src-tauri
           shared-key: native-debug1-windows
       - name: Compile native tests and binaries
-        run: cargo test --manifest-path src-tauri/Cargo.toml --no-run --locked
+        run: |
+          cargo test --manifest-path src-tauri/Cargo.toml --no-run --locked
+          cargo check --manifest-path src-tauri/Cargo.toml --locked --no-default-features --features cli --bin pasted
 
   package:
     name: Package ${{ matrix.name }}
@@ -298,6 +302,8 @@ jobs:
             librsvg2-dev \
             patchelf
       - run: npm ci
+      - name: Build headless CLI
+        run: cargo build --manifest-path src-tauri/Cargo.toml --locked --release --no-default-features --features cli --bin pasted
       - name: Build Linux AppImage
         if: runner.os == 'Linux'
         run: npm run tauri -- build --bundles appimage

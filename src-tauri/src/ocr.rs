@@ -1,19 +1,23 @@
+#[cfg(feature = "gui")]
 pub struct OcrTask {
     pub clip_id: i64,
     pub content_hash: String,
     pub image_bytes: Vec<u8>,
 }
 
+#[cfg(feature = "gui")]
 enum OcrRequest {
     Clip(OcrTask),
     Backfill,
 }
 
+#[cfg(feature = "gui")]
 pub struct OcrService {
     sender: std::sync::mpsc::Sender<OcrRequest>,
     backfill_cancelled: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
+#[cfg(feature = "gui")]
 impl OcrService {
     pub fn enqueue(&self, task: OcrTask) -> Result<(), String> {
         self.sender
@@ -49,6 +53,7 @@ pub fn decode_stored_image(value: &str) -> Option<Vec<u8>> {
         })
 }
 
+#[cfg(feature = "gui")]
 fn execute_task<Notify>(
     db_state: &crate::db::DbState,
     task: OcrTask,
@@ -102,6 +107,7 @@ fn execute_task<Notify>(
     }
 }
 
+#[cfg(feature = "gui")]
 fn perform_task(app: &tauri::AppHandle, db_state: &crate::db::DbState, task: OcrTask) {
     use tauri::Emitter;
     let Ok(extractors) = db_state.active_image_text_extractors_for_features(true) else {
@@ -122,6 +128,7 @@ fn perform_task(app: &tauri::AppHandle, db_state: &crate::db::DbState, task: Ocr
     });
 }
 
+#[cfg(feature = "gui")]
 fn run_backfill_candidates<Ready, Process>(
     db_state: &crate::db::DbState,
     cancelled: &std::sync::atomic::AtomicBool,
@@ -146,6 +153,7 @@ fn run_backfill_candidates<Ready, Process>(
     }
 }
 
+#[cfg(feature = "gui")]
 pub fn spawn_ocr_worker(
     app: tauri::AppHandle,
     db_state: std::sync::Arc<crate::db::DbState>,
@@ -218,7 +226,7 @@ pub fn spawn_ocr_worker(
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "gui"))]
 mod tests {
     use super::*;
     use std::sync::atomic::{AtomicBool, Ordering};

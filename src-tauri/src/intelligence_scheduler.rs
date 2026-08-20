@@ -9,6 +9,7 @@ const RECENT_EVENT_LIMIT: usize = 80;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(not(feature = "gui"), allow(dead_code))]
 pub struct SchedulerJobSnapshot {
     pub id: String,
     pub client_request_id: Option<String>,
@@ -37,6 +38,7 @@ pub struct SchedulerEventSnapshot {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(not(feature = "gui"), allow(dead_code))]
 pub struct SchedulerSnapshot {
     pub revision: u64,
     pub active_count: usize,
@@ -53,7 +55,9 @@ struct ScheduledJob {
     connection_name: String,
     label: String,
     status: &'static str,
+    #[cfg_attr(not(feature = "gui"), allow(dead_code))]
     queued_at: Instant,
+    #[cfg_attr(not(feature = "gui"), allow(dead_code))]
     queued_at_ms: u64,
     started_at: Option<Instant>,
     started_at_ms: Option<u64>,
@@ -312,6 +316,7 @@ pub fn acquire(
     }
 }
 
+#[cfg_attr(not(feature = "gui"), allow(dead_code))]
 pub fn snapshot() -> SchedulerSnapshot {
     let scheduler = scheduler();
     let state = scheduler
