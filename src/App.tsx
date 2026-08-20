@@ -1,7 +1,5 @@
-import { lazy, Suspense, useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { lazy, Suspense, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { safeInvoke as invoke } from './utils/tauri';
-import { getCurrentWindow } from '@tauri-apps/api/window';
-import { APP_EVENTS } from './utils/appEvents';
 import { ClipItem, Bin, getClipFileSummary } from './types';
 import { Sidebar } from './components/Sidebar';
 import { ClipCard } from './components/ClipCard';
@@ -9,12 +7,9 @@ import { EmptyClipList } from './components/EmptyClipList';
 import { PinnedClipShelf } from './components/PinnedClipShelf';
 import { ClipPreview } from './components/ClipPreview';
 import { SequentialQueueBar } from './components/SequentialQueueBar';
-import type { TransformWorkspace } from './components/TransformWorkspaceHeader';
-import type { SettingsTab } from './components/SettingsTabs';
 import { BinModal } from './components/BinModal';
 import { ContextMenu } from './components/ContextMenu';
 import { QuickHudWindow } from './components/QuickHudWindow';
-import type { HelpTopic } from './components/HelpView';
 import { BinContextMenu } from './components/BinContextMenu';
 import { DeleteBinDialog } from './components/DeleteBinDialog';
 import { ClipNoteDialog } from './components/ClipNoteDialog';
@@ -30,127 +25,35 @@ import { getClipViewPolicy } from './utils/clipViewPolicy';
 import { getClipCollection, type ClipDropAction } from './utils/clipCollections';
 import { sortClipsForTimeline } from './utils/clipOrder';
 import { useAppData } from './hooks/useAppData';
-import { dismissStartupSplash } from './utils/startupSplash';
 import { useClipActions } from './hooks/useClipActions';
 import { Clipboard, Trash2, Pause, Disc, Square, Pin, Search, X } from 'lucide-react';
-import { enabledFeatureRecord, featureForRoute } from './utils/features';
+import { enabledFeatureRecord } from './utils/features';
 import { FeatureProvider } from './hooks/useFeatures';
-import { ACTUAL_SIZE, stepAppZoom } from './utils/appZoom';
 import { soundManager } from './utils/sound';
 import { WelcomeSetup } from './components/WelcomeSetup';
-import {
-  readAppUiState,
-  writeAppUiState,
-  type SidebarSectionId,
-  type SidebarSectionState,
-} from './utils/appUiState';
+import { readAppUiState } from './utils/appUiState';
 import './App.css';
-import { consumePendingBackupClientState } from './utils/backupClientState';
 import { useLocalization } from './localization/LocalizationProvider';
 import { translate } from './localization/runtime';
 import { localizedSourceName } from './localization/presentation';
 import { MacRtlWindowControls } from './components/MacRtlWindowControls';
 import { SearchErrorNotice } from './components/SearchErrorNotice';
-import { useAppEvent } from './hooks/useAppEvent';
 import { clipsApi } from './api/clips';
 import { binsApi } from './api/bins';
+import { useAppNavigation } from './hooks/useAppNavigation';
+import { useAppShell } from './hooks/useAppShell';
+import { useAppMenuActions } from './hooks/useAppMenuActions';
+import { useClipSelectionController } from './hooks/useClipSelectionController';
+import { useClipListViewport } from './hooks/useClipListViewport';
 const TransformationsView = lazy(() => import('./components/TransformationsView').then(({ TransformationsView: component }) => ({ default: component })));
 const SettingsModal = lazy(() => import('./components/SettingsModal').then(({ SettingsModal: component }) => ({ default: component })));
 const ActivityLogView = lazy(() => import('./components/ActivityLogView').then(({ ActivityLogView: component }) => ({ default: component })));
 const AnalyticsView = lazy(() => import('./components/AnalyticsView').then(({ AnalyticsView: component }) => ({ default: component })));
 const HelpView = lazy(() => import('./components/HelpView').then(({ HelpView: component }) => ({ default: component })));
 
-const TRANSIENT_SCROLL_SURFACE_SELECTOR = [
-  '.surface-scroll-region',
-  '.theme-menu',
-  '.theme-panel',
-  '.theme-surface',
-  '.theme-card-idle',
-  '.theme-code-surface',
-  '.app-dialog-panel',
-  '.settings-panel',
-  '.tools-scroll-region',
-  '.overlay-scroll-region',
-  '.custom-scrollbar',
-].join(', ');
-
 export default function App() {
   const { catalogReady, direction, locale } = useLocalization();
-  const previousTitlebarDirectionRef = useRef(direction);
   const [restoredUiState] = useState(readAppUiState);
-  const [isHudView, setIsHudView] = useState<boolean>(false);
-
-  useEffect(() => {
-    void consumePendingBackupClientState()
-      .then((restored) => {
-        if (restored) window.location.reload();
-      })
-      .catch((error) => console.error('Failed to restore backed-up interface state:', error));
-  }, []);
-
-  useEffect(() => {
-    if (document.documentElement.dataset.platform !== 'macos') return undefined;
-    const previousDirection = previousTitlebarDirectionRef.current;
-    previousTitlebarDirectionRef.current = direction;
-    if (direction === 'ltr' && previousDirection !== 'rtl') return undefined;
-    void invoke('set_titlebar_direction', { rtl: direction === 'rtl' })
-      .catch((error) => console.error('Failed to update titlebar direction:', error));
-    return undefined;
-  }, [direction]);
-
-  useEffect(() => {
-    const hideTimers = new Map<HTMLElement, number>();
-    const markSurfaceScrolling = (target: HTMLElement) => {
-      target.classList.add('is-scrolling');
-      const previousTimer = hideTimers.get(target);
-      if (previousTimer) window.clearTimeout(previousTimer);
-      hideTimers.set(target, window.setTimeout(() => {
-        target.classList.remove('is-scrolling');
-        hideTimers.delete(target);
-      }, 700));
-    };
-    const findScrollSurface = (event: Event) => event.composedPath().find(
-      (candidate): candidate is HTMLElement => candidate instanceof HTMLElement
-        && candidate.matches(TRANSIENT_SCROLL_SURFACE_SELECTOR),
-    );
-    const handleSurfaceScroll = (event: Event) => {
-      const target = findScrollSurface(event);
-      if (target) markSurfaceScrolling(target);
-    };
-    const handleSurfaceWheel = (event: WheelEvent) => {
-      const target = findScrollSurface(event);
-      if (target && target.scrollHeight > target.clientHeight) markSurfaceScrolling(target);
-    };
-
-    document.addEventListener('scroll', handleSurfaceScroll, true);
-    document.addEventListener('wheel', handleSurfaceWheel, { capture: true, passive: true });
-    return () => {
-      document.removeEventListener('scroll', handleSurfaceScroll, true);
-      document.removeEventListener('wheel', handleSurfaceWheel, true);
-      hideTimers.forEach((timer) => window.clearTimeout(timer));
-    };
-  }, []);
-
-  useEffect(() => {
-    const enableHudMode = () => {
-      setIsHudView(true);
-      document.documentElement.classList.add('hud-mode');
-      document.body.classList.add('hud-mode');
-      const root = document.getElementById('root');
-      if (root) root.classList.add('hud-mode');
-    };
-
-    try {
-      const win = getCurrentWindow();
-      if (win.label === 'hud' || window.location.search.includes('view=hud')) {
-        enableHudMode();
-      }
-    } catch {
-      if (window.location.search.includes('view=hud')) {
-        enableHudMode();
-      }
-    }
-  }, []);
 
   const {
     appSettings,
@@ -199,150 +102,49 @@ export default function App() {
     emptyTrash: handleEmptyTrash,
   } = useAppData();
 
-  useEffect(() => {
-    const splash = document.getElementById('startup-splash');
-    if (!splash) return;
-    if (isHudView && catalogReady) {
-      splash.remove();
-      return;
-    }
-    if (!catalogReady || !settingsHydrated || !initialDataLoaded) return;
-
-    return dismissStartupSplash(splash);
-  }, [catalogReady, initialDataLoaded, isHudView, settingsHydrated]);
-
-  useEffect(() => {
-    if (!catalogReady || !settingsHydrated || !initialDataLoaded) return undefined;
-    document.documentElement.dataset.pastedContentReady = 'true';
-    window.dispatchEvent(new Event('pasted-app-content-ready'));
-    return () => {
-      delete document.documentElement.dataset.pastedContentReady;
-    };
-  }, [catalogReady, initialDataLoaded, settingsHydrated]);
+  const { isHudView } = useAppShell({
+    catalogReady,
+    direction,
+    settingsHydrated,
+    initialDataLoaded,
+  });
 
   const [selectedClip, setSelectedClip] = useState<ClipItem | null>(null);
   const [selectedClipIds, setSelectedClipIds] = useState<Set<number>>(new Set());
   const [hoveredClipId, setHoveredClipId] = useState<number | null>(null);
-  const [, setSelectedIndex] = useState<number>(-1);
-  const [currentTab, setCurrentTab] = useState<string>(restoredUiState.currentTab);
-  const startupViewAppliedRef = useRef(false);
-  const [activeSettingsTab, setActiveSettingsTab] = useState<SettingsTab>(restoredUiState.settingsTab);
-  const [activeHelpTopic, setActiveHelpTopic] = useState<HelpTopic>(restoredUiState.helpTopic);
-  const [activeTransformWorkspace, setActiveTransformWorkspace] = useState<TransformWorkspace>(restoredUiState.transformWorkspace);
-  const [selectedBinId, setSelectedBinId] = useState<number | null>(restoredUiState.selectedBinId);
-  const lastClipViewRef = useRef<{ tab: string; binId: number | null }>({
-    tab: restoredUiState.currentTab,
-    binId: restoredUiState.selectedBinId,
+  const {
+    currentTab,
+    activeSettingsTab,
+    setActiveSettingsTab,
+    activeHelpTopic,
+    setActiveHelpTopic,
+    activeTransformWorkspace,
+    setActiveTransformWorkspace,
+    selectedBinId,
+    setSelectedBinId,
+    searchQuery,
+    setSearchQuery,
+    isSidebarCollapsed,
+    setIsSidebarCollapsed,
+    sidebarSections,
+    handleSidebarSectionStateChange,
+    navigateToTab,
+    enterSearchView,
+    exitEmptySearch,
+  } = useAppNavigation({
+    restoredUiState,
+    enabledFeatures,
+    bins,
+    startupView: appSettings.startupView,
+    settingsHydrated,
+    initialDataLoaded,
+    isHudView,
+    selectedClipId: selectedClip?.id ?? null,
   });
-  const selectionViewKey = currentTab === 'bin' ? `bin:${selectedBinId ?? 'none'}` : `section:${currentTab}`;
-  const selectedClipByViewRef = useRef<Map<string, number | null>>(new Map([
-    [
-      restoredUiState.currentTab === 'bin'
-        ? `bin:${restoredUiState.selectedBinId ?? 'none'}`
-        : `section:${restoredUiState.currentTab}`,
-      restoredUiState.selectedClipId,
-    ],
-  ]));
-  const activeSelectionViewRef = useRef<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState<string>('');
   const [isBinModalOpen, setIsBinModalOpen] = useState<boolean>(false);
   const [editingBin, setEditingBin] = useState<Bin | null>(null);
   const [clearHistoryMode, setClearHistoryMode] = useState<ClearHistoryMode | null>(null);
   const isClearConfirmOpen = clearHistoryMode !== null;
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(restoredUiState.isSidebarCollapsed);
-  const [sidebarSections, setSidebarSections] = useState<SidebarSectionState>(restoredUiState.sidebarSections);
-
-  const handleSidebarSectionStateChange = useCallback((section: SidebarSectionId, open: boolean) => {
-    setSidebarSections((previous) => previous[section] === open
-      ? previous
-      : { ...previous, [section]: open });
-  }, []);
-
-  const clearClipSelection = useCallback(() => {
-    setSelectedClip(null);
-    setSelectedClipIds(new Set());
-    setSelectedIndex(-1);
-  }, []);
-
-  const navigateToTab = useCallback((route: string) => {
-    if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
-    const requiredFeature = featureForRoute(route);
-    if (requiredFeature && !enabledFeatures[requiredFeature]) route = 'all';
-    const [tab, detail] = route.split(':', 2);
-    if (tab === 'settings' && ['general', 'functionality', 'hotkeys', 'notifications', 'security', 'app-exclusions', 'storage', 'analysis', 'intelligence', 'about'].includes(detail)) {
-      setActiveSettingsTab(detail as SettingsTab);
-    } else if (tab === 'help' && ['getting-started', 'shortcuts-hud', 'privacy-capture', 'deletion-recovery', 'analysis', 'transformations', 'cli'].includes(detail)) {
-      setActiveHelpTopic(detail as HelpTopic);
-    } else if (tab === 'transformations' && ['transforms', 'advanced', 'playground'].includes(detail)) {
-      setActiveTransformWorkspace(detail as TransformWorkspace);
-    }
-    setCurrentTab(tab);
-    if (tab !== 'bin') setSelectedBinId(null);
-    if (tab === 'search') {
-      requestAnimationFrame(() => {
-        document.querySelector<HTMLInputElement>('[data-sidebar-search-input]')?.focus();
-      });
-    }
-  }, [enabledFeatures]);
-
-  useEffect(() => {
-    const requiredFeature = featureForRoute(currentTab);
-    if (requiredFeature && !enabledFeatures[requiredFeature]) {
-      setCurrentTab('all');
-      setSelectedBinId(null);
-    }
-  }, [currentTab, enabledFeatures]);
-
-  useEffect(() => {
-    if (!settingsHydrated || startupViewAppliedRef.current) return;
-    startupViewAppliedRef.current = true;
-    if (appSettings.startupView === 'clip_history') {
-      setCurrentTab('all');
-      setSelectedBinId(null);
-    }
-  }, [appSettings.startupView, settingsHydrated]);
-
-  useEffect(() => {
-    if (!settingsHydrated || !initialDataLoaded) return;
-    if (currentTab === 'bin' && (selectedBinId === null || !bins.some((bin) => bin.id === selectedBinId))) {
-      setCurrentTab('all');
-      setSelectedBinId(null);
-    }
-  }, [bins, currentTab, initialDataLoaded, selectedBinId, settingsHydrated]);
-
-  useAppEvent<string>(APP_EVENTS.navigateTab, navigateToTab, !isHudView);
-  useAppEvent<number>(APP_EVENTS.navigateBin, (binId) => {
-      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
-      setSelectedBinId(binId);
-      setCurrentTab('bin');
-  }, !isHudView);
-
-  const enterSearchView = useCallback(() => {
-    if (currentTab !== 'search') setCurrentTab('search');
-  }, [currentTab]);
-
-  useEffect(() => {
-    if (
-      ['all', 'sequential', 'pinned', 'protected', 'notes', 'trash', 'bin'].includes(currentTab)
-      || currentTab.startsWith('clip_type-')
-      || currentTab.startsWith('content_type-')
-      || currentTab.startsWith('file_format-')
-      || currentTab.startsWith('source-')
-    ) {
-      lastClipViewRef.current = { tab: currentTab, binId: currentTab === 'bin' ? selectedBinId : null };
-    }
-  }, [currentTab, selectedBinId]);
-
-  const exitEmptySearch = useCallback(() => {
-    const previous = lastClipViewRef.current;
-    if (previous.tab === 'bin' && previous.binId !== null && bins.some((bin) => bin.id === previous.binId)) {
-      setSelectedBinId(previous.binId);
-      setCurrentTab('bin');
-      return;
-    }
-    setSelectedBinId(null);
-    setCurrentTab(previous.tab === 'bin' ? 'all' : previous.tab);
-  }, [bins]);
 
   const handleToggleCopyQueue = async () => {
     if (!enabledFeatures.queue) return;
@@ -482,17 +284,33 @@ export default function App() {
     [bins, currentTab, locale, selectedBinId],
   );
   const isQueueCollection = currentCollection?.membership === 'queue';
-  const isPinnedCollection = currentCollection?.membership === 'pinned';
   const isBinCollection = currentCollection?.membership === 'bin' && selectedBinId !== null;
-  const clipListRef = useRef<HTMLDivElement | null>(null);
-  const pendingRepositionedClipRevealIdRef = useRef<number | null>(null);
-  const repositionedClipAnimationFrameRef = useRef<number | null>(null);
-  const requestRepositionedClipReveal = useCallback((ids: number[]) => {
-    if (currentCollection?.membership !== 'all' && currentCollection?.membership !== 'bin') return;
-    pendingRepositionedClipRevealIdRef.current = selectedClip && ids.includes(selectedClip.id)
-      ? selectedClip.id
-      : ids[0] ?? null;
-  }, [currentCollection?.membership, selectedClip]);
+  const {
+    clipListRef,
+    handleClipListScroll,
+    isLoadingCurrentCollection,
+    pinnedShelfClips,
+    requestRepositionedClipReveal,
+    stackedPinnedClipIds,
+  } = useClipListViewport({
+    membership: currentCollection?.membership,
+    currentTab,
+    selectedBinId,
+    displayedClips,
+    allClips,
+    trashedClips,
+    selectedClip,
+    pinningEnabled: enabledFeatures.pinning,
+    totalClipCount,
+    totalTrashCount,
+    searchTotalCount,
+    isLoadingMoreClips,
+    isLoadingMoreTrash,
+    isSearching,
+    loadMoreClips,
+    loadMoreTrashedClips,
+    loadMoreSearchResults,
+  });
   const queueReorderIds = useMemo(
     () => isQueueCollection ? (seqStatus?.item_ids ?? []).map(String) : [],
     [isQueueCollection, seqStatus?.item_ids],
@@ -533,376 +351,6 @@ export default function App() {
       || allClips.length < totalClipCount
       || binReorderIds.length < 2,
   });
-  const [stackedPinnedClipIds, setStackedPinnedClipIds] = useState<number[]>([]);
-  const pinnedShelfClips = useMemo(
-    () => enabledFeatures.pinning && (currentCollection?.membership === 'all' || isPinnedCollection)
-      ? displayedClips.filter((clip) => clip.is_pinned)
-      : [],
-    [currentCollection?.membership, displayedClips, enabledFeatures.pinning, isPinnedCollection],
-  );
-  const pinnedShelfSignature = pinnedShelfClips
-    .map((clip) => `${clip.id}:${clip.pin_order ?? 0}`)
-    .join('|');
-
-  useEffect(() => {
-    setStackedPinnedClipIds([]);
-  }, [selectionViewKey]);
-
-  const handleClipListScroll = useCallback((element: HTMLDivElement) => {
-    const distanceFromEnd = element.scrollHeight - element.scrollTop - element.clientHeight;
-    if (distanceFromEnd < 800) {
-      if (currentCollection?.membership === 'trash') void loadMoreTrashedClips();
-      else if (currentCollection?.membership === 'search') void loadMoreSearchResults();
-      else if (currentCollection?.membership !== 'queue') void loadMoreClips();
-    }
-    if (pinnedShelfClips.length === 0 || (currentCollection?.membership !== 'all' && !isPinnedCollection)) {
-      setStackedPinnedClipIds([]);
-      return;
-    }
-    const pinnedCards = element.querySelectorAll<HTMLElement>('[data-pinned-clip="true"]');
-    if (pinnedCards.length === 0) {
-      setStackedPinnedClipIds([]);
-      return;
-    }
-    const listTop = element.getBoundingClientRect().top;
-    setStackedPinnedClipIds((previous) => {
-      const previousIds = new Set(previous);
-      const next = Array.from(pinnedCards).flatMap((card) => {
-        const id = Number(card.dataset.clipId);
-        if (!Number.isFinite(id)) return [];
-        const rect = card.getBoundingClientRect();
-        const shouldStack = previousIds.has(id)
-          ? rect.bottom <= listTop + 12
-          : rect.bottom <= listTop;
-        return shouldStack ? [id] : [];
-      });
-      return next.length === previous.length && next.every((id, index) => id === previous[index])
-        ? previous
-        : next;
-    });
-  }, [currentCollection?.membership, isPinnedCollection, loadMoreClips, loadMoreSearchResults, loadMoreTrashedClips, pinnedShelfClips.length]);
-
-  useLayoutEffect(() => {
-    const element = clipListRef.current;
-    if (!element) return;
-    const needsAnotherBatch = isBinCollection
-      ? allClips.length < totalClipCount
-      : element.scrollHeight - element.clientHeight < 800;
-    if (!needsAnotherBatch) return;
-    if (currentCollection?.membership === 'trash') {
-      if (!isLoadingMoreTrash && trashedClips.length < totalTrashCount) void loadMoreTrashedClips();
-    } else if (currentCollection?.membership === 'search') {
-      if (!isSearching && displayedClips.length < searchTotalCount) void loadMoreSearchResults();
-    } else if (currentCollection?.membership !== 'queue') {
-      if (!isLoadingMoreClips && allClips.length < totalClipCount) void loadMoreClips();
-    }
-  }, [
-    allClips.length,
-    currentCollection?.membership,
-    displayedClips.length,
-    isLoadingMoreClips,
-    isLoadingMoreTrash,
-    isSearching,
-    isBinCollection,
-    loadMoreClips,
-    loadMoreSearchResults,
-    loadMoreTrashedClips,
-    totalClipCount,
-    totalTrashCount,
-    searchTotalCount,
-    trashedClips.length,
-  ]);
-
-  const isLoadingCurrentCollection = currentCollection?.membership === 'trash'
-    ? isLoadingMoreTrash
-    : currentCollection?.membership === 'search'
-      ? isSearching
-      : currentCollection?.membership !== 'queue' && isLoadingMoreClips;
-
-  useLayoutEffect(() => {
-    const element = clipListRef.current;
-    if (!element) return undefined;
-    let secondFrame = 0;
-    const firstFrame = requestAnimationFrame(() => {
-      secondFrame = requestAnimationFrame(() => handleClipListScroll(element));
-    });
-    return () => {
-      cancelAnimationFrame(firstFrame);
-      if (secondFrame) cancelAnimationFrame(secondFrame);
-    };
-  }, [handleClipListScroll, pinnedShelfSignature]);
-
-  useLayoutEffect(() => {
-    const clipId = pendingRepositionedClipRevealIdRef.current;
-    const element = clipListRef.current;
-    if (clipId === null || !element) return;
-    const card = element.querySelector<HTMLElement>(`[data-clip-id="${clipId}"]`);
-    pendingRepositionedClipRevealIdRef.current = null;
-    if (!card) return;
-
-    const getTargetScrollTop = () => {
-      const listPaddingTop = Number.parseFloat(window.getComputedStyle(element).paddingTop) || 0;
-      const cardMarginTop = Number.parseFloat(window.getComputedStyle(card).marginTop) || 0;
-      const revealSpacing = listPaddingTop + cardMarginTop;
-      return Math.max(
-        0,
-        Math.min(
-          element.scrollTop
-            + card.getBoundingClientRect().top
-            - element.getBoundingClientRect().top
-            - revealSpacing,
-          element.scrollHeight - element.clientHeight,
-        ),
-      );
-    };
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      element.scrollTop = getTargetScrollTop();
-      return;
-    }
-
-    if (repositionedClipAnimationFrameRef.current !== null) {
-      cancelAnimationFrame(repositionedClipAnimationFrameRef.current);
-    }
-    const durationMs = 260;
-    // Let browser scroll anchoring settle after the card moves in the DOM,
-    // then measure from the actual painted position before animating.
-    repositionedClipAnimationFrameRef.current = requestAnimationFrame((startedAt) => {
-      const startScrollTop = element.scrollTop;
-      const targetScrollTop = getTargetScrollTop();
-      const distance = targetScrollTop - startScrollTop;
-      if (distance === 0) {
-        repositionedClipAnimationFrameRef.current = null;
-        return;
-      }
-
-      const animate = (now: number) => {
-        const progress = Math.min((now - startedAt) / durationMs, 1);
-        const easedProgress = 1 - Math.pow(1 - progress, 3);
-        element.scrollTop = startScrollTop + distance * easedProgress;
-        if (progress < 1) {
-          repositionedClipAnimationFrameRef.current = requestAnimationFrame(animate);
-        } else {
-          element.scrollTop = getTargetScrollTop();
-          repositionedClipAnimationFrameRef.current = null;
-        }
-      };
-      animate(startedAt);
-    });
-  }, [displayedClips]);
-
-  useEffect(() => () => {
-    if (repositionedClipAnimationFrameRef.current !== null) {
-      cancelAnimationFrame(repositionedClipAnimationFrameRef.current);
-    }
-  }, []);
-
-  const selectPinnedShelfClip = useCallback((clip: ClipItem) => {
-    const index = displayedClips.findIndex((item) => item.id === clip.id);
-    setSelectedIndex(index);
-    setSelectedClip(clip);
-    setSelectedClipIds(new Set([clip.id]));
-    selectedClipByViewRef.current.set(selectionViewKey, clip.id);
-  }, [displayedClips, selectionViewKey]);
-
-  // Each section and Bin remembers its own inspector selection. Moving into a
-  // view restores that clip (or its first eligible clip), while an explicit
-  // dismissal remains dismissed until the user navigates away.
-  useLayoutEffect(() => {
-    if (!initialDataLoaded) return;
-    const displayedIds = new Set(displayedClips.map((clip) => clip.id));
-    const viewChanged = activeSelectionViewRef.current !== selectionViewKey;
-    const rememberedId = selectedClipByViewRef.current.get(selectionViewKey);
-    activeSelectionViewRef.current = selectionViewKey;
-
-    const selectFallback = () => {
-      const fallback = displayedClips[0] ?? null;
-      selectedClipByViewRef.current.set(selectionViewKey, fallback?.id ?? null);
-      setSelectedClip(fallback);
-      setSelectedClipIds(fallback ? new Set([fallback.id]) : new Set());
-      setSelectedIndex(fallback ? 0 : -1);
-    };
-
-    if (displayedClips.length === 0) {
-      selectedClipByViewRef.current.set(selectionViewKey, null);
-      setSelectedClip(null);
-      setSelectedClipIds(new Set());
-      setSelectedIndex(-1);
-      return;
-    }
-
-    if (viewChanged) {
-      const rememberedClip = typeof rememberedId === 'number'
-        ? displayedClips.find((clip) => clip.id === rememberedId)
-        : null;
-      const nextClip = rememberedClip ?? displayedClips[0];
-      const nextIndex = displayedClips.findIndex((clip) => clip.id === nextClip.id);
-      selectedClipByViewRef.current.set(selectionViewKey, nextClip.id);
-      setSelectedClip(nextClip);
-      setSelectedClipIds(new Set([nextClip.id]));
-      setSelectedIndex(nextIndex);
-      return;
-    }
-
-    if (selectedClip) {
-      const currentIndex = displayedClips.findIndex((clip) => clip.id === selectedClip.id);
-      if (currentIndex === -1) {
-        selectFallback();
-        return;
-      }
-
-      const currentClip = displayedClips[currentIndex];
-      selectedClipByViewRef.current.set(selectionViewKey, currentClip.id);
-      setSelectedClip(currentClip);
-      setSelectedIndex(currentIndex);
-    } else if (typeof rememberedId === 'number' && !displayedIds.has(rememberedId)) {
-      // A selected clip was removed before its deletion/update completed.
-      selectFallback();
-      return;
-    } else {
-      selectedClipByViewRef.current.set(selectionViewKey, null);
-      setSelectedClipIds(new Set());
-      setSelectedIndex(-1);
-      return;
-    }
-
-    setSelectedClipIds((previous) => {
-      const next = new Set(Array.from(previous).filter((id) => displayedIds.has(id)));
-      if (next.size === previous.size && Array.from(next).every((id) => previous.has(id))) {
-        return previous;
-      }
-      return next;
-    });
-  }, [displayedClips, initialDataLoaded, selectedClip?.id, selectionViewKey]);
-
-  useEffect(() => {
-    if (isHudView || !settingsHydrated || !initialDataLoaded) return;
-    writeAppUiState({
-      version: 2,
-      currentTab,
-      settingsTab: activeSettingsTab,
-      helpTopic: activeHelpTopic,
-      transformWorkspace: activeTransformWorkspace,
-      selectedBinId: currentTab === 'bin' ? selectedBinId : null,
-      selectedClipId: selectedClip?.id ?? null,
-      isSidebarCollapsed,
-      sidebarSections,
-    });
-  }, [
-    activeHelpTopic,
-    activeSettingsTab,
-    activeTransformWorkspace,
-    currentTab,
-    initialDataLoaded,
-    isHudView,
-    isSidebarCollapsed,
-    selectedBinId,
-    selectedClip?.id,
-    settingsHydrated,
-    sidebarSections,
-  ]);
-
-  // Keyboard navigation
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
-        e.preventDefault();
-        setIsSidebarCollapsed((prev) => !prev);
-        return;
-      }
-
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) {
-        return;
-      }
-
-      if (displayedClips.length === 0) return;
-
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setSelectedIndex((prev) => {
-          const next = Math.min(prev + 1, displayedClips.length - 1);
-          setSelectedClip(displayedClips[next]);
-          setSelectedClipIds(new Set([displayedClips[next].id]));
-          return next;
-        });
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setSelectedIndex((prev) => {
-          const next = Math.max(prev - 1, 0);
-          setSelectedClip(displayedClips[next]);
-          setSelectedClipIds(new Set([displayedClips[next].id]));
-          return next;
-        });
-      } else if (e.key === 'Enter' && selectedClip) {
-        e.preventDefault();
-        handleCopyClip(selectedClip);
-      } else if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (selectedClip) {
-          e.preventDefault();
-          if (getClipViewPolicy(currentTab, selectedClip).state === 'trash') {
-            handlePurgeClipPermanently(selectedClip.id);
-          } else {
-            handleDeleteClip(selectedClip.id);
-          }
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentTab, displayedClips, selectedClip]);
-
-  const selectedClipRef = useRef(selectedClip);
-  const selectedClipIdsRef = useRef(selectedClipIds);
-  const displayedClipsRef = useRef(displayedClips);
-  selectedClipRef.current = selectedClip;
-  selectedClipIdsRef.current = selectedClipIds;
-  displayedClipsRef.current = displayedClips;
-
-  const handleClipSelect = useCallback((clip: ClipItem, event: React.MouseEvent) => {
-    const currentSelectedClip = selectedClipRef.current;
-    const currentSelectedClipIds = selectedClipIdsRef.current;
-    const currentDisplayedClips = displayedClipsRef.current;
-    setSelectedIndex(currentDisplayedClips.findIndex((candidate) => candidate.id === clip.id));
-
-    if (event.metaKey || event.ctrlKey) {
-      setSelectedClipIds((previous) => {
-        const next = new Set(previous);
-        if (next.has(clip.id)) {
-          next.delete(clip.id);
-          if (currentSelectedClip?.id === clip.id) {
-            const remaining = Array.from(next);
-            const lastId = remaining[remaining.length - 1];
-            setSelectedClip(currentDisplayedClips.find((candidate) => candidate.id === lastId) ?? null);
-          }
-        } else {
-          next.add(clip.id);
-          setSelectedClip(clip);
-        }
-        return next;
-      });
-      return;
-    }
-
-    if (event.shiftKey && currentSelectedClip) {
-      const currentIndex = currentDisplayedClips.findIndex((candidate) => candidate.id === clip.id);
-      const anchorIndex = currentDisplayedClips.findIndex((candidate) => candidate.id === currentSelectedClip.id);
-      if (currentIndex !== -1 && anchorIndex !== -1) {
-        const start = Math.min(currentIndex, anchorIndex);
-        const end = Math.max(currentIndex, anchorIndex);
-        setSelectedClipIds(new Set(currentDisplayedClips.slice(start, end + 1).map((candidate) => candidate.id)));
-      }
-      return;
-    }
-
-    const isOnlySelectedClip = currentSelectedClip?.id === clip.id && currentSelectedClipIds.size <= 1;
-    if (isOnlySelectedClip) {
-      clearClipSelection();
-    } else {
-      setSelectedClip(clip);
-      setSelectedClipIds(new Set([clip.id]));
-    }
-  }, [clearClipSelection]);
-
   const binsById = useMemo(() => new Map(bins.map((bin) => [bin.id, bin])), [bins]);
   const currentContextMenuClip = useLiveClipSnapshot(contextMenu?.clip ?? null, allClips, trashedClips);
   const selectedClipViewPolicy = getClipViewPolicy(currentTab, selectedClip);
@@ -947,6 +395,27 @@ export default function App() {
     onCollectionChanged: fetchClipCollectionSummary,
     keepTrashedClipsVisible: currentTab === 'search',
     onClipsRepositioned: requestRepositionedClipReveal,
+  });
+
+  const {
+    clearClipSelection,
+    handleClipSelect,
+    selectClipForContextMenu,
+    selectPinnedShelfClip,
+  } = useClipSelectionController({
+    displayedClips,
+    initialDataLoaded,
+    currentTab,
+    selectedBinId,
+    restoredUiState,
+    selectedClip,
+    setSelectedClip,
+    selectedClipIds,
+    setSelectedClipIds,
+    setIsSidebarCollapsed,
+    copyClip: handleCopyClip,
+    deleteClip: handleDeleteClip,
+    purgeClipPermanently: handlePurgeClipPermanently,
   });
 
   const handleAssignClipToBin = useCallback(
@@ -1091,70 +560,36 @@ export default function App() {
     return summary.changedCount;
   };
 
-  useAppEvent<string>(APP_EVENTS.appMenuAction, (action) => {
-      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
-      switch (action) {
-        case 'new-bin':
-          if (!enabledFeatures.bins) break;
-          setEditingBin(null);
-          setIsBinModalOpen(true);
-          break;
-        case 'toggle-history':
-          void handleToggleClipboardPause();
-          break;
-        case 'toggle-queue':
-          if (!enabledFeatures.queue) break;
-          void handleToggleCopyQueue();
-          break;
-        case 'copy-selected-clip':
-          if (selectedClip) void handleCopyClip(selectedClip);
-          break;
-        case 'add-note':
-          if (enabledFeatures.notes && selectedClip && selectedClipViewPolicy.canEditNotes) handlePromptAddNote(selectedClip);
-          break;
-        case 'toggle-pin':
-          if (enabledFeatures.pinning && selectedClip && selectedClipViewPolicy.canOrganize) handleTogglePin(selectedClip.id);
-          break;
-        case 'toggle-protection':
-          if (enabledFeatures.protection && selectedClip && selectedClipViewPolicy.canOrganize) handleToggleProtected(selectedClip.id);
-          break;
-        case 'trash-selected':
-          if (selectedClipIds.size > 1) {
-            void handleBatchTrash();
-          } else if (selectedClip) {
-            if (selectedClipViewPolicy.state === 'trash') void handlePurgeClipPermanently(selectedClip.id);
-            else void handleDeleteClip(selectedClip.id);
-          }
-          break;
-        case 'toggle-sidebar':
-          setIsSidebarCollapsed((collapsed) => !collapsed);
-          break;
-        case 'zoom-out':
-          handleUpdateSettings({ textSize: stepAppZoom(appSettings.textSize, -1) });
-          break;
-        case 'actual-size':
-          handleUpdateSettings({ textSize: ACTUAL_SIZE });
-          break;
-        case 'zoom-in':
-          handleUpdateSettings({ textSize: stepAppZoom(appSettings.textSize, 1) });
-          break;
-        case 'reset-columns':
-          resetColumnWidths();
-          break;
-        case 'refresh-data':
-          void Promise.all([
-            fetchClips(),
-            fetchTrashedClips(),
-            fetchBins(),
-            fetchManualTransforms(),
-            fetchSequentialStatus(),
-            fetchClipCollectionSummary(),
-          ]);
-          break;
-        default:
-          break;
-      }
-  }, !isHudView);
+  useAppMenuActions({
+    enabled: !isHudView,
+    enabledFeatures,
+    selectedClip,
+    selectedClipIds,
+    selectedClipViewPolicy,
+    textSize: appSettings.textSize,
+    setIsBinModalOpen,
+    setEditingBin,
+    setIsSidebarCollapsed,
+    updateSettings: handleUpdateSettings,
+    toggleClipboardPause: handleToggleClipboardPause,
+    toggleCopyQueue: handleToggleCopyQueue,
+    copyClip: handleCopyClip,
+    promptAddNote: handlePromptAddNote,
+    togglePin: handleTogglePin,
+    toggleProtected: handleToggleProtected,
+    batchTrash: handleBatchTrash,
+    purgeClipPermanently: handlePurgeClipPermanently,
+    deleteClip: handleDeleteClip,
+    resetColumnWidths,
+    refreshData: () => Promise.all([
+      fetchClips(),
+      fetchTrashedClips(),
+      fetchBins(),
+      fetchManualTransforms(),
+      fetchSequentialStatus(),
+      fetchClipCollectionSummary(),
+    ]),
+  });
 
   if (isHudView) {
     return <FeatureProvider features={enabledFeatures}><QuickHudWindow /></FeatureProvider>;
@@ -1536,9 +971,7 @@ export default function App() {
                       onCopy={() => handleCopyClip(clip)}
                       onContextMenu={(e) => {
                         e.preventDefault();
-                        setSelectedIndex(index);
-                        setSelectedClip(clip);
-                        setSelectedClipIds(new Set([clip.id]));
+                        selectClipForContextMenu(clip);
                         setContextMenu({
                           x: e.clientX,
                           y: e.clientY,

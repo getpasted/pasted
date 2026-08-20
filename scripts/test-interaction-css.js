@@ -15,6 +15,7 @@ const manualTransformEditor = read('src/components/ManualTransformEditorModal.ts
 const reorderHook = read('src/hooks/useStableVerticalReorder.ts');
 const sidebarComponent = read('src/components/Sidebar.tsx');
 const app = read('src/App.tsx');
+const appShell = read('src/hooks/useAppShell.ts');
 const settingsPanelHeader = read('src/components/SettingsPanelHeader.tsx');
 const connectedMenuAction = read('src/components/ConnectedMenuAction.tsx');
 
@@ -89,9 +90,9 @@ assert.doesNotMatch(sidebarComponent, /sidebar-scroll-container[^\"]*text-\[13px
 
 // Scrollable menus, panels, and wells reveal a non-layout-shifting thumb only
 // while the shared document listener marks them as actively scrolling.
-assert.match(app, /TRANSIENT_SCROLL_SURFACE_SELECTOR/);
-assert.match(app, /event\.composedPath\(\)\.find/);
-assert.match(app, /addEventListener\('wheel', handleSurfaceWheel/);
+assert.match(appShell, /TRANSIENT_SCROLL_SURFACE_SELECTOR/);
+assert.match(appShell, /event\.composedPath\(\)\.find/);
+assert.match(appShell, /addEventListener\('wheel', handleSurfaceWheel/);
 assert.match(utilities, /\.surface-scroll-region/);
 assert.match(utilities, /\.theme-panel/);
 assert.match(utilities, /\.theme-surface/);

@@ -1208,12 +1208,12 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
                 disabled={protectionToggleDisabled}
                 className={`clip-preview-action preview-protect-btn theme-focusable transition-colors ${clip.is_protected ? 'is-active' : ''}`}
                 title={clip.hotkey
-                  ? translate('component.clipPreview.removeHotkeyBeforeUnprotecting')
+                  ? translate('component.clipCard.protectedByHotkey')
                   : protectedByBin
                     ? translate('component.clipPreview.protectedByBin')
                     : clip.is_protected ? UI_COPY.unprotect : UI_COPY.protect}
                 aria-label={clip.hotkey
-                  ? translate('component.clipPreview.removeHotkeyBeforeUnprotecting')
+                  ? translate('component.clipCard.protectedByHotkey')
                   : protectedByBin
                     ? translate('component.clipPreview.protectedByBin')
                     : clip.is_protected ? UI_COPY.unprotect : UI_COPY.protect}

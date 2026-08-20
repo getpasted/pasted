@@ -19,6 +19,12 @@ const settingsApi = read('src/api/settings.ts');
 const transformsApi = read('src/api/transforms.ts');
 const localizationRuntime = read('src/localization/runtime.ts');
 const cliRoot = read('src-tauri/src/bin/pasted_cli.rs');
+const appRoot = read('src/App.tsx');
+const appNavigation = read('src/hooks/useAppNavigation.ts');
+const appShell = read('src/hooks/useAppShell.ts');
+const appMenuActions = read('src/hooks/useAppMenuActions.ts');
+const clipSelectionController = read('src/hooks/useClipSelectionController.ts');
+const clipListViewport = read('src/hooks/useClipListViewport.ts');
 
 assert.doesNotMatch(liveApp, /crate::commands::/,
   'The live-app adapter must not call the GUI command adapter');
@@ -74,14 +80,34 @@ assert.doesNotMatch(localizationRuntime, /import\.meta\.glob\([^)]*eager:\s*true
   'Non-English locale catalogs must not inflate the startup bundle');
 assert.match(localizationRuntime, /catalogReady:\s*Boolean\(catalogs\[locale\]\)/,
   'Lazy locale catalogs must expose explicit readiness');
-assert.match(read('src/App.tsx'), /!catalogReady \|\| !settingsHydrated \|\| !initialDataLoaded/,
+assert.match(appShell, /!catalogReady \|\| !settingsHydrated \|\| !initialDataLoaded/,
   'Application readiness must wait for the selected locale catalog');
+for (const hook of [
+  'useAppShell',
+  'useAppNavigation',
+  'useAppMenuActions',
+  'useClipSelectionController',
+  'useClipListViewport',
+]) {
+  assert.match(appRoot, new RegExp(`${hook}\\(`), `The application root must delegate to ${hook}`);
+}
+assert.doesNotMatch(appRoot, /APP_EVENTS\.|writeAppUiState\(|consumePendingBackupClientState\(/,
+  'The application root must not reclaim shell, navigation, or native menu infrastructure');
+assert.match(appNavigation, /writeAppUiState\(/,
+  'Navigation must own persisted route and sidebar state');
+assert.match(appMenuActions, /APP_EVENTS\.appMenuAction/,
+  'Native menu dispatch must remain in its focused adapter');
 
 const sizeRatchets = new Map([
   ['src-tauri/src/db.rs', 20_111],
   ['src-tauri/src/commands.rs', 5_218],
   ['src-tauri/src/bin/pasted_cli.rs', 320],
-  ['src/App.tsx', 1_814],
+  ['src/App.tsx', 1_245],
+  ['src/hooks/useAppNavigation.ts', 175],
+  ['src/hooks/useAppShell.ts', 130],
+  ['src/hooks/useAppMenuActions.ts', 120],
+  ['src/hooks/useClipSelectionController.ts', 230],
+  ['src/hooks/useClipListViewport.ts', 195],
   ['src/utils/tauri.ts', 1_569],
 ]);
 for (const [path, maximum] of sizeRatchets) {

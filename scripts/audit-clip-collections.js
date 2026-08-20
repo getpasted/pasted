@@ -10,6 +10,7 @@ const clipsApi = read('src/api/clips.ts');
 const emptyState = read('src/components/EmptyClipList.tsx');
 const viewPolicy = read('src/utils/clipViewPolicy.ts');
 const app = read('src/App.tsx');
+const appNavigation = read('src/utils/appNavigation.ts');
 const dragHook = read('src/hooks/useClipBinDrag.ts');
 const nativeCommands = read('src-tauri/src/commands.rs');
 const clipSearch = read('src/utils/clipSearch.ts');
@@ -87,7 +88,7 @@ assert.match(clipViews, /facet\?\.kind === 'content_type'[\s\S]{0,180}clip\.cont
 assert.match(emptyState, /collection\?\.emptyTitle/, 'Empty states must come from the collection descriptor');
 assert.match(viewPolicy, /collection\?\.membership/, 'Interaction policy must use collection membership');
 assert.match(app, /currentCollection\?\.title/, 'The clip-list heading must use the collection descriptor');
-assert.match(app, /currentTab\.startsWith\('clip_type-'\)[\s\S]{0,180}currentTab\.startsWith\('file_format-'\)/, 'Search escape must remember every collection-axis route');
+assert.match(appNavigation, /tab\.startsWith\('clip_type-'\)[\s\S]{0,180}tab\.startsWith\('file_format-'\)/, 'Search escape must remember every collection-axis route');
 assert.match(app, /\[bins, currentTab, locale, selectedBinId\]/, 'The active collection heading must recompute when the locale changes');
 assert.doesNotMatch(dragHook, /export type ClipDropAction/, 'Drop actions must be owned by the collection contract');
 assert.match(database, /pub fn get_clips_page[\s\S]*LIMIT \? OFFSET \?/, 'Active clips must support bounded server pagination');
