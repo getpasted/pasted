@@ -11,6 +11,7 @@ import {
 import type { ClipItem } from '../types';
 import type { AppUiState } from '../utils/appUiState';
 import { getClipViewPolicy } from '../utils/clipViewPolicy';
+import { selectionIdsForContextMenu } from '../utils/clipSelection';
 
 interface UseClipSelectionControllerOptions {
   displayedClips: ClipItem[];
@@ -72,7 +73,7 @@ export function useClipSelectionController({
   const selectClipForContextMenu = useCallback((clip: ClipItem) => {
     setSelectedIndex(displayedClips.findIndex((candidate) => candidate.id === clip.id));
     setSelectedClip(clip);
-    setSelectedClipIds(new Set([clip.id]));
+    setSelectedClipIds((previous) => selectionIdsForContextMenu(previous, clip.id));
   }, [displayedClips, setSelectedClip, setSelectedClipIds]);
 
   useLayoutEffect(() => {

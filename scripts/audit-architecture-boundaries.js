@@ -25,6 +25,9 @@ const appShell = read('src/hooks/useAppShell.ts');
 const appMenuActions = read('src/hooks/useAppMenuActions.ts');
 const clipSelectionController = read('src/hooks/useClipSelectionController.ts');
 const clipListViewport = read('src/hooks/useClipListViewport.ts');
+const appOverlays = read('src/hooks/useAppOverlays.ts');
+const clipDragController = read('src/hooks/useClipDragController.ts');
+const clipReordering = read('src/hooks/useClipReordering.ts');
 
 assert.doesNotMatch(liveApp, /crate::commands::/,
   'The live-app adapter must not call the GUI command adapter');
@@ -88,6 +91,9 @@ for (const hook of [
   'useAppMenuActions',
   'useClipSelectionController',
   'useClipListViewport',
+  'useAppOverlays',
+  'useClipDragController',
+  'useClipReordering',
 ]) {
   assert.match(appRoot, new RegExp(`${hook}\\(`), `The application root must delegate to ${hook}`);
 }
@@ -97,17 +103,29 @@ assert.match(appNavigation, /writeAppUiState\(/,
   'Navigation must own persisted route and sidebar state');
 assert.match(appMenuActions, /APP_EVENTS\.appMenuAction/,
   'Native menu dispatch must remain in its focused adapter');
+assert.doesNotMatch(appRoot, /clipsApi\.setPinned|useClipBinDrag|useStableVerticalReorder/,
+  'The application root must not bypass shared batch actions, drag control, or reordering systems');
+assert.match(appOverlays, /closeTopmostOverlay/,
+  'Overlay dismissal priority must remain centralized');
+assert.match(clipDragController, /useClipBinDrag\(/,
+  'Clip drag behavior must remain behind its application controller');
+assert.match(clipReordering, /useStableVerticalReorder\(/,
+  'Queue and Bin ordering must remain behind one shared coordinator');
 
 const sizeRatchets = new Map([
   ['src-tauri/src/db.rs', 20_111],
   ['src-tauri/src/commands.rs', 5_218],
   ['src-tauri/src/bin/pasted_cli.rs', 320],
-  ['src/App.tsx', 1_245],
+  ['src/App.tsx', 950],
   ['src/hooks/useAppNavigation.ts', 175],
   ['src/hooks/useAppShell.ts', 130],
   ['src/hooks/useAppMenuActions.ts', 120],
   ['src/hooks/useClipSelectionController.ts', 230],
   ['src/hooks/useClipListViewport.ts', 195],
+  ['src/hooks/useAppOverlays.ts', 135],
+  ['src/hooks/useClipDragController.ts', 130],
+  ['src/hooks/useClipReordering.ts', 100],
+  ['src/components/AppDialogLayer.tsx', 210],
   ['src/utils/tauri.ts', 1_569],
 ]);
 for (const [path, maximum] of sizeRatchets) {

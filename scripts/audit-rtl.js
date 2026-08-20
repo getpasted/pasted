@@ -17,7 +17,7 @@ const hebrewDefinition = manifest.locales.find(({ code }) => code === 'he');
 assert.equal(hebrewDefinition?.direction, 'rtl', 'Hebrew must be registered as a shipped RTL locale.');
 const physicalUtility = /\b(?:ml|mr|pl|pr)-|\btext-(?:left|right)\b|\bborder-(?:l|r)\b|\brounded-(?:l|r)(?:-|\b)|(?:^|\s)-?(?:left|right)-(?:\d|\[)[A-Za-z0-9./\[\]%-]*/g;
 const utilityExceptions = new Map([
-  ['src/App.tsx', new Set([' left-1/2'])], // Physical centering pairs with translateX(-50%).
+  ['src/components/ClipBatchActionBar.tsx', new Set([' left-1/2'])], // Physical centering pairs with translateX(-50%).
 ]);
 
 for (const file of componentSources) {
