@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { readRustModuleTree } from './audit-source-trees.js';
 
 const read = (path) => fs.readFileSync(path, 'utf8');
 const englishCatalog = JSON.parse(read('src/locales/en.json'));
@@ -17,7 +18,7 @@ const operationEditor = read('src/components/OperationEditorModal.tsx');
 const operationManager = read('src/components/OperationsManager.tsx');
 const transformationLibrary = read('src/components/TransformationLibrary.tsx');
 const transformationPlayground = read('src/components/TransformationPlayground.tsx');
-const cli = read('src-tauri/src/bin/pasted_cli.rs');
+const cli = readRustModuleTree('src-tauri/src/bin/pasted_cli.rs', 'src-tauri/src/bin/pasted_cli');
 const transformStorageDecision = read('docs/TRANSFORM_STORAGE_DECISION.md');
 const compactEditorTypography = [
   'src/components/ManualTransformEditorModal.tsx',

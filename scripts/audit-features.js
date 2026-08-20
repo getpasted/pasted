@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { readRustModuleTree } from './audit-source-trees.js';
 
 const read = (path) => fs.readFileSync(path, 'utf8');
 const frontendRegistry = read('src/utils/features.ts');
@@ -18,7 +19,7 @@ const hotkeyManager = read('src-tauri/src/hotkey_manager.rs');
 const manualTransformService = read('src-tauri/src/manual_transform_service.rs');
 const clipPreview = read('src/components/ClipPreview.tsx');
 const settingsHotkeys = read('src/components/SettingsHotkeysPanel.tsx');
-const cli = read('src-tauri/src/bin/pasted_cli.rs');
+const cli = readRustModuleTree('src-tauri/src/bin/pasted_cli.rs', 'src-tauri/src/bin/pasted_cli');
 const frontendDefinitions = frontendRegistry.match(/export const FEATURE_DEFINITIONS[\s\S]*?\n\] as const;/)?.[0] ?? '';
 
 const frontendKeys = [...frontendRegistry.matchAll(/settingKey:\s*'(enable[A-Za-z]+)'/g)]

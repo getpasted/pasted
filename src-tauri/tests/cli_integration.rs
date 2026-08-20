@@ -233,6 +233,118 @@ fn history_and_settings_commands_have_executable_json_contracts() {
 }
 
 #[test]
+fn extracted_management_adapters_preserve_structured_cli_contracts() {
+    let database = temporary_path("management-adapters", "db");
+    let activity_path = temporary_path("activity-export", "json");
+    let transfer_path = temporary_path("transfer-export", "json");
+
+    let retention = success_json(
+        &database,
+        &[
+            "retention",
+            "--count",
+            "25",
+            "--days",
+            "30",
+            "--trash-count",
+            "10",
+            "--trash-days",
+            "7",
+            "--log-count",
+            "50",
+            "--log-days",
+            "14",
+            "--revision-count",
+            "5",
+            "--json",
+        ],
+    );
+    assert_eq!(retention["maximumClips"], 25);
+    assert_eq!(retention["maximumAgeDays"], 30);
+    assert_eq!(retention["trashMaximumClips"], 10);
+    assert_eq!(retention["activityMaximumEntries"], 50);
+    assert_eq!(retention["revisionsPerClip"], 5);
+
+    success_json(&database, &["copy", "portable adapter clip", "--json"]);
+    success_json(
+        &database,
+        &["settings", "set", "enableHotkeys", "false", "--json"],
+    );
+    let activity = success_json(&database, &["activity", "list", "--all", "--json"]);
+    assert!(activity
+        .as_array()
+        .is_some_and(|entries| !entries.is_empty()));
+
+    let exported_activity = success_json(
+        &database,
+        &[
+            "activity",
+            "export",
+            activity_path.to_str().expect("activity export path"),
+            "--json",
+        ],
+    );
+    assert_eq!(exported_activity["format"], "json");
+    assert_eq!(
+        success_json(&database, &["activity", "clear", "--yes", "--json"])["cleared"],
+        true
+    );
+    assert_eq!(
+        success_json(&database, &["activity", "list", "--all", "--json"])
+            .as_array()
+            .map(Vec::len),
+        Some(0)
+    );
+    let imported_activity = success_json(
+        &database,
+        &[
+            "activity",
+            "import",
+            activity_path.to_str().expect("activity import path"),
+            "--json",
+        ],
+    );
+    assert!(imported_activity["importedCount"]
+        .as_u64()
+        .is_some_and(|count| count > 0));
+
+    let exported_transfer = success_json(
+        &database,
+        &[
+            "transfer",
+            "export",
+            transfer_path.to_str().expect("transfer export path"),
+            "--json",
+        ],
+    );
+    assert_eq!(exported_transfer["inspection"]["clipCount"], 1);
+    let inspected_transfer = success_json(
+        &database,
+        &[
+            "transfer",
+            "inspect",
+            transfer_path.to_str().expect("transfer inspect path"),
+            "--json",
+        ],
+    );
+    assert_eq!(inspected_transfer["clipCount"], 1);
+    let imported_transfer = success_json(
+        &database,
+        &[
+            "transfer",
+            "import",
+            transfer_path.to_str().expect("transfer import path"),
+            "--json",
+        ],
+    );
+    assert_eq!(imported_transfer["processedClipCount"], 1);
+
+    clean_database(&database);
+    let _ = std::fs::remove_file(activity_path);
+    let _ = std::fs::remove_file(transfer_path);
+}
+
+#[test]
 fn app_lock_restart_policy_has_a_stable_cli_contract() {
     let database = temporary_path("app-lock-restart", "db");
 
