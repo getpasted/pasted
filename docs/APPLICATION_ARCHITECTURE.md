@@ -55,6 +55,12 @@ The GUI command adapter follows the same shape under `src-tauri/src/commands`.
 Activity and retention commands are registered from focused adapter modules;
 their Tauri request mapping should not return to the command integration root.
 
+The CLI integration root delegates capability-specific argument mapping and
+output formatting to modules under `src-tauri/src/bin/pasted_cli/commands`.
+App Lock, retention, Settings, live-app controls, Activity, and portability are
+the first extracted adapters. CLI contract audits read the complete module tree
+so moving an adapter cannot accidentally remove its GUI-parity checks.
+
 ## Testing boundaries
 
 Application workflows that touch the system clipboard or paste destination

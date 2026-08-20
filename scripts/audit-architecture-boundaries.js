@@ -18,6 +18,7 @@ const settingsService = read('src-tauri/src/settings_service.rs');
 const settingsApi = read('src/api/settings.ts');
 const transformsApi = read('src/api/transforms.ts');
 const localizationRuntime = read('src/localization/runtime.ts');
+const cliRoot = read('src-tauri/src/bin/pasted_cli.rs');
 
 assert.doesNotMatch(liveApp, /crate::commands::/,
   'The live-app adapter must not call the GUI command adapter');
@@ -79,7 +80,7 @@ assert.match(read('src/App.tsx'), /!catalogReady \|\| !settingsHydrated \|\| !in
 const sizeRatchets = new Map([
   ['src-tauri/src/db.rs', 20_111],
   ['src-tauri/src/commands.rs', 5_218],
-  ['src-tauri/src/bin/pasted_cli.rs', 5_040],
+  ['src-tauri/src/bin/pasted_cli.rs', 4_271],
   ['src/App.tsx', 1_814],
   ['src/utils/tauri.ts', 1_569],
 ]);
@@ -118,6 +119,14 @@ for (const domain of ['clip_protection', 'retention', 'settings']) {
 for (const adapter of ['activity', 'retention']) {
   assert.ok(fs.existsSync(`src-tauri/src/commands/${adapter}.rs`),
     `${adapter} GUI commands must remain outside the command integration root`);
+}
+for (const adapter of ['activity', 'app_lock', 'live_app', 'portability', 'retention', 'settings']) {
+  assert.ok(fs.existsSync(`src-tauri/src/bin/pasted_cli/commands/${adapter}.rs`),
+    `${adapter} CLI commands must remain outside the CLI integration root`);
+}
+for (const dispatch of ['app_lock', 'retention', 'settings', 'live_app', 'activity', 'portability']) {
+  assert.match(cliRoot, new RegExp(`cli_commands::${dispatch}::`),
+    `The CLI integration root must delegate ${dispatch} behavior`);
 }
 assert.doesNotMatch(commands, /pub fn (?:save_setting|configure_clip_retention)/,
   'Database domain persistence must not move into the GUI command adapter');

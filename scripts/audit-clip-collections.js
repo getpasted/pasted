@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { readRustModuleTree } from './audit-source-trees.js';
 
 const read = (path) => fs.readFileSync(path, 'utf8');
 const registry = read('src/utils/clipCollections.ts');
@@ -15,7 +16,7 @@ const clipSearch = read('src/utils/clipSearch.ts');
 const clipSearchGrammar = read('src/utils/clipSearchGrammar.ts');
 const historySearchDocs = read('docs/wiki/History-and-Search.md');
 const database = read('src-tauri/src/db.rs');
-const cli = read('src-tauri/src/bin/pasted_cli.rs');
+const cli = readRustModuleTree('src-tauri/src/bin/pasted_cli.rs', 'src-tauri/src/bin/pasted_cli');
 const clipTypes = read('src/types.ts');
 const appData = read('src/hooks/useAppData.ts');
 const foundationCss = read('src/styles/foundation.css');
