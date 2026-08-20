@@ -5,7 +5,7 @@ import { readRustModuleTree } from './audit-source-trees.js';
 const read = (path) => fs.readFileSync(path, 'utf8');
 const database = read('src-tauri/src/db.rs');
 const commands = read('src-tauri/src/commands.rs');
-const cli = readRustModuleTree('src-tauri/src/bin/pasted_cli.rs', 'src-tauri/src/bin/pasted_cli');
+const cli = readRustModuleTree('src-tauri/src/bin/pasted.rs', 'src-tauri/src/cli');
 const settings = read('src/components/SettingsSyncPanel.tsx');
 const englishCatalog = JSON.parse(read('src/locales/en.json'));
 const settingsCatalogCopy = [...settings.matchAll(/translate\('([^']+)'/g)]

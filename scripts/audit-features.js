@@ -19,7 +19,7 @@ const hotkeyManager = read('src-tauri/src/hotkey_manager.rs');
 const manualTransformService = read('src-tauri/src/manual_transform_service.rs');
 const clipPreview = read('src/components/ClipPreview.tsx');
 const settingsHotkeys = read('src/components/SettingsHotkeysPanel.tsx');
-const cli = readRustModuleTree('src-tauri/src/bin/pasted_cli.rs', 'src-tauri/src/bin/pasted_cli');
+const cli = readRustModuleTree('src-tauri/src/bin/pasted.rs', 'src-tauri/src/cli');
 const frontendDefinitions = frontendRegistry.match(/export const FEATURE_DEFINITIONS[\s\S]*?\n\] as const;/)?.[0] ?? '';
 
 const frontendKeys = [...frontendRegistry.matchAll(/settingKey:\s*'(enable[A-Za-z]+)'/g)]

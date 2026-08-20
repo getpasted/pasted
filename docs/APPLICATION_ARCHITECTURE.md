@@ -62,7 +62,7 @@ live-app bridge. Library Storage keeps native folder selection asynchronous and
 delegates relocation and recovery behavior to the shared storage services.
 
 The CLI integration root delegates capability-specific argument mapping and
-output formatting to modules under `src-tauri/src/bin/pasted_cli/commands`.
+output formatting to modules under `src-tauri/src/cli/commands`.
 The root owns startup, feature gating, dispatch, and help output only. Activity,
 analysis, App Lock, Bins, Clips, connections, Extractors, history, live-app
 controls, maintenance, Operations, portability, registry metadata, retention,

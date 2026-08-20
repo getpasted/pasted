@@ -18,7 +18,7 @@ const operationEditor = read('src/components/OperationEditorModal.tsx');
 const operationManager = read('src/components/OperationsManager.tsx');
 const transformationLibrary = read('src/components/TransformationLibrary.tsx');
 const transformationPlayground = read('src/components/TransformationPlayground.tsx');
-const cli = readRustModuleTree('src-tauri/src/bin/pasted_cli.rs', 'src-tauri/src/bin/pasted_cli');
+const cli = readRustModuleTree('src-tauri/src/bin/pasted.rs', 'src-tauri/src/cli');
 const transformStorageDecision = read('docs/TRANSFORM_STORAGE_DECISION.md');
 const compactEditorTypography = [
   'src/components/ManualTransformEditorModal.tsx',
