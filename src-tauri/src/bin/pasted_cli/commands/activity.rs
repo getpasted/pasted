@@ -1,4 +1,4 @@
-use super::super::{argument_value, json_error};
+use super::{argument_value, json_error};
 use pasted_lib::db::DbState;
 use rusqlite::{Connection, Result};
 use std::fs;

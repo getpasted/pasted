@@ -1,4 +1,4 @@
-use super::super::json_error;
+use super::json_error;
 use pasted_lib::db::DbState;
 use rusqlite::{Connection, Result};
 use std::path::PathBuf;

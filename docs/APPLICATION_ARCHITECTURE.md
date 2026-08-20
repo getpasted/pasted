@@ -57,9 +57,14 @@ their Tauri request mapping should not return to the command integration root.
 
 The CLI integration root delegates capability-specific argument mapping and
 output formatting to modules under `src-tauri/src/bin/pasted_cli/commands`.
-App Lock, retention, Settings, live-app controls, Activity, and portability are
-the first extracted adapters. CLI contract audits read the complete module tree
-so moving an adapter cannot accidentally remove its GUI-parity checks.
+The root owns startup, feature gating, dispatch, and help output only. Activity,
+analysis, App Lock, Bins, Clips, connections, Extractors, history, live-app
+controls, maintenance, Operations, portability, registry metadata, retention,
+Settings, storage, Suggestions, and Transforms have focused adapters. Shared
+argument parsing and presentation helpers are split by domain beside them. CLI
+contract audits read the complete module tree so moving an adapter cannot
+accidentally remove its GUI-parity checks. Architecture ratchets cap both the
+integration root and every individual adapter or support module.
 
 ## Testing boundaries
 

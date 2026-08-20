@@ -1,4 +1,4 @@
-use super::super::{
+use super::{
     json_error, parse_retention_argument, retention_age_label, retention_count_label, setting_i64,
 };
 use pasted_lib::db::DbState;

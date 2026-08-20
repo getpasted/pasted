@@ -1,4 +1,4 @@
-use super::super::{
+use super::{
     app_lock_idle_label, cli_input_error, json_error, parse_app_lock_idle, parse_app_lock_toggle,
     print_app_lock_toggle, print_live_result, read_lock_passphrase, read_lock_passphrase_change,
     require_app_lock_passphrase, send_live_or_exit,

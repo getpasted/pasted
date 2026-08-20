@@ -1,4 +1,4 @@
-use super::super::{parse_clip_ids, print_live_result, send_live_or_exit};
+use super::{parse_clip_ids, print_live_result, send_live_or_exit};
 use rusqlite::Result;
 
 pub(crate) fn run_recording(args: &[String]) -> Result<()> {

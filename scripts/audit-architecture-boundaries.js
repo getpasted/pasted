@@ -80,7 +80,7 @@ assert.match(read('src/App.tsx'), /!catalogReady \|\| !settingsHydrated \|\| !in
 const sizeRatchets = new Map([
   ['src-tauri/src/db.rs', 20_111],
   ['src-tauri/src/commands.rs', 5_218],
-  ['src-tauri/src/bin/pasted_cli.rs', 4_271],
+  ['src-tauri/src/bin/pasted_cli.rs', 320],
   ['src/App.tsx', 1_814],
   ['src/utils/tauri.ts', 1_569],
 ]);
@@ -120,11 +120,24 @@ for (const adapter of ['activity', 'retention']) {
   assert.ok(fs.existsSync(`src-tauri/src/commands/${adapter}.rs`),
     `${adapter} GUI commands must remain outside the command integration root`);
 }
-for (const adapter of ['activity', 'app_lock', 'live_app', 'portability', 'retention', 'settings']) {
+const cliAdapters = [
+  'activity', 'analyzer', 'app_lock', 'bins', 'classifiers', 'clips', 'connections',
+  'extractors', 'history', 'inspectors', 'live_app', 'maintenance', 'operations',
+  'portability', 'registry', 'retention', 'settings', 'storage', 'suggestions', 'transforms',
+];
+for (const adapter of cliAdapters) {
   assert.ok(fs.existsSync(`src-tauri/src/bin/pasted_cli/commands/${adapter}.rs`),
     `${adapter} CLI commands must remain outside the CLI integration root`);
+  assert.ok(lineCount(`src-tauri/src/bin/pasted_cli/commands/${adapter}.rs`) <= 400,
+    `${adapter} CLI adapter grew beyond 400 lines; split the capability again`);
 }
-for (const dispatch of ['app_lock', 'retention', 'settings', 'live_app', 'activity', 'portability']) {
+for (const support of ['app_lock_support', 'common', 'extractor_support', 'retention_support', 'transform_support']) {
+  assert.ok(fs.existsSync(`src-tauri/src/bin/pasted_cli/commands/${support}.rs`),
+    `${support} must keep shared CLI parsing and presentation outside the integration root`);
+  assert.ok(lineCount(`src-tauri/src/bin/pasted_cli/commands/${support}.rs`) <= 300,
+    `${support} grew beyond 300 lines; separate its helper responsibilities`);
+}
+for (const dispatch of cliAdapters) {
   assert.match(cliRoot, new RegExp(`cli_commands::${dispatch}::`),
     `The CLI integration root must delegate ${dispatch} behavior`);
 }

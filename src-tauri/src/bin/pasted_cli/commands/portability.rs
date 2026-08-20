@@ -1,4 +1,5 @@
-use super::super::{get_app_config_dir, json_error, read_library_archive};
+use super::super::{get_app_config_dir, read_library_archive};
+use super::json_error;
 use pasted_lib::db::DbState;
 use rusqlite::{Connection, Result};
 use std::fs;
