@@ -54,8 +54,10 @@ Settings persistence are the first extracted domains. New work in those areas
 belongs in their domain module rather than returning to the integration root.
 
 The GUI command adapter follows the same shape under `src-tauri/src/commands`.
-Activity and retention commands are registered from focused adapter modules;
-their Tauri request mapping should not return to the command integration root.
+Activity, App Lock, Queue, and retention commands are registered from focused
+adapter modules; their Tauri request mapping should not return to the command
+integration root. App Lock and Queue adapters delegate product behavior to the
+same application services used by hotkeys, the CLI, and the live-app bridge.
 
 The CLI integration root delegates capability-specific argument mapping and
 output formatting to modules under `src-tauri/src/bin/pasted_cli/commands`.

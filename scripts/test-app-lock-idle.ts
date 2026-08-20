@@ -5,7 +5,7 @@ import { appLockAuthErrorKey, authToggleDisabled } from '../src/utils/appLockPol
 
 const rootSource = fs.readFileSync('src/main.tsx', 'utf8');
 const hudWindowSource = fs.readFileSync('src-tauri/src/hud_window.rs', 'utf8');
-const commandsSource = fs.readFileSync('src-tauri/src/commands.rs', 'utf8');
+const appLockCommandsSource = fs.readFileSync('src-tauri/src/commands/app_lock.rs', 'utf8');
 const hotkeySource = fs.readFileSync('src-tauri/src/hotkey_manager.rs', 'utf8');
 const liveAppSource = fs.readFileSync('src-tauri/src/live_app.rs', 'utf8');
 const nativeRootSource = fs.readFileSync('src-tauri/src/lib.rs', 'utf8');
@@ -20,7 +20,7 @@ assert.match(hudWindowSource, /pub fn require_unlocked[\s\S]*?state\.is_locked\(
   'the shared HUD window boundary must reject and hide locked invocations');
 assert.match(hudWindowSource, /pub fn reveal[\s\S]*?app_lock::status[\s\S]*?emit\("app-lock-changed", &lock_status\)[\s\S]*?window\.show\(\)/,
   'every HUD reveal must synchronize current lock state before showing the hidden webview');
-assert.match(commandsSource, /lock_app_with_state[\s\S]*?hud_window::hide\(app\)/,
+assert.match(appLockCommandsSource, /pub fn lock_app[\s\S]*?hud_window::hide\(&app\)/,
   'locking from the GUI must hide the HUD');
 assert.match(hotkeySource, /app_lock::lock_enabled[\s\S]*?hud_window::hide\(app\)/,
   'locking from a hotkey must hide the HUD');
