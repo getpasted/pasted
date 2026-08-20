@@ -752,7 +752,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
                   clip.is_protected ? 'is-accent' : ''
                 }`}
                 title={clip.hotkey
-                  ? translate('component.clipPreview.removeHotkeyBeforeUnprotecting')
+                  ? translate('component.clipCard.protectedByHotkey')
                   : protectedByBin
                     ? translate('component.clipPreview.protectedByBin')
                     : clip.is_protected ? UI_COPY.unprotect : UI_COPY.protect}

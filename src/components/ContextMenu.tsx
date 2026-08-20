@@ -319,7 +319,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           aria-checked={Boolean(clip.is_protected)}
           active={Boolean(clip.is_protected)}
           title={clip.hotkey
-            ? translate('component.clipPreview.removeHotkeyBeforeUnprotecting')
+            ? translate('component.contextMenu.protectedByHotkey')
             : protectedByBin
               ? translate('component.clipPreview.protectedByBin')
               : undefined}

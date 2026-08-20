@@ -43,6 +43,7 @@ for (const file of filesUnder('src/styles', '.css')) {
 const provider = fs.readFileSync('src/localization/LocalizationProvider.tsx', 'utf8');
 const main = fs.readFileSync('src/main.tsx', 'utf8');
 const app = fs.readFileSync('src/App.tsx', 'utf8');
+const appShell = fs.readFileSync('src/hooks/useAppShell.ts', 'utf8');
 const runtime = fs.readFileSync('src/localization/runtime.ts', 'utf8');
 const preview = fs.readFileSync('src/components/ClipPreviewContent.tsx', 'utf8');
 const overflowText = fs.readFileSync('src/components/OverflowText.tsx', 'utf8');
@@ -81,7 +82,7 @@ assert.match(settingsSwitch, /ltr:translate-x-4 rtl:-translate-x-4/,
   'Enabled switch thumbs must move toward inline-end in both directions.');
 assert.match(titlebar, /setHidden: rtl/,
   'AppKit-managed traffic lights must be hidden while stable RTL controls are shown.');
-assert.match(app, /direction === 'ltr' && previousDirection !== 'rtl'/,
+assert.match(appShell, /direction === 'ltr' && previousDirection !== 'rtl'/,
   'An initially LTR window must leave its native macOS traffic lights untouched.');
 assert.match(titlebar, /TRAFFIC_LIGHT_Y[\s\S]*titlebar_height[\s\S]*titlebar_container, setFrame:/,
   'Returning to LTR must immediately restore Tauri’s configured titlebar container inset.');

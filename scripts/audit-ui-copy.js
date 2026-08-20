@@ -85,6 +85,7 @@ const settingsHotkeys = fs.readFileSync('src/components/SettingsHotkeysPanel.tsx
 const settingsFeatures = fs.readFileSync('src/components/SettingsFeaturesPanel.tsx', 'utf8');
 const helpView = fs.readFileSync('src/components/HelpView.tsx', 'utf8');
 const app = fs.readFileSync('src/App.tsx', 'utf8');
+const appNavigation = fs.readFileSync('src/utils/appNavigation.ts', 'utf8');
 const nativeMenu = fs.readFileSync('src-tauri/src/app_menu.rs', 'utf8');
 const englishCatalog = JSON.parse(fs.readFileSync('src/locales/en.json', 'utf8'));
 const localizedValueIsUsed = (source, expected) => Object.entries(englishCatalog)
@@ -146,7 +147,7 @@ for (const [menuId, topic, catalogKey, label] of [
   const helpCatalogKey = Object.entries(englishCatalog).find(([, value]) => value === label)?.[0];
   assert.ok(helpCatalogKey && helpView.includes(`id: '${topic}', get label() { return translate('${helpCatalogKey}'); }`),
     `Help must register the localized ${label} topic with its canonical ID`);
-  assert.ok(app.includes(`'${topic}'`), `App navigation must accept the ${label} Help topic`);
+  assert.ok(appNavigation.includes(`'${topic}'`), `App navigation must accept the ${label} Help topic`);
 }
 for (const [file, labels] of Object.entries({
   'src/components/SettingsBlacklistPanel.tsx': ['Add app…', 'Hotkeys', 'checked hotkeys'],
