@@ -271,6 +271,13 @@ jobs:
             platform: windows
             artifact: Pasted-Windows-x86_64
     runs-on: ${{ matrix.os }}
+    env:
+      # These artifacts prove packaging and are retained only for CI inspection.
+      # Keep release-mode cfg behavior without paying the production release's
+      # fat-LTO, single-codegen-unit link cost. desktop-release.yml intentionally
+      # retains the production profile for shipped binaries.
+      CARGO_PROFILE_RELEASE_LTO: 'false'
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: '16'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -376,6 +383,10 @@ jobs:
     runs-on: macos-latest
     env:
       APPLE_SIGNING_IDENTITY: '-'
+      # Match the other ephemeral CI packages while leaving signed releases on
+      # the production Cargo profile.
+      CARGO_PROFILE_RELEASE_LTO: 'false'
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: '16'
       # Exercise the branded Finder presentation in CI instead of Tauri's
       # default plain-folder fallback.
       TAURI_BUNDLER_DMG_IGNORE_CI: true

@@ -84,6 +84,11 @@ assert.doesNotMatch(
   /needs\.validate\.result/,
   'Main platform packaging must not serialize behind the aggregate native validation job',
 );
+assert.match(
+  desktopPackageJob,
+  /CARGO_PROFILE_RELEASE_LTO: 'false'[\s\S]*?CARGO_PROFILE_RELEASE_CODEGEN_UNITS: '16'/,
+  'Ephemeral Linux and Windows packages must avoid production-grade release linking',
+);
 assert.ok(macosPackageJob, 'Main macOS packaging must use one shared-runner job');
 assert.match(
   macosPackageJob,
@@ -94,6 +99,11 @@ assert.doesNotMatch(
   macosPackageJob,
   /needs\.validate\.result/,
   'Main macOS packaging must not serialize behind the aggregate native validation job',
+);
+assert.match(
+  macosPackageJob,
+  /CARGO_PROFILE_RELEASE_LTO: 'false'[\s\S]*?CARGO_PROFILE_RELEASE_CODEGEN_UNITS: '16'/,
+  'Ephemeral macOS packages must avoid production-grade release linking',
 );
 assert.match(
   macosPackageJob,
@@ -234,6 +244,11 @@ assert.match(
   releaseWorkflow,
   /Pasted_\$\{RELEASE_VERSION\}_universal\.dmg/,
   'The release workflow must publish a deterministic universal DMG for Homebrew',
+);
+assert.doesNotMatch(
+  releaseWorkflow,
+  /CARGO_PROFILE_RELEASE_(?:LTO|CODEGEN_UNITS)/,
+  'Signed release builds must retain the production Cargo release profile',
 );
 assert.match(
   releaseWorkflow,
