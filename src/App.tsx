@@ -1,50 +1,45 @@
-import { lazy, Suspense, useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { lazy, Suspense, useEffect, useState, useCallback, useMemo } from 'react';
 import { safeInvoke as invoke } from './utils/tauri';
-import { ClipItem, Bin, getClipFileSummary } from './types';
+import { ClipItem, Bin } from './types';
 import { Sidebar } from './components/Sidebar';
 import { ClipCard } from './components/ClipCard';
 import { EmptyClipList } from './components/EmptyClipList';
 import { PinnedClipShelf } from './components/PinnedClipShelf';
 import { ClipPreview } from './components/ClipPreview';
 import { SequentialQueueBar } from './components/SequentialQueueBar';
-import { BinModal } from './components/BinModal';
 import { ContextMenu } from './components/ContextMenu';
 import { QuickHudWindow } from './components/QuickHudWindow';
-import { BinContextMenu } from './components/BinContextMenu';
-import { DeleteBinDialog } from './components/DeleteBinDialog';
-import { ClipNoteDialog } from './components/ClipNoteDialog';
-import { ClearHistoryDialog, type ClearHistoryMode } from './components/ClearHistoryDialog';
 import { OverflowText } from './components/OverflowText';
 import { handleWindowDragDoubleClick, startWindowDrag } from './utils/windowDrag';
 import { useColumnResize } from './hooks/useColumnResize';
 import { useAppSettings } from './hooks/useAppSettings';
 import { useClipViews, useLiveClipSnapshot } from './hooks/useClipViews';
-import { useClipBinDrag } from './hooks/useClipBinDrag';
-import { useStableVerticalReorder } from './hooks/useStableVerticalReorder';
 import { getClipViewPolicy } from './utils/clipViewPolicy';
-import { getClipCollection, type ClipDropAction } from './utils/clipCollections';
-import { sortClipsForTimeline } from './utils/clipOrder';
+import { getClipCollection } from './utils/clipCollections';
 import { useAppData } from './hooks/useAppData';
 import { useClipActions } from './hooks/useClipActions';
-import { Clipboard, Trash2, Pause, Disc, Square, Pin, Search, X } from 'lucide-react';
+import { Clipboard, Trash2, Pause, Disc, Square, Search } from 'lucide-react';
 import { enabledFeatureRecord } from './utils/features';
 import { FeatureProvider } from './hooks/useFeatures';
 import { soundManager } from './utils/sound';
-import { WelcomeSetup } from './components/WelcomeSetup';
 import { readAppUiState } from './utils/appUiState';
 import './App.css';
 import { useLocalization } from './localization/LocalizationProvider';
 import { translate } from './localization/runtime';
-import { localizedSourceName } from './localization/presentation';
 import { MacRtlWindowControls } from './components/MacRtlWindowControls';
 import { SearchErrorNotice } from './components/SearchErrorNotice';
 import { clipsApi } from './api/clips';
-import { binsApi } from './api/bins';
 import { useAppNavigation } from './hooks/useAppNavigation';
 import { useAppShell } from './hooks/useAppShell';
 import { useAppMenuActions } from './hooks/useAppMenuActions';
 import { useClipSelectionController } from './hooks/useClipSelectionController';
 import { useClipListViewport } from './hooks/useClipListViewport';
+import { ClipBatchActionBar } from './components/ClipBatchActionBar';
+import { useAppOverlays } from './hooks/useAppOverlays';
+import { useClipReordering } from './hooks/useClipReordering';
+import { ClipDragPreview } from './components/ClipDragPreview';
+import { useClipDragController } from './hooks/useClipDragController';
+import { AppDialogLayer } from './components/AppDialogLayer';
 const TransformationsView = lazy(() => import('./components/TransformationsView').then(({ TransformationsView: component }) => ({ default: component })));
 const SettingsModal = lazy(() => import('./components/SettingsModal').then(({ SettingsModal: component }) => ({ default: component })));
 const ActivityLogView = lazy(() => import('./components/ActivityLogView').then(({ ActivityLogView: component }) => ({ default: component })));
@@ -111,7 +106,6 @@ export default function App() {
 
   const [selectedClip, setSelectedClip] = useState<ClipItem | null>(null);
   const [selectedClipIds, setSelectedClipIds] = useState<Set<number>>(new Set());
-  const [hoveredClipId, setHoveredClipId] = useState<number | null>(null);
   const {
     currentTab,
     activeSettingsTab,
@@ -141,10 +135,32 @@ export default function App() {
     isHudView,
     selectedClipId: selectedClip?.id ?? null,
   });
-  const [isBinModalOpen, setIsBinModalOpen] = useState<boolean>(false);
-  const [editingBin, setEditingBin] = useState<Bin | null>(null);
-  const [clearHistoryMode, setClearHistoryMode] = useState<ClearHistoryMode | null>(null);
-  const isClearConfirmOpen = clearHistoryMode !== null;
+  const {
+    contextMenu,
+    setContextMenu,
+    binContextMenu,
+    setBinContextMenu,
+    isBinModalOpen,
+    setIsBinModalOpen,
+    editingBin,
+    setEditingBin,
+    binToDelete,
+    setBinToDelete,
+    notePromptClip,
+    setNotePromptClip,
+    notePromptText,
+    setNotePromptText,
+    clearHistoryMode,
+    setClearHistoryMode,
+    openNewBinModal: handleOpenNewBinModal,
+    editBin: handleEditBin,
+    closeBinModal,
+    openBinContextMenu: handleBinContextMenu,
+    promptAddNote: handlePromptAddNote,
+  } = useAppOverlays({
+    binsEnabled: enabledFeatures.bins,
+    notesEnabled: enabledFeatures.notes,
+  });
 
   const handleToggleCopyQueue = async () => {
     if (!enabledFeatures.queue) return;
@@ -163,31 +179,10 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (!enabledFeatures.bins) {
-      setIsBinModalOpen(false);
-      setEditingBin(null);
-      setBinToDelete(null);
-      setBinContextMenu(null);
-    }
-    if (!enabledFeatures.notes) setNotePromptClip(null);
     if (!enabledFeatures.queue && seqStatus?.is_active) {
       void invoke('stop_sequential_paste').then(fetchSequentialStatus).catch(console.error);
     }
-  }, [enabledFeatures.bins, enabledFeatures.notes, enabledFeatures.queue, fetchSequentialStatus, seqStatus?.is_active]);
-
-  // Context Menu State
-  const [contextMenu, setContextMenu] = useState<{
-    x: number;
-    y: number;
-    clip: ClipItem;
-  } | null>(null);
-
-  // Bin Context Menu State
-  const [binContextMenu, setBinContextMenu] = useState<{
-    x: number;
-    y: number;
-    bin: Bin;
-  } | null>(null);
+  }, [enabledFeatures.queue, fetchSequentialStatus, seqStatus?.is_active]);
 
   const handleSidebarNavigate = useCallback((route: string) => {
     setBinContextMenu(null);
@@ -199,13 +194,6 @@ export default function App() {
     setSelectedBinId(binId);
   }, []);
 
-  // Custom Bin Deletion Confirmation Modal State
-  const [binToDelete, setBinToDelete] = useState<Bin | null>(null);
-
-  // Custom Note Editing Modal State
-  const [notePromptClip, setNotePromptClip] = useState<ClipItem | null>(null);
-  const [notePromptText, setNotePromptText] = useState<string>('');
-
   const {
     sidebarWidth,
     clipsListWidth,
@@ -215,51 +203,6 @@ export default function App() {
     handleListPointerDown,
     resetColumnWidths,
   } = useColumnResize();
-
-  // Global Escape key listener to cancel any active modal or context menu
-  useEffect(() => {
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (notePromptClip) {
-          e.preventDefault();
-          e.stopPropagation();
-          setNotePromptClip(null);
-        } else if (binToDelete) {
-          e.preventDefault();
-          e.stopPropagation();
-          setBinToDelete(null);
-        } else if (isClearConfirmOpen) {
-          e.preventDefault();
-          e.stopPropagation();
-          setClearHistoryMode(null);
-        } else if (binContextMenu) {
-          e.preventDefault();
-          e.stopPropagation();
-          setBinContextMenu(null);
-        } else if (contextMenu) {
-          e.preventDefault();
-          e.stopPropagation();
-          setContextMenu(null);
-        } else if (isBinModalOpen) {
-          e.preventDefault();
-          e.stopPropagation();
-          setIsBinModalOpen(false);
-          setEditingBin(null);
-        }
-      }
-    };
-    window.addEventListener('keydown', handleGlobalKeyDown, true);
-    return () => window.removeEventListener('keydown', handleGlobalKeyDown, true);
-  }, [notePromptClip, binToDelete, isClearConfirmOpen, binContextMenu, contextMenu, isBinModalOpen]);
-
-  // Disable WebKit default right-click context menu (Reload/Inspect) app-wide
-  useEffect(() => {
-    const handleGlobalContextMenu = (e: MouseEvent) => {
-      e.preventDefault();
-    };
-    window.addEventListener('contextmenu', handleGlobalContextMenu);
-    return () => window.removeEventListener('contextmenu', handleGlobalContextMenu);
-  }, []);
 
   const {
     displayedClips,
@@ -283,8 +226,6 @@ export default function App() {
     () => getClipCollection(currentTab, selectedBinId === null ? undefined : bins.find((bin) => bin.id === selectedBinId)),
     [bins, currentTab, locale, selectedBinId],
   );
-  const isQueueCollection = currentCollection?.membership === 'queue';
-  const isBinCollection = currentCollection?.membership === 'bin' && selectedBinId !== null;
   const {
     clipListRef,
     handleClipListScroll,
@@ -311,45 +252,22 @@ export default function App() {
     loadMoreTrashedClips,
     loadMoreSearchResults,
   });
-  const queueReorderIds = useMemo(
-    () => isQueueCollection ? (seqStatus?.item_ids ?? []).map(String) : [],
-    [isQueueCollection, seqStatus?.item_ids],
-  );
-  const commitQueueOrder = useCallback((orderedIds: string[]) => {
-    void invoke('reorder_sequential_items', { itemIds: orderedIds.map(Number) })
-      .then(fetchSequentialStatus)
-      .catch((error) => console.error('Failed to reorder Copy Queue:', error));
-  }, [fetchSequentialStatus]);
-  const queueReorder = useStableVerticalReorder({
-    itemIds: queueReorderIds,
-    containerRef: clipListRef,
-    onCommit: commitQueueOrder,
-    disabled: !currentCollection?.capabilities.canReorder || !isQueueCollection || queueReorderIds.length < 2,
-  });
-  const binReorderIds = useMemo(
-    () => isBinCollection ? displayedClips.map((clip) => String(clip.id)) : [],
-    [displayedClips, isBinCollection],
-  );
-  const commitBinOrder = useCallback((orderedIds: string[]) => {
-    if (selectedBinId === null) return;
-    void invoke('reorder_bin_clips', {
-      binId: selectedBinId,
-      clipIds: orderedIds.map(Number),
-    })
-      .then(fetchBins)
-      .catch((error) => {
-        console.error('Failed to save Bin clip order:', error);
-        void fetchBins();
-      });
-  }, [fetchBins, selectedBinId]);
-  const binClipReorder = useStableVerticalReorder({
-    itemIds: binReorderIds,
-    containerRef: clipListRef,
-    onCommit: commitBinOrder,
-    disabled: !currentCollection?.capabilities.canReorder
-      || !isBinCollection
-      || allClips.length < totalClipCount
-      || binReorderIds.length < 2,
+  const {
+    binClipReorder,
+    isBinCollection,
+    isQueueCollection,
+    queueReorder,
+    reorderIdsForClip,
+  } = useClipReordering({
+    collection: currentCollection,
+    selectedBinId,
+    displayedClips,
+    sequentialStatus: seqStatus,
+    loadedClipCount: allClips.length,
+    totalClipCount,
+    clipListRef,
+    fetchBins,
+    fetchSequentialStatus,
   });
   const binsById = useMemo(() => new Map(bins.map((bin) => [bin.id, bin])), [bins]);
   const currentContextMenuClip = useLiveClipSnapshot(contextMenu?.clip ?? null, allClips, trashedClips);
@@ -418,48 +336,13 @@ export default function App() {
     purgeClipPermanently: handlePurgeClipPermanently,
   });
 
-  const handleAssignClipToBin = useCallback(
-    async (clipId: number, binId: number) => {
-      if (!enabledFeatures.bins) return;
-      await assignClipToBin(clipId, binId, { includeSelection: true, playSound: true });
-    },
-    [assignClipToBin, enabledFeatures.bins],
-  );
-  const handleAssignClipToBinRef = useRef(handleAssignClipToBin);
-  handleAssignClipToBinRef.current = handleAssignClipToBin;
-  const handleSidebarClipDropOnBin = useCallback((clipId: number, binId: number) => (
-    handleAssignClipToBinRef.current(clipId, binId)
-  ), []);
+  const handleSetSelectedPinned = useCallback((pinned: boolean) => {
+    const anchorId = selectedClipIds.values().next().value;
+    if (typeof anchorId === 'number') handleSetPinned(anchorId, pinned);
+  }, [handleSetPinned, selectedClipIds]);
 
-  const handleOpenNewBinModal = useCallback(() => {
-    setEditingBin(null);
-    setIsBinModalOpen(true);
-  }, []);
-  const handleEditBin = useCallback((bin: Bin) => {
-    setEditingBin(bin);
-    setIsBinModalOpen(true);
-  }, []);
   const handleRequestDeleteBin = useCallback((bin: Bin) => setBinToDelete(bin), []);
-  const handleBinContextMenu = useCallback((x: number, y: number, bin: Bin) => {
-    setBinContextMenu({ x, y, bin });
-  }, []);
   const handleRequestClearHistory = useCallback(() => setClearHistoryMode('purge'), []);
-
-  const handleClipDropAction = useCallback((clipId: number, action: ClipDropAction) => {
-    if (action === 'queue') {
-      if (!enabledFeatures.queue) return;
-      const clip = allClips.find((item) => item.id === clipId);
-      if (clip) void handleAddToSequentialStack(clip);
-    } else if (action === 'pin') {
-      if (!enabledFeatures.pinning) return;
-      handleSetPinned(clipId, true);
-    } else if (action === 'protect') {
-      if (!enabledFeatures.protection) return;
-      handleSetProtected(clipId, true);
-    } else {
-      handleDeleteClip(clipId);
-    }
-  }, [allClips, enabledFeatures.pinning, enabledFeatures.protection, enabledFeatures.queue, handleAddToSequentialStack, handleDeleteClip, handleSetPinned, handleSetProtected]);
 
   const {
     draggedClipId,
@@ -479,44 +362,26 @@ export default function App() {
     updatePinnedReorderPreview,
     cancelPinnedReorderPreview,
     finishClipPointerDrag: handleClipPointerDragEnd,
-  } = useClipBinDrag({
-    isQueueMode: isQueueCollection,
+    hoveredClipId,
+    setHoveredClipId,
+    assignSidebarDropToBin: handleSidebarClipDropOnBin,
+  } = useClipDragController({
+    isQueueCollection,
     allClips,
     setAllClips,
     bins,
     selectedClipIds,
     fetchClips,
-    assignClipToBin: handleAssignClipToBin,
-    applyClipDropAction: handleClipDropAction,
+    binsEnabled: enabledFeatures.bins,
+    queueEnabled: enabledFeatures.queue,
+    pinningEnabled: enabledFeatures.pinning,
+    protectionEnabled: enabledFeatures.protection,
+    assignClipToBin,
+    addToQueue: handleAddToSequentialStack,
+    setPinned: handleSetPinned,
+    setProtected: handleSetProtected,
+    deleteClip: handleDeleteClip,
   });
-
-  useEffect(() => {
-    if (draggedClipId !== null) setHoveredClipId(null);
-
-    const updateHoveredClip = (event: PointerEvent) => {
-      if (draggedClipId !== null) {
-        setHoveredClipId((current) => current === null ? current : null);
-        return;
-      }
-      const card = document
-        .elementFromPoint(event.clientX, event.clientY)
-        ?.closest<HTMLElement>('[data-clip-id]');
-      const candidateId = Number(card?.dataset.clipId);
-      const nextId = Number.isInteger(candidateId) && candidateId > 0 ? candidateId : null;
-      setHoveredClipId((current) => current === nextId ? current : nextId);
-    };
-
-    const clearHoveredClipOutsideWindow = (event: PointerEvent) => {
-      if (!event.relatedTarget) setHoveredClipId(null);
-    };
-
-    window.addEventListener('pointermove', updateHoveredClip, { passive: true });
-    window.addEventListener('pointerout', clearHoveredClipOutsideWindow);
-    return () => {
-      window.removeEventListener('pointermove', updateHoveredClip);
-      window.removeEventListener('pointerout', clearHoveredClipOutsideWindow);
-    };
-  }, [draggedClipId]);
 
   const handleAssignBin = useCallback(
     (clipId: number, binId: number | null) => {
@@ -535,12 +400,6 @@ export default function App() {
     }
     void Promise.all([fetchClips(), fetchBins()]);
   }, [fetchBins, fetchClips]);
-
-  const handlePromptAddNote = (clip: ClipItem) => {
-    if (!enabledFeatures.notes) return;
-    setNotePromptClip(clip);
-    setNotePromptText(clip.note || '');
-  };
 
   const handleClearHistory = async () => {
     if (!clearHistoryMode) return;
@@ -591,6 +450,11 @@ export default function App() {
     ]),
   });
 
+  const draggedPreviewClip = clipDragPreview
+    ? displayedClips.find((clip) => clip.id === clipDragPreview.clipId)
+      ?? allClips.find((clip) => clip.id === clipDragPreview.clipId)
+    : undefined;
+
   if (isHudView) {
     return <FeatureProvider features={enabledFeatures}><QuickHudWindow /></FeatureProvider>;
   }
@@ -605,38 +469,15 @@ export default function App() {
       isResizingSidebar || isResizingList ? 'is-resizing-columns' : ''
     }`}>
       {direction === 'rtl' && <MacRtlWindowControls />}
-      {clipDragPreview && (() => {
-        const previewClip = displayedClips.find((clip) => clip.id === clipDragPreview.clipId)
-          ?? allClips.find((clip) => clip.id === clipDragPreview.clipId);
-        if (!previewClip) return null;
-        const batchCount = selectedClipIds.has(previewClip.id) ? selectedClipIds.size : 1;
-        const previewText = previewClip.content_type === 'image'
-          ? translate('app.imageClip')
-          : previewClip.content_type === 'file'
-            ? getClipFileSummary(previewClip)
-            : previewClip.text_content || translate('app.emptyClip');
-        return (
-          <div
-            data-testid="clip-drag-preview"
-            className="clip-drag-preview fixed w-64 pointer-events-none rounded-xl border px-3 py-2.5 shadow-2xl"
-            style={{
-              left: clipDragPreview.x + 14,
-              top: clipDragPreview.y + 14,
-              transform: 'rotate(1.5deg)',
-            }}
-          >
-            {(enabledFeatures.sources || batchCount > 1) && <div className="theme-text-muted flex items-center justify-between gap-3 text-[10px]">
-              {enabledFeatures.sources && <OverflowText text={localizedSourceName(previewClip.source)} className="theme-text-main truncate font-semibold" />}
-              {batchCount > 1 && (
-                <span className="clip-drag-preview-count shrink-0 rounded-full px-2 py-0.5 font-bold">
-                  {translate('format.clipCount', { count: batchCount })}
-                </span>
-              )}
-            </div>}
-            <OverflowText as="div" text={previewText} className="theme-title mt-1.5 truncate font-mono text-xs" />
-          </div>
-        );
-      })()}
+      {clipDragPreview && draggedPreviewClip && (
+        <ClipDragPreview
+          clip={draggedPreviewClip}
+          x={clipDragPreview.x}
+          y={clipDragPreview.y}
+          batchCount={selectedClipIds.has(draggedPreviewClip.id) ? selectedClipIds.size : 1}
+          showSource={enabledFeatures.sources}
+        />
+      )}
       {/* Inline-start application sidebar; platform CSS reserves mirrored macOS traffic lights. */}
       <Sidebar
         currentTab={currentTab}
@@ -871,11 +712,11 @@ export default function App() {
                     return bin ? [bin] : [];
                   });
                   const baseViewPolicy = getClipViewPolicy(currentTab, clip);
-                  const queueReorderId = isQueueCollection
-                    ? seqStatus?.item_ids[index]?.toString()
-                    : undefined;
-                  const binReorderId = isBinCollection ? String(clip.id) : undefined;
-                  const stableReorderId = queueReorderId ?? binReorderId;
+                  const {
+                    queueId: queueReorderId,
+                    binId: binReorderId,
+                    stableId: stableReorderId,
+                  } = reorderIdsForClip(clip, index);
                   const viewPolicy = isQueueCollection
                     ? { ...baseViewPolicy, canDragClips: displayedClips.length > 1, canOrganize: false, canAssignBins: false }
                     : hasRestrictedSelection && selectedClipIds.has(clip.id)
@@ -993,85 +834,14 @@ export default function App() {
 
             {/* Floating Glass Batch Action Bar */}
             {selectedClipIds.size > 1 && selectedClipViewPolicy.showOrganizeBatchActions && !hasRestrictedSelection && (
-              <div className="batch-action-bar absolute bottom-4 left-1/2 -translate-x-1/2 border rounded-2xl px-3 py-1.5 shadow-2xl flex items-center space-x-2 text-[11px] whitespace-nowrap animate-in fade-in slide-in-from-bottom-2 duration-150 max-w-[calc(100%-1.5rem)] select-none">
-                <span className="batch-action-count font-bold font-mono text-[11px] px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0">
-                  {selectedClipIds.size}
-                </span>
-                <div className="batch-action-divider h-3.5 w-px shrink-0" />
-                {enabledFeatures.pinning && <>
-                <button
-                  onClick={() => {
-                    const ids = Array.from(selectedClipIds);
-                    const idSet = new Set(ids);
-                    requestRepositionedClipReveal(allClips
-                      .filter((clip) => idSet.has(clip.id) && !clip.is_pinned)
-                      .map((clip) => clip.id));
-                    setAllClips((previous) => {
-                      const newlyPinned = previous
-                        .filter((clip) => idSet.has(clip.id))
-                        .map((clip, index) => ({ ...clip, is_pinned: true, pin_order: index }));
-                      const existingPinned = previous
-                        .filter((clip) => clip.is_pinned && !idSet.has(clip.id))
-                        .map((clip) => ({ ...clip, pin_order: (clip.pin_order ?? 0) + newlyPinned.length }));
-                      return sortClipsForTimeline([
-                        ...newlyPinned,
-                        ...existingPinned,
-                        ...previous.filter((clip) => !clip.is_pinned && !idSet.has(clip.id)),
-                      ]);
-                    });
-                    clipsApi.setPinned(ids, true).then(fetchClipCollectionSummary).catch((err) => {
-                      console.error(err);
-                      fetchClips();
-                    });
-                  }}
-                  className="batch-action-button flex items-center space-x-1 transition-colors font-medium cursor-pointer whitespace-nowrap shrink-0"
-                  title={translate('app.pinSelected')}
-                >
-                  <Pin className="pin-icon w-3.5 h-3.5 shrink-0" />
-                  <span>{translate('action.pin')}</span>
-                </button>
-                <button
-                  onClick={() => {
-                    const ids = Array.from(selectedClipIds);
-                    const idSet = new Set(ids);
-                    requestRepositionedClipReveal(allClips
-                      .filter((clip) => idSet.has(clip.id) && clip.is_pinned)
-                      .map((clip) => clip.id));
-                    setAllClips((previous) => {
-                      const updated = previous.map((clip) => idSet.has(clip.id)
-                        ? { ...clip, is_pinned: false, pin_order: 0 }
-                        : clip);
-                      return sortClipsForTimeline(updated);
-                    });
-                    clipsApi.setPinned(ids, false).then(fetchClipCollectionSummary).catch((err) => {
-                      console.error(err);
-                      fetchClips();
-                    });
-                  }}
-                  className="batch-action-button flex items-center space-x-1 transition-colors font-medium cursor-pointer whitespace-nowrap shrink-0"
-                  title={translate('app.unpinSelected')}
-                >
-                  <Pin className="theme-text-muted w-3.5 h-3.5 opacity-60 shrink-0" />
-                  <span>{translate('action.unpin')}</span>
-                </button>
-                <div className="batch-action-divider h-3.5 w-px shrink-0" />
-                </>}
-                <button
-                  onClick={() => handleBatchTrash()}
-                  className="batch-action-button is-danger flex items-center space-x-1 transition-colors font-medium cursor-pointer whitespace-nowrap shrink-0"
-                  title={appSettings.enableTrash ? translate('app.moveSelectedToTrash') : translate('app.deleteSelectedPermanently')}
-                >
-                  <Trash2 className="w-3.5 h-3.5 shrink-0" />
-                  <span>{translate('feature.trash.label')}</span>
-                </button>
-                <button
-                  onClick={clearClipSelection}
-                  className="batch-action-button p-0.5 rounded-full transition-colors cursor-pointer shrink-0 ms-0.5"
-                  title={translate('app.deselect')}
-                >
-                  <X className="w-3.5 h-3.5 shrink-0" />
-                </button>
-              </div>
+              <ClipBatchActionBar
+                selectedCount={selectedClipIds.size}
+                pinningEnabled={enabledFeatures.pinning}
+                trashEnabled={appSettings.enableTrash}
+                onSetPinned={handleSetSelectedPinned}
+                onTrash={handleBatchTrash}
+                onClearSelection={clearClipSelection}
+              />
             )}
           </div>
 
@@ -1142,102 +912,37 @@ export default function App() {
         />
       )}
 
-      {/* Root-Level macOS Right-Click Context Menu for Custom Bins */}
-      {enabledFeatures.bins && binContextMenu && (
-        <BinContextMenu
-          menu={binContextMenu}
-          onClose={() => setBinContextMenu(null)}
-          onEdit={(bin) => {
-            setBinContextMenu(null);
-            setEditingBin(bin);
-            setIsBinModalOpen(true);
-          }}
-          onDelete={(bin) => {
-            setBinContextMenu(null);
-            setBinToDelete(bin);
-          }}
-        />
-      )}
-
-      {/* Custom Bin Creator / Editor Modal */}
-      {enabledFeatures.bins && <BinModal
-        key={editingBin ? `edit-${editingBin.id}` : 'new-bin'}
-        isOpen={isBinModalOpen}
-        editingBin={editingBin}
-        features={{
-          clipTypes: enabledFeatures.clipTypes,
-          fileFormats: enabledFeatures.fileFormats,
-          sources: enabledFeatures.sources,
-          protection: enabledFeatures.protection,
-          types: enabledFeatures.types,
-        }}
-        fileFormats={clipCollectionSummary.fileFormatCounts.map(({ file_format }) => file_format)}
-        sources={clipCollectionSummary.sourceCounts.map(({ name }) => name)}
-        onClose={() => {
-          setIsBinModalOpen(false);
-          setEditingBin(null);
-        }}
-        onRefreshBins={fetchBins}
-      />}
-
-      {/* Delete Bin Confirmation Modal */}
-      {enabledFeatures.bins && binToDelete && (
-        <DeleteBinDialog
-          bin={binToDelete}
-          bins={bins}
-          onCancel={() => setBinToDelete(null)}
-          onConfirm={async (bin, disposition, destinationBinId) => {
-            try {
-              await binsApi.delete(bin.id, disposition, destinationBinId);
-              setBinToDelete(null);
-              await Promise.all([fetchBins(), fetchClips(), fetchTrashedClips()]);
-              if (selectedBinId === bin.id) {
-                navigateToTab('all');
-                setSelectedBinId(null);
-              }
-            } catch (err) {
-              console.error(err);
-            }
-          }}
-        />
-      )}
-
-      {/* Add / Edit Note Modal */}
-      {enabledFeatures.notes && notePromptClip && (
-        <ClipNoteDialog
-          clip={notePromptClip}
-          text={notePromptText}
-          onTextChange={setNotePromptText}
-          onCancel={() => setNotePromptClip(null)}
-          onSave={async (clip, note) => {
-            handleUpdateClipNoteLocally(clip.id, note);
-            setNotePromptClip(null);
-            try {
-              await clipsApi.updateNote(clip.id, note);
-              await fetchClipCollectionSummary();
-            } catch (error) {
-              console.error(error);
-              fetchClips();
-            }
-          }}
-        />
-      )}
-
-      {/* Clear History Confirmation Modal */}
-      {clearHistoryMode && (
-        <ClearHistoryDialog
-          mode={clearHistoryMode}
-          onCancel={() => setClearHistoryMode(null)}
-          onConfirm={handleClearHistory}
-        />
-      )}
-      <WelcomeSetup
-        isOpen={settingsHydrated && initialDataLoaded && appSettings.onboardingVersion < 1}
+      <AppDialogLayer
+        features={enabledFeatures}
         settings={appSettings}
-        onUpdateSettings={handleUpdateSettings}
-        onImported={async () => {
-          await Promise.all([fetchClips(), fetchTrashedClips(), fetchBins()]);
-        }}
+        settingsHydrated={settingsHydrated}
+        initialDataLoaded={initialDataLoaded}
+        updateSettings={handleUpdateSettings}
+        bins={bins}
+        clipCollectionSummary={clipCollectionSummary}
+        selectedBinId={selectedBinId}
+        setSelectedBinId={setSelectedBinId}
+        navigateToTab={navigateToTab}
+        binContextMenu={binContextMenu}
+        setBinContextMenu={setBinContextMenu}
+        isBinModalOpen={isBinModalOpen}
+        editingBin={editingBin}
+        editBin={handleEditBin}
+        closeBinModal={closeBinModal}
+        binToDelete={binToDelete}
+        setBinToDelete={setBinToDelete}
+        notePromptClip={notePromptClip}
+        setNotePromptClip={setNotePromptClip}
+        notePromptText={notePromptText}
+        setNotePromptText={setNotePromptText}
+        updateClipNoteLocally={handleUpdateClipNoteLocally}
+        clearHistoryMode={clearHistoryMode}
+        setClearHistoryMode={setClearHistoryMode}
+        confirmClearHistory={handleClearHistory}
+        fetchBins={fetchBins}
+        fetchClips={fetchClips}
+        fetchTrashedClips={fetchTrashedClips}
+        fetchClipCollectionSummary={fetchClipCollectionSummary}
       />
     </div>
     </FeatureProvider>
