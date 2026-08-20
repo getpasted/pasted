@@ -312,6 +312,7 @@ fn execute(
                 return Err("App lock is not enabled.".to_string());
             }
             state.lock();
+            crate::hud_window::hide(app);
             let _ = crate::app_menu::install(app, &db);
             let status = crate::app_lock::status(&db, &state);
             let _ = app.emit("app-lock-changed", &status);

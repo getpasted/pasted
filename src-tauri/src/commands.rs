@@ -23,6 +23,9 @@ use crate::library_storage::{self, LibraryLocationInfo};
 use crate::sequential_paste::{SequentialQueueState, SequentialStatus};
 use crate::third_party_licenses::ThirdPartyLicenseDocument;
 
+pub(crate) mod activity;
+pub(crate) mod retention;
+
 #[cfg(target_os = "windows")]
 fn system_auth_window_handle(app: &AppHandle) -> Result<Option<isize>, String> {
     app.get_webview_window("main")
@@ -302,11 +305,7 @@ fn apply_feature_policy_changes(app: &AppHandle, db: &Arc<DbState>, changed: &[F
             continue;
         }
         match feature {
-            Feature::Hud => {
-                if let Some(window) = app.get_webview_window("hud") {
-                    let _ = window.hide();
-                }
-            }
+            Feature::Hud => crate::hud_window::hide(app),
             Feature::Queue => {
                 if let Some(queue) = app.try_state::<Arc<SequentialQueueState>>() {
                     queue.stop_queue();
@@ -980,39 +979,6 @@ pub fn empty_trash(db: State<'_, Arc<DbState>>) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn get_activity_logs(
-    limit: Option<i64>,
-    offset: Option<i64>,
-    db: State<'_, Arc<DbState>>,
-) -> Result<Vec<crate::db::ActivityLog>, String> {
-    db.get_activity_logs(limit, offset)
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn clear_activity_logs(db: State<'_, Arc<DbState>>) -> Result<(), String> {
-    db.clear_activity_logs().map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn export_activity_json(db: State<'_, Arc<DbState>>) -> Result<String, String> {
-    let exported = db
-        .export_activity_json()
-        .map_err(|error| error.to_string())?;
-    let _ = db.log_activity("data_export_completed", "Exported Activity as JSON");
-    Ok(exported)
-}
-
-#[tauri::command]
-pub fn export_activity_csv(db: State<'_, Arc<DbState>>) -> Result<String, String> {
-    let exported = db
-        .export_activity_csv()
-        .map_err(|error| error.to_string())?;
-    let _ = db.log_activity("data_export_completed", "Exported Activity as CSV");
-    Ok(exported)
-}
-
-#[tauri::command]
 pub fn get_content_classifiers(
     db: State<'_, Arc<DbState>>,
 ) -> Result<Vec<crate::content_classification::Classifier>, String> {
@@ -1576,6 +1542,7 @@ pub(crate) fn lock_app_with_state(
     state: &crate::app_lock::AppLockState,
 ) -> Result<crate::app_lock::AppLockStatus, String> {
     let status = lock_app_state(db, state)?;
+    crate::hud_window::hide(app);
     refresh_native_app_menu(app, db);
     let _ = app.emit("app-lock-changed", &status);
     Ok(status)
@@ -1756,45 +1723,6 @@ pub fn set_app_lock_capture_while_locked(
     let status = crate::app_lock::status(&db, &state);
     let _ = app.emit("app-lock-changed", &status);
     Ok(status)
-}
-
-#[tauri::command]
-pub fn enforce_clip_retention(
-    keep_count: i64,
-    keep_age_days: i64,
-    db: State<'_, Arc<DbState>>,
-) -> Result<(), String> {
-    db.enforce_clip_retention(keep_count, keep_age_days)
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-pub fn enforce_trash_retention(
-    keep_count: i64,
-    keep_age_days: i64,
-    db: State<'_, Arc<DbState>>,
-) -> Result<(), String> {
-    db.enforce_trash_retention(keep_count, keep_age_days)
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-pub fn enforce_activity_retention(
-    keep_count: i64,
-    keep_age_days: i64,
-    db: State<'_, Arc<DbState>>,
-) -> Result<(), String> {
-    db.enforce_activity_retention(keep_count, keep_age_days)
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-pub fn enforce_revision_retention(
-    keep_count: i64,
-    db: State<'_, Arc<DbState>>,
-) -> Result<(), String> {
-    db.enforce_revision_retention(keep_count)
-        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -3473,6 +3401,7 @@ pub fn get_queue_paste_target(app: AppHandle) -> crate::paste_target::PasteTarge
 // Window & Activation Policy Commands
 #[tauri::command]
 pub fn toggle_hud_window(app: AppHandle) -> Result<(), String> {
+    crate::hud_window::require_unlocked(&app)?;
     let db = app.state::<Arc<DbState>>();
     features::require(&db, Feature::Hud)?;
     if let Some(window) = app.get_webview_window("hud") {
@@ -3610,8 +3539,7 @@ pub fn toggle_hud_window(app: AppHandle) -> Result<(), String> {
                 }
             }
 
-            let _ = window.show();
-            let _ = window.set_focus();
+            crate::hud_window::reveal(&app)?;
             #[cfg(target_os = "macos")]
             {
                 if let Ok(ns_win_ptr) = window.ns_window() {

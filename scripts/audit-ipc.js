@@ -28,7 +28,10 @@ const invokedCommands = matches(
   frontendSource,
   /invoke(?:<[^;\n]*?>)?\(\s*['"]([a-zA-Z0-9_]+)['"]/g,
 );
-const registeredCommands = matches(handlerBlock, /commands::([a-zA-Z0-9_]+)/g);
+const registeredCommands = matches(
+  handlerBlock,
+  /commands::(?:[a-zA-Z0-9_]+::)*([a-zA-Z0-9_]+)/g,
+);
 const mockedCommands = new Set([
   ...matches(tauriBridge, /case ['"]([a-zA-Z0-9_]+)['"]:/g),
   ...matches(tauriBridge, /command\s*(?:===|!==)\s*['"]([a-zA-Z0-9_]+)['"]/g),

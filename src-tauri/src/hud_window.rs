@@ -1,12 +1,48 @@
 use std::sync::Arc;
-use tauri::{AppHandle, Manager};
-
-#[cfg(target_os = "macos")]
-use tauri::Emitter;
+use tauri::{AppHandle, Emitter, Manager};
 
 use crate::db::DbState;
 
+pub fn hide(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("hud") {
+        let _ = window.hide();
+    }
+}
+
+pub fn require_unlocked(app: &AppHandle) -> Result<(), String> {
+    if app
+        .try_state::<Arc<crate::app_lock::AppLockState>>()
+        .is_some_and(|state| state.is_locked())
+    {
+        hide(app);
+        return Err("Pasted is locked.".to_string());
+    }
+    Ok(())
+}
+
+pub fn reveal(app: &AppHandle) -> Result<(), String> {
+    require_unlocked(app)?;
+    let db = app.state::<Arc<DbState>>();
+    crate::features::require(&db, crate::features::Feature::Hud)?;
+    let window = app
+        .get_webview_window("hud")
+        .ok_or_else(|| "HUD window is unavailable".to_string())?;
+    let lock_state = app.state::<Arc<crate::app_lock::AppLockState>>();
+    let lock_status = crate::app_lock::status(&db, &lock_state);
+    if lock_status.locked {
+        hide(app);
+        return Err("Pasted is locked.".to_string());
+    }
+    window
+        .emit("app-lock-changed", &lock_status)
+        .map_err(|error| format!("Could not synchronize HUD lock state: {error}"))?;
+    let _ = window.show();
+    let _ = window.set_focus();
+    Ok(())
+}
+
 pub fn toggle(app: &AppHandle) -> Result<(), String> {
+    require_unlocked(app)?;
     let db = app.state::<Arc<DbState>>();
     crate::features::require(&db, crate::features::Feature::Hud)?;
     let Some(window) = app.get_webview_window("hud") else {
@@ -122,8 +158,7 @@ pub fn toggle(app: &AppHandle) -> Result<(), String> {
         }
     }
 
-    let _ = window.show();
-    let _ = window.set_focus();
+    reveal(app)?;
     #[cfg(target_os = "macos")]
     {
         if let Ok(ns_window) = window.ns_window() {

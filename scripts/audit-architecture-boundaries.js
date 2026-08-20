@@ -78,7 +78,7 @@ assert.match(read('src/App.tsx'), /!catalogReady \|\| !settingsHydrated \|\| !in
 
 const sizeRatchets = new Map([
   ['src-tauri/src/db.rs', 20_111],
-  ['src-tauri/src/commands.rs', 5_287],
+  ['src-tauri/src/commands.rs', 5_218],
   ['src-tauri/src/bin/pasted_cli.rs', 5_040],
   ['src/App.tsx', 1_814],
   ['src/utils/tauri.ts', 1_569],
@@ -114,6 +114,10 @@ for (const handler of ['activity', 'analytics', 'analysis', 'backup', 'bins', 'c
 for (const domain of ['clip_protection', 'retention', 'settings']) {
   assert.ok(fs.existsSync(`src-tauri/src/db/${domain}.rs`),
     `${domain} persistence must remain outside the database integration root`);
+}
+for (const adapter of ['activity', 'retention']) {
+  assert.ok(fs.existsSync(`src-tauri/src/commands/${adapter}.rs`),
+    `${adapter} GUI commands must remain outside the command integration root`);
 }
 assert.doesNotMatch(commands, /pub fn (?:save_setting|configure_clip_retention)/,
   'Database domain persistence must not move into the GUI command adapter');
