@@ -5,9 +5,18 @@ const read = (path) => fs.readFileSync(path, 'utf8');
 const englishCatalog = JSON.parse(read('src/locales/en.json'));
 const cli = read('src-tauri/src/bin/pasted_cli.rs');
 const help = read('src/components/HelpView.tsx');
-const database = `${read('src-tauri/src/db.rs')}\n${read('src-tauri/src/db/clip_protection.rs')}`;
+const database = [
+  'src-tauri/src/db.rs',
+  'src-tauri/src/db/clip_protection.rs',
+  'src-tauri/src/db/retention.rs',
+  'src-tauri/src/db/settings.rs',
+].map(read).join('\n');
 const libraryItems = read('src-tauri/src/library_items.rs');
-const commands = read('src-tauri/src/commands.rs');
+const commands = [
+  'src-tauri/src/commands.rs',
+  'src-tauri/src/commands/activity.rs',
+  'src-tauri/src/commands/retention.rs',
+].map(read).join('\n');
 const analysis = read('src-tauri/src/content_analysis.rs');
 const analysisContract = read('src-tauri/src/analysis_contract.rs');
 const analysisExecution = read('src-tauri/src/analysis_execution.rs');

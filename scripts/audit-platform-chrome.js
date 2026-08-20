@@ -15,6 +15,7 @@ const windowDragSource = fs.readFileSync('src/utils/windowDrag.ts', 'utf8');
 const titlebarSource = fs.readFileSync('src-tauri/src/titlebar.rs', 'utf8');
 const rustLibSource = fs.readFileSync('src-tauri/src/lib.rs', 'utf8');
 const rtlWindowControlsSource = fs.readFileSync('src/components/MacRtlWindowControls.tsx', 'utf8');
+const appLockScreenSource = fs.readFileSync('src/components/AppLockScreen.tsx', 'utf8');
 
 const windowByLabel = (config, label) => config.app.windows.find((window) => window.label === label);
 const baseMain = windowByLabel(baseConfig, 'main');
@@ -128,6 +129,16 @@ assert.match(
   sidebarSource,
   /onDoubleClick=\{handleWindowDragDoubleClick\}/,
   'Custom title bars must wait for a confirmed double-click before resizing the window',
+);
+assert.match(
+  appLockScreenSource,
+  /onMouseDown=\{startWindowDrag\}/,
+  'The app window must remain movable while the lock screen covers its normal title bars',
+);
+assert.match(
+  appLockScreenSource,
+  /onDoubleClick=\{handleWindowDragDoubleClick\}/,
+  'The locked window must preserve the configured macOS title-bar double-click action',
 );
 assert.match(titlebarSource, /AppleActionOnDoubleClick/);
 assert.match(titlebarSource, /TitlebarDoubleClickAction::Minimize/);

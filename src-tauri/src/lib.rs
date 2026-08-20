@@ -536,10 +536,10 @@ pub fn run() {
             commands::restore_all_trashed_clips,
             commands::purge_clip_permanently,
             commands::empty_trash,
-            commands::get_activity_logs,
-            commands::clear_activity_logs,
-            commands::export_activity_json,
-            commands::export_activity_csv,
+            commands::activity::get_activity_logs,
+            commands::activity::clear_activity_logs,
+            commands::activity::export_activity_json,
+            commands::activity::export_activity_csv,
             commands::get_content_classifiers,
             commands::get_content_extractors,
             commands::get_content_inspectors,
@@ -593,10 +593,10 @@ pub fn run() {
             commands::set_app_lock_capture_while_locked,
             commands::set_linux_native_menu_theme,
             commands::set_overlay_cursor,
-            commands::enforce_clip_retention,
-            commands::enforce_trash_retention,
-            commands::enforce_activity_retention,
-            commands::enforce_revision_retention,
+            commands::retention::enforce_clip_retention,
+            commands::retention::enforce_trash_retention,
+            commands::retention::enforce_activity_retention,
+            commands::retention::enforce_revision_retention,
             commands::update_clip_note,
             commands::delete_clip,
             commands::toggle_pin_clip,
@@ -736,6 +736,7 @@ pub fn run() {
                 if features::is_enabled(&db, features::Feature::AppLock) && enabled && lock_on_sleep
                 {
                     state.lock();
+                    hud_window::hide(app);
                     let _ = app_menu::install(app, &db);
                     let status = app_lock::status(&db, &state);
                     let _ = app.emit("app-lock-changed", status);

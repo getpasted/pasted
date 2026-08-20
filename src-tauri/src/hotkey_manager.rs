@@ -672,6 +672,7 @@ impl HotkeyManager {
                     return;
                 }
             };
+            crate::hud_window::hide(app);
             let _ = app.emit("app-lock-changed", &status);
             let app_handle = app.clone();
             if let Err(error) = app.run_on_main_thread(move || {

@@ -88,7 +88,7 @@ function waitForAppContentReady() {
   });
 }
 
-export function useAppLock() {
+export function useAppLock({ animateUnlock = true }: { animateUnlock?: boolean } = {}) {
   const [status, setStatus] = useState(cachedStatus);
   const [hydrated, setHydrated] = useState(cachedHydrated);
   const [unlockingSuccess, setUnlockingSuccess] = useState(false);
@@ -110,6 +110,10 @@ export function useAppLock() {
   }, []);
 
   const transitionToUnlocked = useCallback((next: AppLockStatus) => {
+    if (!animateUnlock) {
+      acceptStatus(next);
+      return Promise.resolve();
+    }
     if (unlockTransitionRef.current) return unlockTransitionRef.current;
     const transition = (async () => {
       const contentReady = waitForAppContentReady();
@@ -125,7 +129,7 @@ export function useAppLock() {
       unlockTransitionRef.current = null;
     });
     return unlockTransitionRef.current;
-  }, [acceptStatus]);
+  }, [acceptStatus, animateUnlock]);
 
   const refresh = useCallback(async () => {
     const next = await invoke<AppLockStatus>('get_app_lock_status');
