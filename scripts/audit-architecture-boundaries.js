@@ -28,6 +28,7 @@ const analyticsDatabase = read('src-tauri/src/db/analytics.rs');
 const clipMutationDatabase = read('src-tauri/src/db/clip_mutations.rs');
 const clipQueryDatabase = read('src-tauri/src/db/clip_queries.rs');
 const contentTypeRegistryDatabase = read('src-tauri/src/db/content_type_registry.rs');
+const extractorDatabase = read('src-tauri/src/db/extractors.rs');
 const intelligenceConnectionDatabase = read('src-tauri/src/db/intelligence_connections.rs');
 const operationDatabase = read('src-tauri/src/db/operations.rs');
 const transformDatabase = read('src-tauri/src/db/transforms.rs');
@@ -125,6 +126,12 @@ assert.match(contentTypeRegistryDatabase, /pub fn set_content_type_archived/,
   'Content Type lifecycle policy must remain centralized with registry persistence');
 assert.doesNotMatch(read('src-tauri/src/db.rs'), /pub fn get_content_type_groups/,
   'The database integration root must not reclaim Content Type registry persistence');
+assert.match(extractorDatabase, /pub fn get_content_extractors/,
+  'Extractor persistence must remain in its focused database subsystem');
+assert.match(extractorDatabase, /insert_extractor_authoring_session/,
+  'Extractor authoring history must remain transactional with extractor persistence');
+assert.doesNotMatch(read('src-tauri/src/db.rs'), /pub fn get_content_extractors/,
+  'The database integration root must not reclaim Extractor persistence');
 assert.match(clipboardActions, /fn ocr_text_never_replaces_an_image_clips_copy_fingerprint/,
   'Clipboard fingerprint regressions must remain with the shared clipboard workflow');
 assert.match(contentInspection, /fn file_metadata_reports_availability_without_crawling_directories/,
@@ -319,12 +326,13 @@ assert.doesNotMatch(commands, /pub fn extract_ocr_from_clip|pub async fn extract
   'The GUI command root must not reclaim extraction lifecycle operations');
 
 const sizeRatchets = new Map([
-  ['src-tauri/src/db.rs', 16_204],
+  ['src-tauri/src/db.rs', 15_408],
   ['src-tauri/src/db/activity.rs', 649],
   ['src-tauri/src/db/analytics.rs', 159],
   ['src-tauri/src/db/clip_mutations.rs', 643],
   ['src-tauri/src/db/clip_queries.rs', 442],
   ['src-tauri/src/db/content_type_registry.rs', 363],
+  ['src-tauri/src/db/extractors.rs', 802],
   ['src-tauri/src/db/intelligence_connections.rs', 231],
   ['src-tauri/src/db/operations.rs', 377],
   ['src-tauri/src/db/transforms.rs', 1_084],
