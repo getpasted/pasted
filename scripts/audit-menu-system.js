@@ -45,6 +45,9 @@ if ((sharedMenu.match(/surface-scroll-region/g) || []).length < 3) {
 if (!sharedMenu.includes('onWheelCapture') || !sharedMenu.includes('onScroll')) {
   failures.push('AnchoredMenu must reveal its transient scrollbar directly during wheel and scroll input');
 }
+if ((sharedMenu.match(/normalizeMenuDividers\(children, MenuDivider\)/g) || []).length < 2) {
+  failures.push('Anchored menus and submenus must normalize conditional dividers');
+}
 if (!fs.readFileSync('src/components/ContextMenu.tsx', 'utf8').includes('MenuSubmenu')) {
   failures.push('Clip context submenus do not use the shared hover-corridor implementation');
 }

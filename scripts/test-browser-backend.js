@@ -43,6 +43,13 @@ try {
   assert.equal((await safeInvoke('get_clips')).find(({ id }) => id === 101)?.is_concealed, false,
     'an explicit reveal must survive browser-backend normalization');
 
+  await safeInvoke('delete_clip', { id: 102 });
+  assert.equal(await safeInvoke('toggle_clip_concealed', { clipId: 102 }), false,
+    'toggling concealment must not mutate a trashed clip');
+  await safeInvoke('batch_conceal_clips', { ids: [102], concealedState: true });
+  assert.equal((await safeInvoke('get_trashed_clips')).find(({ id }) => id === 102)?.is_concealed, false,
+    'batch concealment must not mutate a trashed clip');
+
   await safeInvoke('push_sequential_item', { item: 'first' });
   await safeInvoke('push_sequential_item', { item: 'second' });
   const queue = await safeInvoke('get_sequential_status');

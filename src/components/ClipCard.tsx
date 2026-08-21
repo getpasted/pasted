@@ -677,7 +677,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
             <Copy className="w-3.5 h-3.5" />
           )}
         </button>
-        {features.concealment && onToggleConcealed && (
+        {features.concealment && viewPolicy.canOrganize && onToggleConcealed && (
           <button
             onClick={(event) => {
               event.stopPropagation();

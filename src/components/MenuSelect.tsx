@@ -107,7 +107,8 @@ export function MenuSelect({
             const showGroup = option.group && option.group !== visibleOptions[index - 1]?.group;
             return (
               <div key={option.value} role="none">
-                {option.dividerBefore && <div role="separator" className="theme-divider my-1 border-t" />}
+                {option.dividerBefore && index > 0 && !showGroup
+                  && <div role="separator" className="theme-divider my-1 border-t" />}
                 {showGroup && (
                   <div className={`theme-text-subtle px-2.5 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wider ${index > 0 ? 'theme-divider mt-1 border-t' : ''}`}>
                     {option.group}

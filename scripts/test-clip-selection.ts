@@ -1,6 +1,18 @@
 import assert from 'node:assert/strict';
-import { pendingClipFocusId, selectionIdsForContextMenu } from '../src/utils/clipSelection.ts';
+import { clipCollectionViewKey, pendingClipFocusId, selectionIdsForContextMenu } from '../src/utils/clipSelection.ts';
 import { concealedClipMask } from '../src/utils/concealedClipMask.ts';
+import { ClipListScrollMemory } from '../src/utils/clipListScrollMemory.ts';
+
+assert.equal(clipCollectionViewKey('all', null), 'section:all');
+assert.equal(clipCollectionViewKey('bin', 7), 'bin:7');
+const scrollMemory = new ClipListScrollMemory();
+scrollMemory.remember('section:all', { scrollTop: 480, anchorClipId: 42, anchorOffset: -12 });
+scrollMemory.remember('bin:7', { scrollTop: 125, anchorClipId: 9, anchorOffset: 4 });
+assert.deepEqual(scrollMemory.recall('section:all'), {
+  scrollTop: 480, anchorClipId: 42, anchorOffset: -12,
+}, 'History must retain its visible clip anchor as well as its raw scroll position');
+assert.equal(scrollMemory.recall('bin:7').scrollTop, 125, 'Each Bin must retain an independent scroll position');
+assert.equal(scrollMemory.recall('section:trash').scrollTop, 0, 'A newly visited collection must start at the top');
 
 const multiSelection = new Set([2, 4, 6]);
 assert.equal(

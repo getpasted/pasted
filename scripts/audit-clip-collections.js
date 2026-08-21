@@ -10,6 +10,7 @@ const clipViews = read('src/hooks/useClipViews.ts');
 const clipsApi = read('src/api/clips.ts');
 const emptyState = read('src/components/EmptyClipList.tsx');
 const viewPolicy = read('src/utils/clipViewPolicy.ts');
+const clipCard = read('src/components/ClipCard.tsx');
 const app = read('src/App.tsx');
 const clipListHeader = read('src/components/ClipListHeader.tsx');
 const appNavigation = read('src/utils/appNavigation.ts');
@@ -126,6 +127,11 @@ assert.match(clipViews, /facet\?\.kind === 'clip_type'[\s\S]{0,160}clip\.content
 assert.match(clipViews, /facet\?\.kind === 'content_type'[\s\S]{0,180}clip\.content_types/, 'Content Type routes must filter Classifier results only');
 assert.match(emptyState, /collection\?\.emptyTitle/, 'Empty states must come from the collection descriptor');
 assert.match(viewPolicy, /collection\?\.membership/, 'Interaction policy must use collection membership');
+assert.match(
+  clipCard,
+  /features\.concealment && viewPolicy\.canOrganize && onToggleConcealed/,
+  'Clip cards must honor collection policy before exposing concealment actions',
+);
 assert.match(clipListHeader, /collection\?\.title/, 'The clip-list heading must use the collection descriptor');
 assert.match(appNavigation, /tab\.startsWith\('clip_type-'\)[\s\S]{0,180}tab\.startsWith\('file_format-'\)/, 'Search escape must remember every collection-axis route');
 assert.match(app, /\[bins, currentTab, locale, selectedBinId\]/, 'The active collection heading must recompute when the locale changes');
