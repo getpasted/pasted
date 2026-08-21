@@ -281,4 +281,27 @@ mod tests {
         assert!(directories.contains(&PathBuf::from("/opt/homebrew/bin")));
         assert!(directories.contains(&PathBuf::from("/usr/local/bin")));
     }
+
+    #[test]
+    fn intelligence_credentials_must_remain_references() {
+        for reference in [
+            "env:OPENAI_API_KEY",
+            "env:_LOCAL_MODEL_TOKEN",
+            "op://Private/OpenAI/credential",
+            "keychain:pasted.openai",
+        ] {
+            assert!(validate_credential_reference(Some(reference)).is_ok());
+        }
+        for value in [
+            "sk-proj-literal-secret",
+            "env:NOT VALID",
+            "env:123_INVALID",
+            "op://",
+            " keychain:pasted.openai",
+            "",
+        ] {
+            assert!(validate_credential_reference(Some(value)).is_err());
+        }
+        assert!(validate_credential_reference(None).is_ok());
+    }
 }

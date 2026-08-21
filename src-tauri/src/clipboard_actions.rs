@@ -201,3 +201,61 @@ pub fn paste_hud_clip(db: &DbState, app: &AppHandle, clip_id: i64) -> Result<(),
     crate::features::require(db, crate::features::Feature::Hud)?;
     paste_clip(db, app, clip_id, PasteOrigin::Hud)
 }
+
+#[cfg(test)]
+mod tests {
+    use base64::Engine;
+
+    #[test]
+    fn ocr_text_never_replaces_an_image_clips_copy_fingerprint() {
+        let rgba = vec![12, 34, 56, 255];
+        let image = image::RgbaImage::from_raw(1, 1, rgba.clone()).unwrap();
+        let mut encoded = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgba8(image)
+            .write_to(&mut encoded, image::ImageFormat::Png)
+            .unwrap();
+        let image_base64 = format!(
+            "data:image/png;base64,{}",
+            base64::engine::general_purpose::STANDARD.encode(encoded.into_inner())
+        );
+        let clip = crate::db::ClipItem {
+            id: 1,
+            name: None,
+            content_type: "image".to_string(),
+            content_types: Vec::new(),
+            file_formats: Vec::new(),
+            text_content: Some("recognized OCR text".to_string()),
+            html_content: None,
+            image_base64: Some(image_base64),
+            image_path: None,
+            content_hash: "stored-image-hash".to_string(),
+            source: "Screenshot".to_string(),
+            is_pinned: false,
+            is_protected: false,
+            is_explicitly_protected: Some(false),
+            protecting_bin_ids: Vec::new(),
+            is_concealed: false,
+            is_explicitly_concealed: Some(false),
+            is_explicitly_revealed: false,
+            concealing_bin_ids: Vec::new(),
+            concealing_content_types: Vec::new(),
+            shortcut: None,
+            is_transformed: false,
+            pin_order: 0,
+            bin_id: None,
+            bin_ids: None,
+            note: None,
+            is_trashed: false,
+            trashed_at: None,
+            created_at: "2026-08-11T00:00:00Z".to_string(),
+            ocr_extractor_ref: None,
+            ocr_extractor_name: None,
+            ocr_engine_version: None,
+        };
+
+        assert_eq!(
+            super::internal_fingerprint(&clip).unwrap(),
+            crate::clipboard_fingerprint::image_rgba(&rgba)
+        );
+    }
+}
