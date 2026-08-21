@@ -746,7 +746,7 @@ pub fn run() {
             commands::import_external_history,
             commands::factory_reset_app,
             commands::library_access::get_analytics_summary,
-            commands::install_cli_to_path,
+            commands::cli_installation::install_cli_to_path,
             commands::get_hotkey_capability_status,
             commands::request_accessibility_permission,
             commands::platform::open_backing_page,

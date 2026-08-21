@@ -36,6 +36,7 @@ const clipCommands = read('src-tauri/src/commands/clips.rs');
 const clipboardCommands = read('src-tauri/src/commands/clipboard.rs');
 const binCommands = read('src-tauri/src/commands/bins.rs');
 const captureCommands = read('src-tauri/src/commands/capture.rs');
+const cliInstallationCommands = read('src-tauri/src/commands/cli_installation.rs');
 const clipPolicyCommands = read('src-tauri/src/commands/clip_policies.rs');
 const backupCommands = read('src-tauri/src/commands/backups.rs');
 const importCommands = read('src-tauri/src/commands/imports.rs');
@@ -105,6 +106,14 @@ assert.match(captureCommands, /pub fn toggle_clipboard_pause[\s\S]*emit_clipboar
   'Capture pause changes must publish the shared application event');
 assert.doesNotMatch(commands, /pub async fn search_clips|pub fn toggle_clipboard_pause|pub fn export_clips_json|pub fn get_analytics_summary/,
   'The GUI command root must not reclaim library access or capture state operations');
+assert.match(cliInstallationCommands, /symlink_metadata\(&symlink_path\)/,
+  'CLI installation must inspect an existing destination without following its link');
+assert.match(cliInstallationCommands, /Refusing to replace existing (?:CLI link|file)/,
+  'CLI installation must refuse to overwrite user-owned destinations');
+assert.match(cliInstallationCommands, /fn cli_install_is_idempotent_for_its_existing_link/,
+  'CLI installation must retain its idempotency regression test beside the adapter');
+assert.doesNotMatch(commands, /pub fn install_cli_to_path|fn install_cli_symlink/,
+  'The GUI command root must not reclaim CLI installation behavior');
 assert.match(binCommands, /pub fn create_bin[\s\S]*refresh_native_app_menu/,
   'Bin lifecycle commands must remain in their focused organization adapter');
 assert.match(hotkeyCommands, /pub fn update_clip_hotkey[\s\S]*restore_clip_hotkey_state/,
@@ -237,9 +246,10 @@ assert.doesNotMatch(commands, /pub fn extract_ocr_from_clip|pub async fn extract
 
 const sizeRatchets = new Map([
   ['src-tauri/src/db.rs', 20_111],
-  ['src-tauri/src/commands.rs', 330],
+  ['src-tauri/src/commands.rs', 203],
   ['src-tauri/src/commands/bins.rs', 89],
   ['src-tauri/src/commands/capture.rs', 43],
+  ['src-tauri/src/commands/cli_installation.rs', 136],
   ['src-tauri/src/commands/clip_policies.rs', 70],
   ['src-tauri/src/commands/clipboard.rs', 108],
   ['src-tauri/src/commands/hotkeys.rs', 371],
@@ -317,7 +327,8 @@ for (const domain of ['clip_protection', 'retention', 'settings']) {
     `${domain} persistence must remain outside the database integration root`);
 }
 for (const adapter of [
-  'activity', 'analysis', 'app_lock', 'backups', 'bins', 'capture', 'clip_policies', 'clipboard',
+  'activity', 'analysis', 'app_lock', 'backups', 'bins', 'capture', 'cli_installation',
+  'clip_policies', 'clipboard',
   'content_registry', 'extraction', 'extractors', 'factory_reset', 'hotkeys', 'hud', 'imports',
   'intelligence', 'library_access', 'manual_transforms', 'platform', 'queue', 'retention', 'settings',
   'source_apps', 'storage', 'transformations',
