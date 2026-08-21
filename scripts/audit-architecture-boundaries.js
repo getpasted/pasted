@@ -385,7 +385,7 @@ assert.doesNotMatch(commands, /pub fn extract_ocr_from_clip|pub async fn extract
   'The GUI command root must not reclaim extraction lifecycle operations');
 
 const sizeRatchets = new Map([
-  ['src-tauri/src/db.rs', 11_399],
+  ['src-tauri/src/db.rs', 4_550],
   ['src-tauri/src/db/activity.rs', 649],
   ['src-tauri/src/db/analytics.rs', 159],
   ['src-tauri/src/db/bins.rs', 652],
@@ -402,6 +402,15 @@ const sizeRatchets = new Map([
   ['src-tauri/src/db/stored_analysis.rs', 818],
   ['src-tauri/src/db/transfers.rs', 1_446],
   ['src-tauri/src/db/transforms.rs', 1_084],
+  ['src-tauri/src/db/tests/mod.rs', 54],
+  ['src-tauri/src/db/tests/bins_and_transforms.rs', 611],
+  ['src-tauri/src/db/tests/capture_and_lifecycle.rs', 797],
+  ['src-tauri/src/db/tests/migrations_and_intelligence.rs', 1_422],
+  ['src-tauri/src/db/tests/retention_and_activity.rs', 366],
+  ['src-tauri/src/db/tests/revisions_and_mutations.rs', 495],
+  ['src-tauri/src/db/tests/search_and_operations.rs', 1_126],
+  ['src-tauri/src/db/tests/transfer_and_portability.rs', 1_069],
+  ['src-tauri/src/db/tests/transforms_backup_and_protection.rs', 893],
   ['src-tauri/src/commands.rs', 54],
   ['src-tauri/src/commands/bins.rs', 89],
   ['src-tauri/src/commands/capture.rs', 43],
