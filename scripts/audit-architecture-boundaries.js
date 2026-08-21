@@ -35,6 +35,7 @@ const rememberedClipListScroll = read('src/hooks/useRememberedClipListScroll.ts'
 const clipCommands = read('src-tauri/src/commands/clips.rs');
 const clipboardCommands = read('src-tauri/src/commands/clipboard.rs');
 const binCommands = read('src-tauri/src/commands/bins.rs');
+const captureCommands = read('src-tauri/src/commands/capture.rs');
 const clipPolicyCommands = read('src-tauri/src/commands/clip_policies.rs');
 const backupCommands = read('src-tauri/src/commands/backups.rs');
 const importCommands = read('src-tauri/src/commands/imports.rs');
@@ -42,6 +43,7 @@ const factoryResetCommands = read('src-tauri/src/commands/factory_reset.rs');
 const extractionCommands = read('src-tauri/src/commands/extraction.rs');
 const filePreviewCommands = read('src-tauri/src/commands/file_previews.rs');
 const intelligenceCommands = read('src-tauri/src/commands/intelligence.rs');
+const libraryAccessCommands = read('src-tauri/src/commands/library_access.rs');
 const manualTransformCommands = read('src-tauri/src/commands/manual_transforms.rs');
 const sourceApplicationCommands = read('src-tauri/src/commands/source_apps.rs');
 const transformationCommands = read('src-tauri/src/commands/transformations.rs');
@@ -95,6 +97,14 @@ assert.doesNotMatch(platformCommands, /#\[tauri::command\]\s*#\[tauri::command\]
   'Platform commands must not carry duplicate Tauri command attributes');
 assert.doesNotMatch(commands, /pub fn save_app_setting|pub fn set_linux_native_menu_theme|pub fn open_backing_page/,
   'The GUI command root must not reclaim Settings or platform shell operations');
+assert.match(libraryAccessCommands, /pub async fn search_clips[\s\S]*spawn_blocking/,
+  'Authoritative Clip search must remain outside async command dispatch');
+assert.match(libraryAccessCommands, /pub fn export_clips_json[\s\S]*db\.export_clips_json/,
+  'Clip exports must delegate to the shared database contract');
+assert.match(captureCommands, /pub fn toggle_clipboard_pause[\s\S]*emit_clipboard_pause_changed/,
+  'Capture pause changes must publish the shared application event');
+assert.doesNotMatch(commands, /pub async fn search_clips|pub fn toggle_clipboard_pause|pub fn export_clips_json|pub fn get_analytics_summary/,
+  'The GUI command root must not reclaim library access or capture state operations');
 assert.match(binCommands, /pub fn create_bin[\s\S]*refresh_native_app_menu/,
   'Bin lifecycle commands must remain in their focused organization adapter');
 assert.match(hotkeyCommands, /pub fn update_clip_hotkey[\s\S]*restore_clip_hotkey_state/,
@@ -227,8 +237,9 @@ assert.doesNotMatch(commands, /pub fn extract_ocr_from_clip|pub async fn extract
 
 const sizeRatchets = new Map([
   ['src-tauri/src/db.rs', 20_111],
-  ['src-tauri/src/commands.rs', 429],
+  ['src-tauri/src/commands.rs', 330],
   ['src-tauri/src/commands/bins.rs', 89],
+  ['src-tauri/src/commands/capture.rs', 43],
   ['src-tauri/src/commands/clip_policies.rs', 70],
   ['src-tauri/src/commands/clipboard.rs', 108],
   ['src-tauri/src/commands/hotkeys.rs', 371],
@@ -243,6 +254,7 @@ const sizeRatchets = new Map([
   ['src-tauri/src/commands/clips.rs', 261],
   ['src-tauri/src/commands/file_previews.rs', 714],
   ['src-tauri/src/commands/intelligence.rs', 271],
+  ['src-tauri/src/commands/library_access.rs', 38],
   ['src-tauri/src/commands/manual_transforms.rs', 164],
   ['src-tauri/src/commands/source_apps.rs', 463],
   ['src-tauri/src/commands/transformations.rs', 244],
@@ -305,9 +317,9 @@ for (const domain of ['clip_protection', 'retention', 'settings']) {
     `${domain} persistence must remain outside the database integration root`);
 }
 for (const adapter of [
-  'activity', 'analysis', 'app_lock', 'backups', 'bins', 'clip_policies', 'clipboard',
+  'activity', 'analysis', 'app_lock', 'backups', 'bins', 'capture', 'clip_policies', 'clipboard',
   'content_registry', 'extraction', 'extractors', 'factory_reset', 'hotkeys', 'hud', 'imports',
-  'intelligence', 'manual_transforms', 'platform', 'queue', 'retention', 'settings',
+  'intelligence', 'library_access', 'manual_transforms', 'platform', 'queue', 'retention', 'settings',
   'source_apps', 'storage', 'transformations',
 ]) {
   assert.ok(fs.existsSync(`src-tauri/src/commands/${adapter}.rs`),

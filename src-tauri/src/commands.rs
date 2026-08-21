@@ -1,13 +1,14 @@
 use std::sync::Arc;
-use tauri::{AppHandle, State};
+use tauri::AppHandle;
 
-use crate::db::{ClipSearchRequest, ClipSearchResult, DbState};
+use crate::db::DbState;
 
 pub(crate) mod activity;
 pub(crate) mod analysis;
 pub(crate) mod app_lock;
 pub(crate) mod backups;
 pub(crate) mod bins;
+pub(crate) mod capture;
 pub(crate) mod clip_metadata;
 pub(crate) mod clip_policies;
 pub(crate) mod clipboard;
@@ -21,6 +22,7 @@ pub(crate) mod hotkeys;
 pub(crate) mod hud;
 pub(crate) mod imports;
 pub(crate) mod intelligence;
+pub(crate) mod library_access;
 pub(crate) mod manual_transforms;
 pub(crate) mod platform;
 pub(crate) mod queue;
@@ -48,92 +50,6 @@ fn refresh_native_app_menu(app: &AppHandle, db: &Arc<DbState>) {
     if let Err(error) = crate::app_menu::install(app, db) {
         eprintln!("Could not refresh the native app menu: {error}");
     }
-}
-
-#[tauri::command]
-pub async fn search_clips(
-    request: ClipSearchRequest,
-    db: State<'_, Arc<DbState>>,
-) -> Result<ClipSearchResult, String> {
-    let db = db.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        db.search_clips(&request).map_err(|error| error.to_string())
-    })
-    .await
-    .map_err(|error| error.to_string())?
-}
-
-#[tauri::command]
-pub fn toggle_clipboard_pause(
-    monitor_state: State<'_, Arc<crate::clipboard_monitor::ClipboardMonitorState>>,
-    db: State<'_, Arc<DbState>>,
-    app: AppHandle,
-) -> Result<bool, String> {
-    let current = monitor_state
-        .is_manually_paused
-        .load(std::sync::atomic::Ordering::Relaxed);
-    let new_val = !current;
-    monitor_state
-        .is_manually_paused
-        .store(new_val, std::sync::atomic::Ordering::Relaxed);
-
-    if new_val {
-        let _ = db.log_activity(
-            "recording_manually_paused",
-            "Clipboard recording manually paused",
-        );
-    } else {
-        let _ = db.log_activity(
-            "recording_manually_resumed",
-            "Clipboard recording manually resumed",
-        );
-    }
-
-    let effective = monitor_state.is_paused();
-    crate::app_events::emit_clipboard_pause_changed(&app, effective, None);
-    Ok(effective)
-}
-
-#[tauri::command]
-pub fn is_clipboard_paused(
-    monitor_state: State<'_, Arc<crate::clipboard_monitor::ClipboardMonitorState>>,
-) -> Result<bool, String> {
-    Ok(monitor_state.is_paused())
-}
-
-#[tauri::command]
-pub fn export_clips_json(db: State<'_, Arc<DbState>>) -> Result<String, String> {
-    let exported = db.export_clips_json().map_err(|error| error.to_string())?;
-    let _ = db.log_activity("data_export_completed", "Exported Clips as JSON");
-    Ok(exported)
-}
-
-#[cfg(test)]
-fn csv_cell(value: &str) -> String {
-    let escaped = value.replace('"', "\"\"");
-    let neutralized = if matches!(
-        value.chars().next(),
-        Some('=' | '+' | '-' | '@' | '\t' | '\r')
-    ) {
-        format!("'{escaped}")
-    } else {
-        escaped
-    };
-    format!("\"{neutralized}\"")
-}
-
-#[tauri::command]
-pub fn export_clips_csv(db: State<'_, Arc<DbState>>) -> Result<String, String> {
-    let exported = db.export_clips_csv().map_err(|error| error.to_string())?;
-    let _ = db.log_activity("data_export_completed", "Exported Clips as CSV");
-    Ok(exported)
-}
-
-#[tauri::command]
-pub fn get_analytics_summary(
-    db: State<'_, Arc<DbState>>,
-) -> Result<crate::db::AnalyticsSummary, String> {
-    db.get_analytics_summary().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -379,21 +295,6 @@ mod tests {
             status.is_trusted, status.is_dev_mode
         );
         assert_eq!(status.is_dev_mode, cfg!(debug_assertions));
-    }
-
-    #[test]
-    fn csv_cells_escape_structure_and_neutralize_formulas() {
-        assert_eq!(csv_cell("plain text"), "\"plain text\"");
-        assert_eq!(
-            csv_cell("commas, quotes \" and\nlines"),
-            "\"commas, quotes \"\" and\nlines\""
-        );
-        assert_eq!(csv_cell("=2+2"), "\"'=2+2\"");
-        assert_eq!(csv_cell("+SUM(A1:A2)"), "\"'+SUM(A1:A2)\"");
-        assert_eq!(csv_cell("-1+2"), "\"'-1+2\"");
-        assert_eq!(csv_cell("@SUM(A1:A2)"), "\"'@SUM(A1:A2)\"");
-        assert_eq!(csv_cell("\t=2+2"), "\"'\t=2+2\"");
-        assert_eq!(csv_cell("\r=2+2"), "\"'\r=2+2\"");
     }
 
     #[test]
