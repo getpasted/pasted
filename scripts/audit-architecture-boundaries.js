@@ -201,7 +201,7 @@ const sizeRatchets = new Map([
   ['src-tauri/src/commands.rs', 884],
   ['src-tauri/src/commands/clipboard.rs', 108],
   ['src-tauri/src/commands/hotkeys.rs', 306],
-  ['src-tauri/src/commands/hud.rs', 168],
+  ['src-tauri/src/commands/hud.rs', 170],
   ['src-tauri/src/commands/backups.rs', 180],
   ['src-tauri/src/commands/imports.rs', 287],
   ['src-tauri/src/commands/factory_reset.rs', 39],
