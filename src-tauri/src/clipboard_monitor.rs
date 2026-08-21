@@ -504,7 +504,7 @@ pub fn start_clipboard_monitor(
                                 let preview_paths = paths.clone();
                                 let preview_hash = hash.clone();
                                 thread::spawn(move || {
-                                    crate::commands::prefetch_file_clip_previews(
+                                    crate::commands::file_previews::prefetch_file_clip_previews(
                                         &preview_app,
                                         &preview_paths,
                                         &preview_hash,
