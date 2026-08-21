@@ -5,6 +5,8 @@ const readJson = (path) => JSON.parse(fs.readFileSync(path, 'utf8'));
 const packageJson = readJson('package.json');
 const packageLock = readJson('package-lock.json');
 const tauriConfig = readJson('src-tauri/tauri.conf.json');
+const tauriLinuxConfig = readJson('src-tauri/tauri.linux.conf.json');
+const tauriWindowsConfig = readJson('src-tauri/tauri.windows.conf.json');
 const cargoToml = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
 const cargoBuildScript = fs.readFileSync('src-tauri/build.rs', 'utf8');
 const installationDiagnostics = fs.readFileSync('src-tauri/src/installation_diagnostics.rs', 'utf8');
@@ -25,6 +27,7 @@ const desktopPackageJob = desktopBuildWorkflow.match(
 )?.[0];
 const dependencyPolicyWorkflow = fs.readFileSync('.github/workflows/dependency-policy.yml', 'utf8');
 const universalMacCliBuild = fs.readFileSync('scripts/build-macos-universal-cli.sh', 'utf8');
+const linuxReleaseScript = fs.readFileSync('scripts/release-linux-appimage.sh', 'utf8');
 const thirdPartyLicenses = readJson('THIRD_PARTY_LICENSES.json');
 const thirdPartyNotices = fs.readFileSync('THIRD_PARTY_NOTICES.txt', 'utf8');
 const sourceSbom = readJson('THIRD_PARTY_SBOM.spdx.json');
@@ -92,8 +95,8 @@ assert.match(
 );
 assert.match(
   desktopPackageJob,
-  /Build headless CLI[\s\S]*?--no-default-features --features cli --bin pasted[\s\S]*?tauri -- build/,
-  'Linux and Windows packages must build the CLI without GUI dependencies before Tauri builds the app',
+  /Build headless CLI[\s\S]*?--no-default-features --features cli --bin pasted[\s\S]*?stage:cli-sidecar[\s\S]*?tauri -- build/,
+  'Linux and Windows packages must build and stage the headless CLI before Tauri bundles the app',
 );
 assert.ok(macosPackageJob, 'Main macOS packaging must use one shared-runner job');
 assert.match(
@@ -135,6 +138,13 @@ assert.equal(rootLockPackage?.version, packageJson.version, 'Locked root package
 assert.equal(tauriConfig.productName, 'Pasted', 'Native product name must remain Pasted');
 assert.equal(cargoPackageName, 'pasted-app', 'The Cargo package name must select the private GUI executable for Tauri bundling');
 assert.equal(tauriConfig.mainBinaryName, undefined, 'Tauri must derive its main binary from the Cargo package name');
+assert.deepEqual(tauriLinuxConfig.bundle?.externalBin, ['binaries/pasted'], 'Linux must bundle the staged headless CLI');
+assert.deepEqual(tauriWindowsConfig.bundle?.externalBin, ['binaries/pasted'], 'Windows must bundle the staged headless CLI');
+assert.equal(
+  packageScripts['stage:cli-sidecar'],
+  'node scripts/stage-tauri-cli-sidecar.js',
+  'Desktop packages must share one target-aware CLI sidecar staging command',
+);
 assert.equal(tauriConfig.version, packageJson.version, 'Tauri and frontend versions must match');
 assert.equal(cargoVersion, packageJson.version, 'Rust crate and frontend versions must match');
 assert.equal(
@@ -297,6 +307,16 @@ assert.equal(
   (releaseWorkflow.match(/--no-default-features --features cli --bin pasted/g) ?? []).length,
   2,
   'Linux and Windows releases must build headless CLIs before their GUI packages',
+);
+assert.equal(
+  (releaseWorkflow.match(/stage:cli-sidecar/g) ?? []).length,
+  2,
+  'Linux and Windows releases must stage their headless CLIs into the installers',
+);
+assert.match(
+  linuxReleaseScript,
+  /--no-default-features[\s\S]*--features cli[\s\S]*--bin pasted[\s\S]*stage:cli-sidecar[\s\S]*tauri build/,
+  'The local Linux release must build and bundle the headless CLI explicitly',
 );
 assert.match(
   macosPackageJob,

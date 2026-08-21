@@ -202,6 +202,8 @@ jobs:
       - run: npm ci
       - name: Build headless CLI
         run: cargo build --manifest-path src-tauri/Cargo.toml --locked --release --no-default-features --features cli --bin pasted
+      - name: Stage CLI for AppImage
+        run: npm run stage:cli-sidecar
       - run: npm run tauri -- build --bundles appimage
       - name: Extract Linux AppImage payload for SBOM
         run: |
@@ -262,6 +264,8 @@ jobs:
       - run: npm ci
       - name: Build headless CLI
         run: cargo build --manifest-path src-tauri/Cargo.toml --locked --release --no-default-features --features cli --bin pasted
+      - name: Stage CLI for Windows installer
+        run: npm run stage:cli-sidecar
       - name: Build unsigned Windows installer
         run: npm run tauri -- build --bundles nsis
       - name: Extract Windows installer payload for SBOM

@@ -48,6 +48,14 @@ docker run --rm \
     npm run test:platform
     npm run build
     mkdir -p /workspace/release-artifacts/linux
+    cargo build \
+      --manifest-path /workspace/src-tauri/Cargo.toml \
+      --locked \
+      --release \
+      --no-default-features \
+      --features cli \
+      --bin pasted
+    npm run stage:cli-sidecar
     if [ "$HOST_ARCH" = "x86_64" ]; then
       npm run tauri build -- --bundles appimage
       cp /cargo-target/release/bundle/appimage/*.AppImage /workspace/release-artifacts/linux/

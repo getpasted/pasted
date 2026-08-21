@@ -148,7 +148,7 @@
   "artifactUnknownLicensePatterns": {
     "linux": ["^Pasted$", "^pasted(?:-app|-linux-x86_64)?$"],
     "macos": ["^Pasted$", "^pasted(?:-app|-macos-universal)?$"],
-    "windows": ["^Pasted$", "^pasted(?:-app|-windows-x86_64\\.exe)?$", "^Pasted_.*-setup\\.exe$"]
+    "windows": ["^Pasted$", "^[\\\\/]?pasted(?:-app|-windows-x86_64(?:\\.exe)?)?$", "^Pasted_.*-setup\\.exe$"]
   },
   "artifactRequiredFilePatterns": {
     "linux": [

@@ -304,6 +304,8 @@ jobs:
       - run: npm ci
       - name: Build headless CLI
         run: cargo build --manifest-path src-tauri/Cargo.toml --locked --release --no-default-features --features cli --bin pasted
+      - name: Stage CLI for desktop bundle
+        run: npm run stage:cli-sidecar
       - name: Build Linux AppImage
         if: runner.os == 'Linux'
         run: npm run tauri -- build --bundles appimage
