@@ -33,6 +33,9 @@ const clipSelectionController = read('src/hooks/useClipSelectionController.ts');
 const clipListViewport = read('src/hooks/useClipListViewport.ts');
 const rememberedClipListScroll = read('src/hooks/useRememberedClipListScroll.ts');
 const clipCommands = read('src-tauri/src/commands/clips.rs');
+const backupCommands = read('src-tauri/src/commands/backups.rs');
+const importCommands = read('src-tauri/src/commands/imports.rs');
+const factoryResetCommands = read('src-tauri/src/commands/factory_reset.rs');
 const filePreviewCommands = read('src-tauri/src/commands/file_previews.rs');
 const intelligenceCommands = read('src-tauri/src/commands/intelligence.rs');
 const manualTransformCommands = read('src-tauri/src/commands/manual_transforms.rs');
@@ -155,10 +158,21 @@ assert.match(transformationCommands, /pub async fn execute_transformation/,
   'Transform execution must remain in its focused GUI adapter');
 assert.doesNotMatch(commands, /pub fn get_manual_transforms|pub async fn execute_transformation/,
   'The GUI command root must not reclaim transformation operations');
+assert.match(backupCommands, /pub async fn restore_full_backup_file[\s\S]*spawn_blocking/,
+  'Full Restore must remain in its focused asynchronous GUI adapter');
+assert.match(importCommands, /pub async fn choose_import_file[\s\S]*spawn_blocking/,
+  'Import preflight must remain in its focused asynchronous GUI adapter');
+assert.match(factoryResetCommands, /pub fn factory_reset_app/,
+  'Factory Reset must remain in its focused lifecycle adapter');
+assert.doesNotMatch(commands, /pub async fn export_backup_file|pub async fn choose_import_file|pub fn factory_reset_app/,
+  'The GUI command root must not reclaim portability or reset operations');
 
 const sizeRatchets = new Map([
   ['src-tauri/src/db.rs', 20_111],
-  ['src-tauri/src/commands.rs', 2_548],
+  ['src-tauri/src/commands.rs', 2_068],
+  ['src-tauri/src/commands/backups.rs', 180],
+  ['src-tauri/src/commands/imports.rs', 287],
+  ['src-tauri/src/commands/factory_reset.rs', 39],
   ['src-tauri/src/commands/clips.rs', 261],
   ['src-tauri/src/commands/file_previews.rs', 714],
   ['src-tauri/src/commands/intelligence.rs', 271],
@@ -223,8 +237,9 @@ for (const domain of ['clip_protection', 'retention', 'settings']) {
     `${domain} persistence must remain outside the database integration root`);
 }
 for (const adapter of [
-  'activity', 'analysis', 'app_lock', 'content_registry', 'extractors', 'intelligence',
-  'manual_transforms', 'queue', 'retention', 'storage', 'transformations',
+  'activity', 'analysis', 'app_lock', 'backups', 'content_registry', 'extractors',
+  'factory_reset', 'imports', 'intelligence', 'manual_transforms', 'queue', 'retention',
+  'storage', 'transformations',
 ]) {
   assert.ok(fs.existsSync(`src-tauri/src/commands/${adapter}.rs`),
     `${adapter} GUI commands must remain outside the command integration root`);

@@ -8,6 +8,8 @@ const readRustFiles = (directory) => fs.readdirSync(directory, { withFileTypes: 
     return entry.name.endsWith('.rs') ? [fs.readFileSync(path, 'utf8')] : [];
   });
 
+export const readRustSourceTree = (directory) => readRustFiles(directory).join('\n');
+
 export const readRustModuleTree = (rootFile, moduleDirectory) => [
   fs.readFileSync(rootFile, 'utf8'),
   ...readRustFiles(moduleDirectory),

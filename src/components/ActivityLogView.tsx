@@ -331,6 +331,13 @@ export const ActivityLogView: React.FC = () => {
             <span>{translate('component.activityLogView.binReordered')}</span>
           </div>
         );
+      case 'bin_concealment_changed':
+        return (
+          <div className="theme-status-info flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
+            <FolderInput className="w-3.5 h-3.5" />
+            <span>{translate('component.activityLogView.bins')}</span>
+          </div>
+        );
       case 'clip_bin_assigned':
       case 'clips_bin_assigned':
       case 'clip_bin_unassigned':
@@ -465,6 +472,13 @@ export const ActivityLogView: React.FC = () => {
             <span>{translate('component.activityLogView.note')}</span>
           </div>
         );
+      case 'clip_name_updated':
+        return (
+          <div className="theme-status-info flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
+            <Edit3 className="w-3.5 h-3.5" />
+            <span>{translate('common.name')}</span>
+          </div>
+        );
       case 'transform_drafted':
       case 'transform_tested':
       case 'transform_saved':
@@ -539,6 +553,7 @@ export const ActivityLogView: React.FC = () => {
     if (selectedTypeFilter === 'paused') return l.event_type === 'recording_auto_paused' || l.event_type === 'recording_manually_paused';
     if (selectedTypeFilter === 'resumed') return l.event_type === 'recording_auto_resumed' || l.event_type === 'recording_manually_resumed';
     if (selectedTypeFilter === 'notes') return l.event_type === 'note_updated';
+    if (selectedTypeFilter === 'names') return l.event_type === 'clip_name_updated';
     if (selectedTypeFilter === 'skipped') return l.event_type === 'clipboard_capture_ignored';
     if (selectedTypeFilter === 'transforms') return l.event_type.startsWith('transform_') || l.event_type.startsWith('transformation_') || l.event_type.startsWith('bin_transform_') || l.event_type.startsWith('operation_') || l.event_type.startsWith('pipeline_') || l.event_type === 'library_item_enabled_changed' || l.event_type === 'clip_transformed' || l.event_type === 'intelligence_connection_fallback';
     if (selectedTypeFilter === 'queue') return l.event_type.startsWith('queue_');
@@ -590,6 +605,7 @@ export const ActivityLogView: React.FC = () => {
               { value: 'protection', get label() { return translate('component.activityLogView.protectionChanged'); }, get group() { return translate('component.activityLogView.organization'); } },
               { value: 'pinning', get label() { return translate('component.activityLogView.pinningChanged'); }, get group() { return translate('component.activityLogView.organization'); } },
               { value: 'notes', get label() { return translate('component.activityLogView.notesUpdated'); }, get group() { return translate('component.activityLogView.organization'); } },
+              { value: 'names', get label() { return translate('common.name'); }, get group() { return translate('component.activityLogView.organization'); } },
               { value: 'bins', get label() { return translate('component.activityLogView.bins'); }, get group() { return translate('component.activityLogView.organization'); } },
               { value: 'transforms', get label() { return translate('component.activityLogView.transforms'); }, get group() { return translate('component.activityLogView.automation'); } },
               { value: 'queue', get label() { return translate('component.activityLogView.copyQueue'); }, get group() { return translate('component.activityLogView.automation'); } },
