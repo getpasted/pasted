@@ -23,6 +23,7 @@ const queueActions = read('src-tauri/src/queue_actions.rs');
 const platformCapabilities = read('src-tauri/src/platform_capabilities.rs');
 const hotkeys = read('src-tauri/src/hotkey_manager.rs');
 const settingsService = read('src-tauri/src/settings_service.rs');
+const activityDatabase = read('src-tauri/src/db/activity.rs');
 const analyticsDatabase = read('src-tauri/src/db/analytics.rs');
 const settingsApi = read('src/api/settings.ts');
 const transformsApi = read('src/api/transforms.ts');
@@ -64,6 +65,14 @@ assert.doesNotMatch(liveApp, /crate::commands::/,
   'The live-app adapter must not call the GUI command adapter');
 assert.doesNotMatch(commands, /#\[cfg\(test\)\]/,
   'Cross-domain regressions must live with their owning subsystem instead of the GUI command root');
+assert.match(activityDatabase, /pub fn export_activity_json/,
+  'Activity portability must remain in its focused database subsystem');
+assert.match(activityDatabase, /MAX_ACTIVITY_IMPORT_BYTES/,
+  'Activity imports must remain bounded inside the Activity subsystem');
+assert.match(activityDatabase, /duplicate_count/,
+  'Activity imports must remain deduplicating inside the Activity subsystem');
+assert.doesNotMatch(read('src-tauri/src/db.rs'), /pub fn export_activity_json/,
+  'The database integration root must not reclaim Activity persistence');
 assert.match(analyticsDatabase, /pub fn get_analytics_summary/,
   'Insights aggregation must remain in its focused database subsystem');
 assert.match(analyticsDatabase, /get_daily_activity_for_calendar[\s\S]*calendar_modifier/,
@@ -264,7 +273,8 @@ assert.doesNotMatch(commands, /pub fn extract_ocr_from_clip|pub async fn extract
   'The GUI command root must not reclaim extraction lifecycle operations');
 
 const sizeRatchets = new Map([
-  ['src-tauri/src/db.rs', 19_914],
+  ['src-tauri/src/db.rs', 19_273],
+  ['src-tauri/src/db/activity.rs', 649],
   ['src-tauri/src/db/analytics.rs', 159],
   ['src-tauri/src/commands.rs', 54],
   ['src-tauri/src/commands/bins.rs', 89],
