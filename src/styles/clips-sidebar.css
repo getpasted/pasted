@@ -635,7 +635,6 @@ html.is-stable-reordering * {
 
 /* Revision history is secondary clip metadata, opened upward from the footer. */
 .clip-preview-footer {
-  min-height: 38px;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
