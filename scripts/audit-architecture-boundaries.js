@@ -25,6 +25,7 @@ const hotkeys = read('src-tauri/src/hotkey_manager.rs');
 const settingsService = read('src-tauri/src/settings_service.rs');
 const activityDatabase = read('src-tauri/src/db/activity.rs');
 const analyticsDatabase = read('src-tauri/src/db/analytics.rs');
+const clipMutationDatabase = read('src-tauri/src/db/clip_mutations.rs');
 const clipQueryDatabase = read('src-tauri/src/db/clip_queries.rs');
 const settingsApi = read('src/api/settings.ts');
 const transformsApi = read('src/api/transforms.ts');
@@ -86,6 +87,14 @@ assert.match(clipQueryDatabase, /NULL as image_base64/,
   'Clip list reads must keep deferring image payloads to the image endpoint');
 assert.doesNotMatch(read('src-tauri/src/db.rs'), /pub fn get_clips_page/,
   'The database integration root must not reclaim clip collection reads');
+assert.match(clipMutationDatabase, /pub fn batch_trash_clips/,
+  'Clip lifecycle mutations must remain in their focused database subsystem');
+assert.match(clipMutationDatabase, /effective_clip_protection/,
+  'Destructive clip mutations must preserve effective protection checks');
+assert.match(clipMutationDatabase, /pub fn batch_assign_bin_clips/,
+  'Shared clip organization mutations must remain centralized');
+assert.doesNotMatch(read('src-tauri/src/db.rs'), /pub fn batch_trash_clips/,
+  'The database integration root must not reclaim clip lifecycle mutations');
 assert.match(clipboardActions, /fn ocr_text_never_replaces_an_image_clips_copy_fingerprint/,
   'Clipboard fingerprint regressions must remain with the shared clipboard workflow');
 assert.match(contentInspection, /fn file_metadata_reports_availability_without_crawling_directories/,
@@ -280,9 +289,10 @@ assert.doesNotMatch(commands, /pub fn extract_ocr_from_clip|pub async fn extract
   'The GUI command root must not reclaim extraction lifecycle operations');
 
 const sizeRatchets = new Map([
-  ['src-tauri/src/db.rs', 18_845],
+  ['src-tauri/src/db.rs', 18_212],
   ['src-tauri/src/db/activity.rs', 649],
   ['src-tauri/src/db/analytics.rs', 159],
+  ['src-tauri/src/db/clip_mutations.rs', 643],
   ['src-tauri/src/db/clip_queries.rs', 442],
   ['src-tauri/src/commands.rs', 54],
   ['src-tauri/src/commands/bins.rs', 89],
