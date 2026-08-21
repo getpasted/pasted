@@ -3,17 +3,24 @@ use serde_json::Value;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
+#[cfg(feature = "gui")]
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+#[cfg(feature = "gui")]
 use tauri::{Emitter, Manager};
 
+#[cfg(feature = "gui")]
 use crate::clipboard_monitor::ClipboardMonitorState;
+#[cfg(feature = "gui")]
 use crate::db::DbState;
+#[cfg(feature = "gui")]
 use crate::ocr::OcrService;
+#[cfg(feature = "gui")]
 use crate::sequential_paste::SequentialQueueState;
 
 pub const REQUEST_ARGUMENT: &str = "--pasted-live-request";
 const REQUEST_PREFIX: &str = "pasted-live-";
+#[cfg(feature = "gui")]
 const MAX_REQUEST_BYTES: u64 = 64 * 1024;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -77,6 +84,7 @@ fn response_path(request_path: &Path) -> PathBuf {
     request_path.with_extension("response.json")
 }
 
+#[cfg(feature = "gui")]
 fn validate_request_path(path: &Path) -> Result<(), String> {
     let file_name = path
         .file_name()
@@ -116,6 +124,7 @@ pub fn request_from_args(args: &[String]) -> Option<PathBuf> {
         .map(PathBuf::from)
 }
 
+#[cfg(feature = "gui")]
 pub fn handle_request_file(
     app: &tauri::AppHandle,
     path: &Path,
@@ -143,6 +152,7 @@ pub fn handle_request_file(
     recovery_reset
 }
 
+#[cfg(feature = "gui")]
 pub fn is_recovery_reset_request(path: &Path) -> bool {
     fs::read(path)
         .ok()
@@ -150,6 +160,7 @@ pub fn is_recovery_reset_request(path: &Path) -> bool {
         .is_some_and(|request| matches!(request.command, LiveAppAction::AppLockReset { .. }))
 }
 
+#[cfg(feature = "gui")]
 fn read_and_execute(
     app: &tauri::AppHandle,
     path: &Path,
@@ -172,6 +183,7 @@ fn read_and_execute(
         .map_err(|error| (request_id, error))
 }
 
+#[cfg(feature = "gui")]
 fn execute(
     app: &tauri::AppHandle,
     action: LiveAppAction,

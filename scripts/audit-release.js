@@ -6,6 +6,7 @@ const packageJson = readJson('package.json');
 const packageLock = readJson('package-lock.json');
 const tauriConfig = readJson('src-tauri/tauri.conf.json');
 const cargoToml = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
+const cargoBuildScript = fs.readFileSync('src-tauri/build.rs', 'utf8');
 const installationDiagnostics = fs.readFileSync('src-tauri/src/installation_diagnostics.rs', 'utf8');
 const appSettingsHook = fs.readFileSync('src/hooks/useAppSettings.ts', 'utf8');
 const cargoVersion = cargoToml.match(/^version\s*=\s*"([^"]+)"/m)?.[1];
@@ -88,6 +89,11 @@ assert.match(
   desktopPackageJob,
   /CARGO_PROFILE_RELEASE_LTO: 'false'[\s\S]*?CARGO_PROFILE_RELEASE_CODEGEN_UNITS: '16'/,
   'Ephemeral Linux and Windows packages must avoid production-grade release linking',
+);
+assert.match(
+  desktopPackageJob,
+  /Build headless CLI[\s\S]*?--no-default-features --features cli --bin pasted[\s\S]*?tauri -- build/,
+  'Linux and Windows packages must build the CLI without GUI dependencies before Tauri builds the app',
 );
 assert.ok(macosPackageJob, 'Main macOS packaging must use one shared-runner job');
 assert.match(
@@ -200,6 +206,38 @@ assert.match(
   /name\s*=\s*"pasted"\s*\npath\s*=\s*"src\/bin\/pasted\.rs"/,
   'The public CLI target name and entrypoint stem must both be pasted so Tauri bundles the built executable',
 );
+assert.match(
+  cargoToml,
+  /name\s*=\s*"pasted-app"[\s\S]*?required-features\s*=\s*\["gui"\][\s\S]*?name\s*=\s*"pasted"[\s\S]*?required-features\s*=\s*\["cli"\]/,
+  'GUI and CLI binaries must require distinct Cargo features',
+);
+assert.match(cargoToml, /default\s*=\s*\["gui"\]/, 'Normal Cargo builds must retain the GUI by default');
+for (const dependency of [
+  'tauri',
+  'tauri-build',
+  'tauri-plugin-autostart',
+  'tauri-plugin-dialog',
+  'tauri-plugin-global-shortcut',
+  'tauri-plugin-single-instance',
+  'tauri-plugin-window-state',
+  'window-vibrancy',
+]) {
+  assert.match(
+    cargoToml,
+    new RegExp(`^${dependency.replaceAll('-', '\\-')}\\s*=.*optional\\s*=\\s*true`, 'm'),
+    `${dependency} must remain optional for headless CLI builds`,
+  );
+}
+assert.match(
+  cargoBuildScript,
+  /#\[cfg\(feature = "gui"\)\]\s*tauri_build::build\(\)/,
+  'The CLI build must not compile or run the Tauri build helper',
+);
+assert.match(
+  packageScripts['test:cli-build'] ?? '',
+  /^cargo build .*--locked --no-default-features --features cli --bin pasted$/,
+  'Native validation must build the headless CLI executable before integration tests',
+);
 assert.deepEqual(
   fs.readdirSync('src-tauri/src/bin').sort(),
   ['pasted.rs'],
@@ -255,6 +293,11 @@ assert.match(
   /bash scripts\/build-macos-universal-cli\.sh[\s\S]*tauri -- build --target universal-apple-darwin/,
   'The hosted macOS release must stage a universal CLI before Tauri bundles the universal app',
 );
+assert.equal(
+  (releaseWorkflow.match(/--no-default-features --features cli --bin pasted/g) ?? []).length,
+  2,
+  'Linux and Windows releases must build headless CLIs before their GUI packages',
+);
 assert.match(
   macosPackageJob,
   /build-macos-universal-cli\.sh[\s\S]*name: Pasted-macOS-universal-CLI[\s\S]*tauri -- build --target universal-apple-darwin[\s\S]*name: Pasted-macOS-universal-DMG/,
@@ -269,6 +312,11 @@ assert.match(
   releaseWorkflow,
   /notarytool submit "\$dmg_path"[\s\S]*stapler staple "\$dmg_path"[\s\S]*stapler validate "\$dmg_path"/,
   'The hosted macOS release must notarize and staple the outer DMG after Tauri notarizes the app',
+);
+assert.match(
+  universalMacCliBuild,
+  /--no-default-features\s*\\\s*\n\s*--features cli\s*\\\s*\n\s*--bin pasted/,
+  'Universal macOS CLI builds must exclude GUI dependencies',
 );
 assert.match(
   universalMacCliBuild,

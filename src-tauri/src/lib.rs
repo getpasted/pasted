@@ -1,16 +1,22 @@
 pub mod analysis_contract;
 pub mod analysis_execution;
 pub mod app_event_names;
+#[cfg(feature = "gui")]
 pub mod app_events;
+#[cfg(feature = "gui")]
 mod app_exclusions;
 pub mod app_lock;
+#[cfg(feature = "gui")]
 mod app_menu;
 pub mod application_error;
 pub mod bin_assignment;
 pub mod classification_execution;
+#[cfg(feature = "gui")]
 pub mod clipboard_actions;
 mod clipboard_fingerprint;
+#[cfg(feature = "gui")]
 mod clipboard_monitor;
+#[cfg(feature = "gui")]
 mod commands;
 pub mod content_analysis;
 pub mod content_classification;
@@ -25,7 +31,9 @@ pub mod extraction_execution;
 pub mod extractor_recipe;
 pub mod features;
 mod filter_engine;
+#[cfg(feature = "gui")]
 mod hotkey_manager;
+#[cfg(feature = "gui")]
 pub mod hud_window;
 pub mod inspection_execution;
 pub mod installation_diagnostics;
@@ -33,11 +41,13 @@ pub mod intelligence_connections;
 pub mod intelligence_executor;
 mod intelligence_provider;
 mod intelligence_scheduler;
+#[cfg(feature = "gui")]
 mod keyboard_layout;
+#[cfg(feature = "gui")]
 pub mod keyboard_shortcuts;
 pub mod library_items;
 pub mod library_storage;
-#[cfg(target_os = "linux")]
+#[cfg(all(feature = "gui", target_os = "linux"))]
 mod linux_native_theme;
 pub mod live_app;
 pub mod localization;
@@ -46,11 +56,15 @@ pub mod ocr;
 #[cfg(test)]
 mod operation_plugins;
 mod operation_registry;
+#[cfg(feature = "gui")]
 pub mod paste_automation;
+#[cfg(feature = "gui")]
 mod paste_target;
 pub mod platform_capabilities;
+#[cfg(feature = "gui")]
 pub mod queue_actions;
 pub mod resource_limits;
+#[cfg(feature = "gui")]
 mod sequential_paste;
 pub mod settings_activity;
 pub mod settings_service;
@@ -58,29 +72,40 @@ pub mod smart_bins;
 pub mod storage_protection;
 pub mod suggestion_execution;
 pub mod third_party_licenses;
+#[cfg(feature = "gui")]
 mod titlebar;
 pub mod transformation_intent;
 pub mod transformation_service;
 
+#[cfg(feature = "gui")]
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
+#[cfg(feature = "gui")]
 use tauri::{
     menu::{Menu, MenuBuilder, MenuItem},
     tray::{TrayIconBuilder, TrayIconEvent},
     Emitter, Manager,
 };
+#[cfg(feature = "gui")]
 use tauri_plugin_window_state::{StateFlags, WindowExt};
 
+#[cfg(feature = "gui")]
 static EXIT_REQUESTED: AtomicBool = AtomicBool::new(false);
+#[cfg(feature = "gui")]
 static MAIN_PAGE_LOADED: AtomicBool = AtomicBool::new(false);
+#[cfg(feature = "gui")]
 static STARTUP_SETUP_READY: AtomicBool = AtomicBool::new(false);
+#[cfg(feature = "gui")]
 static MAIN_WINDOW_REVEALED: AtomicBool = AtomicBool::new(false);
 
+#[cfg(feature = "gui")]
 const DEFAULT_TRAY_ICON_STYLE: &str = "clipboard";
+#[cfg(feature = "gui")]
 const COPYCAT_TRAY_ICON_STYLE: &str = "copycat";
 
+#[cfg(feature = "gui")]
 fn load_tray_icon(style: &str) -> Result<tauri::image::Image<'static>, image::ImageError> {
     let bytes = if style == COPYCAT_TRAY_ICON_STYLE {
         include_bytes!("../icons/tray-icon-copycat@2x.png").as_slice()
@@ -96,6 +121,7 @@ fn load_tray_icon(style: &str) -> Result<tauri::image::Image<'static>, image::Im
     ))
 }
 
+#[cfg(feature = "gui")]
 pub(crate) fn refresh_tray_icon(app: &tauri::AppHandle, style: &str) {
     #[cfg(target_os = "macos")]
     if let Some(tray) = app.tray_by_id("main") {
@@ -113,6 +139,7 @@ pub(crate) fn refresh_tray_icon(app: &tauri::AppHandle, style: &str) {
     let _ = (app, style);
 }
 
+#[cfg(feature = "gui")]
 pub(crate) fn request_app_exit(app: &tauri::AppHandle) {
     if EXIT_REQUESTED.swap(true, Ordering::SeqCst) {
         return;
@@ -126,6 +153,7 @@ pub(crate) fn request_app_exit(app: &tauri::AppHandle) {
     app.exit(0);
 }
 
+#[cfg(feature = "gui")]
 fn build_tray_menu(
     app: &tauri::AppHandle,
     db: &Arc<db::DbState>,
@@ -157,6 +185,7 @@ fn build_tray_menu(
     builder.item(&quit).build()
 }
 
+#[cfg(feature = "gui")]
 pub(crate) fn refresh_tray_menu(app: &tauri::AppHandle, db: &Arc<db::DbState>) {
     let Some(tray) = app.tray_by_id("main") else {
         return;
@@ -171,10 +200,12 @@ pub(crate) fn refresh_tray_menu(app: &tauri::AppHandle, db: &Arc<db::DbState>) {
     }
 }
 
+#[cfg(feature = "gui")]
 fn main_window_state_flags() -> StateFlags {
     StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED | StateFlags::FULLSCREEN
 }
 
+#[cfg(feature = "gui")]
 fn reveal_main_window_when_ready(app: &tauri::AppHandle) {
     if !MAIN_PAGE_LOADED.load(Ordering::Acquire)
         || !STARTUP_SETUP_READY.load(Ordering::Acquire)
@@ -204,7 +235,7 @@ fn reveal_main_window_when_ready(app: &tauri::AppHandle) {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(all(feature = "gui", target_os = "macos"))]
 fn setup_window_vibrancy(window: &tauri::WebviewWindow) {
     use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial, NSVisualEffectState};
     let _ = apply_vibrancy(
@@ -215,14 +246,14 @@ fn setup_window_vibrancy(window: &tauri::WebviewWindow) {
     );
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(all(feature = "gui", target_os = "macos"))]
 fn trim_webview_memory(app: &tauri::AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.eval("if (window.gc) { window.gc(); }");
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(all(feature = "gui", target_os = "macos"))]
 fn setup_overlay_window_transparency(window: &tauri::WebviewWindow) {
     use objc::runtime::Object;
     use objc::{msg_send, sel, sel_impl};
@@ -246,6 +277,7 @@ fn setup_overlay_window_transparency(window: &tauri::WebviewWindow) {
     });
 }
 
+#[cfg(feature = "gui")]
 pub fn run() {
     let hotkey_manager = Arc::new(hotkey_manager::HotkeyManager::new());
 
@@ -745,7 +777,7 @@ pub fn run() {
         });
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "gui"))]
 mod tests {
     use super::*;
 

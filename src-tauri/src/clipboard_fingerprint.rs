@@ -6,6 +6,7 @@ pub fn text(value: &str) -> String {
     format!("{:x}", hasher.finalize())
 }
 
+#[cfg(feature = "gui")]
 pub fn file_list(paths: &[String]) -> String {
     let mut hasher = Sha256::new();
     for path in paths {
@@ -15,6 +16,7 @@ pub fn file_list(paths: &[String]) -> String {
     format!("files:{:x}", hasher.finalize())
 }
 
+#[cfg(feature = "gui")]
 pub fn image_rgba(bytes: &[u8]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(bytes);

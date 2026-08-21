@@ -40,7 +40,8 @@
     "release:macos:verify": "bash scripts/verify-macos-release.sh",
     "release:linux": "bash scripts/release-linux-appimage.sh",
     "icons:generate": "bash scripts/generate-icons.sh",
-    "test:native": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings && npm test",
+    "test:native": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings && npm run test:cli-build && npm test",
+    "test:cli-build": "cargo build --manifest-path src-tauri/Cargo.toml --locked --no-default-features --features cli --bin pasted",
     "test:frontend": "npm run build && npm run test:css && npm run test:wcag && npm run test:ipc && npm run test:architecture && npm run test:security && npm run test:release && npm run licenses:check && npm run dependencies:check && npm run sbom:check && npm run test:features && npm run test:copy && npm run test:i18n && npm run test:dates && npm run test:errors && npm run test:docs && npm run test:collections && npm run test:menus && npm run test:cli && npm run test:transformations && npm run test:activity && npm run test:backup && npm run test:platform && npm run test:feedback && npm run test:app-lock",
     "test:all": "npm run test:native && npm run test:frontend",
     "tauri": "tauri"

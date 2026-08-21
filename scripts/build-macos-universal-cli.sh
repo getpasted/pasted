@@ -18,6 +18,8 @@ for target in aarch64-apple-darwin x86_64-apple-darwin; do
   cargo build \
     --manifest-path "$manifest_path" \
     --release \
+    --no-default-features \
+    --features cli \
     --bin pasted \
     --target "$target"
 done
