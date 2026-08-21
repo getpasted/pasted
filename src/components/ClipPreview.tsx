@@ -52,7 +52,6 @@ import { formatTransformRequestPhase, translate } from '../localization/runtime'
 import { localizedSourceName } from '../localization/presentation';
 import { useContentTypes } from './ContentTypeProvider';
 import { clipConcealmentPolicy } from '../utils/clipConcealment';
-import { concealedClipMask } from '../utils/concealedClipMask';
 
 interface ClipPreviewProps {
   clip: ClipItem | null;
@@ -838,7 +837,6 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const protectedByBin = Boolean(clip.protecting_bin_ids?.length);
   const protectionToggleDisabled = Boolean(clip.hotkey) || protectedByBin;
   const concealment = clipConcealmentPolicy(clip, bins, contentTypes);
-  const isConcealed = features.concealment && concealment.effective;
 
   const handleHotkeyChange = async (hotkey: string | null) => {
     try {
@@ -1467,8 +1465,6 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           isOcrLoading={isOcrLoading}
           ocrEnabled={features.ocr}
           transcriptionsEnabled={features.transcriptions}
-          concealed={isConcealed}
-          concealedMask={concealedClipMask(clip, displayText)}
           readOnly={!viewPolicy.canMutateContent}
           onColorChange={setTransformedText}
           onCopyFormat={(label, value) => void handleCopySpecificFormat(label, value)}
@@ -1594,7 +1590,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         </div>
       )}
 
-      {features.revisions && !isConcealed && showHistory && clip.content_type !== 'file' && (
+      {features.revisions && showHistory && clip.content_type !== 'file' && (
         <ClipRevisionHistory
           versions={versions}
           isLoading={isHistoryLoading}
@@ -1668,7 +1664,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
             <span>{translate('component.clipPreview.lines')}</span>
             <strong>{lineCount}</strong>
           </span>
-          {features.revisions && !isConcealed && <span className="clip-preview-footer-stat">
+          {features.revisions && <span className="clip-preview-footer-stat">
             <span>{translate('component.clipPreview.revisions')}</span>
             <button
               type="button"
