@@ -984,13 +984,13 @@ const SidebarComponent: React.FC<SidebarProps> = ({
       </div>
 
       {/* Pinned Bottom Search Bar Footer */}
-      {features.search && <div ref={searchMenuRootRef} className="sidebar-divider p-2.5 border-t shrink-0 relative">
+      {features.search && <div ref={searchMenuRootRef} className="sidebar-divider min-h-[53px] p-2.5 border-t shrink-0 relative">
         {!isClipDragging && isSearchMenuOpen && (
           <div
             id="sidebar-search-filters"
             role="menu"
             aria-label={translate('component.sidebar.searchFilters')}
-            className="theme-menu absolute inset-x-2.5 bottom-11 rounded-xl border p-1.5 text-xs font-medium select-none"
+            className="theme-menu absolute inset-x-2.5 bottom-12 rounded-xl border p-1.5 text-xs font-medium select-none"
           >
               {searchHelpers.map((s, index) => (
               <button
@@ -1070,7 +1070,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
               }
             }}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className={`sidebar-search-input theme-input w-full h-7 border rounded-md ps-2.5 ${searchQuery ? 'pe-14' : 'pe-8'} text-[12px] focus:outline-none transition-colors titlebar-no-drag`}
+            className={`sidebar-search-input theme-input w-full h-8 border rounded-md ps-2.5 ${searchQuery ? 'pe-14' : 'pe-8'} text-[12px] focus:outline-none transition-colors titlebar-no-drag`}
           />
           {searchQuery && (
             <button
