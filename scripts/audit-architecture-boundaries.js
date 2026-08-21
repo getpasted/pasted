@@ -24,6 +24,7 @@ const platformCapabilities = read('src-tauri/src/platform_capabilities.rs');
 const hotkeys = read('src-tauri/src/hotkey_manager.rs');
 const settingsService = read('src-tauri/src/settings_service.rs');
 const activityDatabase = read('src-tauri/src/db/activity.rs');
+const analysisActivityDatabase = read('src-tauri/src/db/analysis_activity.rs');
 const analyticsDatabase = read('src-tauri/src/db/analytics.rs');
 const binDatabase = read('src-tauri/src/db/bins.rs');
 const captureDatabase = read('src-tauri/src/db/capture.rs');
@@ -38,9 +39,11 @@ const extractorDatabase = read('src-tauri/src/db/extractors.rs');
 const fullBackupDatabase = read('src-tauri/src/db/full_backups.rs');
 const intelligenceConnectionDatabase = read('src-tauri/src/db/intelligence_connections.rs');
 const lifecycleDatabase = read('src-tauri/src/db/lifecycle.rs');
+const maintenanceDatabase = read('src-tauri/src/db/maintenance.rs');
 const operationDatabase = read('src-tauri/src/db/operations.rs');
 const retentionDatabase = read('src-tauri/src/db/retention.rs');
 const schemaDatabase = read('src-tauri/src/db/schema.rs');
+const sourceQueryDatabase = read('src-tauri/src/db/source_queries.rs');
 const storedAnalysisDatabase = read('src-tauri/src/db/stored_analysis.rs');
 const timestampDatabase = read('src-tauri/src/db/timestamps.rs');
 const transferDatabase = read('src-tauri/src/db/transfers.rs');
@@ -243,6 +246,16 @@ assert.match(timestampDatabase, /fn normalize_library_archive_timestamps/,
   'Transfer timestamp normalization must remain centralized with timestamp policy');
 assert.doesNotMatch(read('src-tauri/src/db.rs'), /fn canonical_utc_timestamp|fn migrate_canonical_timestamps|fn normalize_library_archive_timestamps/,
   'The database integration root must not reclaim timestamp policy');
+assert.match(analysisActivityDatabase, /fn log_analysis_participant_update/,
+  'Analysis participant lifecycle events must remain in the Activity adapter');
+assert.match(maintenanceDatabase, /pub fn clear_history/,
+  'History clearing must remain in the focused maintenance subsystem');
+assert.match(maintenanceDatabase, /pub fn rescan_file_formats/,
+  'File-format rescans must remain in the focused maintenance subsystem');
+assert.match(sourceQueryDatabase, /pub fn get_distinct_sources/,
+  'Source discovery must remain in its focused query subsystem');
+assert.doesNotMatch(read('src-tauri/src/db.rs'), /fn log_analysis_participant_update|pub fn clear_history|pub fn rescan_file_formats|pub fn get_distinct_sources/,
+  'The database integration root must not reclaim focused runtime operations');
 assert.match(clipboardActions, /fn ocr_text_never_replaces_an_image_clips_copy_fingerprint/,
   'Clipboard fingerprint regressions must remain with the shared clipboard workflow');
 assert.match(contentInspection, /fn file_metadata_reports_availability_without_crawling_directories/,
@@ -437,8 +450,9 @@ assert.doesNotMatch(commands, /pub fn extract_ocr_from_clip|pub async fn extract
   'The GUI command root must not reclaim extraction lifecycle operations');
 
 const sizeRatchets = new Map([
-  ['src-tauri/src/db.rs', 691],
+  ['src-tauri/src/db.rs', 534],
   ['src-tauri/src/db/activity.rs', 649],
+  ['src-tauri/src/db/analysis_activity.rs', 71],
   ['src-tauri/src/db/analytics.rs', 159],
   ['src-tauri/src/db/bins.rs', 652],
   ['src-tauri/src/db/capture.rs', 268],
@@ -453,9 +467,11 @@ const sizeRatchets = new Map([
   ['src-tauri/src/db/full_backups.rs', 277],
   ['src-tauri/src/db/intelligence_connections.rs', 231],
   ['src-tauri/src/db/lifecycle.rs', 233],
+  ['src-tauri/src/db/maintenance.rs', 80],
   ['src-tauri/src/db/operations.rs', 377],
   ['src-tauri/src/db/retention.rs', 293],
   ['src-tauri/src/db/schema.rs', 2_321],
+  ['src-tauri/src/db/source_queries.rs', 16],
   ['src-tauri/src/db/stored_analysis.rs', 818],
   ['src-tauri/src/db/timestamps.rs', 131],
   ['src-tauri/src/db/transfers.rs', 1_446],

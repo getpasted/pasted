@@ -1,7 +1,7 @@
 use rusqlite::{params, OptionalExtension, Result};
 use serde::{Deserialize, Serialize};
 
-use super::{analysis_toggle_activity, DbState};
+use super::{analysis_activity::analysis_toggle_activity, DbState};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Operation {
