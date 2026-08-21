@@ -1,13 +1,11 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { readRustSourceTree } from './audit-source-trees.js';
 
 const activityView = fs.readFileSync('src/components/ActivityLogView.tsx', 'utf8');
 const activityApi = fs.readFileSync('src/api/activity.ts', 'utf8');
 const englishCatalog = JSON.parse(fs.readFileSync('src/locales/en.json', 'utf8'));
-const rustSources = fs.readdirSync('src-tauri/src')
-  .filter((name) => name.endsWith('.rs'))
-  .map((name) => fs.readFileSync(`src-tauri/src/${name}`, 'utf8'))
-  .join('\n');
+const rustSources = readRustSourceTree('src-tauri/src');
 
 const literalLogEvents = new Set();
 for (const match of rustSources.matchAll(/log_activity(?:_internal)?\([\s\S]{0,100}?"([a-z][a-z0-9_]+)"/g)) {
@@ -43,6 +41,7 @@ const filterFamilies = [
   ['protection', (event) => ['clip_protected_toggled', 'clips_protected_toggled', 'clip_hotkey_changed', 'bin_protection_changed'].includes(event), "event_type === 'clip_protected_toggled'"],
   ['pinning', (event) => event.includes('pinned'), "event_type.includes('pinned')"],
   ['notes', (event) => event === 'note_updated', "event_type === 'note_updated'"],
+  ['names', (event) => event === 'clip_name_updated', "event_type === 'clip_name_updated'"],
   ['bins', (event) => event.startsWith('bin_') || event.includes('_bin_'), "event_type.startsWith('bin_')"],
   ['transforms', (event) => event.startsWith('transform_') || event.startsWith('transformation_') || event.startsWith('bin_transform_') || event.startsWith('operation_') || event.startsWith('pipeline_') || event === 'library_item_enabled_changed' || event === 'clip_transformed' || event === 'intelligence_connection_fallback', "event_type.startsWith('transform_')"],
   ['queue', (event) => event.startsWith('queue_'), "event_type.startsWith('queue_')"],

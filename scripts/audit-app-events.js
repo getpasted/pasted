@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { readRustModuleTree } from './audit-source-trees.js';
 
 const read = (path) => fs.readFileSync(path, 'utf8');
 const events = read('src-tauri/src/app_events.rs');
 const liveApp = read('src-tauri/src/live_app.rs');
 const monitor = read('src-tauri/src/clipboard_monitor.rs');
-const commands = read('src-tauri/src/commands.rs');
+const commands = readRustModuleTree('src-tauri/src/commands.rs', 'src-tauri/src/commands');
 const appData = read('src/hooks/useAppData.ts');
 
 for (const source of [liveApp, monitor, commands]) {
