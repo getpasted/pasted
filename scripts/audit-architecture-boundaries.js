@@ -31,6 +31,7 @@ const appShell = read('src/hooks/useAppShell.ts');
 const appMenuActions = read('src/hooks/useAppMenuActions.ts');
 const clipSelectionController = read('src/hooks/useClipSelectionController.ts');
 const clipListViewport = read('src/hooks/useClipListViewport.ts');
+const rememberedClipListScroll = read('src/hooks/useRememberedClipListScroll.ts');
 const clipCommands = read('src-tauri/src/commands/clips.rs');
 const filePreviewCommands = read('src-tauri/src/commands/file_previews.rs');
 const appOverlays = read('src/hooks/useAppOverlays.ts');
@@ -129,6 +130,8 @@ assert.match(clipDragController, /useClipBinDrag\(/,
   'Clip drag behavior must remain behind its application controller');
 assert.match(clipReordering, /useStableVerticalReorder\(/,
   'Queue and Bin ordering must remain behind one shared coordinator');
+assert.doesNotMatch(rememberedClipListScroll, /Array\.from\([^)]*querySelectorAll|observeCards/,
+  'Scroll restoration must not scan or observe every rendered Clip on navigation');
 assert.match(clipCommands, /pub fn get_clips[\s\S]*db\.get_clips_page/,
   'GUI clip retrieval must remain in the focused clip adapter');
 assert.match(clipCommands, /bin_assignment::assign_clips_to_bin/,
