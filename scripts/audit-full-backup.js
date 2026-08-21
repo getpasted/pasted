@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import { readRustModuleTree } from './audit-source-trees.js';
 
 const read = (path) => fs.readFileSync(path, 'utf8');
-const database = read('src-tauri/src/db.rs');
+const database = readRustModuleTree('src-tauri/src/db.rs', 'src-tauri/src/db');
 const commands = readRustModuleTree('src-tauri/src/commands.rs', 'src-tauri/src/commands');
 const cli = readRustModuleTree('src-tauri/src/bin/pasted.rs', 'src-tauri/src/cli');
 const settings = read('src/components/SettingsSyncPanel.tsx');
