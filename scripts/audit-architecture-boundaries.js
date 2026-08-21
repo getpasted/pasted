@@ -39,6 +39,7 @@ const factoryResetCommands = read('src-tauri/src/commands/factory_reset.rs');
 const filePreviewCommands = read('src-tauri/src/commands/file_previews.rs');
 const intelligenceCommands = read('src-tauri/src/commands/intelligence.rs');
 const manualTransformCommands = read('src-tauri/src/commands/manual_transforms.rs');
+const sourceApplicationCommands = read('src-tauri/src/commands/source_apps.rs');
 const transformationCommands = read('src-tauri/src/commands/transformations.rs');
 const appOverlays = read('src/hooks/useAppOverlays.ts');
 const clipDragController = read('src/hooks/useClipDragController.ts');
@@ -166,10 +167,16 @@ assert.match(factoryResetCommands, /pub fn factory_reset_app/,
   'Factory Reset must remain in its focused lifecycle adapter');
 assert.doesNotMatch(commands, /pub async fn export_backup_file|pub async fn choose_import_file|pub fn factory_reset_app/,
   'The GUI command root must not reclaim portability or reset operations');
+assert.match(sourceApplicationCommands, /pub async fn get_source_icons[\s\S]*spawn_blocking/,
+  'Source icon resolution must remain in its focused asynchronous GUI adapter');
+assert.match(sourceApplicationCommands, /pub fn get_installed_applications/,
+  'Installed application discovery must remain with the source application adapter');
+assert.doesNotMatch(commands, /pub async fn get_source_icons|pub fn get_installed_applications/,
+  'The GUI command root must not reclaim source application discovery');
 
 const sizeRatchets = new Map([
   ['src-tauri/src/db.rs', 20_111],
-  ['src-tauri/src/commands.rs', 2_068],
+  ['src-tauri/src/commands.rs', 1_616],
   ['src-tauri/src/commands/backups.rs', 180],
   ['src-tauri/src/commands/imports.rs', 287],
   ['src-tauri/src/commands/factory_reset.rs', 39],
@@ -177,6 +184,7 @@ const sizeRatchets = new Map([
   ['src-tauri/src/commands/file_previews.rs', 714],
   ['src-tauri/src/commands/intelligence.rs', 271],
   ['src-tauri/src/commands/manual_transforms.rs', 164],
+  ['src-tauri/src/commands/source_apps.rs', 463],
   ['src-tauri/src/commands/transformations.rs', 244],
   ['src-tauri/src/commands/analysis.rs', 100],
   ['src-tauri/src/commands/content_registry.rs', 260],
@@ -239,7 +247,7 @@ for (const domain of ['clip_protection', 'retention', 'settings']) {
 for (const adapter of [
   'activity', 'analysis', 'app_lock', 'backups', 'content_registry', 'extractors',
   'factory_reset', 'imports', 'intelligence', 'manual_transforms', 'queue', 'retention',
-  'storage', 'transformations',
+  'source_apps', 'storage', 'transformations',
 ]) {
   assert.ok(fs.existsSync(`src-tauri/src/commands/${adapter}.rs`),
     `${adapter} GUI commands must remain outside the command integration root`);
