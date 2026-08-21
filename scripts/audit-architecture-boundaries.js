@@ -29,6 +29,7 @@ const binDatabase = read('src-tauri/src/db/bins.rs');
 const captureDatabase = read('src-tauri/src/db/capture.rs');
 const clipMutationDatabase = read('src-tauri/src/db/clip_mutations.rs');
 const clipQueryDatabase = read('src-tauri/src/db/clip_queries.rs');
+const clipRecordDatabase = read('src-tauri/src/db/clip_records.rs');
 const clipRevisionDatabase = read('src-tauri/src/db/clip_revisions.rs');
 const clipSearchDatabase = read('src-tauri/src/db/clip_search.rs');
 const classifierDatabase = read('src-tauri/src/db/classifiers.rs');
@@ -225,6 +226,14 @@ assert.match(clipSearchDatabase, /fn clip_search_feature_policy/,
   'Search feature gates must remain centralized with authoritative search');
 assert.doesNotMatch(read('src-tauri/src/db.rs'), /pub fn search_clips|pub fn get_total_clip_count/,
   'The database integration root must not reclaim authoritative clip search');
+assert.match(clipRecordDatabase, /pub struct ClipItem/,
+  'The canonical clip record must remain in its focused record subsystem');
+assert.match(clipRecordDatabase, /fn clip_item_from_row/,
+  'SQLite clip hydration must remain centralized with the canonical clip record');
+assert.match(clipRecordDatabase, /fn append_smart_bin_memberships/,
+  'Computed clip organization must remain centralized with clip hydration');
+assert.doesNotMatch(read('src-tauri/src/db.rs'), /pub struct ClipItem|fn clip_item_from_row|fn append_smart_bin_memberships/,
+  'The database integration root must not reclaim clip records or hydration');
 assert.match(clipboardActions, /fn ocr_text_never_replaces_an_image_clips_copy_fingerprint/,
   'Clipboard fingerprint regressions must remain with the shared clipboard workflow');
 assert.match(contentInspection, /fn file_metadata_reports_availability_without_crawling_directories/,
@@ -419,13 +428,14 @@ assert.doesNotMatch(commands, /pub fn extract_ocr_from_clip|pub async fn extract
   'The GUI command root must not reclaim extraction lifecycle operations');
 
 const sizeRatchets = new Map([
-  ['src-tauri/src/db.rs', 1_362],
+  ['src-tauri/src/db.rs', 814],
   ['src-tauri/src/db/activity.rs', 649],
   ['src-tauri/src/db/analytics.rs', 159],
   ['src-tauri/src/db/bins.rs', 652],
   ['src-tauri/src/db/capture.rs', 268],
   ['src-tauri/src/db/clip_mutations.rs', 643],
   ['src-tauri/src/db/clip_queries.rs', 442],
+  ['src-tauri/src/db/clip_records.rs', 564],
   ['src-tauri/src/db/clip_revisions.rs', 169],
   ['src-tauri/src/db/clip_search.rs', 532],
   ['src-tauri/src/db/classifiers.rs', 533],
