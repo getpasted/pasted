@@ -57,13 +57,13 @@ docker run --rm \
       --bin pasted
     npm run stage:cli-sidecar
     if [ "$HOST_ARCH" = "x86_64" ]; then
-      npm run tauri build -- --bundles appimage
+      npm run tauri build -- --bundles appimage --config src-tauri/tauri.cli-sidecar.conf.json
       cp /cargo-target/release/bundle/appimage/*.AppImage /workspace/release-artifacts/linux/
     else
       # Docker Desktop can compile amd64 on Apple Silicon, but linuxdeploy
       # launches nested amd64 AppImage helpers that its emulation cannot run.
       # Preserve the valid compatibility binaries; native CI builds AppImage.
-      npm run tauri build -- --no-bundle
+      npm run tauri build -- --no-bundle --config src-tauri/tauri.cli-sidecar.conf.json
       cp /cargo-target/release/pasted-app /workspace/release-artifacts/linux/pasted-app-linux-x86_64
     fi
     cp /cargo-target/release/pasted /workspace/release-artifacts/linux/pasted-linux-x86_64

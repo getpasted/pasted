@@ -5,8 +5,7 @@ const readJson = (path) => JSON.parse(fs.readFileSync(path, 'utf8'));
 const packageJson = readJson('package.json');
 const packageLock = readJson('package-lock.json');
 const tauriConfig = readJson('src-tauri/tauri.conf.json');
-const tauriLinuxConfig = readJson('src-tauri/tauri.linux.conf.json');
-const tauriWindowsConfig = readJson('src-tauri/tauri.windows.conf.json');
+const tauriCliSidecarConfig = readJson('src-tauri/tauri.cli-sidecar.conf.json');
 const cargoToml = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
 const cargoBuildScript = fs.readFileSync('src-tauri/build.rs', 'utf8');
 const installationDiagnostics = fs.readFileSync('src-tauri/src/installation_diagnostics.rs', 'utf8');
@@ -98,6 +97,11 @@ assert.match(
   /Build headless CLI[\s\S]*?--no-default-features --features cli --bin pasted[\s\S]*?stage:cli-sidecar[\s\S]*?tauri -- build/,
   'Linux and Windows packages must build and stage the headless CLI before Tauri bundles the app',
 );
+assert.equal(
+  (desktopPackageJob.match(/--config src-tauri\/tauri\.cli-sidecar\.conf\.json/g) ?? []).length,
+  2,
+  'Ephemeral Linux and Windows packages must activate sidecar bundling explicitly',
+);
 assert.ok(macosPackageJob, 'Main macOS packaging must use one shared-runner job');
 assert.match(
   macosPackageJob,
@@ -138,8 +142,11 @@ assert.equal(rootLockPackage?.version, packageJson.version, 'Locked root package
 assert.equal(tauriConfig.productName, 'Pasted', 'Native product name must remain Pasted');
 assert.equal(cargoPackageName, 'pasted-app', 'The Cargo package name must select the private GUI executable for Tauri bundling');
 assert.equal(tauriConfig.mainBinaryName, undefined, 'Tauri must derive its main binary from the Cargo package name');
-assert.deepEqual(tauriLinuxConfig.bundle?.externalBin, ['binaries/pasted'], 'Linux must bundle the staged headless CLI');
-assert.deepEqual(tauriWindowsConfig.bundle?.externalBin, ['binaries/pasted'], 'Windows must bundle the staged headless CLI');
+assert.deepEqual(
+  tauriCliSidecarConfig.bundle?.externalBin,
+  ['binaries/pasted'],
+  'Desktop installers must bundle the staged headless CLI',
+);
 assert.equal(
   packageScripts['stage:cli-sidecar'],
   'node scripts/stage-tauri-cli-sidecar.js',
@@ -313,9 +320,14 @@ assert.equal(
   2,
   'Linux and Windows releases must stage their headless CLIs into the installers',
 );
+assert.equal(
+  (releaseWorkflow.match(/--config src-tauri\/tauri\.cli-sidecar\.conf\.json/g) ?? []).length,
+  2,
+  'Only Linux and Windows packaging commands may activate CLI sidecar bundling',
+);
 assert.match(
   linuxReleaseScript,
-  /--no-default-features[\s\S]*--features cli[\s\S]*--bin pasted[\s\S]*stage:cli-sidecar[\s\S]*tauri build/,
+  /--no-default-features[\s\S]*--features cli[\s\S]*--bin pasted[\s\S]*stage:cli-sidecar[\s\S]*tauri build[\s\S]*tauri\.cli-sidecar\.conf\.json/,
   'The local Linux release must build and bundle the headless CLI explicitly',
 );
 assert.match(
