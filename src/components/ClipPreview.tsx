@@ -1636,7 +1636,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       )}
 
       {/* Stats Footer */}
-      <div className="clip-preview-footer px-4 py-2.5 border-t flex text-[11px]">
+      <div className="clip-preview-footer min-h-[55px] px-4 py-2.5 border-t flex text-[11px]">
         <div className="clip-preview-footer-stats">
           {clip.content_type === 'file' ? (
             <>

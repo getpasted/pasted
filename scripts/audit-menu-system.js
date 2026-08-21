@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 
 const sharedMenu = fs.readFileSync('src/components/AnchoredMenu.tsx', 'utf8');
+const sidebar = fs.readFileSync('src/components/Sidebar.tsx', 'utf8');
 const nativeMenu = fs.readFileSync('src-tauri/src/app_menu.rs', 'utf8');
 const englishCatalog = JSON.parse(fs.readFileSync('src/locales/en.json', 'utf8'));
 const floatingMenus = [
@@ -39,14 +40,23 @@ if (!sharedMenu.includes('needsHiddenPositioningPass') || !sharedMenu.includes('
 if (!sharedMenu.includes('data-anchored-menu-measurement') || !sharedMenu.includes('key={`visible:${anchorKey}`}')) {
   failures.push('AnchoredMenu must separate its offscreen measurement node from the visible WebKit layer');
 }
-if ((sharedMenu.match(/surface-scroll-region/g) || []).length < 3) {
-  failures.push('AnchoredMenu and its measurement/submenu surfaces must share transient-scroll geometry');
+if (!sharedMenu.includes("const MENU_SURFACE_CLASSES = 'surface-scroll-region")) {
+  failures.push('Anchored and embedded menus must share one surface geometry contract');
+}
+if ((sharedMenu.match(/MENU_SURFACE_CLASSES/g) || []).length < 4) {
+  failures.push('AnchoredMenu measurement, visible, and embedded surfaces must use the shared geometry contract');
 }
 if (!sharedMenu.includes('onWheelCapture') || !sharedMenu.includes('onScroll')) {
   failures.push('AnchoredMenu must reveal its transient scrollbar directly during wheel and scroll input');
 }
 if ((sharedMenu.match(/normalizeMenuDividers\(children, MenuDivider\)/g) || []).length < 2) {
   failures.push('Anchored menus and submenus must normalize conditional dividers');
+}
+if (!sidebar.includes('EmbeddedMenu') || !sidebar.includes('<MenuItem')) {
+  failures.push('Sidebar search helpers must use the shared embedded menu and item primitives');
+}
+if (sidebar.includes('className="theme-menu absolute')) {
+  failures.push('Sidebar must not hand-build the shared menu surface');
 }
 if (!fs.readFileSync('src/components/ContextMenu.tsx', 'utf8').includes('MenuSubmenu')) {
   failures.push('Clip context submenus do not use the shared hover-corridor implementation');

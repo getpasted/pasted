@@ -6,6 +6,7 @@ import {
   useState,
   type ButtonHTMLAttributes,
   type CSSProperties,
+  type HTMLAttributes,
   type ReactNode,
   type RefObject,
 } from 'react';
@@ -16,6 +17,7 @@ import { useLocalization } from '../localization/LocalizationProvider';
 import { normalizeMenuDividers } from '../utils/menuChildren';
 
 const VIEWPORT_PADDING = 8;
+const MENU_SURFACE_CLASSES = 'surface-scroll-region rounded-xl border p-1.5 text-xs font-medium select-none';
 
 export type MenuAnchor =
   | { kind: 'point'; x: number; y: number }
@@ -183,7 +185,7 @@ export function AnchoredMenu({
         ref={menuRef}
         aria-hidden="true"
         data-anchored-menu-measurement
-        className={`surface-scroll-region fixed rounded-xl border p-1.5 text-xs font-medium select-none ${className}`}
+        className={`${MENU_SURFACE_CLASSES} fixed ${className}`}
         style={{
           ...style,
           left: -10_000,
@@ -205,7 +207,7 @@ export function AnchoredMenu({
       role="menu"
       aria-label={ariaLabel}
       data-anchored-menu
-      className={`theme-menu surface-scroll-region fixed rounded-xl border p-1.5 text-xs font-medium select-none animate-in fade-in zoom-in-95 duration-100 ${className}`}
+      className={`theme-menu ${MENU_SURFACE_CLASSES} fixed animate-in fade-in zoom-in-95 duration-100 ${className}`}
       style={{
         ...style,
         left: position.left,
@@ -221,6 +223,28 @@ export function AnchoredMenu({
     document.body,
   );
 }
+
+interface EmbeddedMenuProps extends Omit<HTMLAttributes<HTMLDivElement>, 'aria-label'> {
+  ariaLabel: string;
+}
+
+export const EmbeddedMenu = forwardRef<HTMLDivElement, EmbeddedMenuProps>(function EmbeddedMenu(
+  { ariaLabel, children, className = '', ...props },
+  ref,
+) {
+  return (
+    <div
+      ref={ref}
+      role="menu"
+      aria-label={ariaLabel}
+      data-embedded-menu
+      className={`theme-menu ${MENU_SURFACE_CLASSES} ${className}`}
+      {...props}
+    >
+      {normalizeMenuDividers(children, MenuDivider)}
+    </div>
+  );
+});
 
 interface MenuItemProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   active?: boolean;
