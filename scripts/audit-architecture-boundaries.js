@@ -28,6 +28,7 @@ const analyticsDatabase = read('src-tauri/src/db/analytics.rs');
 const clipMutationDatabase = read('src-tauri/src/db/clip_mutations.rs');
 const clipQueryDatabase = read('src-tauri/src/db/clip_queries.rs');
 const intelligenceConnectionDatabase = read('src-tauri/src/db/intelligence_connections.rs');
+const operationDatabase = read('src-tauri/src/db/operations.rs');
 const settingsApi = read('src/api/settings.ts');
 const transformsApi = read('src/api/transforms.ts');
 const localizationRuntime = read('src/localization/runtime.ts');
@@ -102,6 +103,12 @@ assert.match(intelligenceConnectionDatabase, /pub fn reorder_intelligence_connec
   'Connection ordering must remain in its focused database subsystem');
 assert.doesNotMatch(read('src-tauri/src/db.rs'), /pub fn get_intelligence_connections/,
   'The database integration root must not reclaim Connection persistence');
+assert.match(operationDatabase, /pub fn get_library_items/,
+  'Library item visibility must remain centralized with operation persistence');
+assert.match(operationDatabase, /Operation is used by/,
+  'Operation deletion must continue protecting dependent Transforms');
+assert.doesNotMatch(read('src-tauri/src/db.rs'), /pub fn get_operations/,
+  'The database integration root must not reclaim operation persistence');
 assert.match(clipboardActions, /fn ocr_text_never_replaces_an_image_clips_copy_fingerprint/,
   'Clipboard fingerprint regressions must remain with the shared clipboard workflow');
 assert.match(contentInspection, /fn file_metadata_reports_availability_without_crawling_directories/,
@@ -296,12 +303,13 @@ assert.doesNotMatch(commands, /pub fn extract_ocr_from_clip|pub async fn extract
   'The GUI command root must not reclaim extraction lifecycle operations');
 
 const sizeRatchets = new Map([
-  ['src-tauri/src/db.rs', 17_991],
+  ['src-tauri/src/db.rs', 17_622],
   ['src-tauri/src/db/activity.rs', 649],
   ['src-tauri/src/db/analytics.rs', 159],
   ['src-tauri/src/db/clip_mutations.rs', 643],
   ['src-tauri/src/db/clip_queries.rs', 442],
   ['src-tauri/src/db/intelligence_connections.rs', 231],
+  ['src-tauri/src/db/operations.rs', 377],
   ['src-tauri/src/commands.rs', 54],
   ['src-tauri/src/commands/bins.rs', 89],
   ['src-tauri/src/commands/capture.rs', 43],
