@@ -232,7 +232,7 @@ export function useAppData() {
         trashed_at: null,
         bin_id: null,
       };
-      setAllClips((previous) => [restoredActiveClip, ...previous]);
+      setAllClips((previous) => sortClipsForTimeline([restoredActiveClip, ...previous]));
       setTotalClipCount((previous) => previous + 1);
     }
     try {

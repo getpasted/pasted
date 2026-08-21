@@ -3,6 +3,8 @@ export { useAppNavigation } from './useAppNavigation';
 export { useAppOverlays } from './useAppOverlays';
 export { useAppShell } from './useAppShell';
 export { useClipDragController } from './useClipDragController';
+export { useClipHistoryFocus } from './useClipHistoryFocus';
 export { useClipListViewport } from './useClipListViewport';
 export { useClipReordering } from './useClipReordering';
 export { useClipSelectionController } from './useClipSelectionController';
+export { useCopyQueueController } from './useCopyQueueController';

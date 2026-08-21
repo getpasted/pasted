@@ -29,7 +29,7 @@ import { translate } from './localization/runtime';
 import { MacRtlWindowControls } from './components/MacRtlWindowControls';
 import { SearchErrorNotice } from './components/SearchErrorNotice';
 import { clipsApi } from './api/clips';
-import { useAppMenuActions, useAppNavigation, useAppOverlays, useAppShell, useClipDragController, useClipListViewport, useClipReordering, useClipSelectionController } from './hooks/appControllers';
+import { useAppMenuActions, useAppNavigation, useAppOverlays, useAppShell, useClipDragController, useClipHistoryFocus, useClipListViewport, useClipReordering, useClipSelectionController, useCopyQueueController } from './hooks/appControllers';
 import { ClipBatchActionBar } from './components/ClipBatchActionBar';
 import { ClipDragPreview } from './components/ClipDragPreview';
 import { AppDialogLayer } from './components/AppDialogLayer';
@@ -81,7 +81,7 @@ export default function App() {
     fetchManualTransforms,
     fetchSequentialStatus,
     toggleClipboardPause: handleToggleClipboardPause,
-    restoreClip: handleRestoreClip,
+    restoreClip: restoreClipInData,
     purgeClipPermanently: handlePurgeClipPermanently,
     emptyTrash: handleEmptyTrash,
   } = useAppData();
@@ -97,6 +97,7 @@ export default function App() {
   const [selectedClipIds, setSelectedClipIds] = useState<Set<number>>(new Set());
   const {
     currentTab,
+    setCurrentTab,
     activeSettingsTab,
     setActiveSettingsTab,
     activeHelpTopic,
@@ -151,27 +152,13 @@ export default function App() {
     notesEnabled: enabledFeatures.notes,
   });
 
-  const handleToggleCopyQueue = async () => {
-    if (!enabledFeatures.queue) return;
-    try {
-      if (seqStatus?.is_active) {
-        await invoke('stop_sequential_paste');
-      } else {
-        await invoke('start_sequential_paste');
-        navigateToTab('sequential');
-        setSelectedBinId(null);
-      }
-      fetchSequentialStatus();
-    } catch (e) {
-      console.error('Failed to toggle copy queue:', e);
-    }
-  };
-
-  useEffect(() => {
-    if (!enabledFeatures.queue && seqStatus?.is_active) {
-      void invoke('stop_sequential_paste').then(fetchSequentialStatus).catch(console.error);
-    }
-  }, [enabledFeatures.queue, fetchSequentialStatus, seqStatus?.is_active]);
+  const handleToggleCopyQueue = useCopyQueueController({
+    enabled: enabledFeatures.queue,
+    active: Boolean(seqStatus?.is_active),
+    navigateToTab,
+    setSelectedBinId,
+    refreshStatus: fetchSequentialStatus,
+  });
 
   const handleSidebarNavigate = useCallback((route: string) => {
     setBinContextMenu(null);
@@ -215,6 +202,14 @@ export default function App() {
     () => getClipCollection(currentTab, selectedBinId === null ? undefined : bins.find((bin) => bin.id === selectedBinId)),
     [bins, currentTab, locale, selectedBinId],
   );
+  const clipHistoryFocus = useClipHistoryFocus({
+    currentTab,
+    currentAssociation: currentCollection?.association,
+    selectedClip,
+    setCurrentTab,
+    setSelectedBinId,
+    restoreClip: restoreClipInData,
+  });
   const {
     clipListRef,
     handleClipListScroll,
@@ -240,6 +235,7 @@ export default function App() {
     loadMoreClips,
     loadMoreTrashedClips,
     loadMoreSearchResults,
+    focusRequest: clipHistoryFocus.focusRequest,
   });
   const {
     binClipReorder,
@@ -304,6 +300,7 @@ export default function App() {
     onCollectionChanged: fetchClipCollectionSummary,
     keepTrashedClipsVisible: currentTab === 'search',
     onClipsRepositioned: requestRepositionedClipReveal,
+    onClipPropertyRemoved: clipHistoryFocus.handlePropertyRemoved,
   });
 
   const {
@@ -325,6 +322,7 @@ export default function App() {
     copyClip: handleCopyClip,
     deleteClip: handleDeleteClip,
     purgeClipPermanently: handlePurgeClipPermanently,
+    focusRequest: clipHistoryFocus.focusRequest,
   });
 
   const handleSetSelectedPinned = useCallback((pinned: boolean) => {
@@ -792,7 +790,7 @@ export default function App() {
                       onToggleProtected={() => handleToggleProtected(clip.id)}
                       onToggleConcealed={() => handleToggleConcealed(clip.id)}
                       onDelete={(e) => handleDeleteClip(clip.id, e?.altKey)}
-                      onRestore={() => handleRestoreClip(clip.id)}
+                      onRestore={() => clipHistoryFocus.restoreClipToHistory(clip.id)}
                       onPurgePermanently={() => handlePurgeClipPermanently(clip.id)}
                       onRemoveFromQueue={() => {
                         const idx = queueIndex !== undefined ? queueIndex - 1 : -1;
@@ -903,7 +901,7 @@ export default function App() {
           onToggleProtected={() => handleToggleProtected(currentContextMenuClip.id)}
           onToggleConcealed={() => handleToggleConcealed(currentContextMenuClip.id)}
           onDelete={(e) => handleDeleteClip(currentContextMenuClip.id, e?.altKey)}
-          onRestore={() => handleRestoreClip(currentContextMenuClip.id)}
+          onRestore={() => clipHistoryFocus.restoreClipToHistory(currentContextMenuClip.id)}
           onPurge={() => handlePurgeClipPermanently(currentContextMenuClip.id)}
           trashEnabled={appSettings.enableTrash}
         />

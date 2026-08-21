@@ -1,6 +1,5 @@
 import {
   useCallback,
-  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -10,8 +9,8 @@ import {
 } from 'react';
 import type { ClipItem } from '../types';
 import type { AppUiState } from '../utils/appUiState';
-import { getClipViewPolicy } from '../utils/clipViewPolicy';
-import { selectionIdsForContextMenu } from '../utils/clipSelection';
+import { pendingClipFocusId, selectionIdsForContextMenu, type ClipFocusRequest } from '../utils/clipSelection';
+import { useClipSelectionKeyboard } from './useClipSelectionKeyboard';
 
 interface UseClipSelectionControllerOptions {
   displayedClips: ClipItem[];
@@ -27,6 +26,7 @@ interface UseClipSelectionControllerOptions {
   copyClip: (clip: ClipItem) => unknown;
   deleteClip: (clipId: number) => unknown;
   purgeClipPermanently: (clipId: number) => unknown;
+  focusRequest?: ClipFocusRequest | null;
 }
 
 export function useClipSelectionController({
@@ -43,6 +43,7 @@ export function useClipSelectionController({
   copyClip,
   deleteClip,
   purgeClipPermanently,
+  focusRequest,
 }: UseClipSelectionControllerOptions) {
   const [, setSelectedIndex] = useState(-1);
   const selectionViewKey = currentTab === 'bin' ? `bin:${selectedBinId ?? 'none'}` : `section:${currentTab}`;
@@ -55,6 +56,7 @@ export function useClipSelectionController({
     ],
   ]));
   const activeSelectionViewRef = useRef<string | null>(null);
+  const handledFocusRequestIdRef = useRef<number | null>(null);
 
   const clearClipSelection = useCallback(() => {
     setSelectedClip(null);
@@ -99,6 +101,24 @@ export function useClipSelectionController({
       return;
     }
 
+    const requestedClipId = pendingClipFocusId(
+      focusRequest,
+      selectionViewKey,
+      handledFocusRequestIdRef.current,
+    );
+    const requestedClip = requestedClipId === null
+      ? undefined
+      : displayedClips.find((clip) => clip.id === requestedClipId);
+    if (requestedClip) {
+      const requestedIndex = displayedClips.findIndex((clip) => clip.id === requestedClip.id);
+      handledFocusRequestIdRef.current = focusRequest!.requestId;
+      selectedClipByViewRef.current.set(selectionViewKey, requestedClip.id);
+      setSelectedClip(requestedClip);
+      setSelectedClipIds(new Set([requestedClip.id]));
+      setSelectedIndex(requestedIndex);
+      return;
+    }
+
     if (viewChanged) {
       const rememberedClip = typeof rememberedId === 'number'
         ? displayedClips.find((clip) => clip.id === rememberedId)
@@ -138,39 +158,9 @@ export function useClipSelectionController({
         ? previous
         : next;
     });
-  }, [displayedClips, initialDataLoaded, selectedClip?.id, selectionViewKey, setSelectedClip, setSelectedClipIds]);
+  }, [displayedClips, focusRequest, initialDataLoaded, selectedClip?.id, selectionViewKey, setSelectedClip, setSelectedClipIds]);
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key === '\\') {
-        event.preventDefault();
-        setIsSidebarCollapsed((collapsed) => !collapsed);
-        return;
-      }
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((event.target as HTMLElement).tagName)) return;
-      if (displayedClips.length === 0) return;
-
-      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-        event.preventDefault();
-        const direction = event.key === 'ArrowDown' ? 1 : -1;
-        setSelectedIndex((previous) => {
-          const next = Math.max(0, Math.min(previous + direction, displayedClips.length - 1));
-          setSelectedClip(displayedClips[next]);
-          setSelectedClipIds(new Set([displayedClips[next].id]));
-          return next;
-        });
-      } else if (event.key === 'Enter' && selectedClip) {
-        event.preventDefault();
-        void copyClip(selectedClip);
-      } else if ((event.key === 'Delete' || event.key === 'Backspace') && selectedClip) {
-        event.preventDefault();
-        if (getClipViewPolicy(currentTab, selectedClip).state === 'trash') void purgeClipPermanently(selectedClip.id);
-        else void deleteClip(selectedClip.id);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [copyClip, currentTab, deleteClip, displayedClips, purgeClipPermanently, selectedClip, setIsSidebarCollapsed, setSelectedClip, setSelectedClipIds]);
+  useClipSelectionKeyboard({ currentTab, displayedClips, selectedClip, setSelectedClip, setSelectedClipIds, setSelectedIndex, setIsSidebarCollapsed, copyClip, deleteClip, purgeClipPermanently });
 
   const selectedClipRef = useRef(selectedClip);
   const selectedClipIdsRef = useRef(selectedClipIds);
