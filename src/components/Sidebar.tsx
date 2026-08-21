@@ -592,7 +592,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
       </div>
 
       {/* Sidebar Navigation Content (Scrollable) */}
-      <div className="flex-1 overflow-y-auto sidebar-scroll-container px-2.5 py-2 space-y-3 text-[0.8125rem]">
+      <div className="flex-1 overflow-y-auto sidebar-scroll-container px-2.5 pt-2 pb-[13px] space-y-3 text-[0.8125rem]">
         {/* Section 1: Clips */}
         <div>
           <div
