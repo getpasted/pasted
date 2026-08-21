@@ -879,6 +879,32 @@ mod tests {
     }
 
     #[test]
+    fn file_metadata_reports_availability_without_crawling_directories() {
+        let workspace = crate::external_tools::PrivateWorkspace::create("file-metadata-test")
+            .expect("private workspace");
+        let directory = workspace.join("Folder");
+        fs::create_dir_all(&directory).unwrap();
+        let file = workspace.join("first.txt");
+        fs::write(&file, b"pasted").unwrap();
+        let missing = workspace.join("missing.mp4");
+        let paths = vec![
+            file.to_string_lossy().into_owned(),
+            directory.to_string_lossy().into_owned(),
+            missing.to_string_lossy().into_owned(),
+        ];
+
+        let inspection = inspect_files(paths.clone(), None).unwrap();
+        let structure = inspection.result.files.unwrap();
+        let observations = observe_files(&paths);
+        assert_eq!(structure.item_count, 3);
+        assert_eq!(observations.available_count, 2);
+        assert_eq!(observations.file_count, 1);
+        assert_eq!(observations.directory_count, 1);
+        assert_eq!(observations.total_size_bytes, 6);
+        assert_eq!(structure.extensions, vec!["TXT", "MP4"]);
+    }
+
+    #[test]
     fn file_format_inspection_uses_bytes_instead_of_the_extension() {
         let workspace =
             crate::external_tools::PrivateWorkspace::create("file-format-test").unwrap();

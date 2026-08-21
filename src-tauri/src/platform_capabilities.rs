@@ -24,3 +24,12 @@ pub fn accessibility_status() -> AccessibilityStatus {
         is_dev_mode: cfg!(debug_assertions),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn accessibility_status_reports_the_build_mode() {
+        let status = super::accessibility_status();
+        assert_eq!(status.is_dev_mode, cfg!(debug_assertions));
+    }
+}

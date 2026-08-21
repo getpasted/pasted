@@ -17,6 +17,8 @@ const queueCommands = read('src-tauri/src/commands/queue.rs');
 const storageCommands = read('src-tauri/src/commands/storage.rs');
 const liveApp = read('src-tauri/src/live_app.rs');
 const clipboardActions = read('src-tauri/src/clipboard_actions.rs');
+const contentInspection = read('src-tauri/src/content_inspection.rs');
+const intelligenceConnections = read('src-tauri/src/intelligence_connections.rs');
 const queueActions = read('src-tauri/src/queue_actions.rs');
 const platformCapabilities = read('src-tauri/src/platform_capabilities.rs');
 const hotkeys = read('src-tauri/src/hotkey_manager.rs');
@@ -59,6 +61,16 @@ const clipReordering = read('src/hooks/useClipReordering.ts');
 
 assert.doesNotMatch(liveApp, /crate::commands::/,
   'The live-app adapter must not call the GUI command adapter');
+assert.doesNotMatch(commands, /#\[cfg\(test\)\]/,
+  'Cross-domain regressions must live with their owning subsystem instead of the GUI command root');
+assert.match(clipboardActions, /fn ocr_text_never_replaces_an_image_clips_copy_fingerprint/,
+  'Clipboard fingerprint regressions must remain with the shared clipboard workflow');
+assert.match(contentInspection, /fn file_metadata_reports_availability_without_crawling_directories/,
+  'File observation regressions must remain with content inspection');
+assert.match(intelligenceConnections, /fn intelligence_credentials_must_remain_references/,
+  'Credential-reference validation regressions must remain with intelligence connections');
+assert.match(platformCapabilities, /fn accessibility_status_reports_the_build_mode/,
+  'Accessibility status regressions must remain with platform capabilities');
 
 for (const sharedCall of [
   'clipboard_actions::copy_clip',
@@ -246,7 +258,7 @@ assert.doesNotMatch(commands, /pub fn extract_ocr_from_clip|pub async fn extract
 
 const sizeRatchets = new Map([
   ['src-tauri/src/db.rs', 20_111],
-  ['src-tauri/src/commands.rs', 203],
+  ['src-tauri/src/commands.rs', 54],
   ['src-tauri/src/commands/bins.rs', 89],
   ['src-tauri/src/commands/capture.rs', 43],
   ['src-tauri/src/commands/cli_installation.rs', 136],
