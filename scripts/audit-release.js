@@ -235,8 +235,8 @@ assert.match(
 );
 assert.match(
   packageScripts['test:cli-build'] ?? '',
-  /--no-default-features --features cli --bin pasted/,
-  'Native validation must compile the headless CLI surface explicitly',
+  /^cargo build .*--locked --no-default-features --features cli --bin pasted$/,
+  'Native validation must build the headless CLI executable before integration tests',
 );
 assert.deepEqual(
   fs.readdirSync('src-tauri/src/bin').sort(),
