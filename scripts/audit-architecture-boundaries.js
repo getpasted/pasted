@@ -25,6 +25,7 @@ const hotkeys = read('src-tauri/src/hotkey_manager.rs');
 const settingsService = read('src-tauri/src/settings_service.rs');
 const activityDatabase = read('src-tauri/src/db/activity.rs');
 const analyticsDatabase = read('src-tauri/src/db/analytics.rs');
+const binDatabase = read('src-tauri/src/db/bins.rs');
 const clipMutationDatabase = read('src-tauri/src/db/clip_mutations.rs');
 const clipQueryDatabase = read('src-tauri/src/db/clip_queries.rs');
 const classifierDatabase = read('src-tauri/src/db/classifiers.rs');
@@ -150,6 +151,14 @@ assert.match(storedAnalysisDatabase, /pub fn record_extraction_observations/,
   'Extractor observation history must remain centralized with stored analysis');
 assert.doesNotMatch(read('src-tauri/src/db.rs'), /pub fn get_ocr_backfill_status/,
   'The database integration root must not reclaim stored analysis persistence');
+assert.match(binDatabase, /pub fn get_bins/,
+  'Bin reads must remain in the focused organization subsystem');
+assert.match(binDatabase, /pub fn matching_smart_bin_transforms/,
+  'Smart Bin Transform matching must remain centralized with Bin persistence');
+assert.match(binDatabase, /pub fn delete_bin/,
+  'Bin deletion policy must remain centralized with Bin persistence');
+assert.doesNotMatch(read('src-tauri/src/db.rs'), /pub fn get_bins/,
+  'The database integration root must not reclaim Bin persistence');
 assert.match(clipboardActions, /fn ocr_text_never_replaces_an_image_clips_copy_fingerprint/,
   'Clipboard fingerprint regressions must remain with the shared clipboard workflow');
 assert.match(contentInspection, /fn file_metadata_reports_availability_without_crawling_directories/,
@@ -344,9 +353,10 @@ assert.doesNotMatch(commands, /pub fn extract_ocr_from_clip|pub async fn extract
   'The GUI command root must not reclaim extraction lifecycle operations');
 
 const sizeRatchets = new Map([
-  ['src-tauri/src/db.rs', 14_074],
+  ['src-tauri/src/db.rs', 13_433],
   ['src-tauri/src/db/activity.rs', 649],
   ['src-tauri/src/db/analytics.rs', 159],
+  ['src-tauri/src/db/bins.rs', 652],
   ['src-tauri/src/db/clip_mutations.rs', 643],
   ['src-tauri/src/db/clip_queries.rs', 442],
   ['src-tauri/src/db/classifiers.rs', 533],
