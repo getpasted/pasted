@@ -3,7 +3,6 @@
   "action.copied": "コピー",
   "action.copy": "コピー",
   "action.conceal": "隠す",
-  "action.unconceal": "非表示を解除",
   "action.deleteCountPermanently": "「{count}」を完全に削除",
   "action.deletePermanently": "完全に削除",
   "action.editNote": "メモを編集",

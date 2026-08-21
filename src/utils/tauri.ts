@@ -60,16 +60,19 @@ function withMockProtection(clip: MockClip) {
   const protectingBinIds = clip.bin_ids.filter((id) => (
     mockBins.find((bin) => bin.id === id)?.protect_clips
   ));
-  const explicitlyProtected = Boolean(clip.is_protected);
+  const explicitlyProtected = Boolean(clip.is_explicitly_protected ?? clip.is_protected);
+  const concealingBinIds = clip.bin_ids.filter((id) => mockBins.find((bin) => bin.id === id)?.conceal_clips);
+  const explicitlyConcealed = Boolean(clip.is_explicitly_concealed ?? clip.is_concealed);
+  const explicitlyRevealed = Boolean(clip.is_explicitly_revealed);
   return {
     ...clip,
     is_explicitly_protected: explicitlyProtected,
     is_protected: explicitlyProtected || Boolean(clip.hotkey) || protectingBinIds.length > 0,
     protecting_bin_ids: protectingBinIds,
-    is_concealed: Boolean(clip.is_concealed),
-    is_explicitly_concealed: Boolean(clip.is_concealed),
-    is_explicitly_revealed: false,
-    concealing_bin_ids: clip.bin_ids.filter((id) => mockBins.find((bin) => bin.id === id)?.conceal_clips),
+    is_concealed: !explicitlyRevealed && (explicitlyConcealed || concealingBinIds.length > 0),
+    is_explicitly_concealed: explicitlyConcealed,
+    is_explicitly_revealed: explicitlyRevealed,
+    concealing_bin_ids: concealingBinIds,
   };
 }
 
@@ -1183,7 +1186,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'toggle_clip_concealed': {
       const clip = mockClips.find((item) => item.id === Number(args?.clipId));
       if (clip) {
-        const concealed = !clip.is_concealed;
+        const concealed = !withMockProtection(clip).is_concealed;
         clip.is_concealed = concealed ? 1 : 0;
         clip.is_explicitly_concealed = concealed;
         clip.is_explicitly_revealed = !concealed;

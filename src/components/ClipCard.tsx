@@ -1,6 +1,6 @@
 import React from 'react';
 import { dateTimeAttribute, formatFullDateTime, formatRelativeTime } from '../utils/date';
-import { ClipItem, getClipFilePaths, getClipFileSummary, getClipNoteSummary, maskSensitiveText, type Bin } from '../types';
+import { ClipItem, getClipFilePaths, getClipFileSummary, getClipNoteSummary, type Bin } from '../types';
 import type { ClipViewPolicy } from '../utils/clipViewPolicy';
 import { clipDeleteLabel, UI_COPY } from '../utils/uiCopy';
 import { safeInvoke as invoke } from '../utils/tauri';
@@ -13,6 +13,7 @@ import { ContentTypeIcon } from './ContentTypeIcon';
 import { structuralClipType } from '../utils/contentTypes';
 import { useContentTypes } from './ContentTypeProvider';
 import { clipConcealmentPolicy } from '../utils/clipConcealment';
+import { concealedClipMask } from '../utils/concealedClipMask';
 import {
   Files,
   Pin,
@@ -591,7 +592,14 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
 
       {/* Body Content */}
       <div className={`theme-text-main ${clip.content_type === 'file' ? (isSmall ? 'text-[11px]' : 'text-xs') : lineClampClass} font-mono leading-relaxed break-all`}>
-        {clip.content_type === 'image' ? (
+        {isSensitive ? (
+          <div
+            className="theme-status-warning flex items-center rounded-lg border p-1.5 text-xs font-mono select-none"
+            aria-label={translate('collection.concealed')}
+          >
+            <span className="tracking-widest font-bold">{concealedClipMask(clip)}</span>
+          </div>
+        ) : clip.content_type === 'image' ? (
           <ClipImageThumbnail
             key={`${clip.id}:${clip.content_hash}`}
             clipId={clip.id}
@@ -616,15 +624,6 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
             />
             <span className="clip-note-accent font-mono text-xs">
               {clip.text_content}
-            </span>
-          </div>
-        ) : isSensitive ? (
-          <div className="theme-status-warning flex items-center p-1.5 border rounded-lg text-xs font-mono select-none">
-            <span className="tracking-widest font-bold">
-              {maskSensitiveText(
-                clip.text_content,
-                (clip.content_types ?? [clip.content_type]).includes('payment_card'),
-              )}
             </span>
           </div>
         ) : (

@@ -3,7 +3,6 @@
   "action.copied": "הועתק",
   "action.copy": "העתק",
   "action.conceal": "הסתרה",
-  "action.unconceal": "הפסקת ההסתרה",
   "action.deleteCountPermanently": "מחיקה של {count} באופן קבוע",
   "action.deletePermanently": "מחיקה באופן קבוע",
   "action.editNote": "ערוך את ההערה",

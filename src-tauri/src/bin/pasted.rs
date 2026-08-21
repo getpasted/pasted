@@ -304,7 +304,7 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
             println!("  pasted clip hotkey <id> <hotkey|none> [--json]");
             println!("  pasted clip pin|unpin <id>... [--json]");
             println!("  pasted clip order-pinned <id>... [--json]");
-            println!("  pasted clip protect|unprotect|conceal|unconceal <id>... [--json]");
+            println!("  pasted clip protect|unprotect|conceal|reveal <id>... [--json]");
             println!("  pasted clip trash|restore <id>... [--json]");
             println!("  pasted clip restore-all [--json] Restore every clip from Trash");
             println!("  pasted clip note|revisions|restore-revision|provenance <id> [options]");

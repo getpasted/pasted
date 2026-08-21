@@ -3,7 +3,6 @@
   "action.copied": "Copiado",
   "action.copy": "Copiar",
   "action.conceal": "Ocultar",
-  "action.unconceal": "Parar de ocultar",
   "action.deleteCountPermanently": "Excluir permanentemente {count}",
   "action.deletePermanently": "Excluir permanentemente",
   "action.editNote": "Editar anotação",

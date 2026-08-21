@@ -18,7 +18,7 @@ export function handleClipBrowserMock<T extends BrowserClip>(
   command: string,
   args: Record<string, unknown> | undefined,
   clips: readonly T[],
-  withProtection: (clip: T) => object,
+  withPolicies: (clip: T) => object & { is_concealed: boolean },
 ): BrowserMockResult {
   if (command === 'get_clips') {
     const offset = Math.max(0, Number(args?.offset ?? 0));
@@ -28,12 +28,15 @@ export function handleClipBrowserMock<T extends BrowserClip>(
       .filter((clip) => clip.is_trashed === 0
         && (!Number.isInteger(binId) || binId <= 0 || clip.bin_ids.includes(binId)))
       .slice(offset, offset + limit)
-      .map((clip) => ({ ...withProtection(clip), content_types: [...(clip.content_types ?? [])], bin_ids: [...clip.bin_ids] })));
+      .map((clip) => ({ ...withPolicies(clip), content_types: [...(clip.content_types ?? [])], bin_ids: [...clip.bin_ids] })));
   }
   if (command === 'get_trashed_clips') {
     const offset = Math.max(0, Number(args?.offset ?? 0));
     const limit = Math.max(1, Number(args?.limit ?? 10_000));
-    return handled(clips.filter((clip) => clip.is_trashed !== 0).slice(offset, offset + limit));
+    return handled(clips
+      .filter((clip) => clip.is_trashed !== 0)
+      .slice(offset, offset + limit)
+      .map((clip) => ({ ...withPolicies(clip), content_types: [...(clip.content_types ?? [])], bin_ids: [...clip.bin_ids] })));
   }
   if (command === 'get_clip_collection_summary') {
     const active = clips.filter((clip) => clip.is_trashed === 0);
@@ -51,7 +54,7 @@ export function handleClipBrowserMock<T extends BrowserClip>(
       trashCount: clips.length - active.length,
       pinnedCount: active.filter((clip) => clip.is_pinned).length,
       protectedCount: active.filter((clip) => clip.is_protected).length,
-      concealedCount: active.filter((clip) => clip.is_concealed).length,
+      concealedCount: active.filter((clip) => withPolicies(clip).is_concealed).length,
       notedCount: active.filter((clip) => Boolean(clip.note?.trim())).length,
       clipTypeCounts: countBy('content_type').map(([clip_type, count]) => ({ clip_type, count })),
       fileFormatCounts: fileFormatCounts.map(([file_format, count]) => ({ file_format, count })),

@@ -784,6 +784,14 @@ fn clip_hotkeys_and_bin_policies_have_structured_cli_parity() {
     assert_eq!(fetched["is_concealed"], true);
     assert_eq!(fetched["is_explicitly_concealed"], true);
 
+    let revealed = success_json(&database, &["clip", "reveal", &clip_id, "--json"]);
+    assert_eq!(revealed["action"], "reveal");
+    assert_eq!(revealed["changedCount"], 1);
+    let fetched = success_json(&database, &["clip", "get", &clip_id, "--json"]);
+    assert_eq!(fetched["is_concealed"], false);
+    assert_eq!(fetched["is_explicitly_revealed"], true);
+    success_json(&database, &["clip", "conceal", &clip_id, "--json"]);
+
     success_json(
         &database,
         &["settings", "set", "enableHotkeys", "false", "--json"],
@@ -809,7 +817,7 @@ fn clip_hotkeys_and_bin_policies_have_structured_cli_parity() {
         &["settings", "set", "enableConcealment", "false", "--json"],
     );
     for arguments in [
-        vec!["clip", "unconceal", clip_id.as_str(), "--json"],
+        vec!["clip", "reveal", clip_id.as_str(), "--json"],
         vec!["bin", "conceal", bin_id.as_str(), "off", "--json"],
         vec![
             "type",

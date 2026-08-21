@@ -1,11 +1,28 @@
 import assert from 'node:assert/strict';
 import { pendingClipFocusId, selectionIdsForContextMenu } from '../src/utils/clipSelection.ts';
+import { concealedClipMask } from '../src/utils/concealedClipMask.ts';
 
 const multiSelection = new Set([2, 4, 6]);
 assert.equal(
   selectionIdsForContextMenu(multiSelection, 4),
   multiSelection,
   'Right-clicking within a multi-selection must preserve the complete batch',
+);
+
+const concealedClip = {
+  content_type: 'text',
+  content_types: ['payment_card'],
+  text_content: '4111 1111 1111 1234',
+};
+assert.equal(
+  concealedClipMask(concealedClip),
+  '•••• •••• •••• 1234',
+  'Payment Card concealment may expose only the final four characters',
+);
+assert.equal(
+  concealedClipMask({ ...concealedClip, content_type: 'image', content_types: [], text_content: null }),
+  '•••• ••••',
+  'Concealed non-text clips must render a non-empty generic mask',
 );
 assert.deepEqual(
   selectionIdsForContextMenu(multiSelection, 9),

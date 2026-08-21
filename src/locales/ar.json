@@ -3,7 +3,6 @@
   "action.copied": "تم النسخ",
   "action.copy": "نسخ",
   "action.conceal": "إخفاء",
-  "action.unconceal": "إيقاف الإخفاء",
   "action.deleteCountPermanently": "حذف {count} بشكل دائم",
   "action.deletePermanently": "حذف بشكل دائم",
   "action.editNote": "تعديل الملاحظة",

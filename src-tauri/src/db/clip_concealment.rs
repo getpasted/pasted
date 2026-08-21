@@ -194,7 +194,7 @@ impl DbState {
             let verb = if concealed_state {
                 "Concealed"
             } else {
-                "Unconcealed"
+                "Revealed"
             };
             let _ = self.log_activity_internal(
                 &conn,
@@ -203,11 +203,7 @@ impl DbState {
             );
         }
         Ok(ClipMutationSummary::new(
-            if concealed_state {
-                "conceal"
-            } else {
-                "unconceal"
-            },
+            if concealed_state { "conceal" } else { "reveal" },
             requested_count,
             changed_ids,
         ))

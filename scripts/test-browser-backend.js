@@ -34,6 +34,15 @@ try {
   assert.equal(clips.find(({ id }) => id === 101)?.pin_order, 1,
     'already pinned clips must retain their relative order behind new pins');
 
+  await safeInvoke('update_bin_concealment', { id: 1, concealClips: true });
+  await safeInvoke('assign_clip_bin', { clipId: 101, binId: 1 });
+  assert.equal((await safeInvoke('get_clips')).find(({ id }) => id === 101)?.is_concealed, true,
+    'manual Bin concealment must be effective in the browser backend');
+  assert.equal(await safeInvoke('toggle_clip_concealed', { clipId: 101 }), false,
+    'toggling an inherited concealed clip must reveal it');
+  assert.equal((await safeInvoke('get_clips')).find(({ id }) => id === 101)?.is_concealed, false,
+    'an explicit reveal must survive browser-backend normalization');
+
   await safeInvoke('push_sequential_item', { item: 'first' });
   await safeInvoke('push_sequential_item', { item: 'second' });
   const queue = await safeInvoke('get_sequential_status');

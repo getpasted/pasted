@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, Check, ChevronDown, Copy, Files, Palette, Sparkles } from 'lucide-react';
+import { AlertTriangle, Check, ChevronDown, Copy, EyeOff, Files, Palette, Sparkles } from 'lucide-react';
 import { getClipFilePaths, type ClipItem } from '../types';
 import type { ColorFormats } from '../utils/color';
 import { UI_COPY } from '../utils/uiCopy';
@@ -34,6 +34,8 @@ interface ClipPreviewContentProps {
   isOcrLoading: boolean;
   ocrEnabled: boolean;
   transcriptionsEnabled: boolean;
+  concealed?: boolean;
+  concealedMask?: string;
   readOnly?: boolean;
   onColorChange: (value: string) => void;
   onCopyFormat: (label: string, value: string) => void;
@@ -313,6 +315,8 @@ export function ClipPreviewContent({
   isOcrLoading,
   ocrEnabled,
   transcriptionsEnabled,
+  concealed = false,
+  concealedMask = '•••• ••••',
   readOnly = false,
   onColorChange,
   onCopyFormat,
@@ -334,6 +338,19 @@ export function ClipPreviewContent({
   const showImageLoadingIndicator = clip.content_type === 'image'
     && !resolvedImageBase64
     && imageLoadingIndicatorClipId === clip.id;
+
+  if (concealed) {
+    return (
+      <div
+        className="theme-status-warning flex min-h-40 items-center justify-center gap-3 rounded-2xl border p-6 font-mono shadow-inner select-none"
+        role="status"
+        aria-label={translate('collection.concealed')}
+      >
+        <EyeOff className="h-5 w-5 shrink-0" aria-hidden="true" />
+        <span className="text-sm font-bold tracking-widest">{concealedMask}</span>
+      </div>
+    );
+  }
 
   return (
     <>

@@ -467,6 +467,7 @@ export default function App() {
           y={clipDragPreview.y}
           batchCount={selectedClipIds.has(draggedPreviewClip.id) ? selectedClipIds.size : 1}
           showSource={enabledFeatures.sources}
+          concealed={enabledFeatures.concealment && Boolean(draggedPreviewClip.is_concealed)}
         />
       )}
       {/* Inline-start application sidebar; platform CSS reserves mirrored macOS traffic lights. */}
