@@ -25,6 +25,7 @@ const hotkeys = read('src-tauri/src/hotkey_manager.rs');
 const settingsService = read('src-tauri/src/settings_service.rs');
 const activityDatabase = read('src-tauri/src/db/activity.rs');
 const analyticsDatabase = read('src-tauri/src/db/analytics.rs');
+const clipQueryDatabase = read('src-tauri/src/db/clip_queries.rs');
 const settingsApi = read('src/api/settings.ts');
 const transformsApi = read('src/api/transforms.ts');
 const localizationRuntime = read('src/localization/runtime.ts');
@@ -79,6 +80,12 @@ assert.match(analyticsDatabase, /get_daily_activity_for_calendar[\s\S]*calendar_
   'Insights calendar grouping must keep its explicit local-calendar boundary');
 assert.doesNotMatch(read('src-tauri/src/db.rs'), /pub fn get_analytics_summary/,
   'The database integration root must not reclaim Insights aggregation');
+assert.match(clipQueryDatabase, /pub fn get_clips_page/,
+  'Clip collection reads must remain in their focused database subsystem');
+assert.match(clipQueryDatabase, /NULL as image_base64/,
+  'Clip list reads must keep deferring image payloads to the image endpoint');
+assert.doesNotMatch(read('src-tauri/src/db.rs'), /pub fn get_clips_page/,
+  'The database integration root must not reclaim clip collection reads');
 assert.match(clipboardActions, /fn ocr_text_never_replaces_an_image_clips_copy_fingerprint/,
   'Clipboard fingerprint regressions must remain with the shared clipboard workflow');
 assert.match(contentInspection, /fn file_metadata_reports_availability_without_crawling_directories/,
@@ -273,9 +280,10 @@ assert.doesNotMatch(commands, /pub fn extract_ocr_from_clip|pub async fn extract
   'The GUI command root must not reclaim extraction lifecycle operations');
 
 const sizeRatchets = new Map([
-  ['src-tauri/src/db.rs', 19_273],
+  ['src-tauri/src/db.rs', 18_845],
   ['src-tauri/src/db/activity.rs', 649],
   ['src-tauri/src/db/analytics.rs', 159],
+  ['src-tauri/src/db/clip_queries.rs', 442],
   ['src-tauri/src/commands.rs', 54],
   ['src-tauri/src/commands/bins.rs', 89],
   ['src-tauri/src/commands/capture.rs', 43],
