@@ -13,6 +13,7 @@ import { createPortal } from 'react-dom';
 import { ChevronRight } from 'lucide-react';
 import { OverflowText } from './OverflowText';
 import { useLocalization } from '../localization/LocalizationProvider';
+import { normalizeMenuDividers } from '../utils/menuChildren';
 
 const VIEWPORT_PADDING = 8;
 
@@ -173,6 +174,7 @@ export function AnchoredMenu({
   }, [anchorAlign, anchorGap, anchorKind, anchorRef, anchorX, anchorY, onClose, restoreFocus]);
 
   const isPositionReady = position.ready && position.anchorKey === anchorKey;
+  const normalizedChildren = normalizeMenuDividers(children, MenuDivider);
 
   if (!isPositionReady) {
     return createPortal(
@@ -190,7 +192,7 @@ export function AnchoredMenu({
           pointerEvents: 'none',
         }}
       >
-        {children}
+        {normalizedChildren}
       </div>,
       document.body,
     );
@@ -214,7 +216,7 @@ export function AnchoredMenu({
       onWheelCapture={(event) => revealScrollbar(event.currentTarget)}
       onScroll={(event) => revealScrollbar(event.currentTarget)}
     >
-      {children}
+      {normalizedChildren}
     </div>,
     document.body,
   );
@@ -272,6 +274,7 @@ export function MenuSubmenu({
   const [panelStyle, setPanelStyle] = useState<CSSProperties>(
     direction === 'rtl' ? { right: 'calc(100% - 1px)', top: -4 } : { left: 'calc(100% - 1px)', top: -4 },
   );
+  const normalizedChildren = normalizeMenuDividers(children, MenuDivider);
 
   const cancelClose = () => {
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
@@ -339,7 +342,7 @@ export function MenuSubmenu({
           onPointerEnter={cancelClose}
           onPointerLeave={scheduleClose}
         >
-          {children}
+          {normalizedChildren}
         </div>
       )}
     </div>

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ClipItem } from '../types';
 import type { ClipCollectionMembership } from '../utils/clipCollections';
-import { pendingClipFocusId, type ClipFocusRequest } from '../utils/clipSelection';
+import { clipCollectionViewKey, pendingClipFocusId, type ClipFocusRequest } from '../utils/clipSelection';
 import { clipCardScrollTop } from '../utils/clipListViewport';
+import { useRememberedClipListScroll } from './useRememberedClipListScroll';
 
 interface UseClipListViewportOptions {
   membership?: ClipCollectionMembership;
@@ -52,7 +53,8 @@ export function useClipListViewport({
   const [stackedPinnedClipIds, setStackedPinnedClipIds] = useState<number[]>([]);
   const isBinCollection = membership === 'bin' && selectedBinId !== null;
   const isPinnedCollection = membership === 'pinned';
-  const selectionViewKey = currentTab === 'bin' ? `bin:${selectedBinId ?? 'none'}` : `section:${currentTab}`;
+  const selectionViewKey = clipCollectionViewKey(currentTab, selectedBinId);
+  const rememberScroll = useRememberedClipListScroll(selectionViewKey, clipListRef);
   const pinnedShelfClips = useMemo(
     () => pinningEnabled && (membership === 'all' || isPinnedCollection)
       ? displayedClips.filter((clip) => clip.is_pinned)
@@ -73,6 +75,7 @@ export function useClipListViewport({
   useEffect(() => setStackedPinnedClipIds([]), [selectionViewKey]);
 
   const handleClipListScroll = useCallback((element: HTMLDivElement) => {
+    rememberScroll(element);
     if (element.scrollHeight - element.scrollTop - element.clientHeight < 800) {
       if (membership === 'trash') void loadMoreTrashedClips();
       else if (membership === 'search') void loadMoreSearchResults();
@@ -100,7 +103,7 @@ export function useClipListViewport({
         ? previous
         : next;
     });
-  }, [isPinnedCollection, loadMoreClips, loadMoreSearchResults, loadMoreTrashedClips, membership, pinnedShelfClips.length]);
+  }, [isPinnedCollection, loadMoreClips, loadMoreSearchResults, loadMoreTrashedClips, membership, pinnedShelfClips.length, rememberScroll]);
 
   useLayoutEffect(() => {
     const element = clipListRef.current;

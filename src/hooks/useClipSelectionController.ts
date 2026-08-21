@@ -9,7 +9,7 @@ import {
 } from 'react';
 import type { ClipItem } from '../types';
 import type { AppUiState } from '../utils/appUiState';
-import { pendingClipFocusId, selectionIdsForContextMenu, type ClipFocusRequest } from '../utils/clipSelection';
+import { clipCollectionViewKey, pendingClipFocusId, selectionIdsForContextMenu, type ClipFocusRequest } from '../utils/clipSelection';
 import { useClipSelectionKeyboard } from './useClipSelectionKeyboard';
 
 interface UseClipSelectionControllerOptions {
@@ -46,7 +46,7 @@ export function useClipSelectionController({
   focusRequest,
 }: UseClipSelectionControllerOptions) {
   const [, setSelectedIndex] = useState(-1);
-  const selectionViewKey = currentTab === 'bin' ? `bin:${selectedBinId ?? 'none'}` : `section:${currentTab}`;
+  const selectionViewKey = clipCollectionViewKey(currentTab, selectedBinId);
   const selectedClipByViewRef = useRef(new Map<string, number | null>([
     [
       restoredUiState.currentTab === 'bin'

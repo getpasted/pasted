@@ -155,8 +155,12 @@ impl DbState {
             .unwrap_or(false);
         drop(conn);
         let next = !concealed;
-        self.batch_conceal_clips(vec![id], next)?;
-        Ok(next)
+        let summary = self.batch_conceal_clips(vec![id], next)?;
+        Ok(if summary.changed_count > 0 {
+            next
+        } else {
+            concealed
+        })
     }
 
     pub fn batch_conceal_clips(
@@ -171,13 +175,17 @@ impl DbState {
             let changed = if concealed_state {
                 conn.execute(
                     "UPDATE clips SET is_concealed = 1, is_revealed = 0
-                     WHERE id = ?1 AND (COALESCE(is_concealed, 0) != 1 OR COALESCE(is_revealed, 0) != 0)",
+                     WHERE id = ?1
+                       AND COALESCE(is_trashed, 0) = 0
+                       AND (COALESCE(is_concealed, 0) != 1 OR COALESCE(is_revealed, 0) != 0)",
                     params![id],
                 )?
             } else {
                 conn.execute(
                     "UPDATE clips SET is_concealed = 0, is_revealed = 1
-                     WHERE id = ?1 AND (COALESCE(is_concealed, 0) != 0 OR COALESCE(is_revealed, 0) != 1)",
+                     WHERE id = ?1
+                       AND COALESCE(is_trashed, 0) = 0
+                       AND (COALESCE(is_concealed, 0) != 0 OR COALESCE(is_revealed, 0) != 1)",
                     params![id],
                 )?
             };
@@ -298,6 +306,32 @@ mod tests {
         assert_eq!(revealed.is_explicitly_concealed, Some(false));
         assert!(revealed.is_explicitly_revealed);
         assert_eq!(db.get_clip_collection_summary().unwrap().concealed_count, 2);
+    }
+
+    #[test]
+    fn trashed_clips_cannot_change_concealment() {
+        let db = setup_test_db();
+        let clip = db
+            .save_clip(
+                "text",
+                Some("trash concealment"),
+                None,
+                None,
+                "trash-concealment",
+                "Tests",
+            )
+            .unwrap();
+        db.delete_clip(clip.id).unwrap();
+
+        let summary = db.batch_conceal_clips(vec![clip.id], true).unwrap();
+        assert_eq!(summary.changed_count, 0);
+        assert_eq!(summary.skipped_count, 1);
+        assert!(!db.toggle_concealed(clip.id).unwrap());
+
+        let unchanged = db.get_clip_by_id(clip.id).unwrap();
+        assert!(!unchanged.is_concealed);
+        assert_eq!(unchanged.is_explicitly_concealed, Some(false));
+        assert!(!unchanged.is_explicitly_revealed);
     }
 
     #[test]

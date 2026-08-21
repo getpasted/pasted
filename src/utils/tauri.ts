@@ -1185,7 +1185,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     }
     case 'toggle_clip_concealed': {
       const clip = mockClips.find((item) => item.id === Number(args?.clipId));
-      if (clip) {
+      if (clip && clip.is_trashed === 0) {
         const concealed = !withMockProtection(clip).is_concealed;
         clip.is_concealed = concealed ? 1 : 0;
         clip.is_explicitly_concealed = concealed;
@@ -1196,7 +1196,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'batch_conceal_clips': {
       const ids = Array.isArray(args?.ids) ? args.ids.map(Number) : [];
       mockClips.forEach((clip) => {
-        if (ids.includes(clip.id)) {
+        if (ids.includes(clip.id) && clip.is_trashed === 0) {
           const concealed = Boolean(args?.concealedState);
           clip.is_concealed = concealed ? 1 : 0;
           clip.is_explicitly_concealed = concealed;

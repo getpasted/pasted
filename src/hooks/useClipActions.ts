@@ -159,7 +159,7 @@ export function useClipActions({
 
   const toggleConcealed = useCallback((id: number) => {
     const current = allClips.find((clip) => clip.id === id);
-    if (!current) return;
+    if (!current || current.is_trashed) return;
     const nextConcealed = !Boolean(current.is_concealed);
     if (!nextConcealed) onClipPropertyRemoved?.('conceal', [id]);
     const update = (clip: ClipItem) => clip.id === id ? {
@@ -266,6 +266,7 @@ export function useClipActions({
       : [id];
     const idsToChange = allClips
       .filter((clip) => targetIds.includes(clip.id)
+        && !clip.is_trashed
         && Boolean(clip.is_concealed) !== concealedState)
       .map((clip) => clip.id);
     if (idsToChange.length === 0) return;

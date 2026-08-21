@@ -4,6 +4,10 @@ export interface ClipFocusRequest {
   viewKey: string;
 }
 
+export function clipCollectionViewKey(currentTab: string, selectedBinId: number | null): string {
+  return currentTab === 'bin' ? `bin:${selectedBinId ?? 'none'}` : `section:${currentTab}`;
+}
+
 export function pendingClipFocusId(
   request: ClipFocusRequest | null | undefined,
   viewKey: string,
