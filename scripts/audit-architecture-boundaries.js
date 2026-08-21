@@ -26,6 +26,7 @@ const settingsService = read('src-tauri/src/settings_service.rs');
 const activityDatabase = read('src-tauri/src/db/activity.rs');
 const analyticsDatabase = read('src-tauri/src/db/analytics.rs');
 const binDatabase = read('src-tauri/src/db/bins.rs');
+const captureDatabase = read('src-tauri/src/db/capture.rs');
 const clipMutationDatabase = read('src-tauri/src/db/clip_mutations.rs');
 const clipQueryDatabase = read('src-tauri/src/db/clip_queries.rs');
 const clipRevisionDatabase = read('src-tauri/src/db/clip_revisions.rs');
@@ -209,6 +210,14 @@ assert.match(lifecycleDatabase, /pub fn factory_reset/,
   'Factory Reset persistence must remain in the database lifecycle subsystem');
 assert.doesNotMatch(read('src-tauri/src/db.rs'), /fn configure_connection|pub fn relocate_database|pub fn factory_reset/,
   'The database integration root must not reclaim database lifecycle operations');
+assert.match(captureDatabase, /pub fn save_clip/,
+  'Shared GUI and CLI clip ingestion must remain in the capture subsystem');
+assert.match(captureDatabase, /fn persist_capture_structure/,
+  'Capture structure persistence must remain atomic with clip ingestion');
+assert.match(captureDatabase, /pub fn reattribute_image_capture/,
+  'Image capture reattribution must remain hash-safe inside the capture subsystem');
+assert.doesNotMatch(read('src-tauri/src/db.rs'), /pub fn save_clip|fn persist_capture_structure|pub fn reattribute_image_capture/,
+  'The database integration root must not reclaim capture ingestion');
 assert.match(clipboardActions, /fn ocr_text_never_replaces_an_image_clips_copy_fingerprint/,
   'Clipboard fingerprint regressions must remain with the shared clipboard workflow');
 assert.match(contentInspection, /fn file_metadata_reports_availability_without_crawling_directories/,
@@ -403,10 +412,11 @@ assert.doesNotMatch(commands, /pub fn extract_ocr_from_clip|pub async fn extract
   'The GUI command root must not reclaim extraction lifecycle operations');
 
 const sizeRatchets = new Map([
-  ['src-tauri/src/db.rs', 2_013],
+  ['src-tauri/src/db.rs', 1_749],
   ['src-tauri/src/db/activity.rs', 649],
   ['src-tauri/src/db/analytics.rs', 159],
   ['src-tauri/src/db/bins.rs', 652],
+  ['src-tauri/src/db/capture.rs', 268],
   ['src-tauri/src/db/clip_mutations.rs', 643],
   ['src-tauri/src/db/clip_queries.rs', 442],
   ['src-tauri/src/db/clip_revisions.rs', 169],
