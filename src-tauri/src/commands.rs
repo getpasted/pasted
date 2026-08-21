@@ -9,6 +9,7 @@ pub(crate) mod app_lock;
 pub(crate) mod backups;
 pub(crate) mod bins;
 pub(crate) mod capture;
+pub(crate) mod cli_installation;
 pub(crate) mod clip_metadata;
 pub(crate) mod clip_policies;
 pub(crate) mod clipboard;
@@ -50,93 +51,6 @@ fn refresh_native_app_menu(app: &AppHandle, db: &Arc<DbState>) {
     if let Err(error) = crate::app_menu::install(app, db) {
         eprintln!("Could not refresh the native app menu: {error}");
     }
-}
-
-#[tauri::command]
-pub fn install_cli_to_path() -> Result<String, String> {
-    let exe_path = std::env::current_exe().map_err(|e| e.to_string())?;
-    let bin_dir = exe_path.parent().ok_or("Cannot locate binary directory")?;
-    let cli_exe = bin_dir.join("pasted");
-
-    if !cli_exe.exists() {
-        return Err(format!(
-            "pasted binary not found at '{:?}'. Run 'cargo build --bin pasted' first.",
-            cli_exe
-        ));
-    }
-
-    #[cfg(unix)]
-    {
-        let target_dir = dirs::home_dir()
-            .map(|home| home.join(".local/bin"))
-            .ok_or("Cannot locate your home directory")?;
-        let symlink_path = install_cli_symlink(&cli_exe, &target_dir)?;
-        Ok(format!(
-            "Successfully installed the pasted command at '{}'. Make sure that directory is in your PATH.",
-            symlink_path.display()
-        ))
-    }
-
-    #[cfg(not(unix))]
-    {
-        Err("Automatic CLI installation is not supported on this platform yet".to_string())
-    }
-}
-
-#[cfg(unix)]
-fn install_cli_symlink(
-    cli_exe: &std::path::Path,
-    target_dir: &std::path::Path,
-) -> Result<std::path::PathBuf, String> {
-    use std::fs;
-    use std::os::unix::fs::symlink;
-
-    fs::create_dir_all(target_dir).map_err(|error| {
-        format!(
-            "Failed to create CLI directory '{}': {error}",
-            target_dir.display()
-        )
-    })?;
-    let symlink_path = target_dir.join("pasted");
-    match fs::symlink_metadata(&symlink_path) {
-        Ok(metadata) if metadata.file_type().is_symlink() => {
-            let existing_target = fs::read_link(&symlink_path).map_err(|error| {
-                format!(
-                    "Failed to inspect existing CLI link '{}': {error}",
-                    symlink_path.display()
-                )
-            })?;
-            if existing_target == cli_exe {
-                return Ok(symlink_path);
-            }
-            return Err(format!(
-                "Refusing to replace existing CLI link '{}' (currently points to '{}')",
-                symlink_path.display(),
-                existing_target.display()
-            ));
-        }
-        Ok(_) => {
-            return Err(format!(
-                "Refusing to replace existing file '{}'",
-                symlink_path.display()
-            ));
-        }
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-        Err(error) => {
-            return Err(format!(
-                "Failed to inspect CLI destination '{}': {error}",
-                symlink_path.display()
-            ));
-        }
-    }
-
-    symlink(cli_exe, &symlink_path).map_err(|error| {
-        format!(
-            "Failed to create CLI link '{}': {error}",
-            symlink_path.display()
-        )
-    })?;
-    Ok(symlink_path)
 }
 
 #[cfg(test)]
@@ -195,47 +109,6 @@ mod tests {
             crate::clipboard_actions::internal_fingerprint(&clip).unwrap(),
             crate::clipboard_fingerprint::image_rgba(&rgba)
         );
-    }
-
-    fn unique_test_directory(label: &str) -> std::path::PathBuf {
-        let nonce = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        std::env::temp_dir().join(format!("pasted-{label}-{}-{nonce}", std::process::id()))
-    }
-
-    #[test]
-    #[cfg(unix)]
-    fn cli_install_never_overwrites_an_existing_file() {
-        let root = unique_test_directory("cli-preserve");
-        let bin_dir = root.join("bin");
-        std::fs::create_dir_all(&bin_dir).unwrap();
-        let destination = bin_dir.join("pasted");
-        std::fs::write(&destination, "user-owned").unwrap();
-
-        let error = install_cli_symlink(&root.join("source"), &bin_dir).unwrap_err();
-        assert!(error.contains("Refusing to replace existing file"));
-        assert_eq!(std::fs::read_to_string(&destination).unwrap(), "user-owned");
-
-        std::fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
-    #[cfg(unix)]
-    fn cli_install_is_idempotent_for_its_existing_link() {
-        let root = unique_test_directory("cli-idempotent");
-        let source = root.join("pasted-source");
-        std::fs::create_dir_all(&root).unwrap();
-        std::fs::write(&source, "binary").unwrap();
-        let bin_dir = root.join("bin");
-
-        let first = install_cli_symlink(&source, &bin_dir).unwrap();
-        let second = install_cli_symlink(&source, &bin_dir).unwrap();
-        assert_eq!(first, second);
-        assert_eq!(std::fs::read_link(second).unwrap(), source);
-
-        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
