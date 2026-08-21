@@ -27,6 +27,8 @@ export const clipsApi = {
   setPinned: (ids: number[], pinState: boolean) => invoke<void>('batch_pin_clips', { ids, pinState }),
   setProtected: (ids: number[], protectedState: boolean) =>
     invoke<void>('batch_protect_clips', { ids, protectedState }),
+  setConcealed: (ids: number[], concealedState: boolean) =>
+    invoke<void>('batch_conceal_clips', { ids, concealedState }),
   updateNote: (clipId: number, note: string | null) => invoke<void>('update_clip_note', { clipId, note }),
   copyById: (clipId: number) => invoke<void>('copy_clip_by_id', { clipId }),
   copyContent: (text: string | null, imageBase64: string | null) =>

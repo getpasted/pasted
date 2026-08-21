@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import type { Bin, ClipItem } from '../types';
 import type { ClipDropAction } from '../utils/clipCollections';
+import { getClipPropertyAssociationForDropAction } from '../utils/clipPropertyAssociations';
 import { useClipBinDrag } from './useClipBinDrag';
 
 interface UseClipDragControllerOptions {
@@ -14,6 +15,7 @@ interface UseClipDragControllerOptions {
   queueEnabled: boolean;
   pinningEnabled: boolean;
   protectionEnabled: boolean;
+  concealmentEnabled: boolean;
   assignClipToBin: (
     clipId: number,
     binId: number | null,
@@ -22,6 +24,7 @@ interface UseClipDragControllerOptions {
   addToQueue: (clip: ClipItem) => unknown;
   setPinned: (clipId: number, pinned: boolean) => unknown;
   setProtected: (clipId: number, protectedState: boolean) => unknown;
+  setConcealed: (clipId: number, concealedState: boolean) => unknown;
   deleteClip: (clipId: number) => unknown;
 }
 
@@ -36,10 +39,12 @@ export function useClipDragController({
   queueEnabled,
   pinningEnabled,
   protectionEnabled,
+  concealmentEnabled,
   assignClipToBin,
   addToQueue,
   setPinned,
   setProtected,
+  setConcealed,
   deleteClip,
 }: UseClipDragControllerOptions) {
   const [hoveredClipId, setHoveredClipId] = useState<number | null>(null);
@@ -58,14 +63,21 @@ export function useClipDragController({
       if (!queueEnabled) return;
       const clip = allClips.find((item) => item.id === clipId);
       if (clip) void addToQueue(clip);
-    } else if (action === 'pin') {
-      if (pinningEnabled) void setPinned(clipId, true);
-    } else if (action === 'protect') {
-      if (protectionEnabled) void setProtected(clipId, true);
     } else {
-      void deleteClip(clipId);
+      const association = getClipPropertyAssociationForDropAction(action);
+      if (association) {
+        const handlers = {
+          pin: { enabled: pinningEnabled, set: setPinned },
+          protect: { enabled: protectionEnabled, set: setProtected },
+          conceal: { enabled: concealmentEnabled, set: setConcealed },
+        } as const;
+        const handler = handlers[association.id];
+        if (handler.enabled) void handler.set(clipId, true);
+      } else {
+        void deleteClip(clipId);
+      }
     }
-  }, [addToQueue, allClips, deleteClip, pinningEnabled, protectionEnabled, queueEnabled, setPinned, setProtected]);
+  }, [addToQueue, allClips, concealmentEnabled, deleteClip, pinningEnabled, protectionEnabled, queueEnabled, setConcealed, setPinned, setProtected]);
 
   const drag = useClipBinDrag({
     isQueueMode: isQueueCollection,

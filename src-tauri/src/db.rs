@@ -9,9 +9,16 @@ use std::path::{Path, PathBuf};
 
 use crate::external_import::ExternalTextClip;
 
+mod clip_collections;
+mod clip_concealment;
 mod clip_protection;
 mod retention;
 mod settings;
+
+pub use clip_collections::ClipCollectionSummary;
+use clip_concealment::{
+    append_clip_concealment, configure_content_type_schema, create_effective_view,
+};
 
 const BACKUP_SCHEMA_VERSION: u32 = 12;
 const FULL_BACKUP_FORMAT_VERSION: i64 = 1;
@@ -392,6 +399,7 @@ fn append_smart_bin_memberships(conn: &Connection, clips: &mut [ClipItem]) -> Re
     append_clip_content_types(conn, clips)?;
     append_clip_file_formats(conn, clips)?;
     append_clip_protection(conn, clips)?;
+    append_clip_concealment(conn, clips)?;
     Ok(())
 }
 
@@ -530,6 +538,19 @@ pub struct ClipItem {
     pub is_explicitly_protected: Option<bool>,
     #[serde(default)]
     pub protecting_bin_ids: Vec<i64>,
+    /// Effective concealment from the clip, a Content Type, or a manual Bin.
+    #[serde(default)]
+    pub is_concealed: bool,
+    /// The durable per-clip concealment bit. Absent in legacy transfer archives.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub is_explicitly_concealed: Option<bool>,
+    /// A durable per-clip reveal overrides inherited concealment.
+    #[serde(default)]
+    pub is_explicitly_revealed: bool,
+    #[serde(default)]
+    pub concealing_bin_ids: Vec<i64>,
+    #[serde(default)]
+    pub concealing_content_types: Vec<String>,
     #[serde(default)]
     #[serde(rename = "hotkey", alias = "shortcut")]
     pub shortcut: Option<String>,
@@ -575,6 +596,11 @@ fn clip_item_from_row(row: &Row<'_>) -> Result<ClipItem> {
         is_protected: row.get::<_, i32>(9)? != 0,
         is_explicitly_protected: Some(row.get::<_, i32>(9)? != 0),
         protecting_bin_ids: Vec::new(),
+        is_concealed: false,
+        is_explicitly_concealed: None,
+        is_explicitly_revealed: false,
+        concealing_bin_ids: Vec::new(),
+        concealing_content_types: Vec::new(),
         shortcut: row.get(21).unwrap_or(None),
         is_transformed: row.get::<_, i32>(17)? != 0,
         pin_order: row.get(10)?,
@@ -1231,6 +1257,8 @@ pub struct Bin {
     pub shortcut: Option<String>,
     #[serde(default)]
     pub protect_clips: bool,
+    #[serde(default)]
+    pub conceal_clips: bool,
     pub clip_count: Option<i64>,
     #[serde(default)]
     pub clip_order: Vec<i64>,
@@ -1302,20 +1330,6 @@ pub struct AnalyticsSummary {
     pub file_formats: Vec<FileFormatStat>,
     pub content_types: Vec<TypeStat>,
     pub daily_activity: Vec<DailyStat>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ClipCollectionSummary {
-    pub active_count: i64,
-    pub trash_count: i64,
-    pub pinned_count: i64,
-    pub protected_count: i64,
-    pub noted_count: i64,
-    pub clip_type_counts: Vec<ClipTypeStat>,
-    pub file_format_counts: Vec<FileFormatStat>,
-    pub type_counts: Vec<TypeStat>,
-    pub source_counts: Vec<SourceStat>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2917,6 +2931,8 @@ impl DbState {
         add_column_if_missing(&conn, "clips", "is_trashed", "INTEGER DEFAULT 0")?;
         add_column_if_missing(&conn, "clips", "trashed_at", "DATETIME")?;
         add_column_if_missing(&conn, "clips", "is_protected", "INTEGER DEFAULT 0")?;
+        add_column_if_missing(&conn, "clips", "is_concealed", "INTEGER NOT NULL DEFAULT 0")?;
+        add_column_if_missing(&conn, "clips", "is_revealed", "INTEGER NOT NULL DEFAULT 0")?;
         add_column_if_missing(&conn, "clips", "shortcut", "TEXT")?;
         add_column_if_missing(&conn, "clips", "image_path", "TEXT")?;
         add_column_if_missing(&conn, "clips", "pin_order", "INTEGER DEFAULT 0")?;
@@ -2976,6 +2992,7 @@ impl DbState {
         add_column_if_missing(&conn, "bins", "bin_type", "TEXT DEFAULT 'category'")?;
         add_column_if_missing(&conn, "bins", "shortcut", "TEXT")?;
         add_column_if_missing(&conn, "bins", "protect_clips", "INTEGER NOT NULL DEFAULT 0")?;
+        add_column_if_missing(&conn, "bins", "conceal_clips", "INTEGER NOT NULL DEFAULT 0")?;
 
         migrate_clip_source_schema(&conn)?;
 
@@ -3200,7 +3217,7 @@ impl DbState {
 
         // One shared contract protects clips from every cleanup and destructive path.
         // Smart-rule matches are intentionally excluded: only durable manual membership
-        // can confer inherited protection.
+        // can apply inherited protection.
         conn.execute_batch(
             "DROP VIEW IF EXISTS effective_clip_protection;
              CREATE VIEW effective_clip_protection AS
@@ -3363,6 +3380,7 @@ impl DbState {
                 group_name TEXT NOT NULL,
                 is_builtin INTEGER NOT NULL DEFAULT 0,
                 is_archived INTEGER NOT NULL DEFAULT 0,
+                conceal_clips INTEGER NOT NULL DEFAULT 0,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             );
@@ -3410,6 +3428,7 @@ impl DbState {
             CREATE INDEX IF NOT EXISTS idx_content_extractors_order
                 ON content_extractors (is_deleted, enabled, priority, id);",
         )?;
+        configure_content_type_schema(&conn)?;
         if !column_exists(&conn, "content_extractors", "model_path")? {
             conn.execute(
                 "ALTER TABLE content_extractors ADD COLUMN model_path TEXT",
@@ -3502,9 +3521,15 @@ impl DbState {
         for preset in crate::content_types::CONTENT_TYPE_PRESETS {
             conn.execute(
                 "INSERT OR IGNORE INTO content_types
-                    (id, label, icon, group_name, is_builtin, is_archived)
-                 VALUES (?1, ?2, ?3, ?4, 1, 0)",
-                params![preset.id, preset.label, preset.icon, preset.group],
+                    (id, label, icon, group_name, is_builtin, is_archived, conceal_clips)
+                 VALUES (?1, ?2, ?3, ?4, 1, 0, ?5)",
+                params![
+                    preset.id,
+                    preset.label,
+                    preset.icon,
+                    preset.group,
+                    preset.conceal_clips()
+                ],
             )?;
         }
         for preset in crate::content_classification::CLASSIFIER_PRESETS {
@@ -3517,6 +3542,7 @@ impl DbState {
                 params![preset.stable_ref, preset.name, preset.content_type, preset.description, patterns_json, preset.validator, preset.priority],
             )?;
         }
+        create_effective_view(&conn)?;
         migrate_legacy_semantic_clip_types(&conn)?;
         retire_structural_content_type_entries(&conn)?;
         for preset in crate::content_extraction::EXTRACTOR_PRESETS {
@@ -4176,9 +4202,15 @@ impl DbState {
         for preset in crate::content_types::CONTENT_TYPE_PRESETS {
             transaction.execute(
                 "INSERT INTO content_types
-                    (id, label, icon, group_name, is_builtin, is_archived)
-                 VALUES (?1, ?2, ?3, ?4, 1, 0)",
-                params![preset.id, preset.label, preset.icon, preset.group],
+                    (id, label, icon, group_name, is_builtin, is_archived, conceal_clips)
+                 VALUES (?1, ?2, ?3, ?4, 1, 0, ?5)",
+                params![
+                    preset.id,
+                    preset.label,
+                    preset.icon,
+                    preset.group,
+                    preset.conceal_clips()
+                ],
             )?;
         }
         for preset in crate::content_classification::CLASSIFIER_PRESETS {
@@ -6236,6 +6268,11 @@ impl DbState {
                     is_protected: row.get::<_, i32>(9)? != 0,
                     is_explicitly_protected: Some(row.get::<_, i32>(9)? != 0),
                     protecting_bin_ids: Vec::new(),
+                    is_concealed: false,
+                    is_explicitly_concealed: None,
+                    is_explicitly_revealed: false,
+                    concealing_bin_ids: Vec::new(),
+                    concealing_content_types: Vec::new(),
                     shortcut: row.get(21)?,
                     is_transformed: row.get::<_, i32>(17)? != 0,
                     pin_order: row.get(10)?,
@@ -6437,6 +6474,11 @@ impl DbState {
                 is_protected: row.get::<_, i32>(9)? != 0,
                 is_explicitly_protected: Some(row.get::<_, i32>(9)? != 0),
                 protecting_bin_ids: Vec::new(),
+                is_concealed: false,
+                is_explicitly_concealed: None,
+                is_explicitly_revealed: false,
+                concealing_bin_ids: Vec::new(),
+                concealing_content_types: Vec::new(),
                 shortcut: row.get(21)?,
                 is_transformed: row.get::<_, i32>(17)? != 0,
                 pin_order: row.get(10)?,
@@ -6511,6 +6553,11 @@ impl DbState {
                 is_protected: row.get::<_, i32>(9)? != 0,
                 is_explicitly_protected: Some(row.get::<_, i32>(9)? != 0),
                 protecting_bin_ids: Vec::new(),
+                is_concealed: false,
+                is_explicitly_concealed: None,
+                is_explicitly_revealed: false,
+                concealing_bin_ids: Vec::new(),
+                concealing_content_types: Vec::new(),
                 shortcut: row.get(20)?,
                 is_transformed: row.get::<_, i32>(16)? != 0,
                 pin_order: row.get(10)?,
@@ -6560,6 +6607,11 @@ impl DbState {
                 is_protected: row.get::<_, i32>(9)? != 0,
                 is_explicitly_protected: Some(row.get::<_, i32>(9)? != 0),
                 protecting_bin_ids: Vec::new(),
+                is_concealed: false,
+                is_explicitly_concealed: None,
+                is_explicitly_revealed: false,
+                concealing_bin_ids: Vec::new(),
+                concealing_content_types: Vec::new(),
                 shortcut: row.get(20)?,
                 is_transformed: row.get::<_, i32>(16)? != 0,
                 pin_order: row.get(10)?,
@@ -7802,116 +7854,6 @@ impl DbState {
         Ok(daily_activity)
     }
 
-    pub fn get_clip_collection_summary(&self) -> Result<ClipCollectionSummary> {
-        let conn = self.conn.lock();
-        let (active_count, trash_count, pinned_count, protected_count, noted_count) = conn.query_row(
-            "SELECT
-                COALESCE(SUM(CASE WHEN COALESCE(is_trashed, 0) = 0 THEN 1 ELSE 0 END), 0),
-                COALESCE(SUM(CASE WHEN is_trashed = 1 THEN 1 ELSE 0 END), 0),
-                COALESCE(SUM(CASE WHEN COALESCE(is_trashed, 0) = 0 AND is_pinned = 1 THEN 1 ELSE 0 END), 0),
-                COALESCE(SUM(CASE WHEN COALESCE(is_trashed, 0) = 0 AND id IN (
-                    SELECT clip_id FROM effective_clip_protection WHERE is_protected = 1
-                ) THEN 1 ELSE 0 END), 0),
-                COALESCE(SUM(CASE WHEN COALESCE(is_trashed, 0) = 0 AND TRIM(COALESCE(note, '')) != '' THEN 1 ELSE 0 END), 0)
-             FROM clips",
-            [],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
-        )?;
-        let type_counts = conn
-            .prepare(
-                "SELECT content_type, COUNT(DISTINCT clip_id)
-                 FROM (
-                    SELECT classifications.clip_id, classifications.content_type
-                    FROM clip_analysis_classifications AS classifications
-                    JOIN clips ON clips.id = classifications.clip_id
-                    WHERE classifications.input_hash = clips.content_hash
-                      AND COALESCE(clips.is_trashed, 0) = 0
-                    UNION
-                    SELECT id AS clip_id, content_type
-                    FROM clips
-                    WHERE COALESCE(is_trashed, 0) = 0
-                      AND content_type NOT IN ('text', 'image', 'file')
-                 )
-                 GROUP BY content_type ORDER BY content_type",
-            )?
-            .query_map([], |row| {
-                Ok(TypeStat {
-                    content_type: row.get(0)?,
-                    count: row.get(1)?,
-                })
-            })?
-            .collect::<Result<Vec<_>>>()?;
-        let clip_type_counts = conn
-            .prepare(
-                "SELECT CASE
-                    WHEN content_type IN ('image', 'file') THEN content_type
-                    ELSE 'text'
-                 END AS clip_type, COUNT(*)
-                 FROM clips
-                 WHERE COALESCE(is_trashed, 0) = 0
-                 GROUP BY clip_type
-                 ORDER BY CASE clip_type WHEN 'text' THEN 1 WHEN 'image' THEN 2 ELSE 3 END",
-            )?
-            .query_map([], |row| {
-                Ok(ClipTypeStat {
-                    clip_type: row.get(0)?,
-                    count: row.get(1)?,
-                })
-            })?
-            .collect::<Result<Vec<_>>>()?;
-        let file_format_counts = conn
-            .prepare(
-                "SELECT LOWER(json_extract(detected.value, '$.format')) AS file_format,
-                        COUNT(DISTINCT results.clip_id)
-                 FROM clip_analysis_results AS results
-                 JOIN clips ON clips.id = results.clip_id,
-                      json_each(results.result_json, '$.formats') AS detected
-                 WHERE results.participant_ref = ?1
-                   AND results.content_hash = clips.content_hash
-                   AND results.input_hash = clips.content_hash
-                   AND results.format_version = ?2
-                   AND COALESCE(clips.is_trashed, 0) = 0
-                 GROUP BY file_format ORDER BY file_format COLLATE NOCASE",
-            )?
-            .query_map(
-                params![
-                    crate::content_inspection::FILE_FORMAT_INSPECTOR_REF,
-                    crate::analysis_contract::ANALYSIS_CONTRACT_VERSION,
-                ],
-                |row| {
-                    Ok(FileFormatStat {
-                        file_format: row.get(0)?,
-                        count: row.get(1)?,
-                    })
-                },
-            )?
-            .collect::<Result<Vec<_>>>()?;
-        let source_counts = conn
-            .prepare(
-                "SELECT source, COUNT(*) FROM clips
-                 WHERE COALESCE(is_trashed, 0) = 0
-                 GROUP BY source ORDER BY COUNT(*) DESC, source",
-            )?
-            .query_map([], |row| {
-                Ok(SourceStat {
-                    name: row.get(0)?,
-                    count: row.get(1)?,
-                })
-            })?
-            .collect::<Result<Vec<_>>>()?;
-        Ok(ClipCollectionSummary {
-            active_count,
-            trash_count,
-            pinned_count,
-            protected_count,
-            noted_count,
-            clip_type_counts,
-            file_format_counts,
-            type_counts,
-            source_counts,
-        })
-    }
-
     pub fn trash_unpinned_clips(&self) -> Result<()> {
         let conn = self.conn.lock();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM clips WHERE is_pinned = 0 AND clips.id NOT IN (SELECT clip_id FROM effective_clip_protection WHERE is_protected = 1) AND (is_trashed IS NULL OR is_trashed = 0)", [], |r| r.get(0)).unwrap_or(0);
@@ -8022,7 +7964,7 @@ impl DbState {
     pub fn get_bins(&self) -> Result<Vec<Bin>> {
         let conn = self.conn.lock();
         let features = smart_bin_feature_policy(&conn)?;
-        let mut stmt = conn.prepare("SELECT id, name, icon, color, smart_rule, COALESCE(bin_type, 'category'), shortcut, COALESCE(protect_clips, 0), created_at FROM bins ORDER BY id ASC")?;
+        let mut stmt = conn.prepare("SELECT id, name, icon, color, smart_rule, COALESCE(bin_type, 'category'), shortcut, COALESCE(protect_clips, 0), COALESCE(conceal_clips, 0), created_at FROM bins ORDER BY id ASC")?;
         let bin_rows: Vec<(
             i64,
             String,
@@ -8031,6 +7973,7 @@ impl DbState {
             Option<String>,
             String,
             Option<String>,
+            bool,
             bool,
             String,
         )> = stmt
@@ -8045,13 +7988,24 @@ impl DbState {
                     row.get(6)?,
                     row.get(7)?,
                     row.get(8)?,
+                    row.get(9)?,
                 ))
             })?
             .collect::<Result<Vec<_>, _>>()?;
 
         let mut bins = Vec::new();
-        for (id, name, icon, color, smart_rule, bin_type, shortcut, protect_clips, created_at) in
-            bin_rows
+        for (
+            id,
+            name,
+            icon,
+            color,
+            smart_rule,
+            bin_type,
+            shortcut,
+            protect_clips,
+            conceal_clips,
+            created_at,
+        ) in bin_rows
         {
             let count: i64 = if let Some(ref sr_json) = smart_rule {
                 if let Ok(parsed) = crate::smart_bins::parse_rule_json(sr_json) {
@@ -8113,6 +8067,7 @@ impl DbState {
                 bin_type,
                 shortcut,
                 protect_clips,
+                conceal_clips,
                 clip_count: Some(count),
                 clip_order,
                 created_at,
@@ -8146,7 +8101,7 @@ impl DbState {
         )?;
         if protect_clips && is_smart {
             return Err(rusqlite::Error::InvalidParameterName(
-                "Smart Bins cannot confer inherited protection".into(),
+                "Smart Bins cannot apply inherited protection".into(),
             ));
         }
         conn.execute(
@@ -8384,7 +8339,7 @@ impl DbState {
         )?;
         let id = conn.last_insert_rowid();
         conn.query_row(
-            "SELECT id, name, icon, color, smart_rule, COALESCE(bin_type, 'category'), shortcut, COALESCE(protect_clips, 0), created_at FROM bins WHERE id = ?1",
+            "SELECT id, name, icon, color, smart_rule, COALESCE(bin_type, 'category'), shortcut, COALESCE(protect_clips, 0), COALESCE(conceal_clips, 0), created_at FROM bins WHERE id = ?1",
             params![id],
             |row| {
                 Ok(Bin {
@@ -8396,9 +8351,10 @@ impl DbState {
                     bin_type: row.get(5)?,
                     shortcut: row.get(6)?,
                     protect_clips: row.get(7)?,
+                    conceal_clips: row.get(8)?,
                     clip_count: Some(0),
                     clip_order: Vec::new(),
-                    created_at: row.get(8)?,
+                    created_at: row.get(9)?,
                 })
             },
         )
@@ -8725,7 +8681,8 @@ impl DbState {
         conn.execute(
             "UPDATE bins
              SET name = ?1, icon = ?2, color = ?3, smart_rule = ?4,
-                 protect_clips = CASE WHEN ?4 IS NOT NULL THEN 0 ELSE protect_clips END
+                 protect_clips = CASE WHEN ?4 IS NOT NULL THEN 0 ELSE protect_clips END,
+                 conceal_clips = CASE WHEN ?4 IS NOT NULL THEN 0 ELSE conceal_clips END
              WHERE id = ?5",
             params![name, icon, color, smart_rule, id],
         )?;
@@ -9047,6 +9004,11 @@ impl DbState {
                 is_protected: false,
                 is_explicitly_protected: Some(false),
                 protecting_bin_ids: Vec::new(),
+                is_concealed: false,
+                is_explicitly_concealed: Some(false),
+                is_explicitly_revealed: false,
+                concealing_bin_ids: Vec::new(),
+                concealing_content_types: Vec::new(),
                 shortcut: None,
                 is_transformed: false,
                 pin_order: 0,
@@ -9165,9 +9127,9 @@ impl DbState {
             let inserted = tx.execute(
                 "INSERT OR IGNORE INTO clips (
                     content_type, text_content, html_content, image_base64, image_path,
-                    content_hash, source, is_pinned, is_protected, pin_order, note,
+                    content_hash, source, is_pinned, is_protected, is_concealed, is_revealed, pin_order, note,
                     is_trashed, trashed_at, created_at, ocr_status, ocr_input_hash
-                 ) VALUES (?1, ?2, ?3, ?4, NULL, ?5, ?6, ?7, ?8, ?9, ?10, 0, NULL, ?11,
+                 ) VALUES (?1, ?2, ?3, ?4, NULL, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 0, NULL, ?13,
                     CASE WHEN ?1 = 'image' THEN 'never' ELSE 'not_applicable' END,
                     CASE WHEN ?1 = 'image' THEN ?5 ELSE NULL END)",
                 params![
@@ -9179,6 +9141,8 @@ impl DbState {
                     clip.source,
                     clip.is_pinned,
                     clip.is_protected,
+                    clip.is_explicitly_concealed.unwrap_or(clip.is_concealed),
+                    clip.is_explicitly_revealed,
                     clip.pin_order,
                     clip.note,
                     clip.created_at,
@@ -9386,6 +9350,12 @@ impl DbState {
                     label: content_type.label.clone(),
                     icon: content_type.icon.clone(),
                     group: content_type.group.clone(),
+                    conceal_clips: content_type.conceal_clips.unwrap_or_else(|| {
+                        crate::content_types::CONTENT_TYPE_PRESETS
+                            .iter()
+                            .find(|preset| preset.id == content_type.id)
+                            .is_some_and(|preset| preset.conceal_clips())
+                    }),
                 },
             )
             .map_err(rusqlite::Error::InvalidParameterName)?;
@@ -9437,7 +9407,13 @@ impl DbState {
                 })?;
                 if bin.protect_clips {
                     return Err(rusqlite::Error::InvalidParameterName(format!(
-                        "Transfer Smart Bin {} cannot confer inherited protection",
+                        "Transfer Smart Bin {} cannot apply inherited protection",
+                        bin.id
+                    )));
+                }
+                if bin.conceal_clips {
+                    return Err(rusqlite::Error::InvalidParameterName(format!(
+                        "Transfer Smart Bin {} cannot apply inherited concealment",
                         bin.id
                     )));
                 }
@@ -9707,6 +9683,12 @@ impl DbState {
                     label: content_type.label.clone(),
                     icon: content_type.icon.clone(),
                     group: content_type.group.clone(),
+                    conceal_clips: content_type.conceal_clips.unwrap_or_else(|| {
+                        crate::content_types::CONTENT_TYPE_PRESETS
+                            .iter()
+                            .find(|preset| preset.id == content_type.id)
+                            .is_some_and(|preset| preset.conceal_clips())
+                    }),
                 },
             )
             .map_err(rusqlite::Error::InvalidParameterName)?;
@@ -9726,11 +9708,12 @@ impl DbState {
                 .any(|preset| preset.id == content_type.id);
             tx.execute(
                 "INSERT INTO content_types
-                    (id, label, icon, group_name, is_builtin, is_archived)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+                    (id, label, icon, group_name, is_builtin, is_archived, conceal_clips)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
                  ON CONFLICT(id) DO UPDATE SET
                     label = excluded.label, icon = excluded.icon,
                     group_name = excluded.group_name,
+                    conceal_clips = excluded.conceal_clips,
                     is_archived = CASE WHEN content_types.is_builtin = 1 THEN 0 ELSE excluded.is_archived END,
                     updated_at = CURRENT_TIMESTAMP",
                 params![
@@ -9740,6 +9723,12 @@ impl DbState {
                     content_type.group,
                     is_builtin,
                     content_type.is_archived,
+                    content_type.conceal_clips.unwrap_or_else(|| {
+                        crate::content_types::CONTENT_TYPE_PRESETS
+                            .iter()
+                            .find(|preset| preset.id == content_type.id)
+                            .is_some_and(|preset| preset.conceal_clips())
+                    }),
                 ],
             )?;
         }
@@ -9813,22 +9802,23 @@ impl DbState {
             let new_id = if let Some(id) = existing_id {
                 tx.execute(
                     "UPDATE bins SET icon = ?1, color = ?2, smart_rule = ?3, shortcut = ?4,
-                                     protect_clips = ?5 WHERE id = ?6",
+                                     protect_clips = ?5, conceal_clips = ?6 WHERE id = ?7",
                     params![
                         bin.icon,
                         bin.color,
                         bin.smart_rule,
                         bin.shortcut,
                         bin.protect_clips,
+                        bin.conceal_clips,
                         id
                     ],
                 )?;
                 id
             } else {
                 tx.execute(
-                    "INSERT INTO bins (name, icon, color, smart_rule, bin_type, shortcut, protect_clips, created_at)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-                    params![bin.name, bin.icon, bin.color, bin.smart_rule, bin.bin_type, bin.shortcut, bin.protect_clips, bin.created_at],
+                    "INSERT INTO bins (name, icon, color, smart_rule, bin_type, shortcut, protect_clips, conceal_clips, created_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                    params![bin.name, bin.icon, bin.color, bin.smart_rule, bin.bin_type, bin.shortcut, bin.protect_clips, bin.conceal_clips, bin.created_at],
                 )?;
                 tx.last_insert_rowid()
             };
@@ -10020,9 +10010,9 @@ impl DbState {
             tx.execute(
                 "INSERT INTO clips (
                     content_type, text_content, html_content, image_base64, image_path, content_hash,
-                    source, is_pinned, is_protected, pin_order, bin_id, note,
+                    source, is_pinned, is_protected, is_concealed, is_revealed, pin_order, bin_id, note,
                     is_trashed, trashed_at, created_at, shortcut
-                 ) VALUES (?1, ?2, ?3, ?4, NULL, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)
+                 ) VALUES (?1, ?2, ?3, ?4, NULL, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)
                  ON CONFLICT(content_hash) DO UPDATE SET
                     content_type = excluded.content_type,
                     text_content = excluded.text_content,
@@ -10031,6 +10021,8 @@ impl DbState {
                     source = excluded.source,
                     is_pinned = excluded.is_pinned,
                     is_protected = excluded.is_protected,
+                    is_concealed = excluded.is_concealed,
+                    is_revealed = excluded.is_revealed,
                     pin_order = excluded.pin_order,
                     bin_id = excluded.bin_id,
                     note = excluded.note,
@@ -10042,7 +10034,9 @@ impl DbState {
                     clip.content_type, clip.text_content, clip.html_content, clip.image_base64,
                     clip.content_hash, clip.source, clip.is_pinned,
                     clip.is_explicitly_protected.unwrap_or(clip.is_protected),
-                    clip.pin_order, mapped_primary_bin, clip.note, clip.is_trashed,
+                    clip.is_explicitly_concealed.unwrap_or(clip.is_concealed),
+                    clip.is_explicitly_revealed, clip.pin_order, mapped_primary_bin, clip.note,
+                    clip.is_trashed,
                     clip.trashed_at, clip.created_at, clip.shortcut,
                 ],
             )?;
@@ -10194,6 +10188,11 @@ impl DbState {
                 is_protected: row.get::<_, i32>(9)? != 0,
                 is_explicitly_protected: Some(row.get::<_, i32>(9)? != 0),
                 protecting_bin_ids: Vec::new(),
+                is_concealed: false,
+                is_explicitly_concealed: None,
+                is_explicitly_revealed: false,
+                concealing_bin_ids: Vec::new(),
+                concealing_content_types: Vec::new(),
                 shortcut: row.get(21)?,
                 is_transformed: row.get::<_, i32>(17)? != 0,
                 pin_order: row.get(10)?,
@@ -10210,6 +10209,7 @@ impl DbState {
         })?;
         let mut clips = rows.collect::<Result<Vec<_>>>()?;
         append_clip_content_types(&conn, &mut clips)?;
+        append_clip_concealment(&conn, &mut clips)?;
         Ok(clips)
     }
 
@@ -11805,7 +11805,7 @@ impl DbState {
     ) -> Result<Vec<crate::content_types::ContentTypeDefinition>> {
         let conn = self.conn.lock();
         let mut statement = conn.prepare(
-            "SELECT types.id, types.label, types.icon, types.group_name, types.is_builtin, types.is_archived
+            "SELECT types.id, types.label, types.icon, types.group_name, types.is_builtin, types.is_archived, types.conceal_clips
              FROM content_types AS types
              LEFT JOIN content_type_groups AS groups ON groups.id = types.group_name
              WHERE types.id NOT IN ('text', 'image', 'file')
@@ -11821,6 +11821,7 @@ impl DbState {
                     group: row.get(3)?,
                     is_builtin: row.get(4)?,
                     is_archived: row.get(5)?,
+                    conceal_clips: Some(row.get(6)?),
                     defaults: None,
                 })
             })?
@@ -11858,9 +11859,9 @@ impl DbState {
             ));
         }
         conn.execute(
-            "INSERT INTO content_types (id, label, icon, group_name, is_builtin, is_archived)
-             VALUES (?1, ?2, ?3, ?4, 0, 0)",
-            params![input.id, input.label.trim(), input.icon, input.group],
+            "INSERT INTO content_types (id, label, icon, group_name, is_builtin, is_archived, conceal_clips)
+             VALUES (?1, ?2, ?3, ?4, 0, 0, ?5)",
+            params![input.id, input.label.trim(), input.icon, input.group, input.conceal_clips],
         )?;
         drop(conn);
         let created = self
@@ -11903,9 +11904,15 @@ impl DbState {
             ));
         }
         let changed = conn.execute(
-            "UPDATE content_types SET label = ?1, icon = ?2, group_name = ?3,
-                    updated_at = CURRENT_TIMESTAMP WHERE id = ?4",
-            params![input.label.trim(), input.icon, input.group, id],
+            "UPDATE content_types SET label = ?1, icon = ?2, group_name = ?3, conceal_clips = ?4,
+                    updated_at = CURRENT_TIMESTAMP WHERE id = ?5",
+            params![
+                input.label.trim(),
+                input.icon,
+                input.group,
+                input.conceal_clips,
+                id
+            ],
         )?;
         drop(conn);
         if changed == 0 {
@@ -11970,10 +11977,10 @@ impl DbState {
         let conn = self.conn.lock();
         for preset in crate::content_types::CONTENT_TYPE_PRESETS {
             conn.execute(
-                "UPDATE content_types SET label = ?1, icon = ?2, group_name = ?3,
+                "UPDATE content_types SET label = ?1, icon = ?2, group_name = ?3, conceal_clips = ?4,
                         is_archived = 0, updated_at = CURRENT_TIMESTAMP
-                 WHERE id = ?4 AND is_builtin = 1",
-                params![preset.label, preset.icon, preset.group, preset.id],
+                 WHERE id = ?5 AND is_builtin = 1",
+                params![preset.label, preset.icon, preset.group, preset.conceal_clips(), preset.id],
             )?;
         }
         drop(conn);
@@ -13338,7 +13345,7 @@ mod tests {
     use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    fn setup_test_db() -> DbState {
+    pub(super) fn setup_test_db() -> DbState {
         let temp_dir = std::env::temp_dir();
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -13979,6 +13986,7 @@ mod tests {
                 label: "Ticket ID".into(),
                 icon: "Hash".into(),
                 group: "custom".into(),
+                conceal_clips: true,
             })
             .unwrap();
         let custom = source
@@ -14304,6 +14312,7 @@ mod tests {
                 label: "Text".into(),
                 icon: "Type".into(),
                 group: "general".into(),
+                conceal_clips: false,
             })
             .is_err());
         let mut payment = db
@@ -14312,6 +14321,14 @@ mod tests {
             .into_iter()
             .find(|item| item.id == "payment_card")
             .unwrap();
+        assert_eq!(payment.conceal_clips, Some(true));
+        assert_eq!(
+            payment
+                .defaults
+                .as_ref()
+                .map(|defaults| defaults.conceal_clips),
+            Some(true)
+        );
         assert_eq!(
             payment
                 .defaults
@@ -14328,9 +14345,19 @@ mod tests {
                 label: payment.label.clone(),
                 icon: payment.icon.clone(),
                 group: payment.group.clone(),
+                conceal_clips: false,
             },
         )
         .unwrap();
+        assert_eq!(
+            db.get_content_types(false)
+                .unwrap()
+                .into_iter()
+                .find(|item| item.id == "payment_card")
+                .unwrap()
+                .conceal_clips,
+            Some(false)
+        );
         assert!(db.set_content_type_archived("payment_card", true).is_err());
 
         let custom_type = db
@@ -14339,6 +14366,7 @@ mod tests {
                 label: "Ticket ID".into(),
                 icon: "Hash".into(),
                 group: "custom".into(),
+                conceal_clips: false,
             })
             .unwrap();
         assert!(custom_type.defaults.is_none());
@@ -14369,15 +14397,14 @@ mod tests {
         );
 
         db.restore_default_content_types().unwrap();
-        assert_eq!(
-            db.get_content_types(false)
-                .unwrap()
-                .into_iter()
-                .find(|item| item.id == "payment_card")
-                .unwrap()
-                .label,
-            "Payment Card"
-        );
+        let restored_payment = db
+            .get_content_types(false)
+            .unwrap()
+            .into_iter()
+            .find(|item| item.id == "payment_card")
+            .unwrap();
+        assert_eq!(restored_payment.label, "Payment Card");
+        assert_eq!(restored_payment.conceal_clips, Some(true));
     }
 
     #[test]
@@ -14409,6 +14436,7 @@ mod tests {
             label: "Ticket".into(),
             icon: "Tag".into(),
             group: "work".into(),
+            conceal_clips: false,
         })
         .unwrap();
         assert!(db.set_content_type_group_archived("work", true).is_err());
@@ -14419,6 +14447,7 @@ mod tests {
                 label: "Ticket".into(),
                 icon: "Tag".into(),
                 group: "custom".into(),
+                conceal_clips: false,
             },
         )
         .unwrap();
@@ -14863,6 +14892,7 @@ mod tests {
             label: "Reset Custom".into(),
             icon: "FileText".into(),
             group: "custom".into(),
+            conceal_clips: false,
         })
         .unwrap();
         db.save_setting("themeMode", "vampire").unwrap();
@@ -19571,6 +19601,7 @@ mod tests {
             .collect::<Vec<_>>();
         db.toggle_pin(clips[0].id).unwrap();
         db.toggle_protected(clips[1].id).unwrap();
+        db.toggle_concealed(clips[3].id).unwrap();
         db.update_clip_note(clips[2].id, Some("Remember this"))
             .unwrap();
         db.delete_clip(clips[5].id).unwrap();
@@ -19597,6 +19628,7 @@ mod tests {
         assert_eq!(summary.trash_count, 2);
         assert_eq!(summary.pinned_count, 1);
         assert_eq!(summary.protected_count, 1);
+        assert_eq!(summary.concealed_count, 1);
         assert_eq!(summary.noted_count, 1);
         assert_eq!(summary.clip_type_counts.len(), 1);
         assert_eq!(summary.clip_type_counts[0].clip_type, "text");
@@ -19992,7 +20024,7 @@ mod tests {
     }
 
     #[test]
-    fn smart_bins_cannot_confer_inherited_protection() {
+    fn smart_bins_cannot_apply_inherited_clip_policies() {
         let db = setup_test_db();
         let rule = serde_json::json!({
             "version": 1,
@@ -20005,53 +20037,8 @@ mod tests {
             .unwrap();
         assert!(db.update_bin_protection(bin.id, true).is_err());
         assert!(!db.get_bin(bin.id).unwrap().protect_clips);
-    }
-
-    #[test]
-    fn transfer_round_trip_preserves_clip_shortcuts_and_bin_protection() {
-        let source = setup_test_db();
-        let bin = source.create_bin("Durable", "🔐", "default", None).unwrap();
-        source.update_bin_protection(bin.id, true).unwrap();
-        let clip = source
-            .save_clip(
-                "text",
-                Some("portable shortcut"),
-                None,
-                None,
-                "portable-clip-shortcut",
-                "Tests",
-            )
-            .unwrap();
-        source.assign_to_bin(clip.id, Some(bin.id)).unwrap();
-        source
-            .update_clip_hotkey(clip.id, Some("CmdOrCtrl+Shift+8"))
-            .unwrap();
-
-        let destination = setup_test_db();
-        destination
-            .import_backup_json(&source.export_backup_json().unwrap())
-            .unwrap();
-        let restored_bin = destination
-            .get_bins()
-            .unwrap()
-            .into_iter()
-            .find(|candidate| candidate.name == "Durable")
-            .unwrap();
-        assert!(restored_bin.protect_clips);
-        let restored = destination
-            .get_all_clips_for_backup()
-            .unwrap()
-            .into_iter()
-            .find(|candidate| candidate.content_hash == "portable-clip-shortcut")
-            .unwrap();
-        assert_eq!(restored.shortcut.as_deref(), Some("CmdOrCtrl+Shift+8"));
-        assert_eq!(restored.is_explicitly_protected, Some(true));
-        assert!(
-            destination
-                .get_clip_by_id(restored.id)
-                .unwrap()
-                .is_protected
-        );
+        assert!(db.update_bin_concealment(bin.id, true).is_err());
+        assert!(!db.get_bin(bin.id).unwrap().conceal_clips);
     }
 
     #[test]
@@ -20093,7 +20080,11 @@ mod tests {
 
         let db = DbState::new(path.clone()).unwrap();
         assert!(column_exists(&db.conn.lock(), "clips", "shortcut").unwrap());
+        assert!(column_exists(&db.conn.lock(), "clips", "is_concealed").unwrap());
+        assert!(column_exists(&db.conn.lock(), "clips", "is_revealed").unwrap());
         assert!(column_exists(&db.conn.lock(), "bins", "protect_clips").unwrap());
+        assert!(column_exists(&db.conn.lock(), "bins", "conceal_clips").unwrap());
+        assert!(column_exists(&db.conn.lock(), "content_types", "conceal_clips").unwrap());
         let view_exists: bool = db
             .conn
             .lock()

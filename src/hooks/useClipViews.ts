@@ -7,6 +7,10 @@ import { getClipCollection, parseClipFacetRoute } from '../utils/clipCollections
 import type { FeatureId } from '../utils/features';
 import { appendUniqueSearchPage } from '../utils/searchPagination';
 import { clipsApi } from '../api/clips';
+import {
+  CLIP_PROPERTY_ASSOCIATIONS,
+  getClipPropertyAssociation,
+} from '../utils/clipPropertyAssociations';
 
 interface ClipViewsInput {
   allClips: ClipItem[];
@@ -274,18 +278,29 @@ export function useClipViews({
     }
     if (facet?.kind === 'source') clips = clips.filter((clip) => clip.source === facet.value);
     if (collection?.membership === 'bin' && selectedBinId !== null) clips = filterByBin(clips, bins, selectedBinId, features);
-    if (collection?.membership === 'pinned') clips = clips.filter((clip) => clip.is_pinned);
-    if (collection?.membership === 'protected') clips = clips.filter((clip) => clip.is_protected);
+    const propertyAssociation = getClipPropertyAssociation(collection?.association);
+    if (propertyAssociation && features[propertyAssociation.feature]) {
+      clips = clips.filter(propertyAssociation.isMember);
+    }
     if (collection?.membership === 'noted') clips = clips.filter((clip) => Boolean(clip.note?.trim()));
     if (!features.pinning) clips = sortClipsChronologically(clips);
     return clips;
   }, [allClips, trashedClips, normalizedSearchQuery, currentTab, selectedBinId, sequentialStatus, bins, features, searchResult]);
 
-  const counts = useMemo(() => allClips.reduce((result, clip) => ({
-    pinnedCount: result.pinnedCount + Number(features.pinning && Boolean(clip.is_pinned)),
-    protectedCount: result.protectedCount + Number(features.protection && Boolean(clip.is_protected)),
-    notesCount: result.notesCount + Number(features.notes && Boolean(clip.note?.trim())),
-  }), { pinnedCount: 0, protectedCount: 0, notesCount: 0 }), [allClips, features.notes, features.pinning, features.protection]);
+  const counts = useMemo(() => {
+    const propertyCounts = new Map(CLIP_PROPERTY_ASSOCIATIONS.map((association) => [
+      association.id,
+      features[association.feature]
+        ? allClips.filter(association.isMember).length
+        : 0,
+    ]));
+    return {
+      pinnedCount: propertyCounts.get('pin') ?? 0,
+      protectedCount: propertyCounts.get('protect') ?? 0,
+      concealedCount: propertyCounts.get('conceal') ?? 0,
+      notesCount: features.notes ? allClips.filter((clip) => Boolean(clip.note?.trim())).length : 0,
+    };
+  }, [allClips, features]);
 
   const queuedIndexMap = useMemo(() => {
     const indexes = new Map<string, number>();

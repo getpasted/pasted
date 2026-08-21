@@ -4,6 +4,7 @@ import { readRustModuleTree } from './audit-source-trees.js';
 
 const read = (path) => fs.readFileSync(path, 'utf8');
 const registry = read('src/utils/clipCollections.ts');
+const propertyAssociations = read('src/utils/clipPropertyAssociations.ts');
 const sidebar = read('src/components/Sidebar.tsx');
 const clipViews = read('src/hooks/useClipViews.ts');
 const clipsApi = read('src/api/clips.ts');
@@ -16,7 +17,7 @@ const nativeCommands = read('src-tauri/src/commands.rs');
 const clipSearch = read('src/utils/clipSearch.ts');
 const clipSearchGrammar = read('src/utils/clipSearchGrammar.ts');
 const historySearchDocs = read('docs/wiki/History-and-Search.md');
-const database = read('src-tauri/src/db.rs');
+const database = readRustModuleTree('src-tauri/src/db.rs', 'src-tauri/src/db');
 const cli = readRustModuleTree('src-tauri/src/bin/pasted.rs', 'src-tauri/src/cli');
 const clipTypes = read('src/types.ts');
 const appData = read('src/hooks/useAppData.ts');
@@ -25,6 +26,17 @@ const foundationCss = read('src/styles/foundation.css');
 for (const tab of ['all', 'sequential', 'pinned', 'protected', 'notes', 'trash']) {
   assert.match(registry, new RegExp(`tab:\\s*'${tab}'`), `${tab} must be registered as a system clip collection`);
 }
+
+for (const [id, membership, action] of [
+  ['pin', 'pinned', 'pin'],
+  ['protect', 'protected', 'protect'],
+  ['conceal', 'concealed', 'conceal'],
+]) {
+  assert.match(propertyAssociations, new RegExp(`id:\\s*'${id}'[\\s\\S]{0,100}membership:\\s*'${membership}'[\\s\\S]{0,100}dropAction:\\s*'${action}'`), `${membership} must use the shared clip-property association contract`);
+  assert.match(registry, new RegExp(`association:\\s*'${id}'`), `${membership} collection must reference its property association`);
+}
+assert.match(clipViews, /getClipPropertyAssociation\(collection\?\.association\)/, 'Property collection filtering must use the shared association contract');
+assert.match(dragHook, /CLIP_PROPERTY_ASSOCIATIONS/, 'Property drop eligibility must use the shared association contract');
 
 for (const field of [
   'acceptsClipDrop',

@@ -5,6 +5,8 @@ use tauri::{AppHandle, Emitter, State};
 use crate::db::{ContentClassificationRescanReport, DbState, FileFormatRescanReport};
 use crate::features::{self, Feature};
 
+pub mod content_type_policy;
+
 #[tauri::command]
 pub fn get_content_classifiers(
     db: State<'_, Arc<DbState>>,
@@ -97,45 +99,6 @@ pub fn restore_default_content_type_groups(
     db.restore_default_content_type_groups()
         .map_err(|error| error.to_string())?;
     db.get_content_type_groups(true)
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-pub fn create_content_type(
-    input: crate::content_types::ContentTypeInput,
-    db: State<'_, Arc<DbState>>,
-) -> Result<crate::content_types::ContentTypeDefinition, String> {
-    db.create_content_type(&input)
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-pub fn update_content_type(
-    id: String,
-    input: crate::content_types::ContentTypeInput,
-    db: State<'_, Arc<DbState>>,
-) -> Result<crate::content_types::ContentTypeDefinition, String> {
-    db.update_content_type(&id, &input)
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-pub fn set_content_type_archived(
-    id: String,
-    archived: bool,
-    db: State<'_, Arc<DbState>>,
-) -> Result<(), String> {
-    db.set_content_type_archived(&id, archived)
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-pub fn restore_default_content_types(
-    db: State<'_, Arc<DbState>>,
-) -> Result<Vec<crate::content_types::ContentTypeDefinition>, String> {
-    db.restore_default_content_types()
-        .map_err(|error| error.to_string())?;
-    db.get_content_types(true)
         .map_err(|error| error.to_string())
 }
 

@@ -230,6 +230,15 @@ body.capture-feedback-mode,
   color: var(--accent-primary);
 }
 
+.preview-conceal-btn {
+  color: var(--status-warning);
+}
+
+.preview-conceal-btn.is-active {
+  background-color: color-mix(in srgb, var(--status-warning) 12%, var(--bg-input));
+  color: var(--status-warning);
+}
+
 .preview-note-btn.is-active {
   background-color: color-mix(in srgb, var(--note-accent) 12%, var(--bg-input));
   color: var(--note-accent);

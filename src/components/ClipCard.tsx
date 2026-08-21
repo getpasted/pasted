@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { dateTimeAttribute, formatFullDateTime, formatRelativeTime } from '../utils/date';
-import { ClipItem, getClipFilePaths, getClipFileSummary, getClipNoteSummary, isSensitiveText, maskSensitiveText, type Bin } from '../types';
+import { ClipItem, getClipFilePaths, getClipFileSummary, getClipNoteSummary, type Bin } from '../types';
 import type { ClipViewPolicy } from '../utils/clipViewPolicy';
 import { clipDeleteLabel, UI_COPY } from '../utils/uiCopy';
 import { safeInvoke as invoke } from '../utils/tauri';
@@ -10,7 +10,10 @@ import { OverflowText } from './OverflowText';
 import { useFeatures } from '../hooks/useFeatures';
 import { useMinuteTick } from '../hooks/useMinuteTick';
 import { ContentTypeIcon } from './ContentTypeIcon';
-import { isSensitiveContentType, structuralClipType } from '../utils/contentTypes';
+import { structuralClipType } from '../utils/contentTypes';
+import { useContentTypes } from './ContentTypeProvider';
+import { clipConcealmentPolicy } from '../utils/clipConcealment';
+import { concealedClipMask } from '../utils/concealedClipMask';
 import {
   Files,
   Pin,
@@ -267,6 +270,7 @@ interface ClipCardProps {
   onSelect: (clip: ClipItem, e: React.MouseEvent) => void;
   onPin: () => void;
   onToggleProtected?: () => void;
+  onToggleConcealed?: () => void;
   onDelete: (e?: React.MouseEvent) => void;
   onCopy: () => void;
   onRestore?: () => void;
@@ -305,6 +309,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   onSelect,
   onPin,
   onToggleProtected,
+  onToggleConcealed,
   onDelete,
   onCopy,
   onRestore,
@@ -321,8 +326,8 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   useLocalization();
   const relativeTimeNow = useMinuteTick();
   const features = useFeatures();
+  const { definitions: contentTypeDefinitions } = useContentTypes();
   const [copied, setCopied] = React.useState(false);
-  const [showRevealed, setShowRevealed] = useState(false);
   const pointerDragRef = React.useRef<{
     pointerId: number;
     startX: number;
@@ -332,8 +337,8 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   const removePointerListenersRef = React.useRef<(() => void) | null>(null);
   const suppressClickRef = React.useRef(false);
   const primaryContentType = clip.content_types?.[0] ?? clip.content_type;
-  const isSensitive = (clip.content_types ?? [clip.content_type]).some(isSensitiveContentType)
-    || isSensitiveText(clip.text_content);
+  const concealment = clipConcealmentPolicy(clip, bins, contentTypeDefinitions);
+  const isSensitive = features.concealment && concealment.effective;
 
   React.useEffect(() => () => removePointerListenersRef.current?.(), []);
 
@@ -587,7 +592,14 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
 
       {/* Body Content */}
       <div className={`theme-text-main ${clip.content_type === 'file' ? (isSmall ? 'text-[11px]' : 'text-xs') : lineClampClass} font-mono leading-relaxed break-all`}>
-        {clip.content_type === 'image' ? (
+        {isSensitive ? (
+          <div
+            className="theme-status-warning flex items-center rounded-lg border p-1.5 text-xs font-mono select-none"
+            aria-label={translate('collection.concealed')}
+          >
+            <span className="tracking-widest font-bold">{concealedClipMask(clip)}</span>
+          </div>
+        ) : clip.content_type === 'image' ? (
           <ClipImageThumbnail
             key={`${clip.id}:${clip.content_hash}`}
             clipId={clip.id}
@@ -614,37 +626,11 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
               {clip.text_content}
             </span>
           </div>
-        ) : isSensitive && !showRevealed ? (
-          <div className="theme-status-warning flex items-center justify-between p-1.5 border rounded-lg text-xs font-mono select-none">
-            <span className="tracking-widest font-bold">{maskSensitiveText(clip.text_content)}</span>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowRevealed(true);
-              }}
-              className="clip-sensitive-action ms-2 p-1 rounded transition-colors"
-              title={translate('component.clipCard.revealSensitiveText')}
-            >
-              <Eye className="w-3.5 h-3.5" />
-            </button>
-          </div>
         ) : (
-          <div className="relative group/sensitive flex items-center justify-between">
+          <div className="relative flex items-center justify-between">
             <span>
               <HighlightedClipText text={clip.text_content || translate('component.clipCard.emptyItem')} query={searchQuery} field="content" />
             </span>
-            {isSensitive && showRevealed && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowRevealed(false);
-                }}
-                className="clip-sensitive-action ms-2 p-1 rounded transition-colors shrink-0"
-                title={translate('component.clipCard.hideSensitiveText')}
-              >
-                <EyeOff className="w-3.5 h-3.5" />
-              </button>
-            )}
           </div>
         )}
       </div>
@@ -675,6 +661,22 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
             <Copy className="w-3.5 h-3.5" />
           )}
         </button>
+        {features.concealment && onToggleConcealed && (
+          <button
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleConcealed();
+            }}
+            className="floating-action-button is-warning"
+            title={concealment.effective
+              ? translate('component.clipCard.revealSensitiveText')
+              : translate('action.conceal')}
+          >
+            {concealment.effective
+              ? <Eye className="h-3.5 w-3.5" />
+              : <EyeOff className="h-3.5 w-3.5" />}
+          </button>
+        )}
 
         {isQueueMode || queueIndex !== undefined ? (
           <>
@@ -815,6 +817,9 @@ export const ClipCard = React.memo(ClipCardComponent, (prevProps, nextProps) => 
     prevProps.clip.pin_order === nextProps.clip.pin_order &&
     prevProps.clip.is_protected === nextProps.clip.is_protected &&
     prevProps.clip.is_explicitly_protected === nextProps.clip.is_explicitly_protected &&
+    prevProps.clip.is_concealed === nextProps.clip.is_concealed &&
+    prevProps.clip.is_explicitly_concealed === nextProps.clip.is_explicitly_concealed &&
+    prevProps.clip.is_explicitly_revealed === nextProps.clip.is_explicitly_revealed &&
     prevProps.clip.hotkey === nextProps.clip.hotkey &&
     previousProtectingBinIds.length === nextProtectingBinIds.length &&
     previousProtectingBinIds.every((id, index) => id === nextProtectingBinIds[index]) &&
@@ -844,7 +849,8 @@ export const ClipCard = React.memo(ClipCardComponent, (prevProps, nextProps) => 
         && bin.icon === nextBin.icon
         && bin.color === nextBin.color
         && bin.smart_rule === nextBin.smart_rule
-        && bin.protect_clips === nextBin.protect_clips;
+        && bin.protect_clips === nextBin.protect_clips
+        && bin.conceal_clips === nextBin.conceal_clips;
     }) &&
     prevProps.rowHeight === nextProps.rowHeight &&
     prevProps.filePreviewMode === nextProps.filePreviewMode &&

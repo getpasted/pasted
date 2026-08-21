@@ -738,7 +738,7 @@ fn bin_lifecycle_and_full_backup_inspection_run_end_to_end() {
 }
 
 #[test]
-fn clip_hotkeys_and_bin_protection_have_structured_cli_parity() {
+fn clip_hotkeys_and_bin_policies_have_structured_cli_parity() {
     let database = temporary_path("clip-hotkeys-bin-protection", "db");
     let clip = success_json(&database, &["copy", "durable CLI clip", "--json"]);
     let clip_id = clip["id"].as_i64().expect("clip ID").to_string();
@@ -758,12 +758,39 @@ fn clip_hotkeys_and_bin_protection_have_structured_cli_parity() {
 
     let protection = success_json(&database, &["bin", "protect", &bin_id, "on", "--json"]);
     assert_eq!(protection["protectClips"], true);
+    let concealment = success_json(&database, &["bin", "conceal", &bin_id, "on", "--json"]);
+    assert_eq!(concealment["concealClips"], true);
+    let concealed_type = success_json(
+        &database,
+        &[
+            "type",
+            "update",
+            "payment_card",
+            "--conceal",
+            "off",
+            "--json",
+        ],
+    );
+    assert_eq!(concealed_type["concealClips"], false);
+    let clip_concealment = success_json(&database, &["clip", "conceal", &clip_id, "--json"]);
+    assert_eq!(clip_concealment["action"], "conceal");
+    assert_eq!(clip_concealment["changedCount"], 1);
     success_json(&database, &["clip", "assign", &bin_id, &clip_id, "--json"]);
 
     let fetched = success_json(&database, &["clip", "get", &clip_id, "--json"]);
     assert_eq!(fetched["hotkey"], "Alt+Shift+7");
     assert_eq!(fetched["is_protected"], true);
     assert_eq!(fetched["is_explicitly_protected"], true);
+    assert_eq!(fetched["is_concealed"], true);
+    assert_eq!(fetched["is_explicitly_concealed"], true);
+
+    let revealed = success_json(&database, &["clip", "reveal", &clip_id, "--json"]);
+    assert_eq!(revealed["action"], "reveal");
+    assert_eq!(revealed["changedCount"], 1);
+    let fetched = success_json(&database, &["clip", "get", &clip_id, "--json"]);
+    assert_eq!(fetched["is_concealed"], false);
+    assert_eq!(fetched["is_explicitly_revealed"], true);
+    success_json(&database, &["clip", "conceal", &clip_id, "--json"]);
 
     success_json(
         &database,
@@ -783,6 +810,38 @@ fn clip_hotkeys_and_bin_protection_have_structured_cli_parity() {
     success_json(
         &database,
         &["settings", "set", "enableHotkeys", "true", "--json"],
+    );
+
+    success_json(
+        &database,
+        &["settings", "set", "enableConcealment", "false", "--json"],
+    );
+    for arguments in [
+        vec!["clip", "reveal", clip_id.as_str(), "--json"],
+        vec!["bin", "conceal", bin_id.as_str(), "off", "--json"],
+        vec![
+            "type",
+            "update",
+            "payment_card",
+            "--conceal",
+            "on",
+            "--json",
+        ],
+    ] {
+        let disabled = run(&database, &arguments);
+        assert!(!disabled.status.success());
+        assert!(String::from_utf8_lossy(&disabled.stderr)
+            .contains("Concealment is disabled in Settings → Functionality"));
+    }
+    let preserved_bin = success_json(&database, &["bin", "get", &bin_id, "--json"]);
+    assert_eq!(preserved_bin["bin"]["conceal_clips"], true);
+    let preserved_type = success_json(&database, &["type", "list", "--json"]);
+    assert_eq!(
+        preserved_type
+            .as_array()
+            .and_then(|types| types.iter().find(|item| item["id"] == "payment_card"))
+            .map(|item| item["concealClips"].clone()),
+        Some(Value::Bool(false))
     );
 
     let cleared = success_json(&database, &["clip", "hotkey", &clip_id, "none", "--json"]);

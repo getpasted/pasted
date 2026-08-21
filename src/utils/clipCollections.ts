@@ -2,6 +2,7 @@ import type { Bin } from '../types';
 import type { FeatureId } from './features';
 import { contentTypeLabel } from './contentTypes';
 import { translate, type TranslationKey } from '../localization/runtime';
+import type { ClipPropertyAssociationId } from './clipPropertyAssociations';
 
 export type ClipCollectionTab =
   | 'all'
@@ -9,13 +10,14 @@ export type ClipCollectionTab =
   | 'sequential'
   | 'pinned'
   | 'protected'
+  | 'concealed'
   | 'notes'
   | 'trash'
   | 'bin';
 
-export type ClipDropAction = 'queue' | 'pin' | 'protect' | 'trash';
-export type ClipCollectionIcon = 'all' | 'search' | 'queue' | 'pin' | 'protect' | 'note' | 'trash' | 'bin';
-export type ClipCollectionMembership = 'all' | 'search' | 'queue' | 'pinned' | 'protected' | 'noted' | 'trash' | 'bin' | 'facet';
+export type ClipDropAction = 'queue' | 'pin' | 'protect' | 'conceal' | 'trash';
+export type ClipCollectionIcon = 'all' | 'search' | 'queue' | 'pin' | 'protect' | 'conceal' | 'note' | 'trash' | 'bin';
+export type ClipCollectionMembership = 'all' | 'search' | 'queue' | 'pinned' | 'protected' | 'concealed' | 'noted' | 'trash' | 'bin' | 'facet';
 export type ClipCollectionOrdering = 'chronological' | 'queue' | 'pinned' | 'collection';
 
 export interface ClipCollectionCapabilities {
@@ -35,6 +37,7 @@ export interface ClipCollectionDefinition {
   tooltip?: string;
   icon: ClipCollectionIcon;
   feature?: FeatureId;
+  association?: ClipPropertyAssociationId;
   membership: ClipCollectionMembership;
   ordering: ClipCollectionOrdering;
   capabilities: ClipCollectionCapabilities;
@@ -57,19 +60,24 @@ export const SYSTEM_CLIP_COLLECTIONS: readonly ClipCollectionDefinition[] = [
     capabilities: calculated(), emptyTitle: 'No clips yet', emptyDescription: 'Copy something in any app. It will appear here automatically.',
   },
   {
-    key: 'system:queue', tab: 'sequential', label: 'Queue', title: 'Queue', icon: 'queue', feature: 'queue', membership: 'queue', ordering: 'queue',
+    key: 'system:queue', tab: 'sequential', label: 'Queued', title: 'Queued', icon: 'queue', feature: 'queue', membership: 'queue', ordering: 'queue',
     capabilities: calculated({ acceptsClipDrop: true, dropAction: 'queue', canReorder: true, allowsDuplicateMembership: true }),
     emptyTitle: 'Queue is empty', emptyDescription: 'Add text clips or record copies to paste them back in sequence.',
   },
   {
-    key: 'system:pinned', tab: 'pinned', label: 'Pinned', title: 'Pinned', icon: 'pin', feature: 'pinning', membership: 'pinned', ordering: 'pinned',
+    key: 'system:pinned', tab: 'pinned', label: 'Pinned', title: 'Pinned', icon: 'pin', feature: 'pinning', association: 'pin', membership: 'pinned', ordering: 'pinned',
     capabilities: calculated({ acceptsClipDrop: true, dropAction: 'pin', canReorder: true }),
     emptyTitle: 'No pinned clips', emptyDescription: 'Pin a clip to keep it at the top and find it here.',
   },
   {
-    key: 'system:protected', tab: 'protected', label: 'Protected', title: 'Protected', icon: 'protect', feature: 'protection', membership: 'protected', ordering: 'chronological',
+    key: 'system:protected', tab: 'protected', label: 'Protected', title: 'Protected', icon: 'protect', feature: 'protection', association: 'protect', membership: 'protected', ordering: 'chronological',
     capabilities: calculated({ acceptsClipDrop: true, dropAction: 'protect' }),
     emptyTitle: 'No protected clips', emptyDescription: 'Protect a clip to keep it safe from automatic cleanup.',
+  },
+  {
+    key: 'system:concealed', tab: 'concealed', label: 'Concealed', title: 'Concealed', icon: 'conceal', feature: 'concealment', association: 'conceal', membership: 'concealed', ordering: 'chronological',
+    capabilities: calculated({ acceptsClipDrop: true, dropAction: 'conceal' }),
+    emptyTitle: 'No concealed clips', emptyDescription: 'Conceal a clip to hide its contents until revealed.',
   },
   {
     key: 'system:noted', tab: 'notes', label: 'Noted', title: 'Noted', icon: 'note', feature: 'notes', membership: 'noted', ordering: 'chronological',
@@ -108,6 +116,11 @@ const COLLECTION_MESSAGE_KEYS: Record<string, { label: TranslationKey; tooltip?:
     label: 'collection.protected',
     emptyTitle: 'collection.noProtectedClips',
     emptyDescription: 'collection.protectAClip',
+  },
+  'system:concealed': {
+    label: 'collection.concealed',
+    emptyTitle: 'collection.noConcealedClips',
+    emptyDescription: 'collection.concealAClip',
   },
   'system:noted': {
     label: 'collection.noted',

@@ -3,6 +3,7 @@ import { getClipFileSummary } from '../types';
 import { localizedSourceName } from '../localization/presentation';
 import { translate } from '../localization/runtime';
 import { OverflowText } from './OverflowText';
+import { concealedClipMask } from '../utils/concealedClipMask';
 
 interface ClipDragPreviewProps {
   clip: ClipItem;
@@ -10,10 +11,13 @@ interface ClipDragPreviewProps {
   y: number;
   batchCount: number;
   showSource: boolean;
+  concealed: boolean;
 }
 
-export function ClipDragPreview({ clip, x, y, batchCount, showSource }: ClipDragPreviewProps) {
-  const previewText = clip.content_type === 'image'
+export function ClipDragPreview({ clip, x, y, batchCount, showSource, concealed }: ClipDragPreviewProps) {
+  const previewText = concealed
+    ? concealedClipMask(clip)
+    : clip.content_type === 'image'
     ? translate('app.imageClip')
     : clip.content_type === 'file'
       ? getClipFileSummary(clip)
@@ -40,7 +44,11 @@ export function ClipDragPreview({ clip, x, y, batchCount, showSource }: ClipDrag
           )}
         </div>
       )}
-      <OverflowText as="div" text={previewText} className="theme-title mt-1.5 truncate font-mono text-xs" />
+      <OverflowText
+        as="div"
+        text={previewText}
+        className={`theme-title mt-1.5 truncate font-mono text-xs ${concealed ? 'tracking-widest' : ''}`}
+      />
     </div>
   );
 }

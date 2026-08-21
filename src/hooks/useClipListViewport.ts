@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ClipItem } from '../types';
 import type { ClipCollectionMembership } from '../utils/clipCollections';
+import { pendingClipFocusId, type ClipFocusRequest } from '../utils/clipSelection';
+import { clipCardScrollTop } from '../utils/clipListViewport';
 
 interface UseClipListViewportOptions {
   membership?: ClipCollectionMembership;
@@ -20,6 +22,7 @@ interface UseClipListViewportOptions {
   loadMoreClips: () => Promise<unknown>;
   loadMoreTrashedClips: () => Promise<unknown>;
   loadMoreSearchResults: () => Promise<unknown>;
+  focusRequest?: ClipFocusRequest | null;
 }
 
 export function useClipListViewport({
@@ -40,10 +43,12 @@ export function useClipListViewport({
   loadMoreClips,
   loadMoreTrashedClips,
   loadMoreSearchResults,
+  focusRequest,
 }: UseClipListViewportOptions) {
   const clipListRef = useRef<HTMLDivElement | null>(null);
   const pendingRevealIdRef = useRef<number | null>(null);
   const revealAnimationFrameRef = useRef<number | null>(null);
+  const handledFocusRequestIdRef = useRef<number | null>(null);
   const [stackedPinnedClipIds, setStackedPinnedClipIds] = useState<number[]>([]);
   const isBinCollection = membership === 'bin' && selectedBinId !== null;
   const isPinnedCollection = membership === 'pinned';
@@ -133,22 +138,15 @@ export function useClipListViewport({
   }, [handleClipListScroll, pinnedShelfSignature]);
 
   useLayoutEffect(() => {
-    const clipId = pendingRevealIdRef.current;
+    const requestedFocusId = pendingClipFocusId(focusRequest, selectionViewKey, handledFocusRequestIdRef.current);
+    const clipId = requestedFocusId ?? pendingRevealIdRef.current;
     const element = clipListRef.current;
     if (clipId === null || !element) return;
     const card = element.querySelector<HTMLElement>(`[data-clip-id="${clipId}"]`);
-    pendingRevealIdRef.current = null;
     if (!card) return;
-
-    const targetScrollTop = () => {
-      const listPaddingTop = Number.parseFloat(window.getComputedStyle(element).paddingTop) || 0;
-      const cardMarginTop = Number.parseFloat(window.getComputedStyle(card).marginTop) || 0;
-      return Math.max(0, Math.min(
-        element.scrollTop + card.getBoundingClientRect().top - element.getBoundingClientRect().top
-          - listPaddingTop - cardMarginTop,
-        element.scrollHeight - element.clientHeight,
-      ));
-    };
+    if (requestedFocusId !== null) handledFocusRequestIdRef.current = focusRequest!.requestId;
+    else pendingRevealIdRef.current = null;
+    const targetScrollTop = () => clipCardScrollTop(element, card);
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       element.scrollTop = targetScrollTop();
       return;
@@ -173,7 +171,7 @@ export function useClipListViewport({
       };
       animate(startedAt);
     });
-  }, [displayedClips]);
+  }, [displayedClips, focusRequest, selectionViewKey]);
 
   useEffect(() => () => {
     if (revealAnimationFrameRef.current !== null) cancelAnimationFrame(revealAnimationFrameRef.current);

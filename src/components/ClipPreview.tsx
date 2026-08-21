@@ -28,6 +28,8 @@ import {
   Pin,
   Shield,
   ShieldOff,
+  Eye,
+  EyeOff,
   Sparkles,
   LoaderCircle,
   Workflow,
@@ -48,6 +50,8 @@ import { contentTypeLabel, structuralClipType } from '../utils/contentTypes';
 import { useToast } from './ToastProvider';
 import { formatTransformRequestPhase, translate } from '../localization/runtime';
 import { localizedSourceName } from '../localization/presentation';
+import { useContentTypes } from './ContentTypeProvider';
+import { clipConcealmentPolicy } from '../utils/clipConcealment';
 
 interface ClipPreviewProps {
   clip: ClipItem | null;
@@ -60,6 +64,7 @@ interface ClipPreviewProps {
   onRemoveBin: (clipId: number, binId: number) => void | Promise<void>;
   onTogglePin: (clipId: number) => void;
   onToggleProtected: (clipId: number) => void;
+  onToggleConcealed: (clipId: number) => void;
   onDeleteClip: (id: number) => void;
   onUpdateClipNote?: (clipId: number, noteContent: string | null) => void;
   isTransforming?: boolean;
@@ -266,6 +271,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   onRemoveBin,
   onTogglePin,
   onToggleProtected,
+  onToggleConcealed,
   onDeleteClip,
   onUpdateClipNote,
   isTransforming = false,
@@ -277,6 +283,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   filePreviewMaxMb,
 }) => {
   const features = useFeatures();
+  const { definitions: contentTypes } = useContentTypes();
   const { showToast } = useToast();
   const relativeTimeNow = useMinuteTick();
   const [copied, setCopied] = useState(false);
@@ -829,6 +836,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const canTransformContent = clip.content_type !== 'image' && clip.content_type !== 'file';
   const protectedByBin = Boolean(clip.protecting_bin_ids?.length);
   const protectionToggleDisabled = Boolean(clip.hotkey) || protectedByBin;
+  const concealment = clipConcealmentPolicy(clip, bins, contentTypes);
 
   const handleHotkeyChange = async (hotkey: string | null) => {
     try {
@@ -1106,8 +1114,8 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         onDoubleClick={handleWindowDragDoubleClick}
         className="col-preview-header h-[60px] px-4 flex items-center justify-between cursor-default titlebar-drag-handle shrink-0"
       >
-        <div className="flex min-w-0 items-center space-x-3 titlebar-drag-handle">
-          {features.clipTypes && <span className="clip-type-badge theme-badge text-xs font-semibold px-2.5 py-1 rounded-md border capitalize titlebar-drag-handle">
+        <div className="me-3 flex min-w-0 flex-1 flex-nowrap items-center gap-3 overflow-hidden whitespace-nowrap titlebar-drag-handle">
+          {features.clipTypes && <span className="clip-type-badge theme-badge shrink-0 whitespace-nowrap text-xs font-semibold px-2.5 py-1 rounded-md border capitalize titlebar-drag-handle">
             {clip.content_type === 'file' && getClipFilePaths(clip).length > 1
               ? translate('component.clipPreview.files')
               : contentTypeLabel(structuralClipType(clip.content_type))}
@@ -1116,7 +1124,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
             <span
               key={contentType}
               title={contentMatchTitle(contentType, contentMatches)}
-              className="clip-type-badge theme-badge text-xs font-semibold px-2.5 py-1 rounded-md border titlebar-drag-handle"
+              className="clip-type-badge theme-badge shrink-0 whitespace-nowrap text-xs font-semibold px-2.5 py-1 rounded-md border titlebar-drag-handle"
             >
               {contentTypeLabel(contentType)}
             </span>
@@ -1124,7 +1132,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           {features.types && hiddenContentTypes.length > 0 && (
             <span
               title={hiddenContentTypes.map(contentTypeLabel).join(', ')}
-              className="clip-type-badge theme-badge text-xs font-semibold px-2.5 py-1 rounded-md border titlebar-drag-handle"
+              className="clip-type-badge theme-badge shrink-0 whitespace-nowrap text-xs font-semibold px-2.5 py-1 rounded-md border titlebar-drag-handle"
             >
               +{hiddenContentTypes.length}
             </span>
@@ -1189,8 +1197,22 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           >
             {copied ? <Check /> : <Copy />}
           </button>
+          {features.concealment && viewPolicy.canOrganize && <button
+            type="button"
+            onClick={() => onToggleConcealed(clip.id)}
+            className={`clip-preview-action preview-conceal-btn theme-focusable transition-colors ${concealment.effective ? 'is-active' : ''}`}
+            title={concealment.effective
+              ? translate('component.clipCard.revealSensitiveText')
+              : translate('action.conceal')}
+            aria-label={concealment.effective
+              ? translate('component.clipCard.revealSensitiveText')
+              : translate('action.conceal')}
+            aria-pressed={concealment.effective}
+          >
+            {concealment.effective ? <Eye /> : <EyeOff />}
+          </button>}
 
-          {viewPolicy.canOrganize && (features.pinning || features.protection) && (
+          {viewPolicy.canOrganize && (features.pinning || features.protection || features.concealment) && (
             <>
               {features.pinning && <button
                 type="button"

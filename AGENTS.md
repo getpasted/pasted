@@ -34,6 +34,14 @@ Pasted aims to make its meaningful clipboard-management capabilities available t
 - Mechanical utilities such as `divide-y` must be paired with the corresponding semantic class, such as `theme-divide`.
 - Keep the CSS architecture audit budgets ratcheting downward; never increase a debt budget to accommodate new styling.
 
+## Architecture and audit ratchets
+
+- Treat every source-size, dependency-boundary, hardcoded-copy, styling-debt, and similar audit threshold as a pre-edit constraint, not a failure to discover after implementation.
+- Before adding code to a file governed by a ratchet, inspect the applicable audit script and the file's current measurement. Account for the planned change and leave reasonable headroom.
+- If a governed file is at or near its limit, extract a cohesive capability or shared helper before adding the feature. Do not first grow the file past the limit and defer the extraction until the audit fails.
+- Never raise a ratchet, debt allowance, exception count, or line limit to accommodate a change. Do not game line-count limits by collapsing otherwise readable code; use a real module boundary.
+- Run the narrowest applicable audit immediately after the structural edit, then run the broader required suite once the focused ratchets pass.
+
 ## Time and timestamp handling
 
 - Store persisted instants as canonical UTC RFC 3339 strings ending in `Z`. Treat legacy SQLite `YYYY-MM-DD HH:MM:SS` values as UTC during a bounded migration; do not silently reinterpret them as local time.

@@ -6,6 +6,7 @@ export type FeatureId =
   | 'clipTypes'
   | 'fileFormats'
   | 'contentClassification'
+  | 'concealment'
   | 'notes'
   | 'notifications'
   | 'appLock'
@@ -31,6 +32,7 @@ export type FeatureSettingKey =
   | 'enableClipTypes'
   | 'enableFileFormats'
   | 'enableContentClassification'
+  | 'enableConcealment'
   | 'enableNotes'
   | 'enableNotifications'
   | 'enableAppLock'
@@ -80,6 +82,7 @@ export const FEATURE_DEFINITIONS: readonly FeatureDefinition[] = [
   { id: 'clipTypes', group: 'library', settingKey: 'enableClipTypes', label: 'Clip Types', description: 'Show structural Clip Types and their collections.', simple: false },
   { id: 'fileFormats', group: 'discovery', settingKey: 'enableFileFormats', label: 'File Formats', description: 'Identify file formats from their contents.', simple: false },
   { id: 'contentClassification', group: 'discovery', settingKey: 'enableContentClassification', label: 'Content Classification', description: 'Assign registered Content Types to analyzable text.', simple: true },
+  { id: 'concealment', group: 'library', settingKey: 'enableConcealment', label: 'Concealment', description: 'Hide the contents of configured Content Types and Bins until revealed.', simple: true },
   { id: 'notes', group: 'library', settingKey: 'enableNotes', label: 'Notes', description: 'Annotate clips and browse the Noted collection.', simple: false },
   { id: 'notifications', group: 'app', settingKey: 'enableNotifications', label: 'Notifications', description: 'Show interactive capture feedback without interrupting the current workflow.', simple: false },
   {
@@ -171,6 +174,7 @@ export function featureForRoute(route: string): FeatureId | null {
     sequential: 'queue',
     pinned: 'pinning',
     protected: 'protection',
+    concealed: 'concealment',
     notes: 'notes',
     trash: 'trash',
     bin: 'bins',

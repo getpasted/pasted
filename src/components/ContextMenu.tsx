@@ -21,9 +21,13 @@ import {
   Trash,
   Sparkles,
   Shield,
+  Eye,
+  EyeOff,
   RotateCcw,
   Check,
 } from 'lucide-react';
+import { useContentTypes } from './ContentTypeProvider';
+import { clipConcealmentPolicy } from '../utils/clipConcealment';
 
 interface ContextMenuProps {
   x: number;
@@ -44,6 +48,7 @@ interface ContextMenuProps {
   onToggleQueue: () => void;
   onTogglePin: () => void;
   onToggleProtected?: () => void;
+  onToggleConcealed?: () => void;
   onDelete: (e?: React.MouseEvent) => void;
   onRestore?: () => void;
   onPurge?: () => void;
@@ -69,18 +74,21 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   onToggleQueue,
   onTogglePin,
   onToggleProtected,
+  onToggleConcealed,
   onDelete,
   onRestore,
   onPurge,
   trashEnabled,
 }) => {
   const features = useFeatures();
+  const { definitions: contentTypes } = useContentTypes();
   const [activeSubmenu, setActiveSubmenu] = useState<'bins' | 'workflow' | null>(null);
   const [transforms, setTransforms] = useState<SavedTransform[]>([]);
   const [isLoadingTransforms, setIsLoadingTransforms] = useState(false);
   const isAltPressed = useAltKeyPressed();
   const protectedByBin = Boolean(clip.protecting_bin_ids?.length);
   const protectionToggleDisabled = Boolean(clip.hotkey) || protectedByBin;
+  const concealment = clipConcealmentPolicy(clip, bins, contentTypes);
 
   useEffect(() => {
     if (!features.transformations || !viewPolicy.canRunManualTransforms || clip.content_type === 'file') return;
@@ -116,7 +124,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           onCopy();
           onClose();
         }}
-        className="theme-menu-item flex w-full items-center justify-between rounded-md px-3 py-1.5"
+        className="theme-menu-item is-info flex w-full items-center justify-between rounded-md px-3 py-1.5"
       >
         <div className="flex items-center space-x-2.5">
           <Copy className="theme-status-info-text h-3.5 w-3.5" />
@@ -134,6 +142,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           icon={<FolderPlus className="theme-status-warning-text h-3.5 w-3.5" />}
           open={activeSubmenu === 'bins'}
           onOpenChange={(open) => setSubmenuOpen('bins', open)}
+          triggerClassName="is-warning"
         >
             <MenuItem
               onClick={() => {
@@ -199,6 +208,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           open={activeSubmenu === 'workflow'}
           onOpenChange={(open) => setSubmenuOpen('workflow', open)}
           panelClassName="w-60 max-h-64 overflow-y-auto"
+          triggerClassName="is-info"
         >
             <div>
               {isLoadingTransforms ? (
@@ -212,7 +222,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                       onRunTransform(transform);
                       onClose();
                     }}
-                    className="gap-2 px-2.5 py-1.5"
+                    className="is-info gap-2 px-2.5 py-1.5"
                   >
                     <Workflow className="theme-workflow-text h-3.5 w-3.5 shrink-0" />
                     <OverflowText text={transform.name} className="bidi-interface-align min-w-0 flex-1 truncate" />
@@ -229,7 +239,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                 onOpenTransformations();
                 onClose();
               }}
-              className="gap-2 px-2.5 py-1.5"
+              className="is-info gap-2 px-2.5 py-1.5"
             >
               <Workflow className="theme-workflow-text h-3.5 w-3.5 shrink-0" />
               <span>{translate('component.contextMenu.manageTransforms')}</span>
@@ -245,7 +255,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           onAddNote();
           onClose();
         }}
-        className="theme-menu-item w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md"
+        className="theme-menu-item is-note w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md"
       >
         <StickyNote className="theme-note-text w-3.5 h-3.5" />
         <span>{clip.note ? translate('action.editNote') : translate('action.addNote')}</span>
@@ -274,7 +284,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         role="menuitemcheckbox"
         aria-checked={isQueued}
         active={isQueued}
-        className="gap-2.5 px-3 py-1.5"
+        className="is-queue gap-2.5 px-3 py-1.5"
       >
         <ListPlus className="theme-queue-text w-3.5 h-3.5" />
         <span>{isQueued
@@ -292,7 +302,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         role="menuitemcheckbox"
         aria-checked={Boolean(clip.is_pinned)}
         active={Boolean(clip.is_pinned)}
-        className="gap-2.5 px-3 py-1.5"
+        className="is-success gap-2.5 px-3 py-1.5"
       >
         <Pin className="w-3.5 h-3.5 pin-icon" />
         <span>
@@ -323,7 +333,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             : protectedByBin
               ? translate('component.clipPreview.protectedByBin')
               : undefined}
-          className="gap-2.5 px-3 py-1.5"
+          className="is-info gap-2.5 px-3 py-1.5"
         >
           <Shield className="theme-status-info-text w-3.5 h-3.5" />
           <span>{clip.hotkey
@@ -332,6 +342,27 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
               ? translate('component.contextMenu.protectedByBin')
               : clip.is_protected ? translate('action.unprotect') : translate('action.protect')}</span>
           {clip.is_protected && <Check className="ms-auto h-3.5 w-3.5" aria-hidden="true" />}
+        </MenuItem>
+      )}
+
+      {features.concealment && viewPolicy.canOrganize && onToggleConcealed && (
+        <MenuItem
+          onClick={() => {
+            onToggleConcealed();
+            onClose();
+          }}
+          role="menuitemcheckbox"
+          aria-checked={concealment.effective}
+          active={concealment.effective}
+          className="is-warning gap-2.5 px-3 py-1.5"
+        >
+          {concealment.effective
+            ? <Eye className="theme-status-warning-text h-3.5 w-3.5" />
+            : <EyeOff className="theme-status-warning-text h-3.5 w-3.5" />}
+          <span>{concealment.effective
+            ? translate('component.clipCard.revealSensitiveText')
+            : translate('action.conceal')}</span>
+          {concealment.effective && <Check className="ms-auto h-3.5 w-3.5" aria-hidden="true" />}
         </MenuItem>
       )}
 
@@ -344,7 +375,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
               onRestore?.();
               onClose();
             }}
-          className="theme-menu-item flex w-full items-center space-x-2.5 rounded-md px-3 py-1.5"
+          className="theme-menu-item is-accent flex w-full items-center space-x-2.5 rounded-md px-3 py-1.5"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>{UI_COPY.restore}</span>

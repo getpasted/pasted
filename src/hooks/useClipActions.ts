@@ -6,6 +6,7 @@ import { sortClipsForTimeline } from '../utils/clipOrder';
 import { soundManager } from '../utils/sound';
 import { runTransformation } from '../utils/transformExecution';
 import { htmlToPlainText } from '../utils/plainText';
+import type { ClipPropertyAssociationId } from '../utils/clipPropertyAssociations';
 
 interface AssignOptions {
   includeSelection?: boolean;
@@ -31,6 +32,7 @@ interface ClipActionsInput {
   onCollectionChanged: () => Promise<void>;
   keepTrashedClipsVisible: boolean;
   onClipsRepositioned?: (ids: number[]) => void;
+  onClipPropertyRemoved?: (association: ClipPropertyAssociationId, ids: number[]) => void;
 }
 
 export function useClipActions({
@@ -52,6 +54,7 @@ export function useClipActions({
   onCollectionChanged,
   keepTrashedClipsVisible,
   onClipsRepositioned,
+  onClipPropertyRemoved,
 }: ClipActionsInput) {
   const [transformingClipIds, setTransformingClipIds] = useState<Set<number>>(() => new Set());
   const [transformErrorsByClipId, setTransformErrorsByClipId] = useState<Map<number, string>>(() => new Map());
@@ -89,9 +92,11 @@ export function useClipActions({
     const nextPinState = !(allClips.find((clip) => clip.id === id)?.is_pinned ?? false);
 
     const targetIdSet = new Set(targetIds);
-    onClipsRepositioned?.(allClips
+    const idsToChange = allClips
       .filter((clip) => targetIdSet.has(clip.id) && Boolean(clip.is_pinned) !== nextPinState)
-      .map((clip) => clip.id));
+      .map((clip) => clip.id);
+    onClipsRepositioned?.(idsToChange);
+    if (!nextPinState) onClipPropertyRemoved?.('pin', idsToChange);
     setAllClips((previous) => {
       const updated = previous.map((clip) => (
         targetIdSet.has(clip.id) ? { ...clip, is_pinned: nextPinState } : clip
@@ -124,13 +129,14 @@ export function useClipActions({
         console.error('Failed to update pinned state:', error);
         void fetchClips();
       });
-  }, [allClips, fetchClips, onClipsRepositioned, onCollectionChanged, selectedClipIds, setAllClips, setSelectedClip]);
+  }, [allClips, fetchClips, onClipPropertyRemoved, onClipsRepositioned, onCollectionChanged, selectedClipIds, setAllClips, setSelectedClip]);
 
   const toggleProtected = useCallback((id: number) => {
     const current = allClips.find((clip) => clip.id === id);
     const explicit = current?.is_explicitly_protected ?? current?.is_protected ?? false;
     if (!current || current.hotkey || current.protecting_bin_ids?.length) return;
     const nextExplicit = !explicit;
+    if (!nextExplicit) onClipPropertyRemoved?.('protect', [id]);
     const update = (clip: ClipItem) => clip.id === id ? {
       ...clip,
       is_explicitly_protected: nextExplicit,
@@ -149,7 +155,29 @@ export function useClipActions({
         console.error('Failed to toggle protected state:', error);
         void fetchClips();
       });
-  }, [allClips, fetchClips, onCollectionChanged, setAllClips, setSelectedClip]);
+  }, [allClips, fetchClips, onClipPropertyRemoved, onCollectionChanged, setAllClips, setSelectedClip]);
+
+  const toggleConcealed = useCallback((id: number) => {
+    const current = allClips.find((clip) => clip.id === id);
+    if (!current) return;
+    const nextConcealed = !Boolean(current.is_concealed);
+    if (!nextConcealed) onClipPropertyRemoved?.('conceal', [id]);
+    const update = (clip: ClipItem) => clip.id === id ? {
+      ...clip,
+      is_explicitly_concealed: nextConcealed,
+      is_explicitly_revealed: !nextConcealed,
+      is_concealed: nextConcealed,
+    } : clip;
+    setAllClips((previous) => previous.map(update));
+    setSelectedClip((previous) => previous?.id === id ? update(previous) : previous);
+
+    void invoke('toggle_clip_concealed', { clipId: id })
+      .then(onCollectionChanged)
+      .catch((error) => {
+        console.error('Failed to toggle concealed state:', error);
+        void fetchClips();
+      });
+  }, [allClips, fetchClips, onClipPropertyRemoved, onCollectionChanged, setAllClips, setSelectedClip]);
 
   const setPinned = useCallback((id: number, pinState: boolean) => {
     const targetIds = selectedClipIds.size > 1 && selectedClipIds.has(id)
@@ -163,6 +191,7 @@ export function useClipActions({
     const changedIdSet = new Set(idsToChange);
 
     onClipsRepositioned?.(idsToChange);
+    if (!pinState) onClipPropertyRemoved?.('pin', idsToChange);
     setAllClips((previous) => {
       const updated = previous.map((clip) => (
         changedIdSet.has(clip.id) ? { ...clip, is_pinned: pinState } : clip
@@ -192,7 +221,7 @@ export function useClipActions({
         console.error('Failed to set pinned state:', error);
         void fetchClips();
       });
-  }, [allClips, fetchClips, onClipsRepositioned, onCollectionChanged, selectedClipIds, setAllClips, setSelectedClip]);
+  }, [allClips, fetchClips, onClipPropertyRemoved, onClipsRepositioned, onCollectionChanged, selectedClipIds, setAllClips, setSelectedClip]);
 
   const setProtected = useCallback((id: number, protectedState: boolean) => {
     const targetIds = selectedClipIds.size > 1 && selectedClipIds.has(id)
@@ -206,6 +235,7 @@ export function useClipActions({
       .map((clip) => clip.id);
     if (idsToChange.length === 0) return;
     const changedIdSet = new Set(idsToChange);
+    if (!protectedState) onClipPropertyRemoved?.('protect', idsToChange);
 
     setAllClips((previous) => previous.map((clip) => (
       changedIdSet.has(clip.id) ? {
@@ -228,7 +258,35 @@ export function useClipActions({
         console.error('Failed to set protected state:', error);
         void fetchClips();
       });
-  }, [allClips, fetchClips, onCollectionChanged, selectedClipIds, setAllClips, setSelectedClip]);
+  }, [allClips, fetchClips, onClipPropertyRemoved, onCollectionChanged, selectedClipIds, setAllClips, setSelectedClip]);
+
+  const setConcealed = useCallback((id: number, concealedState: boolean) => {
+    const targetIds = selectedClipIds.size > 1 && selectedClipIds.has(id)
+      ? Array.from(selectedClipIds)
+      : [id];
+    const idsToChange = allClips
+      .filter((clip) => targetIds.includes(clip.id)
+        && Boolean(clip.is_concealed) !== concealedState)
+      .map((clip) => clip.id);
+    if (idsToChange.length === 0) return;
+    const changedIdSet = new Set(idsToChange);
+    if (!concealedState) onClipPropertyRemoved?.('conceal', idsToChange);
+    const update = (clip: ClipItem) => changedIdSet.has(clip.id) ? {
+      ...clip,
+      is_explicitly_concealed: concealedState,
+      is_explicitly_revealed: !concealedState,
+      is_concealed: concealedState,
+    } : clip;
+    setAllClips((previous) => previous.map(update));
+    setSelectedClip((previous) => previous ? update(previous) : previous);
+
+    void clipsApi.setConcealed(idsToChange, concealedState)
+      .then(onCollectionChanged)
+      .catch((error) => {
+        console.error('Failed to set concealed state:', error);
+        void fetchClips();
+      });
+  }, [allClips, fetchClips, onClipPropertyRemoved, onCollectionChanged, selectedClipIds, setAllClips, setSelectedClip]);
 
   const deleteClipIds = useCallback((requestedIds: number[], forcePermanent = false) => {
     const ids = requestedIds.filter((id) => !allClips.find((clip) => clip.id === id)?.is_protected);
@@ -571,8 +629,10 @@ export function useClipActions({
   return {
     togglePin,
     toggleProtected,
+    toggleConcealed,
     setPinned,
     setProtected,
+    setConcealed,
     deleteSelectedClips,
     deleteClip,
     copyClip,

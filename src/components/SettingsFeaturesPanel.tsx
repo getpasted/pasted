@@ -20,6 +20,7 @@ import {
   AppWindow,
   AudioLines,
   LockKeyhole,
+  EyeOff,
   Layers3,
   FileType2,
 } from 'lucide-react';
@@ -54,6 +55,7 @@ const FEATURE_KEYS: Record<FeatureId, { label: TranslationKey; description: Tran
   clipTypes: { label: 'feature.clipTypes.label', description: 'feature.clipTypes.description' },
   fileFormats: { label: 'feature.fileFormats.label', description: 'feature.fileFormats.description' },
   contentClassification: { label: 'feature.contentClassification.label', description: 'feature.contentClassification.description' },
+  concealment: { label: 'feature.concealment.label', description: 'feature.concealment.description' },
   notes: { label: 'feature.notes.label', description: 'feature.notes.description' },
   notifications: { label: 'feature.notifications.label', description: 'feature.notifications.description' },
   appLock: { label: 'feature.appLock.label', description: 'feature.appLock.description', caution: 'feature.appLock.caution' },
@@ -86,6 +88,7 @@ const FEATURE_ICONS = {
   clipTypes: Layers3,
   fileFormats: FileType2,
   contentClassification: ScanSearch,
+  concealment: EyeOff,
   notes: StickyNote,
   notifications: Bell,
   appLock: LockKeyhole,

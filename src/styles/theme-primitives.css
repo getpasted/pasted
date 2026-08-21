@@ -224,6 +224,16 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   color: var(--text-main);
 }
 
+.bin-setting-toggle-well {
+  transition: background-color 100ms ease, border-color 100ms ease;
+}
+
+.bin-setting-toggle-well:hover:not(.is-disabled),
+.bin-setting-toggle-well:focus-within:not(.is-disabled) {
+  background-color: var(--bg-card-hover);
+  border-color: var(--border-card-selected);
+}
+
 .theme-toolbar {
   background-color: var(--material-toolbar);
   border-color: var(--border-subtle);
@@ -1289,6 +1299,36 @@ option {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-primary) 42%, transparent);
 }
 
+.theme-menu-item.is-accent {
+  --menu-item-accent: color-mix(in srgb, var(--accent-primary) 45%, var(--text-title));
+}
+
+.theme-menu-item.is-info {
+  --menu-item-accent: color-mix(in srgb, var(--status-info) 45%, var(--text-title));
+}
+
+.theme-menu-item.is-success {
+  --menu-item-accent: color-mix(in srgb, var(--status-success) 45%, var(--text-title));
+}
+
+.theme-menu-item.is-warning {
+  --menu-item-accent: color-mix(in srgb, var(--status-warning) 45%, var(--text-title));
+}
+
+.theme-menu-item.is-note {
+  --menu-item-accent: color-mix(in srgb, var(--note-accent) 45%, var(--text-title));
+}
+
+.theme-menu-item.is-queue {
+  --menu-item-accent: color-mix(in srgb, var(--queue-accent) 45%, var(--text-title));
+}
+
+.theme-menu-item:is(.is-accent, .is-info, .is-success, .is-warning, .is-note, .is-queue),
+.theme-menu-item:is(.is-accent, .is-info, .is-success, .is-warning, .is-note, .is-queue):hover,
+.theme-menu-item:is(.is-accent, .is-info, .is-success, .is-warning, .is-note, .is-queue):focus-visible {
+  color: var(--menu-item-accent);
+}
+
 .theme-menu-item.is-selected {
   background-color: var(--menu-selected);
   color: var(--accent-primary);
@@ -1299,6 +1339,18 @@ option {
 .theme-menu-item.is-selected:focus-visible {
   background-color: var(--menu-selected-hover);
   color: var(--accent-primary);
+}
+
+.theme-menu-item:is(.is-accent, .is-info, .is-success, .is-warning, .is-note, .is-queue).is-selected {
+  background-color: color-mix(in srgb, var(--menu-item-accent) 12%, var(--menu-surface));
+  color: var(--menu-item-accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--menu-item-accent) 34%, var(--border-subtle));
+}
+
+.theme-menu-item:is(.is-accent, .is-info, .is-success, .is-warning, .is-note, .is-queue).is-selected:hover,
+.theme-menu-item:is(.is-accent, .is-info, .is-success, .is-warning, .is-note, .is-queue).is-selected:focus-visible {
+  background-color: color-mix(in srgb, var(--menu-item-accent) 16%, var(--menu-surface));
+  color: var(--menu-item-accent);
 }
 
 .theme-menu-item.theme-danger-text:hover,

@@ -72,7 +72,7 @@ assert.match(clipCard, /features\.clipTypes \|\| \(features\.types[\s\S]{0,260}s
   'Clip cards must independently gate structural and detected type chrome');
 assert.match(clipCard, /features\.sources && <span className="font-medium theme-text-main/,
   'Clip cards must hide Source chrome when Sources is disabled');
-assert.match(clipPreview, /features\.clipTypes && <span[\s\S]{0,300}contentTypeLabel\(structuralClipType\(clip\.content_type\)\)/,
+assert.match(clipPreview, /features\.clipTypes && <span[\s\S]{0,500}contentTypeLabel\(structuralClipType\(clip\.content_type\)\)/,
   'Clip Preview must hide structural Clip Type chrome when disabled');
 assert.match(clipPreview, /features\.types && visibleContentTypes\.map/,
   'Clip Preview must hide detected Content Types when Content Types is disabled');

@@ -39,7 +39,7 @@ export function resolveAppNavigationTarget(
 }
 
 export function isClipCollectionRoute(tab: string): boolean {
-  return ['all', 'sequential', 'pinned', 'protected', 'notes', 'trash', 'bin'].includes(tab)
+  return ['all', 'sequential', 'pinned', 'protected', 'concealed', 'notes', 'trash', 'bin'].includes(tab)
     || tab.startsWith('clip_type-')
     || tab.startsWith('content_type-')
     || tab.startsWith('file_format-')

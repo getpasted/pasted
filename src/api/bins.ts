@@ -17,6 +17,8 @@ export const binsApi = {
   updateHotkey: (id: number, hotkey: string | null) => invoke<void>('update_bin_hotkey', { id, hotkey }),
   updateProtection: (id: number, protectClips: boolean) =>
     invoke<void>('update_bin_protection', { id, protectClips }),
+  updateConcealment: (id: number, concealClips: boolean) =>
+    invoke<void>('update_bin_concealment', { id, concealClips }),
   setTransform: (binId: number, transformRef: string | null) =>
     invoke<void>('set_bin_transform_ref', { binId, transformRef }),
 };

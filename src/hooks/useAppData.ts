@@ -67,6 +67,7 @@ const EMPTY_COLLECTION_SUMMARY: ClipCollectionSummary = {
   trashCount: 0,
   pinnedCount: 0,
   protectedCount: 0,
+  concealedCount: 0,
   notedCount: 0,
   clipTypeCounts: [],
   fileFormatCounts: [],
@@ -231,7 +232,7 @@ export function useAppData() {
         trashed_at: null,
         bin_id: null,
       };
-      setAllClips((previous) => [restoredActiveClip, ...previous]);
+      setAllClips((previous) => sortClipsForTimeline([restoredActiveClip, ...previous]));
       setTotalClipCount((previous) => previous + 1);
     }
     try {

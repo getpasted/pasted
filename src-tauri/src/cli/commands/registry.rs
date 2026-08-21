@@ -1,6 +1,17 @@
 use super::super::*;
 use super::*;
 
+fn parse_optional_toggle(args: &[String], flag: &str) -> Option<bool> {
+    argument_value(args, flag).map(|value| match value.as_str() {
+        "on" | "true" | "yes" => true,
+        "off" | "false" | "no" => false,
+        _ => {
+            eprintln!("{flag} must be on or off.");
+            std::process::exit(2);
+        }
+    })
+}
+
 pub(crate) fn run_registry(args: Vec<String>, db_path: PathBuf, conn: Connection) -> Result<()> {
     drop(conn);
     let db = DbState::new(db_path.clone())?;
@@ -227,24 +238,29 @@ pub(crate) fn run_types(args: Vec<String>, db_path: PathBuf, conn: Connection) -
         }
         "create" => {
             let id = argument_value(&args, "--id").unwrap_or_else(|| {
-            eprintln!("Usage: pasted type create --id ID --name NAME [--icon ICON] [--group GROUP] [--json]");
+            eprintln!("Usage: pasted type create --id ID --name NAME [--icon ICON] [--group GROUP] [--conceal on|off] [--json]");
             std::process::exit(2);
         });
             let label = argument_value(&args, "--name").unwrap_or_else(|| {
                 eprintln!("Type creation requires --name.");
                 std::process::exit(2);
             });
+            let conceal_clips = parse_optional_toggle(&args, "--conceal");
+            if conceal_clips.is_some() {
+                require_feature(&db, Feature::Concealment);
+            }
             let created = db.create_content_type(&ContentTypeInput {
                 id,
                 label,
                 icon: argument_value(&args, "--icon").unwrap_or_else(|| "FileText".into()),
                 group: argument_value(&args, "--group").unwrap_or_else(|| "custom".into()),
+                conceal_clips: conceal_clips.unwrap_or(false),
             })?;
             print_content_type(&created, json)?;
         }
         "update" => {
             let id = args.get(3).cloned().unwrap_or_else(|| {
-            eprintln!("Usage: pasted type update <id> [--name NAME] [--icon ICON] [--group GROUP] [--json]");
+            eprintln!("Usage: pasted type update <id> [--name NAME] [--icon ICON] [--group GROUP] [--conceal on|off] [--json]");
             std::process::exit(2);
         });
             let current = db
@@ -255,6 +271,10 @@ pub(crate) fn run_types(args: Vec<String>, db_path: PathBuf, conn: Connection) -
                     eprintln!("Content type {id} was not found.");
                     std::process::exit(1);
                 });
+            let conceal_clips = parse_optional_toggle(&args, "--conceal");
+            if conceal_clips.is_some() {
+                require_feature(&db, Feature::Concealment);
+            }
             let updated = db.update_content_type(
                 &id,
                 &ContentTypeInput {
@@ -262,6 +282,7 @@ pub(crate) fn run_types(args: Vec<String>, db_path: PathBuf, conn: Connection) -
                     label: argument_value(&args, "--name").unwrap_or(current.label),
                     icon: argument_value(&args, "--icon").unwrap_or(current.icon),
                     group: argument_value(&args, "--group").unwrap_or(current.group),
+                    conceal_clips: conceal_clips.unwrap_or(current.conceal_clips.unwrap_or(false)),
                 },
             )?;
             print_content_type(&updated, json)?;

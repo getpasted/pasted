@@ -119,6 +119,9 @@ pub(crate) fn run_bins(args: Vec<String>, db_path: PathBuf, _conn: Connection) -
             if source.protect_clips {
                 db.update_bin_protection(duplicate.id, true)?;
             }
+            if source.conceal_clips {
+                db.update_bin_concealment(duplicate.id, true)?;
+            }
             print_bin(
                 &db.get_bin(duplicate.id)?,
                 args.iter().any(|argument| argument == "--json"),
@@ -269,8 +272,39 @@ pub(crate) fn run_bins(args: Vec<String>, db_path: PathBuf, _conn: Connection) -
                 println!("Disabled inherited protection for Bin #{bin_id}.");
             }
         }
+        "conceal" | "concealment" => {
+            require_feature(&db, Feature::Concealment);
+            let bin_id = parse_i64_argument(
+                &args,
+                3,
+                "Usage: pasted bin conceal <bin-id> <on|off> [--json]",
+            );
+            let value = args.get(4).map(String::as_str).unwrap_or_else(|| {
+                eprintln!("Usage: pasted bin conceal <bin-id> <on|off> [--json]");
+                std::process::exit(2);
+            });
+            let conceal_clips = match value {
+                "on" | "true" | "yes" => true,
+                "off" | "false" | "no" => false,
+                _ => {
+                    eprintln!("Bin concealment must be on or off.");
+                    std::process::exit(2);
+                }
+            };
+            db.update_bin_concealment(bin_id, conceal_clips)?;
+            if args.iter().any(|argument| argument == "--json") {
+                println!(
+                    "{}",
+                    serde_json::json!({ "binId": bin_id, "concealClips": conceal_clips })
+                );
+            } else if conceal_clips {
+                println!("Enabled inherited concealment for Bin #{bin_id}.");
+            } else {
+                println!("Disabled inherited concealment for Bin #{bin_id}.");
+            }
+        }
         _ => {
-            eprintln!("Usage: pasted bin list|get|create|update|duplicate|delete|clips|order|transform|hotkey|protect [options] [--json]");
+            eprintln!("Usage: pasted bin list|get|create|update|duplicate|delete|clips|order|transform|hotkey|protect|conceal [options] [--json]");
             std::process::exit(2);
         }
     }

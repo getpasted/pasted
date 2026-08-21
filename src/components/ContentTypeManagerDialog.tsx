@@ -16,6 +16,8 @@ import { ConnectedMenuAction } from './ConnectedMenuAction';
 import { ConfirmationDialog, type ConfirmationDialogRequest } from './ConfirmationDialog';
 import { translate } from '../localization/runtime';
 import { localizedContentTypeGroupLabel, localizedContentTypeLabel } from '../localization/presentation';
+import { SettingsSwitch } from './SettingsSwitch';
+import { useFeatures } from '../hooks/useFeatures';
 
 const ICONS = [
   'AlignLeft', 'AtSign', 'Binary', 'BookOpen', 'Box', 'Braces', 'Calendar',
@@ -28,11 +30,12 @@ const ICONS = [
   'Settings', 'Star', 'Tag', 'User', 'Wallet', 'Wrench', 'Zap',
 ];
 
-type TypeDraft = Pick<RegisteredContentType, 'id' | 'label' | 'icon' | 'group'>;
-const newDraft = (): TypeDraft => ({ id: '', label: '', icon: 'FileText', group: 'custom' });
+type TypeDraft = Pick<RegisteredContentType, 'id' | 'label' | 'icon' | 'group' | 'concealClips'>;
+const newDraft = (): TypeDraft => ({ id: '', label: '', icon: 'FileText', group: 'custom', concealClips: false });
 
 export function ContentTypeManagerDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { definitions, groups, refresh } = useContentTypes();
+  const features = useFeatures();
   const { showToast } = useToast();
   const [selectedId, setSelectedId] = useState<string | 'new'>('new');
   const selected = useMemo(() => definitions.find(({ id }) => id === selectedId), [definitions, selectedId]);
@@ -45,15 +48,16 @@ export function ContentTypeManagerDialog({ isOpen, onClose }: { isOpen: boolean;
     if (!isOpen) return;
     void refresh().then((loaded) => setSelectedId((current) => current === 'new' ? loaded[0]?.id ?? 'new' : current));
   }, [isOpen, refresh]);
-  useLayoutEffect(() => { setDraft(selected ? { id: selected.id, label: selected.label, icon: selected.icon, group: selected.group } : newDraft()); }, [selected]);
+  useLayoutEffect(() => { setDraft(selected ? { id: selected.id, label: selected.label, icon: selected.icon, group: selected.group, concealClips: selected.concealClips } : newDraft()); }, [selected]);
 
   const comparisonDraft = selectedId === 'new'
     ? null
-    : selected?.isBuiltin ? selected.defaults : selected ? { id: selected.id, label: selected.label, icon: selected.icon, group: selected.group } : null;
+    : selected?.isBuiltin ? selected.defaults : selected ? { id: selected.id, label: selected.label, icon: selected.icon, group: selected.group, concealClips: selected.concealClips } : null;
   const modified = {
     label: comparisonDraft !== null && draft.label.trim() !== comparisonDraft.label,
     icon: comparisonDraft !== null && draft.icon !== comparisonDraft.icon,
     group: comparisonDraft !== null && draft.group !== comparisonDraft.group,
+    concealClips: comparisonDraft !== null && draft.concealClips !== comparisonDraft.concealClips,
   };
   const hasModifiedFields = Object.values(modified).some(Boolean);
 
@@ -168,6 +172,17 @@ export function ContentTypeManagerDialog({ isOpen, onClose }: { isOpen: boolean;
                 </ConnectedMenuAction>
               </div>
             </div>
+            {features.concealment && <div className={`theme-subtle-surface flex items-center justify-between gap-3 rounded-lg border p-3 ${modified.concealClips ? 'settings-field-modified' : ''}`}>
+              <div className="min-w-0">
+                <ModifiedFieldLabel modified={modified.concealClips}>{translate('component.contentTypeManagerDialog.concealClips')}</ModifiedFieldLabel>
+                <p className="mt-0.5 text-[11px] theme-text-muted">{translate('component.contentTypeManagerDialog.concealClipsDescription')}</p>
+              </div>
+              <SettingsSwitch
+                checked={draft.concealClips}
+                label={translate('component.contentTypeManagerDialog.concealClips')}
+                onClick={() => setDraft({ ...draft, concealClips: !draft.concealClips })}
+              />
+            </div>}
             <div className="theme-subtle-surface rounded-lg border p-3 text-[11px] leading-relaxed">
               {selected?.isBuiltin ? translate('component.contentTypeManagerDialog.builtInIdsCannotBeChangedOrArchivedTheirNameIconAnd') : translate('component.contentTypeManagerDialog.customContentTypesCanBeArchivedWithoutChangingHistoricalClipsArchivingAlso')}
             </div>

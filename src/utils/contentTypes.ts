@@ -6,6 +6,7 @@ export interface ContentTypeDescriptor {
   label: string;
   icon: string;
   group: 'General' | 'Developer' | 'Personal and financial' | 'Identifiers';
+  concealClips?: boolean;
 }
 
 export const CONTENT_TYPES: readonly ContentTypeDescriptor[] = [
@@ -19,10 +20,10 @@ export const CONTENT_TYPES: readonly ContentTypeDescriptor[] = [
   { value: 'shell_command', label: 'Shell Command', icon: 'TerminalSquare', group: 'Developer' },
   { value: 'env_variable', label: 'Environment Variable', icon: 'Variable', group: 'Developer' },
   { value: 'env_block', label: 'Environment Block', icon: 'FileCode2', group: 'Developer' },
-  { value: 'credential', label: 'Credential', icon: 'KeyRound', group: 'Personal and financial' },
-  { value: 'payment_card', label: 'Payment Card', icon: 'CreditCard', group: 'Personal and financial' },
+  { value: 'credential', label: 'Credential', icon: 'KeyRound', group: 'Personal and financial', concealClips: true },
+  { value: 'payment_card', label: 'Payment Card', icon: 'CreditCard', group: 'Personal and financial', concealClips: true },
   { value: 'iban', label: 'IBAN', icon: 'Landmark', group: 'Personal and financial' },
-  { value: 'jwt', label: 'JSON Web Token', icon: 'ShieldKeyhole', group: 'Identifiers' },
+  { value: 'jwt', label: 'JSON Web Token', icon: 'ShieldKeyhole', group: 'Identifiers', concealClips: true },
   { value: 'hash', label: 'Hash', icon: 'Hash', group: 'Identifiers' },
   { value: 'ip_address', label: 'IP Address', icon: 'Network', group: 'Identifiers' },
   { value: 'mac_address', label: 'MAC Address', icon: 'Router', group: 'Identifiers' },
@@ -36,8 +37,7 @@ interface RuntimeContentTypeLabel {
 }
 
 let contentTypeLabels = new Map<string, RuntimeContentTypeLabel>(CONTENT_TYPES.map(({ value, label }) => [value, { label, isBuiltin: true, defaultLabel: label }]));
-
-export function setRuntimeContentTypes(definitions: ReadonlyArray<{ id: string; label: string; isBuiltin?: boolean; defaults?: { label: string } | null }>): void {
+export function setRuntimeContentTypes(definitions: ReadonlyArray<{ id: string; label: string; concealClips?: boolean; isBuiltin?: boolean; defaults?: { label: string } | null }>): void {
   contentTypeLabels = new Map(definitions.map(({ id, label, isBuiltin = false, defaults }) => [id, {
     label,
     isBuiltin,
@@ -54,8 +54,4 @@ export function contentTypeLabel(type: string): string {
 
 export function structuralClipType(type: string): 'text' | 'image' | 'file' {
   return type === 'image' || type === 'file' ? type : 'text';
-}
-
-export function isSensitiveContentType(type: ClipContentType): boolean {
-  return type === 'credential' || type === 'payment_card' || type === 'jwt';
 }

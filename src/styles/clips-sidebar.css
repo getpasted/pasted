@@ -525,15 +525,6 @@
   border-color: var(--code-border);
 }
 
-.clip-sensitive-action {
-  color: var(--status-warning);
-}
-
-.clip-sensitive-action:hover {
-  background-color: color-mix(in srgb, var(--status-warning) 14%, transparent);
-  color: var(--text-title);
-}
-
 .clip-note-summary {
   border-color: color-mix(in srgb, var(--note-accent) 26%, transparent);
 }

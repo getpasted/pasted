@@ -1,0 +1,40 @@
+export type MockClip = {
+  id: number;
+  text_content: string;
+  content_type: string;
+  content_types?: string[];
+  file_formats?: string[];
+  source: string;
+  created_at: string;
+  char_count: number;
+  word_count: number;
+  line_count: number;
+  is_pinned: number;
+  is_protected: number;
+  is_concealed?: number;
+  is_explicitly_concealed?: boolean;
+  is_explicitly_revealed?: boolean;
+  is_explicitly_protected?: boolean;
+  protecting_bin_ids?: number[];
+  hotkey?: string | null;
+  is_transformed?: number;
+  pin_order: number;
+  is_trashed: number;
+  trashed_at?: string | null;
+  bin_id: number | null;
+  bin_ids: number[];
+  note?: string | null;
+};
+
+export type MockBin = {
+  id: number;
+  name: string;
+  icon: string;
+  color: string;
+  smart_rule: string | null;
+  bin_type: string;
+  clip_order?: number[];
+  protect_clips?: boolean;
+  conceal_clips?: boolean;
+  hotkey?: string | null;
+};

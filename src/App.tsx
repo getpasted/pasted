@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { safeInvoke as invoke } from './utils/tauri';
 import { ClipItem, Bin } from './types';
 import { Sidebar } from './components/Sidebar';
@@ -29,22 +29,11 @@ import { translate } from './localization/runtime';
 import { MacRtlWindowControls } from './components/MacRtlWindowControls';
 import { SearchErrorNotice } from './components/SearchErrorNotice';
 import { clipsApi } from './api/clips';
-import { useAppNavigation } from './hooks/useAppNavigation';
-import { useAppShell } from './hooks/useAppShell';
-import { useAppMenuActions } from './hooks/useAppMenuActions';
-import { useClipSelectionController } from './hooks/useClipSelectionController';
-import { useClipListViewport } from './hooks/useClipListViewport';
+import { useAppMenuActions, useAppNavigation, useAppOverlays, useAppShell, useClipDragController, useClipHistoryFocus, useClipListViewport, useClipReordering, useClipSelectionController, useCopyQueueController } from './hooks/appControllers';
 import { ClipBatchActionBar } from './components/ClipBatchActionBar';
-import { useAppOverlays } from './hooks/useAppOverlays';
-import { useClipReordering } from './hooks/useClipReordering';
 import { ClipDragPreview } from './components/ClipDragPreview';
-import { useClipDragController } from './hooks/useClipDragController';
 import { AppDialogLayer } from './components/AppDialogLayer';
-const TransformationsView = lazy(() => import('./components/TransformationsView').then(({ TransformationsView: component }) => ({ default: component })));
-const SettingsModal = lazy(() => import('./components/SettingsModal').then(({ SettingsModal: component }) => ({ default: component })));
-const ActivityLogView = lazy(() => import('./components/ActivityLogView').then(({ ActivityLogView: component }) => ({ default: component })));
-const AnalyticsView = lazy(() => import('./components/AnalyticsView').then(({ AnalyticsView: component }) => ({ default: component })));
-const HelpView = lazy(() => import('./components/HelpView').then(({ HelpView: component }) => ({ default: component })));
+import { ActivityLogView, AnalyticsView, HelpView, SettingsModal, TransformationsView } from './components/AppDestinations';
 
 export default function App() {
   const { catalogReady, direction, locale } = useLocalization();
@@ -92,7 +81,7 @@ export default function App() {
     fetchManualTransforms,
     fetchSequentialStatus,
     toggleClipboardPause: handleToggleClipboardPause,
-    restoreClip: handleRestoreClip,
+    restoreClip: restoreClipInData,
     purgeClipPermanently: handlePurgeClipPermanently,
     emptyTrash: handleEmptyTrash,
   } = useAppData();
@@ -108,6 +97,7 @@ export default function App() {
   const [selectedClipIds, setSelectedClipIds] = useState<Set<number>>(new Set());
   const {
     currentTab,
+    setCurrentTab,
     activeSettingsTab,
     setActiveSettingsTab,
     activeHelpTopic,
@@ -162,27 +152,13 @@ export default function App() {
     notesEnabled: enabledFeatures.notes,
   });
 
-  const handleToggleCopyQueue = async () => {
-    if (!enabledFeatures.queue) return;
-    try {
-      if (seqStatus?.is_active) {
-        await invoke('stop_sequential_paste');
-      } else {
-        await invoke('start_sequential_paste');
-        navigateToTab('sequential');
-        setSelectedBinId(null);
-      }
-      fetchSequentialStatus();
-    } catch (e) {
-      console.error('Failed to toggle copy queue:', e);
-    }
-  };
-
-  useEffect(() => {
-    if (!enabledFeatures.queue && seqStatus?.is_active) {
-      void invoke('stop_sequential_paste').then(fetchSequentialStatus).catch(console.error);
-    }
-  }, [enabledFeatures.queue, fetchSequentialStatus, seqStatus?.is_active]);
+  const handleToggleCopyQueue = useCopyQueueController({
+    enabled: enabledFeatures.queue,
+    active: Boolean(seqStatus?.is_active),
+    navigateToTab,
+    setSelectedBinId,
+    refreshStatus: fetchSequentialStatus,
+  });
 
   const handleSidebarNavigate = useCallback((route: string) => {
     setBinContextMenu(null);
@@ -226,6 +202,14 @@ export default function App() {
     () => getClipCollection(currentTab, selectedBinId === null ? undefined : bins.find((bin) => bin.id === selectedBinId)),
     [bins, currentTab, locale, selectedBinId],
   );
+  const clipHistoryFocus = useClipHistoryFocus({
+    currentTab,
+    currentAssociation: currentCollection?.association,
+    selectedClip,
+    setCurrentTab,
+    setSelectedBinId,
+    restoreClip: restoreClipInData,
+  });
   const {
     clipListRef,
     handleClipListScroll,
@@ -251,6 +235,7 @@ export default function App() {
     loadMoreClips,
     loadMoreTrashedClips,
     loadMoreSearchResults,
+    focusRequest: clipHistoryFocus.focusRequest,
   });
   const {
     binClipReorder,
@@ -280,8 +265,10 @@ export default function App() {
   const {
     togglePin: handleTogglePin,
     toggleProtected: handleToggleProtected,
+    toggleConcealed: handleToggleConcealed,
     setPinned: handleSetPinned,
     setProtected: handleSetProtected,
+    setConcealed: handleSetConcealed,
     deleteSelectedClips: handleBatchTrash,
     deleteClip: handleDeleteClip,
     copyClip: handleCopyClip,
@@ -313,6 +300,7 @@ export default function App() {
     onCollectionChanged: fetchClipCollectionSummary,
     keepTrashedClipsVisible: currentTab === 'search',
     onClipsRepositioned: requestRepositionedClipReveal,
+    onClipPropertyRemoved: clipHistoryFocus.handlePropertyRemoved,
   });
 
   const {
@@ -334,6 +322,7 @@ export default function App() {
     copyClip: handleCopyClip,
     deleteClip: handleDeleteClip,
     purgeClipPermanently: handlePurgeClipPermanently,
+    focusRequest: clipHistoryFocus.focusRequest,
   });
 
   const handleSetSelectedPinned = useCallback((pinned: boolean) => {
@@ -376,10 +365,12 @@ export default function App() {
     queueEnabled: enabledFeatures.queue,
     pinningEnabled: enabledFeatures.pinning,
     protectionEnabled: enabledFeatures.protection,
+    concealmentEnabled: enabledFeatures.concealment,
     assignClipToBin,
     addToQueue: handleAddToSequentialStack,
     setPinned: handleSetPinned,
     setProtected: handleSetProtected,
+    setConcealed: handleSetConcealed,
     deleteClip: handleDeleteClip,
   });
 
@@ -476,6 +467,7 @@ export default function App() {
           y={clipDragPreview.y}
           batchCount={selectedClipIds.has(draggedPreviewClip.id) ? selectedClipIds.size : 1}
           showSource={enabledFeatures.sources}
+          concealed={enabledFeatures.concealment && Boolean(draggedPreviewClip.is_concealed)}
         />
       )}
       {/* Inline-start application sidebar; platform CSS reserves mirrored macOS traffic lights. */}
@@ -508,6 +500,7 @@ export default function App() {
         onClearHistory={handleRequestClearHistory}
         pinnedCount={clipCollectionSummary.pinnedCount}
         protectedCount={clipCollectionSummary.protectedCount}
+        concealedCount={clipCollectionSummary.concealedCount}
         notesCount={clipCollectionSummary.notedCount}
         trashedCount={totalTrashCount}
         totalClipCount={totalClipCount}
@@ -531,7 +524,7 @@ export default function App() {
       )}
 
       {/* Main Content Area */}
-      <Suspense fallback={null}>{currentTab === 'transformations' ? (
+      {currentTab === 'transformations' ? (
         <TransformationsView
           manualTransforms={manualTransforms}
           onRefreshManualTransforms={fetchManualTransforms}
@@ -796,8 +789,9 @@ export default function App() {
                       onSelect={handleClipSelect}
                       onPin={() => handleTogglePin(clip.id)}
                       onToggleProtected={() => handleToggleProtected(clip.id)}
+                      onToggleConcealed={() => handleToggleConcealed(clip.id)}
                       onDelete={(e) => handleDeleteClip(clip.id, e?.altKey)}
-                      onRestore={() => handleRestoreClip(clip.id)}
+                      onRestore={() => clipHistoryFocus.restoreClipToHistory(clip.id)}
                       onPurgePermanently={() => handlePurgeClipPermanently(clip.id)}
                       onRemoveFromQueue={() => {
                         const idx = queueIndex !== undefined ? queueIndex - 1 : -1;
@@ -867,6 +861,7 @@ export default function App() {
             onRemoveBin={removeClipFromBin}
             onTogglePin={handleTogglePin}
             onToggleProtected={handleToggleProtected}
+            onToggleConcealed={handleToggleConcealed}
             onDeleteClip={selectedClipViewPolicy.state === 'trash' ? handlePurgeClipPermanently : handleDeleteClip}
             onUpdateClipNote={handleUpdateClipNoteLocally}
             isTransforming={selectedClip ? transformingClipIds.has(selectedClip.id) : false}
@@ -878,7 +873,7 @@ export default function App() {
             filePreviewMaxMb={appSettings.filePreviewMaxMb}
           />
         </div>
-      )}</Suspense>
+      )}
 
       {/* Right Click Context Menu */}
       {contextMenu && currentContextMenuClip && (
@@ -905,8 +900,9 @@ export default function App() {
           onToggleQueue={() => void handleToggleSequentialStack(currentContextMenuClip)}
           onTogglePin={() => handleTogglePin(currentContextMenuClip.id)}
           onToggleProtected={() => handleToggleProtected(currentContextMenuClip.id)}
+          onToggleConcealed={() => handleToggleConcealed(currentContextMenuClip.id)}
           onDelete={(e) => handleDeleteClip(currentContextMenuClip.id, e?.altKey)}
-          onRestore={() => handleRestoreClip(currentContextMenuClip.id)}
+          onRestore={() => clipHistoryFocus.restoreClipToHistory(currentContextMenuClip.id)}
           onPurge={() => handlePurgeClipPermanently(currentContextMenuClip.id)}
           trashEnabled={appSettings.enableTrash}
         />

@@ -10,7 +10,8 @@ export interface RegisteredContentType {
   group: string;
   isBuiltin: boolean;
   isArchived: boolean;
-  defaults: Pick<RegisteredContentType, 'label' | 'icon' | 'group'> | null;
+  concealClips: boolean;
+  defaults: Pick<RegisteredContentType, 'label' | 'icon' | 'group' | 'concealClips'> | null;
 }
 
 export interface RegisteredContentTypeGroup {
@@ -22,9 +23,9 @@ export interface RegisteredContentTypeGroup {
   defaults: Pick<RegisteredContentTypeGroup, 'label' | 'sortOrder'> | null;
 }
 
-const fallbackTypes: RegisteredContentType[] = CONTENT_TYPES.map(({ value, label, icon, group }) => {
+const fallbackTypes: RegisteredContentType[] = CONTENT_TYPES.map(({ value, label, icon, group, concealClips = false }) => {
   const groupId = group.toLowerCase().replace(/ & /g, '_').replace(/ /g, '_');
-  return { id: value, label, icon, group: groupId, isBuiltin: true, isArchived: false, defaults: { label, icon, group: groupId } };
+  return { id: value, label, icon, group: groupId, concealClips, isBuiltin: true, isArchived: false, defaults: { label, icon, group: groupId, concealClips } };
 });
 
 const fallbackGroups: RegisteredContentTypeGroup[] = [

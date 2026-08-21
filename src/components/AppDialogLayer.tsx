@@ -103,6 +103,7 @@ export function AppDialogLayer({
           fileFormats: features.fileFormats,
           sources: features.sources,
           protection: features.protection,
+          concealment: features.concealment,
           types: features.types,
         }}
         fileFormats={clipCollectionSummary.fileFormatCounts.map(({ file_format }) => file_format)}

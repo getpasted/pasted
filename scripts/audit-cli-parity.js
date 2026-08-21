@@ -13,14 +13,7 @@ const database = [
   'src-tauri/src/db/settings.rs',
 ].map(read).join('\n');
 const libraryItems = read('src-tauri/src/library_items.rs');
-const commands = [
-  'src-tauri/src/commands.rs',
-  'src-tauri/src/commands/activity.rs',
-  'src-tauri/src/commands/analysis.rs',
-  'src-tauri/src/commands/content_registry.rs',
-  'src-tauri/src/commands/extractors.rs',
-  'src-tauri/src/commands/retention.rs',
-].map(read).join('\n');
+const commands = readRustModuleTree('src-tauri/src/commands.rs', 'src-tauri/src/commands');
 const analysis = read('src-tauri/src/content_analysis.rs');
 const analysisContract = read('src-tauri/src/analysis_contract.rs');
 const analysisExecution = read('src-tauri/src/analysis_execution.rs');
