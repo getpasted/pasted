@@ -1,4 +1,3 @@
-use arboard::Clipboard;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -15,12 +14,15 @@ pub(crate) mod app_lock;
 pub(crate) mod backups;
 pub(crate) mod clip_metadata;
 pub(crate) mod clip_policies;
+pub(crate) mod clipboard;
 pub(crate) mod clips;
 pub(crate) mod content_registry;
 pub(crate) mod extraction;
 pub(crate) mod extractors;
 pub(crate) mod factory_reset;
 pub(crate) mod file_previews;
+pub(crate) mod hotkeys;
+pub(crate) mod hud;
 pub(crate) mod imports;
 pub(crate) mod intelligence;
 pub(crate) mod manual_transforms;
@@ -32,8 +34,11 @@ pub(crate) mod storage;
 pub(crate) mod transformations;
 
 pub(crate) use backups::*;
+pub(crate) use clipboard::*;
 pub(crate) use extraction::*;
 pub(crate) use factory_reset::*;
+pub(crate) use hotkeys::*;
+pub(crate) use hud::*;
 pub(crate) use imports::*;
 pub(crate) use intelligence::*;
 pub(crate) use manual_transforms::*;
@@ -261,91 +266,6 @@ pub fn get_all_app_settings(
 }
 
 #[tauri::command]
-pub fn copy_clip_to_system(
-    text: Option<String>,
-    image_base64: Option<String>,
-    file_paths: Option<Vec<String>>,
-) -> Result<(), String> {
-    let mut clipboard = Clipboard::new().map_err(|e| e.to_string())?;
-
-    if let Some(paths) = file_paths {
-        if paths.is_empty() || !crate::resource_limits::file_list_within_limit(&paths) {
-            return Err("File list exceeds Pasted's safety limit".to_string());
-        }
-        clipboard
-            .set()
-            .file_list(&paths)
-            .map_err(|error| error.to_string())?;
-    } else if let Some(img_b64) = image_base64 {
-        // Strip data:image/png;base64,
-        let clean = img_b64.split(',').next_back().unwrap_or(&img_b64);
-        if clean.len() > crate::resource_limits::MAX_STORED_IMAGE_BASE64_BYTES {
-            return Err("Clip image exceeds Pasted's safety limit".to_string());
-        }
-        let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, clean)
-            .map_err(|e| e.to_string())?;
-
-        let img = image::load_from_memory(&bytes).map_err(|e| e.to_string())?;
-        let rgba = img.to_rgba8();
-        let img_data = arboard::ImageData {
-            width: rgba.width() as usize,
-            height: rgba.height() as usize,
-            bytes: std::borrow::Cow::Owned(rgba.into_raw()),
-        };
-        clipboard.set_image(img_data).map_err(|e| e.to_string())?;
-    } else if let Some(t) = text {
-        if t.len() > crate::resource_limits::MAX_CLIP_TEXT_BYTES {
-            return Err("Clip text exceeds Pasted's safety limit".to_string());
-        }
-        clipboard.set_text(t).map_err(|e| e.to_string())?;
-    }
-
-    Ok(())
-}
-
-#[tauri::command]
-pub fn copy_clip_by_id(
-    clip_id: i64,
-    db: State<'_, Arc<DbState>>,
-    sequential: State<'_, Arc<SequentialQueueState>>,
-) -> Result<(), String> {
-    copy_clip_by_id_shared(&db, &sequential, clip_id)
-}
-
-pub(crate) fn copy_clip_by_id_shared(
-    db: &DbState,
-    sequential: &SequentialQueueState,
-    clip_id: i64,
-) -> Result<(), String> {
-    crate::clipboard_actions::copy_clip(db, sequential, clip_id)
-}
-
-#[tauri::command]
-pub fn paste_text_to_frontmost(text: String, app: AppHandle) -> Result<(), String> {
-    if text.len() > crate::resource_limits::MAX_CLIP_TEXT_BYTES {
-        return Err("Clip text exceeds Pasted's 8 MB safety limit".to_string());
-    }
-    let mut clipboard = Clipboard::new().map_err(|error| error.to_string())?;
-    clipboard
-        .set_text(text)
-        .map_err(|error| error.to_string())?;
-
-    if let Some(hud) = app.get_webview_window("hud") {
-        let _ = hud.hide();
-    }
-    if let Some(main) = app.get_webview_window("main") {
-        let _ = main.hide();
-    }
-
-    std::thread::spawn(|| {
-        std::thread::sleep(std::time::Duration::from_millis(50));
-        let _ = crate::paste_automation::paste();
-    });
-
-    Ok(())
-}
-
-#[tauri::command]
 pub fn get_bins(db: State<'_, Arc<DbState>>) -> Result<Vec<Bin>, String> {
     db.get_bins().map_err(|e| e.to_string())
 }
@@ -492,186 +412,6 @@ pub fn update_clip_hotkey(
     Ok(clip)
 }
 
-// Window & Activation Policy Commands
-#[tauri::command]
-pub fn toggle_hud_window(app: AppHandle) -> Result<(), String> {
-    crate::hud_window::require_unlocked(&app)?;
-    let db = app.state::<Arc<DbState>>();
-    features::require(&db, Feature::Hud)?;
-    if let Some(window) = app.get_webview_window("hud") {
-        let is_vis = window.is_visible().unwrap_or(false);
-        if is_vis {
-            let _ = window.hide();
-        } else {
-            #[cfg(target_os = "macos")]
-            let mut pos_payload: Option<serde_json::Value> = None;
-
-            #[cfg(target_os = "macos")]
-            {
-                #[repr(C)]
-                #[derive(Copy, Clone, Debug)]
-                struct LocalPoint {
-                    x: f64,
-                    y: f64,
-                }
-
-                #[repr(C)]
-                #[derive(Copy, Clone, Debug)]
-                struct LocalSize {
-                    width: f64,
-                    height: f64,
-                }
-
-                #[repr(C)]
-                #[derive(Copy, Clone, Debug)]
-                struct LocalRect {
-                    origin: LocalPoint,
-                    size: LocalSize,
-                }
-
-                use objc::runtime::{Class, Object};
-                use objc::{msg_send, sel, sel_impl};
-
-                unsafe {
-                    if let Some(event_class) = Class::get("NSEvent") {
-                        let loc: LocalPoint = msg_send![event_class, mouseLocation];
-
-                        let screens_class = Class::get("NSScreen");
-                        if let Some(screens_cls) = screens_class {
-                            let screens_array: *mut Object = msg_send![screens_cls, screens];
-                            let screen_count: usize = msg_send![screens_array, count];
-
-                            let mut target_screen: Option<*mut Object> = None;
-                            let mut primary_height = 1080.0;
-
-                            if screen_count > 0 {
-                                let first_screen: *mut Object =
-                                    msg_send![screens_array, objectAtIndex: 0usize];
-                                let first_frame: LocalRect = msg_send![first_screen, frame];
-                                primary_height = first_frame.size.height;
-                            }
-
-                            for i in 0..screen_count {
-                                let screen: *mut Object =
-                                    msg_send![screens_array, objectAtIndex: i];
-                                let frame: LocalRect = msg_send![screen, frame];
-                                if loc.x >= frame.origin.x
-                                    && loc.x <= frame.origin.x + frame.size.width
-                                    && loc.y >= frame.origin.y
-                                    && loc.y <= frame.origin.y + frame.size.height
-                                {
-                                    target_screen = Some(screen);
-                                    break;
-                                }
-                            }
-
-                            let active_screen =
-                                target_screen.unwrap_or_else(|| msg_send![screens_cls, mainScreen]);
-
-                            if !active_screen.is_null() {
-                                let vis_frame: LocalRect = msg_send![active_screen, visibleFrame];
-
-                                let mouse_top_y = primary_height - loc.y;
-                                let vis_top =
-                                    primary_height - (vis_frame.origin.y + vis_frame.size.height);
-                                let vis_bottom = primary_height - vis_frame.origin.y;
-                                let vis_left = vis_frame.origin.x;
-                                let vis_right = vis_frame.origin.x + vis_frame.size.width;
-
-                                let hud_width = 360.0;
-                                let hud_height = 440.0;
-
-                                // Horizontal positioning (centered on cursor) & clamping
-                                let mut target_x = loc.x - (hud_width / 2.0);
-                                target_x = target_x.clamp(
-                                    vis_left + 8.0,
-                                    (vis_right - hud_width - 8.0).max(vis_left + 8.0),
-                                );
-
-                                // Vertical positioning & dynamic flip if near bottom edge
-                                let mut target_y = mouse_top_y + 8.0;
-                                if target_y + hud_height > vis_bottom - 8.0 {
-                                    target_y = mouse_top_y - hud_height - 8.0;
-                                }
-                                target_y = target_y.clamp(
-                                    vis_top + 8.0,
-                                    (vis_bottom - hud_height - 8.0).max(vis_top + 8.0),
-                                );
-
-                                let is_flipped = target_y < mouse_top_y;
-                                let payload = serde_json::json!({
-                                    "flipped": is_flipped,
-                                    "cursorX": loc.x,
-                                    "cursorY": mouse_top_y,
-                                    "targetX": target_x,
-                                    "targetY": target_y
-                                });
-                                let _ = window.emit("hud_position_updated", payload.clone());
-                                pos_payload = Some(payload);
-
-                                if let Ok(ns_win_ptr) = window.ns_window() {
-                                    let ns_win = ns_win_ptr as *mut Object;
-                                    let _: () = msg_send![ns_win, setHasShadow: 0i8];
-                                    let _: () = msg_send![ns_win, setAlphaValue: 0.0f64];
-                                    let cocoa_y = primary_height - target_y - hud_height;
-                                    let origin = LocalPoint {
-                                        x: target_x,
-                                        y: cocoa_y,
-                                    };
-                                    let _: () = msg_send![ns_win, setFrameOrigin: origin];
-                                }
-
-                                let _ = window.set_position(tauri::Position::Logical(
-                                    tauri::LogicalPosition {
-                                        x: target_x,
-                                        y: target_y,
-                                    },
-                                ));
-                            }
-                        }
-                    }
-                }
-            }
-
-            crate::hud_window::reveal(&app)?;
-            #[cfg(target_os = "macos")]
-            {
-                if let Ok(ns_win_ptr) = window.ns_window() {
-                    use objc::runtime::Object;
-                    use objc::{msg_send, sel, sel_impl};
-                    unsafe {
-                        let ns_win = ns_win_ptr as *mut Object;
-                        let _: () = msg_send![ns_win, setAlphaValue: 1.0f64];
-                    }
-                }
-                if let Some(payload) = pos_payload {
-                    let _ = window.emit("hud_position_updated", payload);
-                }
-            }
-        }
-    } else {
-        return Err("HUD window is unavailable".to_string());
-    }
-    Ok(())
-}
-
-#[tauri::command]
-pub fn paste_clip_by_id(
-    clip_id: i64,
-    db: State<'_, Arc<DbState>>,
-    app: AppHandle,
-) -> Result<(), String> {
-    paste_clip_from_hud(&db, &app, clip_id)
-}
-
-pub(crate) fn paste_clip_from_hud(
-    db: &DbState,
-    app: &AppHandle,
-    clip_id: i64,
-) -> Result<(), String> {
-    crate::clipboard_actions::paste_hud_clip(db, app, clip_id)
-}
-
 #[tauri::command]
 pub fn toggle_clip_protected(clip_id: i64, db: State<'_, Arc<DbState>>) -> Result<bool, String> {
     features::require(&db, Feature::Protection)?;
@@ -697,125 +437,6 @@ pub fn trash_unpinned_clips(db: State<'_, Arc<DbState>>) -> Result<(), String> {
 #[tauri::command]
 pub fn purge_unpinned_clips(db: State<'_, Arc<DbState>>) -> Result<(), String> {
     db.purge_unpinned_clips().map_err(|e| e.to_string())
-}
-
-pub fn register_all_app_shortcuts(app: &AppHandle) -> Result<(), String> {
-    if let Some(mgr) = app.try_state::<Arc<crate::hotkey_manager::HotkeyManager>>() {
-        mgr.register_all(app)
-    } else {
-        Err("HotkeyManager state not initialized".to_string())
-    }
-}
-
-fn register_changed_hotkeys(app: &AppHandle, changed_hotkeys: &[String]) -> Result<(), String> {
-    let Err(error) = register_all_app_shortcuts(app) else {
-        return Ok(());
-    };
-    let Some(manager) = app.try_state::<Arc<crate::hotkey_manager::HotkeyManager>>() else {
-        return Err(error);
-    };
-    let status = manager.registration_status();
-    if status.state != "conflict" {
-        return Err(error);
-    }
-    if changed_hotkeys_have_registration_issue(changed_hotkeys, &status.issues) {
-        Err(error)
-    } else {
-        Ok(())
-    }
-}
-
-fn changed_hotkeys_have_registration_issue(
-    changed_hotkeys: &[String],
-    issues: &[crate::hotkey_manager::HotkeyRegistrationIssue],
-) -> bool {
-    changed_hotkeys.iter().any(|changed| {
-        let changed = changed.trim();
-        !changed.is_empty() && issues.iter().any(|issue| issue.hotkey.trim() == changed)
-    })
-}
-
-pub type AccessibilityStatus = crate::platform_capabilities::AccessibilityStatus;
-
-pub fn check_accessibility_permission() -> AccessibilityStatus {
-    crate::platform_capabilities::accessibility_status()
-}
-
-#[derive(serde::Serialize)]
-pub struct HotkeyCapabilityStatus {
-    pub platform: String,
-    pub backend: String,
-    pub state: String,
-    pub is_trusted: bool,
-    pub is_dev_mode: bool,
-    pub configured_count: usize,
-    pub registered_count: usize,
-    pub issues: Vec<crate::hotkey_manager::HotkeyRegistrationIssue>,
-    pub bindings: Vec<crate::hotkey_manager::HotkeyRegisteredBinding>,
-}
-
-#[tauri::command]
-pub fn get_hotkey_capability_status(app: AppHandle) -> HotkeyCapabilityStatus {
-    let accessibility = check_accessibility_permission();
-    let registration = app
-        .try_state::<Arc<crate::hotkey_manager::HotkeyManager>>()
-        .map(|manager| manager.registration_status())
-        .unwrap_or_default();
-    let platform = if cfg!(target_os = "macos") {
-        "macos"
-    } else if cfg!(target_os = "windows") {
-        "windows"
-    } else if cfg!(target_os = "linux") {
-        "linux"
-    } else {
-        "unsupported"
-    };
-
-    HotkeyCapabilityStatus {
-        platform: platform.into(),
-        backend: registration.backend,
-        state: registration.state,
-        is_trusted: accessibility.is_trusted,
-        is_dev_mode: accessibility.is_dev_mode,
-        configured_count: registration.configured_count,
-        registered_count: registration.registered_count,
-        issues: registration.issues,
-        bindings: registration.bindings,
-    }
-}
-
-#[tauri::command]
-pub fn request_accessibility_permission() -> bool {
-    #[cfg(target_os = "macos")]
-    {
-        use std::process::Command;
-        let _ = Command::new("open")
-            .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
-            .spawn();
-        let _ = Command::new("open")
-            .arg("x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Accessibility")
-            .spawn();
-
-        let status = check_accessibility_permission();
-        status.is_trusted
-    }
-    #[cfg(target_os = "windows")]
-    {
-        use std::process::Command;
-        let _ = Command::new("cmd")
-            .arg("/c")
-            .arg("start ms-settings:privacy-accessibility")
-            .spawn();
-        true
-    }
-    #[cfg(target_os = "linux")]
-    {
-        use std::process::Command;
-        let _ = Command::new("gnome-control-center").spawn();
-        true
-    }
-    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-    true
 }
 
 const BACKING_URL: &str = "https://back.getpasted.app";
@@ -851,124 +472,6 @@ pub fn open_backing_page() -> Result<(), String> {
 
     #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     Err("Opening the backing page is unavailable on this platform".to_string())
-}
-
-#[tauri::command]
-pub fn register_app_setting_hotkey(
-    key: String,
-    value: String,
-    app: AppHandle,
-) -> Result<(), String> {
-    if !is_app_setting_hotkey_key(&key) {
-        return Err("Unknown app hotkey setting.".to_string());
-    }
-    persist_hotkey_settings_and_register(std::iter::once((key, value)).collect(), &app)
-}
-
-fn is_app_setting_hotkey_key(key: &str) -> bool {
-    matches!(
-        key,
-        "hudHotkey"
-            | "seqToggleHotkey"
-            | "seqPopHotkey"
-            | "copyLastPipelineHotkey"
-            | "pasteLastPipelineHotkey"
-            | "openTransformationsHotkey"
-            | "openMainWindowHotkey"
-            | "lockAppHotkey"
-    ) || key
-        .strip_prefix("pasteClip")
-        .and_then(|suffix| suffix.strip_suffix("Hotkey"))
-        .and_then(|position| position.parse::<usize>().ok())
-        .is_some_and(|position| (1..=9).contains(&position))
-}
-
-#[tauri::command]
-pub fn register_app_setting_hotkeys(
-    values: std::collections::HashMap<String, String>,
-    app: AppHandle,
-) -> Result<(), String> {
-    if values.keys().any(|key| !is_app_setting_hotkey_key(key)) {
-        return Err("Unknown app hotkey setting.".to_string());
-    }
-    persist_hotkey_settings_and_register(values, &app)
-}
-
-fn persist_hotkey_settings_and_register(
-    values: std::collections::HashMap<String, String>,
-    app: &AppHandle,
-) -> Result<(), String> {
-    let db = app.state::<Arc<DbState>>();
-    features::require(&db, Feature::Hotkeys)?;
-    let previous: std::collections::HashMap<String, Option<String>> = values
-        .keys()
-        .map(|key| {
-            db.get_setting(key)
-                .map(|value| (key.clone(), value))
-                .map_err(|error| error.to_string())
-        })
-        .collect::<Result<_, _>>()?;
-    if values.iter().all(|(key, value)| {
-        previous
-            .get(key)
-            .and_then(|previous_value| previous_value.as_deref())
-            == Some(value.as_str())
-    }) {
-        return Ok(());
-    }
-    let changed_hotkeys: Vec<String> = values
-        .iter()
-        .filter(|(key, value)| {
-            previous
-                .get(*key)
-                .and_then(|previous_value| previous_value.as_deref())
-                != Some(value.as_str())
-        })
-        .map(|(_, value)| value.clone())
-        .collect();
-    db.save_settings(&values)
-        .map_err(|error| error.to_string())?;
-    if let Err(registration_error) = register_changed_hotkeys(app, &changed_hotkeys) {
-        let restored: std::collections::HashMap<String, String> = previous
-            .iter()
-            .filter_map(|(key, value)| value.clone().map(|value| (key.clone(), value)))
-            .collect();
-        let deleted: Vec<&str> = previous
-            .iter()
-            .filter_map(|(key, value)| value.is_none().then_some(key.as_str()))
-            .collect();
-        db.save_and_delete_settings(&restored, &deleted)
-            .map_err(|error| {
-                format!(
-                    "{registration_error}; restoring the previous shortcut settings failed: {error}"
-                )
-            })?;
-        if let Err(rollback_error) = register_all_app_shortcuts(app) {
-            return Err(format!(
-                "{registration_error}; restoring the previous native shortcuts failed: {rollback_error}"
-            ));
-        }
-        return Err(registration_error);
-    }
-    Ok(())
-}
-
-#[tauri::command]
-pub fn resolve_logical_shortcut_key(code: String, fallback: String) -> String {
-    use std::str::FromStr;
-
-    tauri_plugin_global_shortcut::Code::from_str(&code)
-        .ok()
-        .and_then(crate::keyboard_layout::logical_key_for_code)
-        .unwrap_or(fallback)
-}
-
-#[tauri::command]
-pub fn register_hud_hotkey(hotkey: String, app: AppHandle) -> Result<(), String> {
-    persist_hotkey_settings_and_register(
-        std::iter::once(("hudHotkey".to_string(), hotkey)).collect(),
-        &app,
-    )
 }
 
 #[tauri::command]
@@ -1272,62 +775,6 @@ mod tests {
         assert_eq!(std::fs::read_link(second).unwrap(), source);
 
         std::fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
-    fn test_parse_shortcut_str_variations() {
-        assert!(crate::keyboard_shortcuts::parse("CmdOrCtrl+Shift+V").is_some());
-        assert!(crate::keyboard_shortcuts::parse("Control+Alt+C").is_some());
-        assert!(crate::keyboard_shortcuts::parse("Ctrl+Alt+KeyC").is_some());
-        assert!(crate::keyboard_shortcuts::parse("Alt+Super+KeyV").is_some());
-        assert!(crate::keyboard_shortcuts::parse("Option+Cmd+C").is_some());
-        assert!(crate::keyboard_shortcuts::parse("Command+Shift+V").is_some());
-        assert!(crate::keyboard_shortcuts::parse("Control+Option+C").is_some());
-        assert!(crate::keyboard_shortcuts::parse("Control+Option+V").is_some());
-        assert!(crate::keyboard_shortcuts::parse("Super+Alt+KeyC").is_some());
-        assert!(crate::keyboard_shortcuts::parse("").is_none());
-        assert!(crate::keyboard_shortcuts::parse("   ").is_none());
-
-        // Equivalence checks for key representations
-        let sc1 = crate::keyboard_shortcuts::parse("Option+Command+C").unwrap();
-        let sc2 = crate::keyboard_shortcuts::parse("Alt+Super+KeyC").unwrap();
-        assert_eq!(
-            sc1, sc2,
-            "Option+Command+C should resolve to identical Shortcut struct as Alt+Super+KeyC"
-        );
-    }
-
-    #[test]
-    fn app_setting_hotkey_keys_are_narrowly_scoped() {
-        assert!(is_app_setting_hotkey_key("hudHotkey"));
-        assert!(is_app_setting_hotkey_key("lockAppHotkey"));
-        assert!(is_app_setting_hotkey_key("pasteClip1Hotkey"));
-        assert!(is_app_setting_hotkey_key("pasteClip9Hotkey"));
-        assert!(!is_app_setting_hotkey_key("unlockAppHotkey"));
-        assert!(!is_app_setting_hotkey_key("pasteClip0Hotkey"));
-        assert!(!is_app_setting_hotkey_key("pasteClip10Hotkey"));
-        assert!(!is_app_setting_hotkey_key("enableAppLock"));
-    }
-
-    #[test]
-    fn unrelated_hotkey_conflicts_do_not_reject_a_change() {
-        let issues = vec![crate::hotkey_manager::HotkeyRegistrationIssue {
-            hotkey: "Alt+Shift+V".into(),
-            description: "HUD".into(),
-            message: "Unavailable".into(),
-        }];
-        assert!(!changed_hotkeys_have_registration_issue(
-            &["Alt+Shift+L".into()],
-            &issues
-        ));
-        assert!(changed_hotkeys_have_registration_issue(
-            &[" Alt+Shift+V ".into()],
-            &issues
-        ));
-        assert!(!changed_hotkeys_have_registration_issue(
-            &[String::new()],
-            &issues
-        ));
     }
 
     #[test]

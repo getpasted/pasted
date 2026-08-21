@@ -33,6 +33,7 @@ const clipSelectionController = read('src/hooks/useClipSelectionController.ts');
 const clipListViewport = read('src/hooks/useClipListViewport.ts');
 const rememberedClipListScroll = read('src/hooks/useRememberedClipListScroll.ts');
 const clipCommands = read('src-tauri/src/commands/clips.rs');
+const clipboardCommands = read('src-tauri/src/commands/clipboard.rs');
 const backupCommands = read('src-tauri/src/commands/backups.rs');
 const importCommands = read('src-tauri/src/commands/imports.rs');
 const factoryResetCommands = read('src-tauri/src/commands/factory_reset.rs');
@@ -42,6 +43,8 @@ const intelligenceCommands = read('src-tauri/src/commands/intelligence.rs');
 const manualTransformCommands = read('src-tauri/src/commands/manual_transforms.rs');
 const sourceApplicationCommands = read('src-tauri/src/commands/source_apps.rs');
 const transformationCommands = read('src-tauri/src/commands/transformations.rs');
+const hotkeyCommands = read('src-tauri/src/commands/hotkeys.rs');
+const hudCommands = read('src-tauri/src/commands/hud.rs');
 const appOverlays = read('src/hooks/useAppOverlays.ts');
 const clipDragController = read('src/hooks/useClipDragController.ts');
 const clipReordering = read('src/hooks/useClipReordering.ts');
@@ -59,10 +62,20 @@ for (const sharedCall of [
     `The live-app adapter must use ${sharedCall}`);
 }
 
-assert.match(commands, /clipboard_actions::copy_clip/,
+assert.match(clipboardCommands, /clipboard_actions::copy_clip/,
   'GUI copy must use the shared clipboard workflow');
-assert.match(commands, /clipboard_actions::paste_hud_clip/,
+assert.match(clipboardCommands, /clipboard_actions::paste_hud_clip/,
   'GUI paste must use the shared clipboard workflow');
+assert.match(hudCommands, /pub fn toggle_hud_window[\s\S]*hud_window::reveal/,
+  'HUD visibility must remain in its focused window adapter');
+assert.match(hotkeyCommands, /pub fn register_all_app_shortcuts/,
+  'Native shortcut registration must remain in its focused hotkey adapter');
+assert.match(hotkeyCommands, /pub fn get_hotkey_capability_status/,
+  'Hotkey platform readiness must remain with shortcut registration');
+assert.doesNotMatch(commands, /pub fn copy_clip_to_system|pub fn paste_clip_by_id|pub fn toggle_hud_window/,
+  'The GUI command root must not reclaim clipboard or HUD operations');
+assert.doesNotMatch(commands, /pub fn register_all_app_shortcuts|pub fn get_hotkey_capability_status|pub fn register_app_setting_hotkeys/,
+  'The GUI command root must not reclaim hotkey registration or readiness');
 assert.match(queueCommands, /queue_actions::paste_item/,
   'GUI Queue paste must use the shared Queue workflow');
 assert.match(queueCommands, /queue_actions::paste_all/,
@@ -185,7 +198,10 @@ assert.doesNotMatch(commands, /pub fn extract_ocr_from_clip|pub async fn extract
 
 const sizeRatchets = new Map([
   ['src-tauri/src/db.rs', 20_111],
-  ['src-tauri/src/commands.rs', 1_437],
+  ['src-tauri/src/commands.rs', 884],
+  ['src-tauri/src/commands/clipboard.rs', 108],
+  ['src-tauri/src/commands/hotkeys.rs', 306],
+  ['src-tauri/src/commands/hud.rs', 168],
   ['src-tauri/src/commands/backups.rs', 180],
   ['src-tauri/src/commands/imports.rs', 287],
   ['src-tauri/src/commands/factory_reset.rs', 39],
@@ -255,9 +271,9 @@ for (const domain of ['clip_protection', 'retention', 'settings']) {
     `${domain} persistence must remain outside the database integration root`);
 }
 for (const adapter of [
-  'activity', 'analysis', 'app_lock', 'backups', 'content_registry', 'extraction', 'extractors',
-  'factory_reset', 'imports', 'intelligence', 'manual_transforms', 'queue', 'retention',
-  'source_apps', 'storage', 'transformations',
+  'activity', 'analysis', 'app_lock', 'backups', 'clipboard', 'content_registry', 'extraction',
+  'extractors', 'factory_reset', 'hotkeys', 'hud', 'imports', 'intelligence',
+  'manual_transforms', 'queue', 'retention', 'source_apps', 'storage', 'transformations',
 ]) {
   assert.ok(fs.existsSync(`src-tauri/src/commands/${adapter}.rs`),
     `${adapter} GUI commands must remain outside the command integration root`);
