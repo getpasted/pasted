@@ -35,6 +35,7 @@ const clipRevisionDatabase = read('src-tauri/src/db/clip_revisions.rs');
 const clipSearchDatabase = read('src-tauri/src/db/clip_search.rs');
 const classifierDatabase = read('src-tauri/src/db/classifiers.rs');
 const contentTypeRegistryDatabase = read('src-tauri/src/db/content_type_registry.rs');
+const contractDatabase = read('src-tauri/src/db/contracts.rs');
 const extractorDatabase = read('src-tauri/src/db/extractors.rs');
 const fullBackupDatabase = read('src-tauri/src/db/full_backups.rs');
 const intelligenceConnectionDatabase = read('src-tauri/src/db/intelligence_connections.rs');
@@ -256,6 +257,14 @@ assert.match(sourceQueryDatabase, /pub fn get_distinct_sources/,
   'Source discovery must remain in its focused query subsystem');
 assert.doesNotMatch(read('src-tauri/src/db.rs'), /fn log_analysis_participant_update|pub fn clear_history|pub fn rescan_file_formats|pub fn get_distinct_sources/,
   'The database integration root must not reclaim focused runtime operations');
+assert.match(contractDatabase, /pub struct DbState/,
+  'Shared database state must remain in the database contract subsystem');
+assert.match(contractDatabase, /pub struct BackupPayload/,
+  'Portable backup data contracts must remain in the database contract subsystem');
+assert.match(contractDatabase, /pub struct ClipMutationSummary/,
+  'Shared mutation results must remain in the database contract subsystem');
+assert.doesNotMatch(read('src-tauri/src/db.rs'), /pub struct DbState|pub struct BackupPayload|pub struct ClipMutationSummary/,
+  'The database integration root must not reclaim shared data contracts');
 assert.match(clipboardActions, /fn ocr_text_never_replaces_an_image_clips_copy_fingerprint/,
   'Clipboard fingerprint regressions must remain with the shared clipboard workflow');
 assert.match(contentInspection, /fn file_metadata_reports_availability_without_crawling_directories/,
@@ -450,7 +459,7 @@ assert.doesNotMatch(commands, /pub fn extract_ocr_from_clip|pub async fn extract
   'The GUI command root must not reclaim extraction lifecycle operations');
 
 const sizeRatchets = new Map([
-  ['src-tauri/src/db.rs', 534],
+  ['src-tauri/src/db.rs', 210],
   ['src-tauri/src/db/activity.rs', 649],
   ['src-tauri/src/db/analysis_activity.rs', 71],
   ['src-tauri/src/db/analytics.rs', 159],
@@ -463,6 +472,7 @@ const sizeRatchets = new Map([
   ['src-tauri/src/db/clip_search.rs', 532],
   ['src-tauri/src/db/classifiers.rs', 533],
   ['src-tauri/src/db/content_type_registry.rs', 363],
+  ['src-tauri/src/db/contracts.rs', 336],
   ['src-tauri/src/db/extractors.rs', 802],
   ['src-tauri/src/db/full_backups.rs', 277],
   ['src-tauri/src/db/intelligence_connections.rs', 231],
