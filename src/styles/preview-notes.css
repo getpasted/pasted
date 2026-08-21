@@ -239,6 +239,27 @@ body.capture-feedback-mode,
   color: var(--status-warning);
 }
 
+.preview-name-btn {
+  color: var(--named-accent);
+}
+
+.preview-name-btn.is-active {
+  background-color: color-mix(in srgb, var(--named-accent) 12%, var(--bg-input));
+  color: var(--named-accent);
+}
+
+.preview-name-row {
+  border-color: var(--border-subtle);
+  background-color: color-mix(in srgb, var(--named-accent) 5%, var(--bg-preview));
+  transition: background-color 100ms ease, color 100ms ease;
+}
+
+.preview-name-row:hover:not(:disabled),
+.preview-name-row:focus-visible:not(:disabled) {
+  background-color: color-mix(in srgb, var(--named-accent) 11%, var(--bg-preview));
+  color: color-mix(in srgb, var(--named-accent) 82%, var(--text-title));
+}
+
 .preview-note-btn.is-active {
   background-color: color-mix(in srgb, var(--note-accent) 12%, var(--bg-input));
   color: var(--note-accent);

@@ -228,7 +228,7 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
             println!("Pasted CLI Tool (v{})", env!("CARGO_PKG_VERSION"));
             println!("Usage:");
             println!("  pasted copy <text> [--json] Classify and save content, or pipe stdin");
-            println!("  pasted list [--limit N] [--offset N] [--bin ID|--pinned|--trash] [--json]");
+            println!("  pasted list [--limit N] [--offset N] [--bin ID|--pinned|--named|--trash] [--json]");
             println!("  pasted search [query] [--clip TYPE] [--content TYPE] [--format FORMAT] [--source APP] [--trash] [--limit N] [--offset N] [--json]");
             println!("  pasted import sources [--json] List supported external-history sources");
             println!("  pasted import <source> [path] --json Import history from another clipboard manager");
@@ -297,7 +297,7 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
             println!("  pasted bin clips <id> --json List clips in persistent Bin order");
             println!("  pasted bin order <id> <clip-id>... Persist a complete Bin order");
             println!("  pasted bin protect|conceal <id> <on|off> [--json]");
-            println!("  pasted clip get <id> --json Inspect one clip");
+            println!("  pasted clip get|name <id> [options] [--json]");
             println!(
                 "  pasted clip copy|paste <id> [--json] Use the running app and system clipboard"
             );

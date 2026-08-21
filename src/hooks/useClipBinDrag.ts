@@ -81,7 +81,7 @@ export function useClipBinDrag({
     const disabled: ClipDropAction[] = [];
     if (draggedClips.some((clip) => clip.content_type === 'file' || !clip.text_content)) disabled.push('queue');
     for (const association of CLIP_PROPERTY_ASSOCIATIONS) {
-      if (draggedClips.every(association.isMember)) disabled.push(association.dropAction);
+      if (association.dropAction && draggedClips.every(association.isMember)) disabled.push(association.dropAction);
     }
     if (draggedClips.some((clip) => Boolean(clip.is_protected))) disabled.push('trash');
     return disabled;

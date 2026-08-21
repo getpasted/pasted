@@ -11,6 +11,7 @@ pub struct ClipCollectionSummary {
     pub pinned_count: i64,
     pub protected_count: i64,
     pub concealed_count: i64,
+    pub named_count: i64,
     pub noted_count: i64,
     pub clip_type_counts: Vec<ClipTypeStat>,
     pub file_format_counts: Vec<FileFormatStat>,
@@ -21,7 +22,7 @@ pub struct ClipCollectionSummary {
 impl DbState {
     pub fn get_clip_collection_summary(&self) -> Result<ClipCollectionSummary> {
         let conn = self.conn.lock();
-        let (active_count, trash_count, pinned_count, protected_count, concealed_count, noted_count) = conn.query_row(
+        let (active_count, trash_count, pinned_count, protected_count, concealed_count, named_count, noted_count) = conn.query_row(
             "SELECT
                 COALESCE(SUM(CASE WHEN COALESCE(is_trashed, 0) = 0 THEN 1 ELSE 0 END), 0),
                 COALESCE(SUM(CASE WHEN is_trashed = 1 THEN 1 ELSE 0 END), 0),
@@ -32,10 +33,11 @@ impl DbState {
                 COALESCE(SUM(CASE WHEN COALESCE(is_trashed, 0) = 0 AND id IN (
                     SELECT clip_id FROM effective_clip_concealment WHERE is_concealed = 1
                 ) THEN 1 ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN COALESCE(is_trashed, 0) = 0 AND TRIM(COALESCE(name, '')) != '' THEN 1 ELSE 0 END), 0),
                 COALESCE(SUM(CASE WHEN COALESCE(is_trashed, 0) = 0 AND TRIM(COALESCE(note, '')) != '' THEN 1 ELSE 0 END), 0)
              FROM clips",
             [],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?)),
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?, row.get(6)?)),
         )?;
         let type_counts = conn
             .prepare(
@@ -125,6 +127,7 @@ impl DbState {
             pinned_count,
             protected_count,
             concealed_count,
+            named_count,
             noted_count,
             clip_type_counts,
             file_format_counts,

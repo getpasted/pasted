@@ -1,6 +1,6 @@
 # Settings and Features
 
-Pasted can be a full workspace or a small clipboard history. **Settings → Functionality** provides global gates for App Lock, Bins, Queue, pinning, protection, notes, Trash, Clip Types, Content Types, Sources, Transformations, Activity, CLI, OCR, Transcriptions, Revision History, content classification, HUD, Hotkeys, and related tools.
+Pasted can be a full workspace or a small clipboard history. **Settings → Functionality** provides global gates for App Lock, Bins, Queue, pinning, protection, notes, Trash, Clip Search, Clip Types, Content Types, Sources, Transformations, Activity, CLI, OCR, Transcriptions, Revision History, content classification, HUD, Hotkeys, and related tools.
 
 Disabling a feature hides its active UI and preserves existing data unless the setting explicitly describes destruction. Related settings are hidden when they cannot apply.
 

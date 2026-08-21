@@ -25,6 +25,7 @@ import {
   EyeOff,
   RotateCcw,
   Check,
+  FilePenLine,
 } from 'lucide-react';
 import { useContentTypes } from './ContentTypeProvider';
 import { clipConcealmentPolicy } from '../utils/clipConcealment';
@@ -43,6 +44,8 @@ interface ContextMenuProps {
   onRunTransform: (transform: SavedTransform) => void;
   onOpenTransformations: () => void;
   onAddNote: () => void;
+  onName: () => void;
+  onClearName?: () => void;
   onDeleteNote?: () => void;
   isQueued: boolean;
   onToggleQueue: () => void;
@@ -69,6 +72,8 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   onRunTransform,
   onOpenTransformations,
   onAddNote,
+  onName,
+  onClearName,
   onDeleteNote,
   isQueued,
   onToggleQueue,
@@ -248,6 +253,30 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
       )}
 
       <MenuDivider />
+
+      {features.naming && viewPolicy.canOrganize && <button
+        onClick={() => {
+          onName();
+          onClose();
+        }}
+        className="theme-menu-item is-named w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md"
+      >
+        <FilePenLine className="theme-named-text w-3.5 h-3.5" />
+        <span>{clip.name ? translate('action.editName') : translate('action.nameClip')}</span>
+      </button>}
+
+      {features.naming && viewPolicy.canOrganize && clip.name && onClearName && (
+        <button
+          onClick={() => {
+            onClearName();
+            onClose();
+          }}
+          className="theme-menu-item theme-danger-text w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md transition-colors"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+          <span>{translate('action.clearName')}</span>
+        </button>
+      )}
 
       {/* Add / Edit Note */}
       {features.notes && viewPolicy.canEditNotes && <button

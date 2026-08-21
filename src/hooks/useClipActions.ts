@@ -615,6 +615,11 @@ export function useClipActions({
     setSelectedClip((previous) => previous?.id === clipId ? { ...previous, note } : previous);
   }, [setAllClips, setSelectedClip]);
 
+  const updateClipNameLocally = useCallback((clipId: number, name: string | null) => {
+    setAllClips((previous) => previous.map((clip) => clip.id === clipId ? { ...clip, name } : clip));
+    setSelectedClip((previous) => previous?.id === clipId ? { ...previous, name } : previous);
+  }, [setAllClips, setSelectedClip]);
+
   const deleteNoteFromClip = useCallback(async (clipId: number) => {
     updateClipNoteLocally(clipId, null);
     try {
@@ -643,6 +648,7 @@ export function useClipActions({
     addToSequentialStack,
     toggleSequentialStack,
     updateClipNoteLocally,
+    updateClipNameLocally,
     deleteNoteFromClip,
     transformingClipIds,
     transformErrorsByClipId,

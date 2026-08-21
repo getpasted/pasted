@@ -8,8 +8,10 @@ import { OverflowText } from './OverflowText';
 import { SafeRasterImage } from './SafeRasterImage';
 import { translate } from '../localization/runtime';
 import { SearchErrorNotice } from './SearchErrorNotice';
+import { useFeatures } from '../hooks/useFeatures';
 
 export const QuickHudWindow: React.FC = () => {
+  const features = useFeatures();
   const [hudAnchor, setHudAnchor] = useState({ flipped: false, x: 180 });
   const [clips, setClips] = useState<ClipItem[]>(() => {
     try {
@@ -109,6 +111,10 @@ export const QuickHudWindow: React.FC = () => {
   }, [search]);
 
   useEffect(() => {
+    if (!features.search) setSearch('');
+  }, [features.search]);
+
+  useEffect(() => {
     const selectedRow = listRef.current?.querySelector<HTMLElement>(
       `[data-hud-index="${selectedIndex}"]`,
     );
@@ -175,7 +181,7 @@ export const QuickHudWindow: React.FC = () => {
       <div className={`quick-hud-shell flex-1 rounded-xl border flex flex-col overflow-hidden no-drag shadow-none ${hudAnchor.flipped ? 'mb-2' : 'mt-2'}`}>
         {/* Header Bar */}
         <div className="quick-hud-header p-2.5 border-b flex items-center space-x-2 no-drag">
-          <div className="relative flex-1">
+          {features.search && <div className="relative flex-1">
             <Search className="theme-text-muted absolute start-2.5 top-2.5 h-3.5 w-3.5" />
             <input
               ref={inputRef}
@@ -188,7 +194,7 @@ export const QuickHudWindow: React.FC = () => {
               }}
               className="theme-input ui-field-radius quick-hud-search w-full border ps-8 pe-3 py-1.5 text-xs font-mono no-drag"
             />
-          </div>
+          </div>}
           <button
             onClick={() => invoke('toggle_hud_window')}
             className="theme-icon-button p-1 rounded-md border border-transparent transition-colors shrink-0 no-drag"

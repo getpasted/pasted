@@ -11,6 +11,7 @@ interface GrammarFixture {
   fileFormats: string[];
   terms: string[];
   requiresNote: boolean;
+  requiresNamed: boolean;
   requiresPinned: boolean;
   requiresProtected: boolean;
   requiresTrashed: boolean;
@@ -33,6 +34,7 @@ for (const fixture of fixtures) {
     fileFormats: plan.formats,
     terms: plan.terms,
     requiresNote: plan.requiresNote,
+    requiresNamed: plan.requiresNamed,
     requiresPinned: plan.requiresPinned,
     requiresProtected: plan.requiresProtected,
     requiresTrashed: plan.requiresTrashed,
@@ -46,6 +48,7 @@ for (const fixture of fixtures) {
     fileFormats: fixture.fileFormats,
     terms: fixture.terms,
     requiresNote: fixture.requiresNote,
+    requiresNamed: fixture.requiresNamed,
     requiresPinned: fixture.requiresPinned,
     requiresProtected: fixture.requiresProtected,
     requiresTrashed: fixture.requiresTrashed,

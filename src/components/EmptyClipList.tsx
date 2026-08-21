@@ -6,6 +6,7 @@ import {
   Search,
   Shield,
   EyeOff,
+  FilePenLine,
   StickyNote,
   Trash2,
 } from 'lucide-react';
@@ -43,6 +44,8 @@ export function EmptyClipList({ currentTab, searchQuery, selectedBin }: EmptyCli
     icon = <Shield className="sidebar-icon-info w-10 h-10 stroke-1" />;
   } else if (currentTab === 'concealed') {
     icon = <EyeOff className="sidebar-icon-warning w-10 h-10 stroke-1" />;
+  } else if (currentTab === 'named') {
+    icon = <FilePenLine className="sidebar-icon-named w-10 h-10 stroke-1" />;
   } else if (currentTab === 'notes') {
     icon = <StickyNote className="sidebar-icon-note w-10 h-10 stroke-1" />;
   } else if (currentTab === 'trash') {

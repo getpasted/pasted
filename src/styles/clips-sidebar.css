@@ -520,6 +520,12 @@
   color: var(--note-accent);
 }
 
+.clip-name-icon {
+  background-color: color-mix(in srgb, var(--named-accent) 10%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--named-accent) 32%, var(--border-subtle));
+  color: var(--named-accent);
+}
+
 .clip-thumbnail-stage {
   background-color: var(--code-surface);
   border-color: var(--code-border);
@@ -613,6 +619,10 @@ html.is-stable-reordering * {
 
 .sidebar-icon-note {
   color: var(--note-accent);
+}
+
+.sidebar-icon-named {
+  color: var(--named-accent);
 }
 
 .sidebar-icon-success {

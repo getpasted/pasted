@@ -94,6 +94,7 @@ export interface ClipItem {
   pin_order?: number;
   bin_id: number | null;
   bin_ids?: number[];
+  name?: string | null;
   note?: string | null;
   is_trashed?: boolean | number;
   trashed_at?: string | null;
@@ -136,6 +137,7 @@ export interface ClipCollectionSummary {
   pinnedCount: number;
   protectedCount: number;
   concealedCount: number;
+  namedCount: number;
   notedCount: number;
   clipTypeCounts: Array<{ clip_type: 'text' | 'image' | 'file'; count: number }>;
   fileFormatCounts: Array<{ file_format: string; count: number }>;
@@ -531,6 +533,7 @@ export interface AppSettings {
   enableFileFormats: boolean;
   enableContentClassification: boolean;
   enableConcealment: boolean;
+  enableNaming: boolean;
   enableNotes: boolean;
   enableNotifications: boolean;
   enableAppLock: boolean;
@@ -545,6 +548,7 @@ export interface AppSettings {
   enableTransformations: boolean;
   enableTypes: boolean;
   enableSources: boolean;
+  enableSearch: boolean;
   enableCli: boolean;
   enableHelp: boolean;
   hudHotkey?: string;

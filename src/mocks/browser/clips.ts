@@ -8,6 +8,7 @@ interface BrowserClip {
   is_pinned: number;
   is_protected: number;
   is_concealed?: number | boolean;
+  name?: string | null;
   note?: string | null;
   bin_ids: number[];
   content_types?: string[];
@@ -20,6 +21,11 @@ export function handleClipBrowserMock<T extends BrowserClip>(
   clips: readonly T[],
   withPolicies: (clip: T) => object & { is_concealed: boolean },
 ): BrowserMockResult {
+  if (command === 'update_clip_name') {
+    const clip = clips.find((item) => item.id === Number(args?.clipId));
+    if (clip && clip.is_trashed === 0) clip.name = typeof args?.name === 'string' ? args.name.trim() || null : null;
+    return handled(clip ? { ...withPolicies(clip) } : null);
+  }
   if (command === 'get_clips') {
     const offset = Math.max(0, Number(args?.offset ?? 0));
     const limit = Math.max(1, Number(args?.limit ?? 10_000));
@@ -55,6 +61,7 @@ export function handleClipBrowserMock<T extends BrowserClip>(
       pinnedCount: active.filter((clip) => clip.is_pinned).length,
       protectedCount: active.filter((clip) => clip.is_protected).length,
       concealedCount: active.filter((clip) => withPolicies(clip).is_concealed).length,
+      namedCount: active.filter((clip) => Boolean(clip.name?.trim())).length,
       notedCount: active.filter((clip) => Boolean(clip.note?.trim())).length,
       clipTypeCounts: countBy('content_type').map(([clip_type, count]) => ({ clip_type, count })),
       fileFormatCounts: fileFormatCounts.map(([file_format, count]) => ({ file_format, count })),

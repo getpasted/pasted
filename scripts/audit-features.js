@@ -18,6 +18,8 @@ const clipboardMonitor = read('src-tauri/src/clipboard_monitor.rs');
 const hotkeyManager = read('src-tauri/src/hotkey_manager.rs');
 const manualTransformService = read('src-tauri/src/manual_transform_service.rs');
 const clipPreview = read('src/components/ClipPreview.tsx');
+const clipNameDialog = read('src/components/ClipNameDialog.tsx');
+const quickHud = read('src/components/QuickHudWindow.tsx');
 const settingsHotkeys = read('src/components/SettingsHotkeysPanel.tsx');
 const cli = readRustModuleTree('src-tauri/src/bin/pasted.rs', 'src-tauri/src/cli');
 const frontendDefinitions = frontendRegistry.match(/export const FEATURE_DEFINITIONS[\s\S]*?\n\] as const;/)?.[0] ?? '';
@@ -27,7 +29,7 @@ const frontendKeys = [...frontendRegistry.matchAll(/settingKey:\s*'(enable[A-Za-
 const nativeKeys = [...nativePolicy.matchAll(/=>\s*"(enable[A-Za-z]+)"/g)]
   .map((match) => match[1]);
 
-assert.equal(frontendKeys.length, 24, 'The frontend feature registry must include every supported capability');
+assert.equal(frontendKeys.length, 26, 'The frontend feature registry must include every supported capability');
 const frontendGroups = [...frontendRegistry.matchAll(/group:\s*'([A-Za-z]+)'/g)]
   .map((match) => match[1]);
 assert.equal(frontendGroups.length, frontendKeys.length, 'Every feature must belong to a Functionality group');
@@ -36,6 +38,19 @@ assert.deepEqual(
   ['app', 'discovery', 'library', 'workflow'],
   'Functionality must keep the expected feature groups',
 );
+const expectedFeatureLayout = {
+  library: ['bins', 'naming', 'notes', 'pinning', 'protection', 'concealment', 'trash', 'revisions'],
+  discovery: ['clipTypes', 'types', 'contentClassification', 'fileFormats', 'ocr', 'transcriptions', 'sources', 'search', 'analytics'],
+  workflow: ['queue', 'transformations', 'hud', 'hotkeys'],
+  app: ['notifications', 'appLock', 'activityLog', 'cli', 'help'],
+};
+for (const [group, expectedIds] of Object.entries(expectedFeatureLayout)) {
+  const actualIds = [...frontendDefinitions.matchAll(new RegExp(
+    `id:\\s*'([A-Za-z]+)'[\\s\\S]{0,160}?group:\\s*'${group}'`,
+    'g',
+  ))].map((match) => match[1]);
+  assert.deepEqual(actualIds, expectedIds, `${group} Functionality cards must retain their intentional pairings`);
+}
 assert.match(
   settingsFeaturesPanel,
   /FEATURE_GROUPS\.map\(\(group\)/,
@@ -107,6 +122,31 @@ assert.match(
 assert.match(sidebar, /id: 'clipTypes'[\s\S]{0,180}enabled: features\.clipTypes/,
   'Clip Types must own their sidebar collection surface');
 assert.match(
+  sidebar,
+  /features\.search && <div ref=\{searchMenuRootRef\}/,
+  'Clip Search must own the sidebar search surface',
+);
+assert.match(
+  cli,
+  /fn run_search[\s\S]{0,1800}Feature::Search/,
+  'The explicit CLI search command must honor the Clip Search feature gate',
+);
+assert.match(
+  nativeMenu,
+  /feature_enabled\(Feature::Search\)[\s\S]{0,100}clips_builder = clips_builder\.item\(&search\)/,
+  'Clip Search must own the native Search menu item and shortcut',
+);
+assert.match(
+  quickHud,
+  /features\.search && <div className="relative flex-1">/,
+  'Clip Search must own the Quick HUD search field',
+);
+assert.match(
+  settingsModal,
+  /searchEnabled=\{settings\.enableSearch\}/,
+  'Clip Search must own the Analysis Index manager surface',
+);
+assert.match(
   captureFeedbackWindow,
   /currentSettings\.enableNotifications/,
   'The capture feedback window must honor the shared Notifications feature gate',
@@ -150,6 +190,16 @@ assert.match(
   clipPreview,
   /features\.protection && features\.hotkeys/,
   'Clip hotkey assignment must honor both Protection and Hotkeys',
+);
+assert.match(
+  clipNameDialog,
+  /<form[\s\S]{0,300}onSubmit=[\s\S]{0,500}onSave\(clip/,
+  'The clip Name dialog must submit from the form so Enter saves',
+);
+assert.match(
+  clipNameDialog,
+  /AppDialogButton type="submit" variant="primary"/,
+  'The clip Name dialog Save action must remain primary',
 );
 assert.match(
   cli,

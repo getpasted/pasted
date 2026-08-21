@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useDeferredValue, useMemo } from 'react';
 import { safeInvoke as invoke } from './utils/tauri';
 import { ClipItem, Bin } from './types';
 import { Sidebar } from './components/Sidebar';
@@ -7,18 +7,14 @@ import { EmptyClipList } from './components/EmptyClipList';
 import { PinnedClipShelf } from './components/PinnedClipShelf';
 import { ClipPreview } from './components/ClipPreview';
 import { SequentialQueueBar } from './components/SequentialQueueBar';
-import { ContextMenu } from './components/ContextMenu';
 import { QuickHudWindow } from './components/QuickHudWindow';
-import { OverflowText } from './components/OverflowText';
-import { handleWindowDragDoubleClick, startWindowDrag } from './utils/windowDrag';
 import { useColumnResize } from './hooks/useColumnResize';
 import { useAppSettings } from './hooks/useAppSettings';
-import { useClipViews, useLiveClipSnapshot } from './hooks/useClipViews';
+import { useClipViews } from './hooks/useClipViews';
 import { getClipViewPolicy } from './utils/clipViewPolicy';
 import { getClipCollection } from './utils/clipCollections';
 import { useAppData } from './hooks/useAppData';
 import { useClipActions } from './hooks/useClipActions';
-import { Clipboard, Trash2, Pause, Disc, Square, Search } from 'lucide-react';
 import { enabledFeatureRecord } from './utils/features';
 import { FeatureProvider } from './hooks/useFeatures';
 import { soundManager } from './utils/sound';
@@ -33,6 +29,8 @@ import { useAppMenuActions, useAppNavigation, useAppOverlays, useAppShell, useCl
 import { ClipBatchActionBar } from './components/ClipBatchActionBar';
 import { ClipDragPreview } from './components/ClipDragPreview';
 import { AppDialogLayer } from './components/AppDialogLayer';
+import { ClipContextMenuLayer } from './components/ClipContextMenuLayer';
+import { ClipListHeader } from './components/ClipListHeader';
 import { ActivityLogView, AnalyticsView, HelpView, SettingsModal, TransformationsView } from './components/AppDestinations';
 
 export default function App() {
@@ -125,6 +123,7 @@ export default function App() {
     isHudView,
     selectedClipId: selectedClip?.id ?? null,
   });
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   const {
     contextMenu,
     setContextMenu,
@@ -140,6 +139,10 @@ export default function App() {
     setNotePromptClip,
     notePromptText,
     setNotePromptText,
+    namePromptClip,
+    setNamePromptClip,
+    namePromptText,
+    setNamePromptText,
     clearHistoryMode,
     setClearHistoryMode,
     openNewBinModal: handleOpenNewBinModal,
@@ -147,9 +150,11 @@ export default function App() {
     closeBinModal,
     openBinContextMenu: handleBinContextMenu,
     promptAddNote: handlePromptAddNote,
+    promptNameClip: handlePromptNameClip,
   } = useAppOverlays({
     binsEnabled: enabledFeatures.bins,
     notesEnabled: enabledFeatures.notes,
+    namingEnabled: enabledFeatures.naming,
   });
 
   const handleToggleCopyQueue = useCopyQueueController({
@@ -184,6 +189,7 @@ export default function App() {
     displayedClips,
     queuedIndexMap,
     searchTotalCount,
+    searchDisplayQuery,
     isSearching,
     searchFailed,
     retrySearch,
@@ -194,7 +200,7 @@ export default function App() {
     bins,
     currentTab,
     selectedBinId,
-    searchQuery,
+    searchQuery: deferredSearchQuery,
     sequentialStatus: seqStatus,
     features: enabledFeatures,
   });
@@ -255,7 +261,6 @@ export default function App() {
     fetchSequentialStatus,
   });
   const binsById = useMemo(() => new Map(bins.map((bin) => [bin.id, bin])), [bins]);
-  const currentContextMenuClip = useLiveClipSnapshot(contextMenu?.clip ?? null, allClips, trashedClips);
   const selectedClipViewPolicy = getClipViewPolicy(currentTab, selectedClip);
   const hasRestrictedSelection = Array.from(selectedClipIds).some((id) => {
     const selected = displayedClips.find((clip) => clip.id === id);
@@ -278,6 +283,7 @@ export default function App() {
     addToSequentialStack: handleAddToSequentialStack,
     toggleSequentialStack: handleToggleSequentialStack,
     updateClipNoteLocally: handleUpdateClipNoteLocally,
+    updateClipNameLocally: handleUpdateClipNameLocally,
     deleteNoteFromClip: handleDeleteNoteFromClip,
     transformingClipIds,
     transformErrorsByClipId,
@@ -302,6 +308,18 @@ export default function App() {
     onClipsRepositioned: requestRepositionedClipReveal,
     onClipPropertyRemoved: clipHistoryFocus.handlePropertyRemoved,
   });
+
+  const handleClearClipName = useCallback(async (clipId: number) => {
+    handleUpdateClipNameLocally(clipId, null);
+    clipHistoryFocus.handlePropertyRemoved('name', [clipId]);
+    try {
+      await clipsApi.updateName(clipId, null);
+      await fetchClipCollectionSummary();
+    } catch (error) {
+      console.error(error);
+      void fetchClips();
+    }
+  }, [clipHistoryFocus, fetchClipCollectionSummary, fetchClips, handleUpdateClipNameLocally]);
 
   const {
     clearClipSelection,
@@ -425,6 +443,7 @@ export default function App() {
     toggleCopyQueue: handleToggleCopyQueue,
     copyClip: handleCopyClip,
     promptAddNote: handlePromptAddNote,
+    promptNameClip: handlePromptNameClip,
     togglePin: handleTogglePin,
     toggleProtected: handleToggleProtected,
     batchTrash: handleBatchTrash,
@@ -498,11 +517,6 @@ export default function App() {
         onEmptySearchEscape={exitEmptySearch}
         seqStatus={seqStatus}
         onClearHistory={handleRequestClearHistory}
-        pinnedCount={clipCollectionSummary.pinnedCount}
-        protectedCount={clipCollectionSummary.protectedCount}
-        concealedCount={clipCollectionSummary.concealedCount}
-        notesCount={clipCollectionSummary.notedCount}
-        trashedCount={totalTrashCount}
         totalClipCount={totalClipCount}
         isCollapsed={isSidebarCollapsed}
         setIsCollapsed={setIsSidebarCollapsed}
@@ -568,85 +582,19 @@ export default function App() {
             style={{ width: `${clipsListWidth}px` }}
             className="shrink-0 col-list h-screen flex flex-col overflow-hidden"
           >
-            {/* Finder Header Title Bar */}
-            <div
-              onMouseDown={startWindowDrag}
-              onDoubleClick={handleWindowDragDoubleClick}
-              className="h-[60px] border-b px-3 flex items-center justify-between col-list-header cursor-default titlebar-drag-handle shrink-0"
-            >
-              <div className="flex items-center space-x-2 titlebar-drag-handle min-w-0 flex-1 me-2">
-                {currentCollection?.icon === 'search' ? (
-                  <Search className="theme-text-main w-4 h-4 titlebar-drag-handle shrink-0" />
-                ) : (
-                  <Clipboard className="theme-text-main w-4 h-4 titlebar-drag-handle shrink-0" />
-                )}
-                <OverflowText as="h2" text={currentCollection?.title ?? translate('collection.history')} className="theme-title text-xs font-bold uppercase tracking-wider titlebar-drag-handle truncate" />
-                {currentTab === 'search' && (
-                  <span
-                    className="theme-badge min-w-5 rounded-md border px-1.5 py-0.5 text-center font-mono text-[10px] font-semibold"
-                    aria-label={translate('app.searchResultCount', { count: searchTotalCount })}
-                    title={translate('app.resultCount', { count: searchTotalCount })}
-                  >
-                    {searchTotalCount}
-                  </span>
-                )}
-              </div>
-
-              {/* Global Controls & Status Badges */}
-              <div className="flex items-center space-x-1.5 shrink-0">
-                {ignoredAppStatus && (
-                  <span className="theme-status-danger text-[10px] px-2 py-0.5 rounded border font-mono flex items-center animate-in fade-in">
-                    {translate('app.ignoredApp', { name: ignoredAppStatus.app_name })}
-                  </span>
-                )}
-
-                {currentCollection?.membership === 'trash' && (
-                  <button
-                    onClick={handleEmptyTrash}
-                    disabled={trashedClips.length === 0}
-                    className="theme-status-danger px-2 py-1 rounded-lg border text-xs font-semibold disabled:opacity-40 transition-colors cursor-pointer flex items-center space-x-1"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>{translate('app.emptyTrash')}</span>
-                  </button>
-                )}
-
-                {/* Pause History Toggle Button */}
-                <button
-                  onClick={handleToggleClipboardPause}
-                  className={`list-toolbar-button w-7 h-7 flex items-center justify-center rounded-lg border transition-[background-color,border-color,color] cursor-pointer ${
-                    isClipboardPaused
-                      ? 'is-warning shadow-sm'
-                      : ''
-                  }`}
-                  title={isClipboardPaused ? translate('app.resumeHistory') : translate('app.pauseHistory')}
-                >
-                  <Pause
-                    className={`w-4 h-4 ${isClipboardPaused ? 'fill-current animate-pulse' : ''}`}
-                    strokeWidth={2.5}
-                  />
-                </button>
-
-                {/* Copy Queue Record/Stop Toggle Button */}
-                {enabledFeatures.queue && <button
-                  onClick={handleToggleCopyQueue}
-                  className={`list-toolbar-button w-7 h-7 flex items-center justify-center rounded-lg border transition-[background-color,border-color,color] cursor-pointer ${
-                    seqStatus?.is_active
-                      ? 'is-queue-active shadow-sm'
-                      : ''
-                  }`}
-                  title={seqStatus?.is_active
-                    ? translate('app.stopQueueCount', { count: seqStatus.queue.length })
-                    : translate('app.startQueue')}
-                >
-                  {seqStatus?.is_active ? (
-                    <Square className="w-3.5 h-3.5 fill-current animate-pulse" strokeWidth={2.5} />
-                  ) : (
-                    <Disc className="w-4 h-4 transition-colors" strokeWidth={2.5} />
-                  )}
-                </button>}
-              </div>
-            </div>
+            <ClipListHeader
+              collection={currentCollection}
+              currentTab={currentTab}
+              searchTotalCount={searchTotalCount}
+              ignoredAppStatus={ignoredAppStatus}
+              trashIsEmpty={trashedClips.length === 0}
+              onEmptyTrash={handleEmptyTrash}
+              clipboardPaused={isClipboardPaused}
+              onToggleClipboardPause={handleToggleClipboardPause}
+              queueEnabled={enabledFeatures.queue}
+              queueStatus={seqStatus}
+              onToggleQueue={handleToggleCopyQueue}
+            />
 
             {/* Sequential Paste Top Header Banner if active */}
             {isQueueCollection && (
@@ -679,7 +627,10 @@ export default function App() {
                   if (event.target === event.currentTarget) clearClipSelection();
                 }}
               >
-                {displayedClips.length === 0 && !isLoadingCurrentCollection ? (
+                {displayedClips.length === 0 && (
+                  !isLoadingCurrentCollection
+                  || (currentCollection?.membership === 'search' && Boolean(searchDisplayQuery))
+                ) ? (
                   searchFailed && currentTab === 'search' ? (
                     <div className="flex h-full items-center justify-center p-6">
                       <SearchErrorNotice onRetry={retrySearch} />
@@ -687,7 +638,7 @@ export default function App() {
                   ) : (
                   <EmptyClipList
                     currentTab={currentTab}
-                    searchQuery={searchQuery}
+                    searchQuery={currentTab === 'search' ? searchDisplayQuery : searchQuery}
                     selectedBin={selectedBinId === null ? undefined : binsById.get(selectedBinId)}
                   />
                   )
@@ -739,7 +690,7 @@ export default function App() {
                       filePreviewMode={appSettings.filePreviewMode}
                       filePreviewMaxMb={appSettings.filePreviewMaxMb}
                       trashEnabled={appSettings.enableTrash}
-                      searchQuery={currentTab === 'search' ? searchQuery : undefined}
+                      searchQuery={currentTab === 'search' ? searchDisplayQuery : undefined}
                       setDraggedClipId={setDraggedClipId}
                       onPointerDragStart={(id) => {
                         setHoveredClipId(null);
@@ -790,6 +741,7 @@ export default function App() {
                       onPin={() => handleTogglePin(clip.id)}
                       onToggleProtected={() => handleToggleProtected(clip.id)}
                       onToggleConcealed={() => handleToggleConcealed(clip.id)}
+                      onName={() => handlePromptNameClip(clip)}
                       onDelete={(e) => handleDeleteClip(clip.id, e?.altKey)}
                       onRestore={() => clipHistoryFocus.restoreClipToHistory(clip.id)}
                       onPurgePermanently={() => handlePurgeClipPermanently(clip.id)}
@@ -816,7 +768,7 @@ export default function App() {
                     />
                   );
                   })}
-                  {isLoadingCurrentCollection && (
+                  {isLoadingCurrentCollection && currentCollection?.membership !== 'search' && (
                     <div className="theme-text-muted py-3 text-center text-xs" role="status">
                     {translate('app.loadingOlderClips')}
                     </div>
@@ -862,6 +814,7 @@ export default function App() {
             onTogglePin={handleTogglePin}
             onToggleProtected={handleToggleProtected}
             onToggleConcealed={handleToggleConcealed}
+            onName={handlePromptNameClip}
             onDeleteClip={selectedClipViewPolicy.state === 'trash' ? handlePurgeClipPermanently : handleDeleteClip}
             onUpdateClipNote={handleUpdateClipNoteLocally}
             isTransforming={selectedClip ? transformingClipIds.has(selectedClip.id) : false}
@@ -875,38 +828,33 @@ export default function App() {
         </div>
       )}
 
-      {/* Right Click Context Menu */}
-      {contextMenu && currentContextMenuClip && (
-        <ContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          clip={currentContextMenuClip}
-          viewPolicy={getClipViewPolicy(currentTab, currentContextMenuClip)}
-          selectedCount={selectedClipIds.has(currentContextMenuClip.id) ? selectedClipIds.size : 1}
-          bins={bins}
-          onClose={() => setContextMenu(null)}
-          onCopy={() => handleCopyClip(currentContextMenuClip)}
-          onAssignBin={(binId) => assignClipToBin(
-            currentContextMenuClip.id,
-            binId,
-            { includeSelection: true },
-          )}
-          onRemoveBin={(binId) => removeClipFromBin(currentContextMenuClip.id, binId)}
-          onRunTransform={(transform) => handleRunTransformForClip(currentContextMenuClip, transform)}
-          onOpenTransformations={() => navigateToTab('transformations')}
-          onAddNote={() => handlePromptAddNote(currentContextMenuClip)}
-          onDeleteNote={() => handleDeleteNoteFromClip(currentContextMenuClip.id)}
-          isQueued={Boolean(currentContextMenuClip.text_content && queuedIndexMap.has(currentContextMenuClip.text_content))}
-          onToggleQueue={() => void handleToggleSequentialStack(currentContextMenuClip)}
-          onTogglePin={() => handleTogglePin(currentContextMenuClip.id)}
-          onToggleProtected={() => handleToggleProtected(currentContextMenuClip.id)}
-          onToggleConcealed={() => handleToggleConcealed(currentContextMenuClip.id)}
-          onDelete={(e) => handleDeleteClip(currentContextMenuClip.id, e?.altKey)}
-          onRestore={() => clipHistoryFocus.restoreClipToHistory(currentContextMenuClip.id)}
-          onPurge={() => handlePurgeClipPermanently(currentContextMenuClip.id)}
-          trashEnabled={appSettings.enableTrash}
-        />
-      )}
+      <ClipContextMenuLayer
+        menu={contextMenu}
+        setMenu={setContextMenu}
+        clips={allClips}
+        trashedClips={trashedClips}
+        currentTab={currentTab}
+        selectedClipIds={selectedClipIds}
+        bins={bins}
+        queuedIndexMap={queuedIndexMap}
+        trashEnabled={appSettings.enableTrash}
+        onCopy={handleCopyClip}
+        onAssignBin={(clipId, binId) => assignClipToBin(clipId, binId, { includeSelection: true })}
+        onRemoveBin={removeClipFromBin}
+        onRunTransform={handleRunTransformForClip}
+        onOpenTransformations={() => navigateToTab('transformations')}
+        onName={handlePromptNameClip}
+        onClearName={handleClearClipName}
+        onAddNote={handlePromptAddNote}
+        onDeleteNote={handleDeleteNoteFromClip}
+        onToggleQueue={(clip) => void handleToggleSequentialStack(clip)}
+        onTogglePin={handleTogglePin}
+        onToggleProtected={handleToggleProtected}
+        onToggleConcealed={handleToggleConcealed}
+        onDelete={(clipId, permanently) => handleDeleteClip(clipId, permanently)}
+        onRestore={clipHistoryFocus.restoreClipToHistory}
+        onPurge={handlePurgeClipPermanently}
+      />
 
       <AppDialogLayer
         features={enabledFeatures}
@@ -932,6 +880,12 @@ export default function App() {
         notePromptText={notePromptText}
         setNotePromptText={setNotePromptText}
         updateClipNoteLocally={handleUpdateClipNoteLocally}
+        namePromptClip={namePromptClip}
+        setNamePromptClip={setNamePromptClip}
+        namePromptText={namePromptText}
+        setNamePromptText={setNamePromptText}
+        updateClipNameLocally={handleUpdateClipNameLocally}
+        onNameCleared={(clipId) => clipHistoryFocus.handlePropertyRemoved('name', [clipId])}
         clearHistoryMode={clearHistoryMode}
         setClearHistoryMode={setClearHistoryMode}
         confirmClearHistory={handleClearHistory}

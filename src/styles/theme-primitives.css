@@ -29,6 +29,10 @@
   color: var(--queue-accent);
 }
 
+.theme-named-text {
+  color: var(--named-accent);
+}
+
 .theme-intelligence-text {
   color: color-mix(in srgb, var(--queue-accent) 72%, var(--text-title));
 }
@@ -282,6 +286,14 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 
 .floating-action-button.is-success {
   color: var(--status-success);
+}
+
+.floating-action-button.is-named {
+  color: var(--named-accent);
+}
+
+.floating-action-button.is-named.is-active {
+  background-color: color-mix(in srgb, var(--named-accent) 12%, var(--bg-tab-hover));
 }
 
 .floating-action-button.is-danger {
@@ -1323,9 +1335,13 @@ option {
   --menu-item-accent: color-mix(in srgb, var(--queue-accent) 45%, var(--text-title));
 }
 
-.theme-menu-item:is(.is-accent, .is-info, .is-success, .is-warning, .is-note, .is-queue),
-.theme-menu-item:is(.is-accent, .is-info, .is-success, .is-warning, .is-note, .is-queue):hover,
-.theme-menu-item:is(.is-accent, .is-info, .is-success, .is-warning, .is-note, .is-queue):focus-visible {
+.theme-menu-item.is-named {
+  --menu-item-accent: color-mix(in srgb, var(--named-accent) 45%, var(--text-title));
+}
+
+.theme-menu-item:is(.is-accent, .is-info, .is-success, .is-warning, .is-note, .is-queue, .is-named),
+.theme-menu-item:is(.is-accent, .is-info, .is-success, .is-warning, .is-note, .is-queue, .is-named):hover,
+.theme-menu-item:is(.is-accent, .is-info, .is-success, .is-warning, .is-note, .is-queue, .is-named):focus-visible {
   color: var(--menu-item-accent);
 }
 
@@ -1341,14 +1357,14 @@ option {
   color: var(--accent-primary);
 }
 
-.theme-menu-item:is(.is-accent, .is-info, .is-success, .is-warning, .is-note, .is-queue).is-selected {
+.theme-menu-item:is(.is-accent, .is-info, .is-success, .is-warning, .is-note, .is-queue, .is-named).is-selected {
   background-color: color-mix(in srgb, var(--menu-item-accent) 12%, var(--menu-surface));
   color: var(--menu-item-accent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--menu-item-accent) 34%, var(--border-subtle));
 }
 
-.theme-menu-item:is(.is-accent, .is-info, .is-success, .is-warning, .is-note, .is-queue).is-selected:hover,
-.theme-menu-item:is(.is-accent, .is-info, .is-success, .is-warning, .is-note, .is-queue).is-selected:focus-visible {
+.theme-menu-item:is(.is-accent, .is-info, .is-success, .is-warning, .is-note, .is-queue, .is-named).is-selected:hover,
+.theme-menu-item:is(.is-accent, .is-info, .is-success, .is-warning, .is-note, .is-queue, .is-named).is-selected:focus-visible {
   background-color: color-mix(in srgb, var(--menu-item-accent) 16%, var(--menu-surface));
   color: var(--menu-item-accent);
 }

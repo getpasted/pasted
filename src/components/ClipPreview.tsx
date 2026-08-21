@@ -37,6 +37,7 @@ import {
   AlertTriangle,
   RotateCcw,
   X,
+  FilePenLine,
 } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { analysisApi } from '../api/analysis';
@@ -65,6 +66,7 @@ interface ClipPreviewProps {
   onTogglePin: (clipId: number) => void;
   onToggleProtected: (clipId: number) => void;
   onToggleConcealed: (clipId: number) => void;
+  onName: (clip: ClipItem) => void;
   onDeleteClip: (id: number) => void;
   onUpdateClipNote?: (clipId: number, noteContent: string | null) => void;
   isTransforming?: boolean;
@@ -272,6 +274,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   onTogglePin,
   onToggleProtected,
   onToggleConcealed,
+  onName,
   onDeleteClip,
   onUpdateClipNote,
   isTransforming = false,
@@ -1212,7 +1215,17 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
             {concealment.effective ? <Eye /> : <EyeOff />}
           </button>}
 
-          {viewPolicy.canOrganize && (features.pinning || features.protection || features.concealment) && (
+          {features.naming && viewPolicy.canOrganize && <button
+            type="button"
+            onClick={() => onName(clip)}
+            className={`clip-preview-action preview-name-btn theme-focusable transition-colors ${clip.name ? 'is-active' : ''}`}
+            title={clip.name ? translate('action.editName') : translate('action.nameClip')}
+            aria-label={clip.name ? translate('action.editName') : translate('action.nameClip')}
+          >
+            <FilePenLine />
+          </button>}
+
+          {viewPolicy.canOrganize && (features.pinning || features.protection) && (
             <>
               {features.pinning && <button
                 type="button"
@@ -1316,6 +1329,20 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
             onChange={(hotkey) => void handleHotkeyChange(hotkey)}
           />
         </div>
+      )}
+
+      {features.naming && clip.name && (
+        <button
+          type="button"
+          onClick={() => onName(clip)}
+          disabled={!viewPolicy.canOrganize}
+          className="preview-name-row theme-named-text flex w-full items-center gap-2.5 border-b px-4 py-3 text-start disabled:cursor-default"
+          title={viewPolicy.canOrganize ? translate('action.editName') : clip.name}
+          aria-label={viewPolicy.canOrganize ? translate('action.editName') : clip.name}
+        >
+          <FilePenLine className="h-5 w-5 shrink-0" />
+          <OverflowText text={clip.name} className="min-w-0 truncate text-lg font-semibold" />
+        </button>
       )}
 
       {/* Multi-Note Container (Inline Input Row, Stable Animated Reordering, Non-Selectable) */}

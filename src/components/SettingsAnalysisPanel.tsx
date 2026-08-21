@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import { Clipboard, Copy, Lightbulb, Plus, Radar, RotateCcw, ScanSearch, ScanText, Shapes, Trash2, type LucideIcon } from 'lucide-react';
+import { Clipboard, Copy, Lightbulb, Plus, Radar, RotateCcw, ScanSearch, ScanText, Search, Shapes, Trash2, type LucideIcon } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading, SaveButtonContent } from './AppDialogLayout';
@@ -27,6 +27,7 @@ import { useLocalization } from '../localization/LocalizationProvider';
 import { localizedBuiltinDescription, localizedBuiltinName, localizedContentTypeGroupLabel } from '../localization/presentation';
 import { contentTypeLabel } from '../utils/contentTypes';
 import { analysisApi } from '../api/analysis';
+import { SearchIndexManagerDialog } from './SearchIndexManagerDialog';
 
 interface ContentClassifier {
   id: number;
@@ -130,6 +131,7 @@ export function SettingsAnalysisPanel({
   transformationsEnabled,
   typesEnabled,
   sourcesEnabled,
+  searchEnabled,
   onOpenIntelligence,
 }: {
   contentClassificationEnabled: boolean;
@@ -139,6 +141,7 @@ export function SettingsAnalysisPanel({
   transformationsEnabled: boolean;
   typesEnabled: boolean;
   sourcesEnabled: boolean;
+  searchEnabled: boolean;
   onOpenIntelligence?: () => void;
 }) {
   const { showToast } = useToast();
@@ -158,6 +161,7 @@ export function SettingsAnalysisPanel({
   const [isCaptureManagerOpen, setIsCaptureManagerOpen] = useState(false);
   const [isInspectorManagerOpen, setIsInspectorManagerOpen] = useState(false);
   const [isExtractorManagerOpen, setIsExtractorManagerOpen] = useState(false);
+  const [isIndexManagerOpen, setIsIndexManagerOpen] = useState(false);
   const [isManagerOpen, setIsManagerOpen] = useState(false);
   const [isSuggestionManagerOpen, setIsSuggestionManagerOpen] = useState(false);
   const [confirmation, setConfirmation] = useState<ConfirmationDialogRequest | null>(null);
@@ -509,15 +513,22 @@ export function SettingsAnalysisPanel({
             description={translate('component.settingsAnalysisPanel.createSearchableRepresentations')}
             onManage={() => setIsExtractorManagerOpen(true)}
           />
-          {(contentClassificationEnabled || typesEnabled) && <AnalysisManagerRow
+          {searchEnabled && <AnalysisManagerRow
             step={4}
+            icon={Search}
+            title={translate('component.settingsAnalysisPanel.index')}
+            description={translate('component.settingsAnalysisPanel.keepCapturedAndExtractedTextReadyForSearch')}
+            onManage={() => setIsIndexManagerOpen(true)}
+          />}
+          {(contentClassificationEnabled || typesEnabled) && <AnalysisManagerRow
+            step={searchEnabled ? 5 : 4}
             icon={Radar}
             title={translate('component.settingsAnalysisPanel.classify')}
             description={translate('component.settingsAnalysisPanel.assignRegisteredContentTypesToAnalyzableText')}
             onManage={openClassifierManager}
           />}
           {transformationsEnabled && <AnalysisManagerRow
-            step={5}
+            step={4 + Number(searchEnabled) + Number(contentClassificationEnabled || typesEnabled)}
             icon={Lightbulb}
             title={translate('component.settingsAnalysisPanel.suggest')}
             description={translate('component.settingsAnalysisPanel.suggestActionsFromAnalysisSignals')}
@@ -727,6 +738,10 @@ export function SettingsAnalysisPanel({
           setIsExtractorManagerOpen(false);
           onOpenIntelligence();
         } : undefined}
+      />
+      <SearchIndexManagerDialog
+        isOpen={isIndexManagerOpen}
+        onClose={() => setIsIndexManagerOpen(false)}
       />
       <BuiltinLifecycleManagerDialog
         isOpen={isSuggestionManagerOpen}

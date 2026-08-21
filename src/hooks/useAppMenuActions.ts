@@ -21,6 +21,7 @@ interface UseAppMenuActionsOptions {
   toggleCopyQueue: () => unknown;
   copyClip: (clip: ClipItem) => unknown;
   promptAddNote: (clip: ClipItem) => unknown;
+  promptNameClip: (clip: ClipItem) => unknown;
   togglePin: (clipId: number) => unknown;
   toggleProtected: (clipId: number) => unknown;
   batchTrash: () => unknown;
@@ -45,6 +46,7 @@ export function useAppMenuActions({
   toggleCopyQueue,
   copyClip,
   promptAddNote,
+  promptNameClip,
   togglePin,
   toggleProtected,
   batchTrash,
@@ -72,6 +74,9 @@ export function useAppMenuActions({
         break;
       case 'add-note':
         if (enabledFeatures.notes && selectedClip && selectedClipViewPolicy.canEditNotes) promptAddNote(selectedClip);
+        break;
+      case 'name-clip':
+        if (enabledFeatures.naming && selectedClip && selectedClipViewPolicy.canOrganize) promptNameClip(selectedClip);
         break;
       case 'toggle-pin':
         if (enabledFeatures.pinning && selectedClip && selectedClipViewPolicy.canOrganize) togglePin(selectedClip.id);

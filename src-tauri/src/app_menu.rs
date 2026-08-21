@@ -34,6 +34,7 @@ fn dispatch_for_id(id: &str) -> Option<MenuDispatch> {
         "file.toggle_queue" => MenuDispatch::FrontendAction("toggle-queue"),
         "edit.clip.copy" => MenuDispatch::FrontendAction("copy-selected-clip"),
         "edit.clip.note" => MenuDispatch::FrontendAction("add-note"),
+        "edit.clip.name" => MenuDispatch::FrontendAction("name-clip"),
         "edit.clip.pin" => MenuDispatch::FrontendAction("toggle-pin"),
         "edit.clip.protect" => MenuDispatch::FrontendAction("toggle-protection"),
         "edit.clip.trash" => MenuDispatch::FrontendAction("trash-selected"),
@@ -42,6 +43,7 @@ fn dispatch_for_id(id: &str) -> Option<MenuDispatch> {
         "view.queue" => MenuDispatch::Navigate("sequential"),
         "view.pinned" => MenuDispatch::Navigate("pinned"),
         "view.protected" => MenuDispatch::Navigate("protected"),
+        "view.named" => MenuDispatch::Navigate("named"),
         "view.noted" => MenuDispatch::Navigate("notes"),
         "view.trashed" => MenuDispatch::Navigate("trash"),
         "view.analytics" => MenuDispatch::Navigate("analytics"),
@@ -318,6 +320,9 @@ pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
     if feature_enabled(Feature::Notes) {
         clip_actions_builder = clip_actions_builder.text("edit.clip.note", t("native.edit.note"));
     }
+    if feature_enabled(Feature::Naming) {
+        clip_actions_builder = clip_actions_builder.text("edit.clip.name", t("native.edit.name"));
+    }
     if feature_enabled(Feature::Pinning) || feature_enabled(Feature::Protection) {
         clip_actions_builder = clip_actions_builder.separator();
         if feature_enabled(Feature::Pinning) {
@@ -374,9 +379,11 @@ pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
     };
 
     let mut clips_builder = SubmenuBuilder::new(app, t("native.clips.title"))
-        .text("view.all", t("native.clips.history"))
-        .item(&search)
-        .separator();
+        .text("view.all", t("native.clips.history"));
+    if feature_enabled(Feature::Search) {
+        clips_builder = clips_builder.item(&search);
+    }
+    clips_builder = clips_builder.separator();
     if feature_enabled(Feature::Queue) {
         clips_builder = clips_builder.text("view.queue", t("native.clips.queue"));
     }
@@ -385,6 +392,9 @@ pub fn install(app: &AppHandle, db: &Arc<DbState>) -> tauri::Result<()> {
     }
     if feature_enabled(Feature::Protection) {
         clips_builder = clips_builder.text("view.protected", t("native.clips.protected"));
+    }
+    if feature_enabled(Feature::Naming) {
+        clips_builder = clips_builder.text("view.named", t("native.clips.named"));
     }
     if feature_enabled(Feature::Notes) {
         clips_builder = clips_builder.text("view.noted", t("native.clips.noted"));

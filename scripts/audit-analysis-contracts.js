@@ -36,8 +36,6 @@ for (const [step, participant, icon] of [
   [1, 'Capture', 'Clipboard'],
   [2, 'Inspect', 'ScanSearch'],
   [3, 'Extract', 'ScanText'],
-  [4, 'Classify', 'Radar'],
-  [5, 'Suggest', 'Lightbulb'],
 ]) {
   const participantKey = `component.settingsAnalysisPanel.${participant.toLowerCase()}`;
   assert.match(
@@ -47,6 +45,22 @@ for (const [step, participant, icon] of [
   );
   assert.equal(englishCatalog[participantKey], participant);
 }
+assert.match(
+  analysisSettings,
+  /searchEnabled && <AnalysisManagerRow[\s\S]{0,100}step=\{4\}[\s\S]{0,80}icon=\{Search\}[\s\S]{0,140}settingsAnalysisPanel\.index/,
+  'Analysis Settings must present Index after Extract when Clip Search is enabled',
+);
+assert.equal(englishCatalog['component.settingsAnalysisPanel.index'], 'Index');
+assert.match(
+  analysisSettings,
+  /step=\{searchEnabled \? 5 : 4\}[\s\S]{0,80}icon=\{Radar\}[\s\S]{0,140}settingsAnalysisPanel\.classify/,
+  'Classify must follow the optional Index lifecycle stage',
+);
+assert.match(
+  analysisSettings,
+  /step=\{4 \+ Number\(searchEnabled\) \+ Number\(contentClassificationEnabled \|\| typesEnabled\)\}[\s\S]{0,80}icon=\{Lightbulb\}/,
+  'Suggest must follow the enabled lifecycle stages',
+);
 assert.match(
   analysisSettings,
   /translate\('component\.settingsAnalysisPanel\.notAllStepsRunForAllClipsSomeStepsMayBeLong'\)/,
