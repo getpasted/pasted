@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager, State};
 
-use crate::db::{Bin, ClipMutationSummary, ClipSearchRequest, ClipSearchResult, DbState};
+use crate::db::{ClipSearchRequest, ClipSearchResult, DbState};
 use crate::features::{self, Feature};
 use crate::installation_diagnostics::InstallationDiagnostics;
 use crate::sequential_paste::SequentialQueueState;
@@ -12,6 +12,7 @@ pub(crate) mod activity;
 pub(crate) mod analysis;
 pub(crate) mod app_lock;
 pub(crate) mod backups;
+pub(crate) mod bins;
 pub(crate) mod clip_metadata;
 pub(crate) mod clip_policies;
 pub(crate) mod clipboard;
@@ -34,6 +35,7 @@ pub(crate) mod storage;
 pub(crate) mod transformations;
 
 pub(crate) use backups::*;
+pub(crate) use bins::*;
 pub(crate) use clipboard::*;
 pub(crate) use extraction::*;
 pub(crate) use factory_reset::*;
@@ -263,180 +265,6 @@ pub fn get_all_app_settings(
     let mut settings = db.get_all_settings().map_err(|e| e.to_string())?;
     settings.retain(|key, _| !crate::app_lock::is_private_setting(key));
     Ok(settings)
-}
-
-#[tauri::command]
-pub fn get_bins(db: State<'_, Arc<DbState>>) -> Result<Vec<Bin>, String> {
-    db.get_bins().map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn create_bin(
-    name: String,
-    icon: String,
-    color: String,
-    smart_rule: Option<String>,
-    app: AppHandle,
-    db: State<'_, Arc<DbState>>,
-) -> Result<Bin, String> {
-    features::require(&db, Feature::Bins)?;
-    let bin = db
-        .create_bin(&name, &icon, &color, smart_rule.as_deref())
-        .map_err(|e| e.to_string())?;
-    refresh_native_app_menu(&app, &db);
-    Ok(bin)
-}
-
-#[tauri::command]
-pub fn delete_bin(
-    id: i64,
-    disposition: Option<String>,
-    destination_bin_id: Option<i64>,
-    app: AppHandle,
-    db: State<'_, Arc<DbState>>,
-) -> Result<(), String> {
-    features::require(&db, Feature::Bins)?;
-    db.delete_bin(
-        id,
-        disposition.as_deref().unwrap_or("keep"),
-        destination_bin_id,
-    )
-    .map_err(|e| e.to_string())?;
-    refresh_native_app_menu(&app, &db);
-    Ok(())
-}
-
-#[tauri::command]
-pub fn update_bin(
-    id: i64,
-    name: String,
-    icon: String,
-    color: String,
-    smart_rule: Option<String>,
-    app: AppHandle,
-    db: State<'_, Arc<DbState>>,
-) -> Result<(), String> {
-    features::require(&db, Feature::Bins)?;
-    db.update_bin(id, &name, &icon, &color, smart_rule.as_deref())
-        .map_err(|e| e.to_string())?;
-    refresh_native_app_menu(&app, &db);
-    Ok(())
-}
-
-#[tauri::command]
-pub fn update_bin_hotkey(
-    id: i64,
-    hotkey: Option<String>,
-    db: State<'_, Arc<DbState>>,
-    app: AppHandle,
-) -> Result<(), String> {
-    features::require(&db, Feature::Bins)?;
-    features::require(&db, Feature::Hotkeys)?;
-    let previous = db.get_bin(id).map_err(|error| error.to_string())?.shortcut;
-    db.update_bin_hotkey(id, hotkey.as_deref())
-        .map_err(|e| e.to_string())?;
-    let changed_hotkeys: Vec<String> = hotkey.clone().into_iter().collect();
-    if let Err(error) = register_changed_hotkeys(&app, &changed_hotkeys) {
-        db.update_bin_hotkey(id, previous.as_deref())
-            .map_err(|rollback| {
-                format!("{error}; restoring the previous Bin hotkey failed: {rollback}")
-            })?;
-        let _ = register_all_app_shortcuts(&app);
-        return Err(error);
-    }
-    Ok(())
-}
-
-#[tauri::command]
-pub fn get_clip_hotkey_assignments(
-    db: State<'_, Arc<DbState>>,
-) -> Result<Vec<ClipHotkeyAssignment>, String> {
-    features::require(&db, Feature::Hotkeys)?;
-    db.get_clip_hotkeys()
-        .map(|assignments| {
-            assignments
-                .into_iter()
-                .map(|(clip_id, hotkey)| ClipHotkeyAssignment { clip_id, hotkey })
-                .collect()
-        })
-        .map_err(|error| error.to_string())
-}
-
-#[derive(serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ClipHotkeyAssignment {
-    clip_id: i64,
-    hotkey: String,
-}
-
-#[tauri::command]
-pub fn update_clip_hotkey(
-    clip_id: i64,
-    hotkey: Option<String>,
-    db: State<'_, Arc<DbState>>,
-    app: AppHandle,
-) -> Result<crate::db::ClipItem, String> {
-    features::require(&db, Feature::Protection)?;
-    features::require(&db, Feature::Hotkeys)?;
-    let previous = db
-        .get_clip_by_id(clip_id)
-        .map_err(|error| error.to_string())?;
-    let previous_shortcut = previous.shortcut.clone();
-    let previous_explicit = previous
-        .is_explicitly_protected
-        .unwrap_or(previous.is_protected);
-    db.update_clip_hotkey(clip_id, hotkey.as_deref())
-        .map_err(|error| error.to_string())?;
-    let changed_hotkeys: Vec<String> = hotkey.clone().into_iter().collect();
-    if let Err(error) = register_changed_hotkeys(&app, &changed_hotkeys) {
-        db.restore_clip_hotkey_state(clip_id, previous_shortcut.as_deref(), previous_explicit)
-            .map_err(|rollback| {
-                format!("{error}; restoring the previous clip hotkey failed: {rollback}")
-            })?;
-        let _ = register_all_app_shortcuts(&app);
-        return Err(error);
-    }
-    let assigned = hotkey
-        .as_deref()
-        .is_some_and(|value| !value.trim().is_empty());
-    let activity_description = if assigned {
-        format!("Assigned a hotkey to clip #{clip_id}")
-    } else {
-        format!("Removed the hotkey from clip #{clip_id}")
-    };
-    let _ = db.log_activity("clip_hotkey_changed", &activity_description);
-    let clip = db
-        .get_clip_by_id(clip_id)
-        .map_err(|error| error.to_string())?;
-    crate::app_events::emit_clip_library_changed(&app, vec![clip_id]);
-    Ok(clip)
-}
-
-#[tauri::command]
-pub fn toggle_clip_protected(clip_id: i64, db: State<'_, Arc<DbState>>) -> Result<bool, String> {
-    features::require(&db, Feature::Protection)?;
-    db.toggle_protected(clip_id).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn batch_protect_clips(
-    ids: Vec<i64>,
-    protected_state: bool,
-    db: State<'_, Arc<DbState>>,
-) -> Result<ClipMutationSummary, String> {
-    features::require(&db, Feature::Protection)?;
-    db.batch_protect_clips(ids, protected_state)
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn trash_unpinned_clips(db: State<'_, Arc<DbState>>) -> Result<(), String> {
-    db.trash_unpinned_clips().map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn purge_unpinned_clips(db: State<'_, Arc<DbState>>) -> Result<(), String> {
-    db.purge_unpinned_clips().map_err(|e| e.to_string())
 }
 
 const BACKING_URL: &str = "https://back.getpasted.app";

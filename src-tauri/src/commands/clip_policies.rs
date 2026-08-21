@@ -51,3 +51,20 @@ pub fn batch_conceal_clips(
     db.batch_conceal_clips(ids, concealed_state)
         .map_err(|error| error.to_string())
 }
+
+#[tauri::command]
+pub fn toggle_clip_protected(clip_id: i64, db: State<'_, Arc<DbState>>) -> Result<bool, String> {
+    features::require(&db, Feature::Protection)?;
+    db.toggle_protected(clip_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn batch_protect_clips(
+    ids: Vec<i64>,
+    protected_state: bool,
+    db: State<'_, Arc<DbState>>,
+) -> Result<ClipMutationSummary, String> {
+    features::require(&db, Feature::Protection)?;
+    db.batch_protect_clips(ids, protected_state)
+        .map_err(|e| e.to_string())
+}
