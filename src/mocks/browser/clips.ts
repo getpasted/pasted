@@ -7,6 +7,7 @@ interface BrowserClip {
   is_trashed: number;
   is_pinned: number;
   is_protected: number;
+  is_concealed?: number | boolean;
   note?: string | null;
   bin_ids: number[];
   content_types?: string[];
@@ -50,6 +51,7 @@ export function handleClipBrowserMock<T extends BrowserClip>(
       trashCount: clips.length - active.length,
       pinnedCount: active.filter((clip) => clip.is_pinned).length,
       protectedCount: active.filter((clip) => clip.is_protected).length,
+      concealedCount: active.filter((clip) => clip.is_concealed).length,
       notedCount: active.filter((clip) => Boolean(clip.note?.trim())).length,
       clipTypeCounts: countBy('content_type').map(([clip_type, count]) => ({ clip_type, count })),
       fileFormatCounts: fileFormatCounts.map(([file_format, count]) => ({ file_format, count })),

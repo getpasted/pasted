@@ -296,7 +296,7 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
             println!("  pasted bin list|get|create|update|duplicate|delete [--json]");
             println!("  pasted bin clips <id> --json List clips in persistent Bin order");
             println!("  pasted bin order <id> <clip-id>... Persist a complete Bin order");
-            println!("  pasted bin protect <id> <on|off> [--json]");
+            println!("  pasted bin protect|conceal <id> <on|off> [--json]");
             println!("  pasted clip get <id> --json Inspect one clip");
             println!(
                 "  pasted clip copy|paste <id> [--json] Use the running app and system clipboard"
@@ -304,7 +304,7 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
             println!("  pasted clip hotkey <id> <hotkey|none> [--json]");
             println!("  pasted clip pin|unpin <id>... [--json]");
             println!("  pasted clip order-pinned <id>... [--json]");
-            println!("  pasted clip protect|unprotect <id>... [--json]");
+            println!("  pasted clip protect|unprotect|conceal|unconceal <id>... [--json]");
             println!("  pasted clip trash|restore <id>... [--json]");
             println!("  pasted clip restore-all [--json] Restore every clip from Trash");
             println!("  pasted clip note|revisions|restore-revision|provenance <id> [options]");

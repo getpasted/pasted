@@ -67,6 +67,7 @@ const EMPTY_COLLECTION_SUMMARY: ClipCollectionSummary = {
   trashCount: 0,
   pinnedCount: 0,
   protectedCount: 0,
+  concealedCount: 0,
   notedCount: 0,
   clipTypeCounts: [],
   fileFormatCounts: [],

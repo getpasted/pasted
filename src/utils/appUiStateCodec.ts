@@ -46,7 +46,7 @@ export const DEFAULT_APP_UI_STATE: AppUiState = {
 };
 
 const STANDARD_TABS = new Set([
-  'all', 'search', 'sequential', 'pinned', 'protected', 'notes', 'trash', 'bin',
+  'all', 'search', 'sequential', 'pinned', 'protected', 'concealed', 'notes', 'trash', 'bin',
   'analytics', 'transformations', 'activity', 'help', 'settings',
 ]);
 

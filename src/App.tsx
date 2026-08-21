@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { safeInvoke as invoke } from './utils/tauri';
 import { ClipItem, Bin } from './types';
 import { Sidebar } from './components/Sidebar';
@@ -29,22 +29,11 @@ import { translate } from './localization/runtime';
 import { MacRtlWindowControls } from './components/MacRtlWindowControls';
 import { SearchErrorNotice } from './components/SearchErrorNotice';
 import { clipsApi } from './api/clips';
-import { useAppNavigation } from './hooks/useAppNavigation';
-import { useAppShell } from './hooks/useAppShell';
-import { useAppMenuActions } from './hooks/useAppMenuActions';
-import { useClipSelectionController } from './hooks/useClipSelectionController';
-import { useClipListViewport } from './hooks/useClipListViewport';
+import { useAppMenuActions, useAppNavigation, useAppOverlays, useAppShell, useClipDragController, useClipListViewport, useClipReordering, useClipSelectionController } from './hooks/appControllers';
 import { ClipBatchActionBar } from './components/ClipBatchActionBar';
-import { useAppOverlays } from './hooks/useAppOverlays';
-import { useClipReordering } from './hooks/useClipReordering';
 import { ClipDragPreview } from './components/ClipDragPreview';
-import { useClipDragController } from './hooks/useClipDragController';
 import { AppDialogLayer } from './components/AppDialogLayer';
-const TransformationsView = lazy(() => import('./components/TransformationsView').then(({ TransformationsView: component }) => ({ default: component })));
-const SettingsModal = lazy(() => import('./components/SettingsModal').then(({ SettingsModal: component }) => ({ default: component })));
-const ActivityLogView = lazy(() => import('./components/ActivityLogView').then(({ ActivityLogView: component }) => ({ default: component })));
-const AnalyticsView = lazy(() => import('./components/AnalyticsView').then(({ AnalyticsView: component }) => ({ default: component })));
-const HelpView = lazy(() => import('./components/HelpView').then(({ HelpView: component }) => ({ default: component })));
+import { ActivityLogView, AnalyticsView, HelpView, SettingsModal, TransformationsView } from './components/AppDestinations';
 
 export default function App() {
   const { catalogReady, direction, locale } = useLocalization();
@@ -280,8 +269,10 @@ export default function App() {
   const {
     togglePin: handleTogglePin,
     toggleProtected: handleToggleProtected,
+    toggleConcealed: handleToggleConcealed,
     setPinned: handleSetPinned,
     setProtected: handleSetProtected,
+    setConcealed: handleSetConcealed,
     deleteSelectedClips: handleBatchTrash,
     deleteClip: handleDeleteClip,
     copyClip: handleCopyClip,
@@ -376,10 +367,12 @@ export default function App() {
     queueEnabled: enabledFeatures.queue,
     pinningEnabled: enabledFeatures.pinning,
     protectionEnabled: enabledFeatures.protection,
+    concealmentEnabled: enabledFeatures.concealment,
     assignClipToBin,
     addToQueue: handleAddToSequentialStack,
     setPinned: handleSetPinned,
     setProtected: handleSetProtected,
+    setConcealed: handleSetConcealed,
     deleteClip: handleDeleteClip,
   });
 
@@ -508,6 +501,7 @@ export default function App() {
         onClearHistory={handleRequestClearHistory}
         pinnedCount={clipCollectionSummary.pinnedCount}
         protectedCount={clipCollectionSummary.protectedCount}
+        concealedCount={clipCollectionSummary.concealedCount}
         notesCount={clipCollectionSummary.notedCount}
         trashedCount={totalTrashCount}
         totalClipCount={totalClipCount}
@@ -531,7 +525,7 @@ export default function App() {
       )}
 
       {/* Main Content Area */}
-      <Suspense fallback={null}>{currentTab === 'transformations' ? (
+      {currentTab === 'transformations' ? (
         <TransformationsView
           manualTransforms={manualTransforms}
           onRefreshManualTransforms={fetchManualTransforms}
@@ -796,6 +790,7 @@ export default function App() {
                       onSelect={handleClipSelect}
                       onPin={() => handleTogglePin(clip.id)}
                       onToggleProtected={() => handleToggleProtected(clip.id)}
+                      onToggleConcealed={() => handleToggleConcealed(clip.id)}
                       onDelete={(e) => handleDeleteClip(clip.id, e?.altKey)}
                       onRestore={() => handleRestoreClip(clip.id)}
                       onPurgePermanently={() => handlePurgeClipPermanently(clip.id)}
@@ -867,6 +862,7 @@ export default function App() {
             onRemoveBin={removeClipFromBin}
             onTogglePin={handleTogglePin}
             onToggleProtected={handleToggleProtected}
+            onToggleConcealed={handleToggleConcealed}
             onDeleteClip={selectedClipViewPolicy.state === 'trash' ? handlePurgeClipPermanently : handleDeleteClip}
             onUpdateClipNote={handleUpdateClipNoteLocally}
             isTransforming={selectedClip ? transformingClipIds.has(selectedClip.id) : false}
@@ -878,7 +874,7 @@ export default function App() {
             filePreviewMaxMb={appSettings.filePreviewMaxMb}
           />
         </div>
-      )}</Suspense>
+      )}
 
       {/* Right Click Context Menu */}
       {contextMenu && currentContextMenuClip && (
@@ -905,6 +901,7 @@ export default function App() {
           onToggleQueue={() => void handleToggleSequentialStack(currentContextMenuClip)}
           onTogglePin={() => handleTogglePin(currentContextMenuClip.id)}
           onToggleProtected={() => handleToggleProtected(currentContextMenuClip.id)}
+          onToggleConcealed={() => handleToggleConcealed(currentContextMenuClip.id)}
           onDelete={(e) => handleDeleteClip(currentContextMenuClip.id, e?.altKey)}
           onRestore={() => handleRestoreClip(currentContextMenuClip.id)}
           onPurge={() => handlePurgeClipPermanently(currentContextMenuClip.id)}

@@ -59,10 +59,10 @@ export function isSensitiveText(text: string | null): boolean {
   return false;
 }
 
-export function maskSensitiveText(text: string | null): string {
+export function maskSensitiveText(text: string | null, revealLastFour = false): string {
   if (!text) return '';
   const trimmed = text.trim();
-  if (trimmed.length <= 8) {
+  if (!revealLastFour || trimmed.length <= 8) {
     return '•••• ••••';
   }
   const lastFour = trimmed.slice(-4);
@@ -84,6 +84,11 @@ export interface ClipItem {
   is_protected?: boolean;
   is_explicitly_protected?: boolean | null;
   protecting_bin_ids?: number[];
+  is_concealed?: boolean;
+  is_explicitly_concealed?: boolean | null;
+  is_explicitly_revealed?: boolean;
+  concealing_bin_ids?: number[];
+  concealing_content_types?: string[];
   hotkey?: string | null;
   is_transformed?: boolean;
   pin_order?: number;
@@ -130,6 +135,7 @@ export interface ClipCollectionSummary {
   trashCount: number;
   pinnedCount: number;
   protectedCount: number;
+  concealedCount: number;
   notedCount: number;
   clipTypeCounts: Array<{ clip_type: 'text' | 'image' | 'file'; count: number }>;
   fileFormatCounts: Array<{ file_format: string; count: number }>;
@@ -184,6 +190,7 @@ export interface Bin {
   bin_type?: 'category' | 'tag';
   hotkey?: string | null;
   protect_clips?: boolean;
+  conceal_clips?: boolean;
   clip_count?: number | null;
   clip_order?: number[];
   created_at: string;
@@ -523,6 +530,7 @@ export interface AppSettings {
   enableClipTypes: boolean;
   enableFileFormats: boolean;
   enableContentClassification: boolean;
+  enableConcealment: boolean;
   enableNotes: boolean;
   enableNotifications: boolean;
   enableAppLock: boolean;

@@ -260,6 +260,12 @@ pub(crate) fn run_clips(args: Vec<String>, db_path: PathBuf, _conn: Connection) 
             let summary = db.batch_protect_clips(ids, subcommand == "protect")?;
             print_mutation_summary(&summary, json)?;
         }
+        "conceal" | "unconceal" => {
+            require_feature(&db, Feature::Concealment);
+            let ids = parse_clip_ids(&args, 3);
+            let summary = db.batch_conceal_clips(ids, subcommand == "conceal")?;
+            print_mutation_summary(&summary, json)?;
+        }
         "trash" => {
             require_feature(&db, Feature::Trash);
             let summary = db.batch_trash_clips(parse_clip_ids(&args, 3))?;
@@ -354,7 +360,7 @@ pub(crate) fn run_clips(args: Vec<String>, db_path: PathBuf, _conn: Connection) 
             print_mutation_summary(&outcome.mutation, json)?;
         }
         _ => {
-            eprintln!("Usage: pasted clip get|note|revisions|restore-revision|provenance|copy|paste|hotkey|pin|unpin|order-pinned|protect|unprotect|trash|restore|restore-all|purge|empty-trash|assign|remove-bin|export|import [options] [--json]");
+            eprintln!("Usage: pasted clip get|note|revisions|restore-revision|provenance|copy|paste|hotkey|pin|unpin|order-pinned|protect|unprotect|conceal|unconceal|trash|restore|restore-all|purge|empty-trash|assign|remove-bin|export|import [options] [--json]");
             std::process::exit(2);
         }
     }

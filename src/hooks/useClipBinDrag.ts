@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import type { Bin, ClipItem } from '../types';
 import type { ClipDropAction } from '../utils/clipCollections';
+import { CLIP_PROPERTY_ASSOCIATIONS } from '../utils/clipPropertyAssociations';
 import { safeInvoke as invoke } from '../utils/tauri';
 
 interface ClipDragPreview {
@@ -75,12 +76,13 @@ export function useClipBinDrag({
   }, [bins, draggedClips]);
 
   const disabledDropActions = useMemo<ClipDropAction[]>(() => {
-    if (isQueueMode && draggedClipId !== null) return ['queue', 'pin', 'protect', 'trash'];
+    if (isQueueMode && draggedClipId !== null) return ['queue', 'pin', 'protect', 'conceal', 'trash'];
     if (!draggedClips?.length) return [];
     const disabled: ClipDropAction[] = [];
     if (draggedClips.some((clip) => clip.content_type === 'file' || !clip.text_content)) disabled.push('queue');
-    if (draggedClips.every((clip) => Boolean(clip.is_pinned))) disabled.push('pin');
-    if (draggedClips.every((clip) => Boolean(clip.is_protected))) disabled.push('protect');
+    for (const association of CLIP_PROPERTY_ASSOCIATIONS) {
+      if (draggedClips.every(association.isMember)) disabled.push(association.dropAction);
+    }
     if (draggedClips.some((clip) => Boolean(clip.is_protected))) disabled.push('trash');
     return disabled;
   }, [draggedClipId, draggedClips, isQueueMode]);
@@ -91,7 +93,7 @@ export function useClipBinDrag({
       ?.closest<HTMLElement>('[data-bin-drop-id], [data-clip-drop-action]');
     if (!target) return null;
     const action = target.dataset.clipDropAction;
-    if (action === 'queue' || action === 'pin' || action === 'protect' || action === 'trash') {
+    if (action === 'queue' || action === 'pin' || action === 'protect' || action === 'conceal' || action === 'trash') {
       return { kind: 'action', action };
     }
     const binId = Number(target.dataset.binDropId);

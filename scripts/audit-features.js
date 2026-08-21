@@ -27,7 +27,7 @@ const frontendKeys = [...frontendRegistry.matchAll(/settingKey:\s*'(enable[A-Za-
 const nativeKeys = [...nativePolicy.matchAll(/=>\s*"(enable[A-Za-z]+)"/g)]
   .map((match) => match[1]);
 
-assert.equal(frontendKeys.length, 23, 'The frontend feature registry must include every supported capability');
+assert.equal(frontendKeys.length, 24, 'The frontend feature registry must include every supported capability');
 const frontendGroups = [...frontendRegistry.matchAll(/group:\s*'([A-Za-z]+)'/g)]
   .map((match) => match[1]);
 assert.equal(frontendGroups.length, frontendKeys.length, 'Every feature must belong to a Functionality group');

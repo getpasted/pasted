@@ -21,9 +21,13 @@ import {
   Trash,
   Sparkles,
   Shield,
+  Eye,
+  EyeOff,
   RotateCcw,
   Check,
 } from 'lucide-react';
+import { useContentTypes } from './ContentTypeProvider';
+import { clipConcealmentPolicy } from '../utils/clipConcealment';
 
 interface ContextMenuProps {
   x: number;
@@ -44,6 +48,7 @@ interface ContextMenuProps {
   onToggleQueue: () => void;
   onTogglePin: () => void;
   onToggleProtected?: () => void;
+  onToggleConcealed?: () => void;
   onDelete: (e?: React.MouseEvent) => void;
   onRestore?: () => void;
   onPurge?: () => void;
@@ -69,18 +74,21 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
   onToggleQueue,
   onTogglePin,
   onToggleProtected,
+  onToggleConcealed,
   onDelete,
   onRestore,
   onPurge,
   trashEnabled,
 }) => {
   const features = useFeatures();
+  const { definitions: contentTypes } = useContentTypes();
   const [activeSubmenu, setActiveSubmenu] = useState<'bins' | 'workflow' | null>(null);
   const [transforms, setTransforms] = useState<SavedTransform[]>([]);
   const [isLoadingTransforms, setIsLoadingTransforms] = useState(false);
   const isAltPressed = useAltKeyPressed();
   const protectedByBin = Boolean(clip.protecting_bin_ids?.length);
   const protectionToggleDisabled = Boolean(clip.hotkey) || protectedByBin;
+  const concealment = clipConcealmentPolicy(clip, bins, contentTypes);
 
   useEffect(() => {
     if (!features.transformations || !viewPolicy.canRunManualTransforms || clip.content_type === 'file') return;
@@ -332,6 +340,27 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
               ? translate('component.contextMenu.protectedByBin')
               : clip.is_protected ? translate('action.unprotect') : translate('action.protect')}</span>
           {clip.is_protected && <Check className="ms-auto h-3.5 w-3.5" aria-hidden="true" />}
+        </MenuItem>
+      )}
+
+      {features.concealment && viewPolicy.canOrganize && onToggleConcealed && (
+        <MenuItem
+          onClick={() => {
+            onToggleConcealed();
+            onClose();
+          }}
+          role="menuitemcheckbox"
+          aria-checked={concealment.effective}
+          active={concealment.effective}
+          className="is-warning gap-2.5 px-3 py-1.5"
+        >
+          {concealment.effective
+            ? <Eye className="theme-status-warning-text h-3.5 w-3.5" />
+            : <EyeOff className="theme-status-warning-text h-3.5 w-3.5" />}
+          <span>{concealment.effective
+            ? translate('component.clipCard.revealSensitiveText')
+            : translate('action.conceal')}</span>
+          {concealment.effective && <Check className="ms-auto h-3.5 w-3.5" aria-hidden="true" />}
         </MenuItem>
       )}
 

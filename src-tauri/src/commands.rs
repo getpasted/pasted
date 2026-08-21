@@ -24,6 +24,7 @@ use crate::third_party_licenses::ThirdPartyLicenseDocument;
 pub(crate) mod activity;
 pub(crate) mod analysis;
 pub(crate) mod app_lock;
+pub(crate) mod clip_policies;
 pub(crate) mod content_registry;
 pub(crate) mod extractors;
 pub(crate) mod queue;
@@ -1778,21 +1779,6 @@ pub fn update_bin_hotkey(
         let _ = register_all_app_shortcuts(&app);
         return Err(error);
     }
-    Ok(())
-}
-
-#[tauri::command]
-pub fn update_bin_protection(
-    id: i64,
-    protect_clips: bool,
-    db: State<'_, Arc<DbState>>,
-    app: AppHandle,
-) -> Result<(), String> {
-    features::require(&db, Feature::Protection)?;
-    features::require(&db, Feature::Bins)?;
-    db.update_bin_protection(id, protect_clips)
-        .map_err(|error| error.to_string())?;
-    crate::app_events::emit_clip_library_changed(&app, Vec::new());
     Ok(())
 }
 
@@ -3715,6 +3701,11 @@ mod tests {
             is_protected: false,
             is_explicitly_protected: Some(false),
             protecting_bin_ids: Vec::new(),
+            is_concealed: false,
+            is_explicitly_concealed: Some(false),
+            is_explicitly_revealed: false,
+            concealing_bin_ids: Vec::new(),
+            concealing_content_types: Vec::new(),
             shortcut: None,
             is_transformed: false,
             pin_order: 0,

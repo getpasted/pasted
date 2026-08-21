@@ -224,6 +224,16 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   color: var(--text-main);
 }
 
+.bin-setting-toggle-well {
+  transition: background-color 100ms ease, border-color 100ms ease;
+}
+
+.bin-setting-toggle-well:hover:not(.is-disabled),
+.bin-setting-toggle-well:focus-within:not(.is-disabled) {
+  background-color: var(--bg-card-hover);
+  border-color: var(--border-card-selected);
+}
+
 .theme-toolbar {
   background-color: var(--material-toolbar);
   border-color: var(--border-subtle);
@@ -1299,6 +1309,24 @@ option {
 .theme-menu-item.is-selected:focus-visible {
   background-color: var(--menu-selected-hover);
   color: var(--accent-primary);
+}
+
+.theme-menu-item.is-warning,
+.theme-menu-item.is-warning:hover,
+.theme-menu-item.is-warning:focus-visible {
+  color: var(--status-warning);
+}
+
+.theme-menu-item.is-warning.is-selected {
+  background-color: color-mix(in srgb, var(--status-warning) 12%, var(--menu-surface));
+  color: var(--status-warning);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--status-warning) 34%, var(--border-subtle));
+}
+
+.theme-menu-item.is-warning.is-selected:hover,
+.theme-menu-item.is-warning.is-selected:focus-visible {
+  background-color: color-mix(in srgb, var(--status-warning) 16%, var(--menu-surface));
+  color: var(--status-warning);
 }
 
 .theme-menu-item.theme-danger-text:hover,

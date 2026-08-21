@@ -8,6 +8,8 @@ pub struct ContentTypeDefinition {
     pub is_builtin: bool,
     pub is_archived: bool,
     #[serde(default)]
+    pub conceal_clips: Option<bool>,
+    #[serde(default)]
     pub defaults: Option<ContentTypeDefaults>,
 }
 
@@ -17,6 +19,8 @@ pub struct ContentTypeDefaults {
     pub label: String,
     pub icon: String,
     pub group: String,
+    #[serde(default)]
+    pub conceal_clips: bool,
 }
 
 #[derive(Clone, Debug, serde::Deserialize)]
@@ -26,6 +30,8 @@ pub struct ContentTypeInput {
     pub label: String,
     pub icon: String,
     pub group: String,
+    #[serde(default)]
+    pub conceal_clips: bool,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
@@ -96,6 +102,12 @@ pub struct ContentTypePreset {
     pub label: &'static str,
     pub icon: &'static str,
     pub group: &'static str,
+}
+
+impl ContentTypePreset {
+    pub fn conceal_clips(self) -> bool {
+        matches!(self.id, "credential" | "payment_card" | "jwt")
+    }
 }
 
 pub fn is_structural_clip_type_id(id: &str) -> bool {
@@ -276,6 +288,7 @@ pub fn content_type_defaults(id: &str) -> Option<ContentTypeDefaults> {
             label: preset.label.into(),
             icon: preset.icon.into(),
             group: preset.group.into(),
+            conceal_clips: preset.conceal_clips(),
         })
 }
 

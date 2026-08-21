@@ -151,6 +151,27 @@ export function useClipActions({
       });
   }, [allClips, fetchClips, onCollectionChanged, setAllClips, setSelectedClip]);
 
+  const toggleConcealed = useCallback((id: number) => {
+    const current = allClips.find((clip) => clip.id === id);
+    if (!current) return;
+    const nextConcealed = !Boolean(current.is_concealed);
+    const update = (clip: ClipItem) => clip.id === id ? {
+      ...clip,
+      is_explicitly_concealed: nextConcealed,
+      is_explicitly_revealed: !nextConcealed,
+      is_concealed: nextConcealed,
+    } : clip;
+    setAllClips((previous) => previous.map(update));
+    setSelectedClip((previous) => previous?.id === id ? update(previous) : previous);
+
+    void invoke('toggle_clip_concealed', { clipId: id })
+      .then(onCollectionChanged)
+      .catch((error) => {
+        console.error('Failed to toggle concealed state:', error);
+        void fetchClips();
+      });
+  }, [allClips, fetchClips, onCollectionChanged, setAllClips, setSelectedClip]);
+
   const setPinned = useCallback((id: number, pinState: boolean) => {
     const targetIds = selectedClipIds.size > 1 && selectedClipIds.has(id)
       ? Array.from(selectedClipIds)
@@ -226,6 +247,33 @@ export function useClipActions({
       .then(onCollectionChanged)
       .catch((error) => {
         console.error('Failed to set protected state:', error);
+        void fetchClips();
+      });
+  }, [allClips, fetchClips, onCollectionChanged, selectedClipIds, setAllClips, setSelectedClip]);
+
+  const setConcealed = useCallback((id: number, concealedState: boolean) => {
+    const targetIds = selectedClipIds.size > 1 && selectedClipIds.has(id)
+      ? Array.from(selectedClipIds)
+      : [id];
+    const idsToChange = allClips
+      .filter((clip) => targetIds.includes(clip.id)
+        && Boolean(clip.is_concealed) !== concealedState)
+      .map((clip) => clip.id);
+    if (idsToChange.length === 0) return;
+    const changedIdSet = new Set(idsToChange);
+    const update = (clip: ClipItem) => changedIdSet.has(clip.id) ? {
+      ...clip,
+      is_explicitly_concealed: concealedState,
+      is_explicitly_revealed: !concealedState,
+      is_concealed: concealedState,
+    } : clip;
+    setAllClips((previous) => previous.map(update));
+    setSelectedClip((previous) => previous ? update(previous) : previous);
+
+    void clipsApi.setConcealed(idsToChange, concealedState)
+      .then(onCollectionChanged)
+      .catch((error) => {
+        console.error('Failed to set concealed state:', error);
         void fetchClips();
       });
   }, [allClips, fetchClips, onCollectionChanged, selectedClipIds, setAllClips, setSelectedClip]);
@@ -571,8 +619,10 @@ export function useClipActions({
   return {
     togglePin,
     toggleProtected,
+    toggleConcealed,
     setPinned,
     setProtected,
+    setConcealed,
     deleteSelectedClips,
     deleteClip,
     copyClip,

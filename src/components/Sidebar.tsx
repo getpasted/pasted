@@ -21,6 +21,7 @@ import {
   BarChart3,
   HelpCircle,
   Shield,
+  EyeOff,
   AppWindow,
   Camera,
   CircleHelp,
@@ -37,6 +38,7 @@ import {
 import { Bin, ClipCollectionSummary, type ClipContentType, SequentialStatus } from '../types';
 import { useSidebarBinOrder } from '../hooks/useSidebarBinOrder';
 import { clipFacetRoute, getClipCollection, getSystemClipCollections, type ClipCollectionIcon, type ClipDropAction } from '../utils/clipCollections';
+import { CLIP_PROPERTY_ASSOCIATIONS } from '../utils/clipPropertyAssociations';
 import type { FeatureId } from '../utils/features';
 import { OverflowText } from './OverflowText';
 import { ContentTypeIcon } from './ContentTypeIcon';
@@ -81,6 +83,7 @@ interface SidebarProps {
   totalClipCount: number;
   pinnedCount?: number;
   protectedCount?: number;
+  concealedCount?: number;
   notesCount?: number;
   trashedCount?: number;
   isCollapsed: boolean;
@@ -123,6 +126,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
   totalClipCount,
   pinnedCount = 0,
   protectedCount = 0,
+  concealedCount = 0,
   notesCount = 0,
   trashedCount = 0,
   isCollapsed,
@@ -329,6 +333,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
     if (icon === 'queue') return <ListOrdered className="sidebar-icon-secondary w-5 h-5" />;
     if (icon === 'pin') return <Pin className="sidebar-icon-success w-5 h-5 pin-icon" />;
     if (icon === 'protect') return <Shield className="sidebar-icon-info w-5 h-5" />;
+    if (icon === 'conceal') return <EyeOff className="sidebar-icon-warning w-5 h-5" />;
     if (icon === 'note') return <StickyNote className="sidebar-icon-note w-5 h-5" />;
     if (icon === 'trash') return <Trash2 className="sidebar-icon-danger w-5 h-5" />;
     return <Clipboard className="sidebar-icon-primary w-5 h-5" />;
@@ -415,22 +420,26 @@ const SidebarComponent: React.FC<SidebarProps> = ({
   const clipCountByTab: Record<string, number> = {
     all: totalClipCount,
     sequential: seqStatus?.total_count ?? 0,
-    pinned: pinnedCount,
-    protected: protectedCount,
     notes: notesCount,
     trash: trashedCount,
   };
+  const propertyCounts = { pinnedCount, protectedCount, concealedCount };
+  for (const association of CLIP_PROPERTY_ASSOCIATIONS) {
+    clipCountByTab[association.membership] = propertyCounts[association.countKey];
+  }
 
   const getDropActionTitle = (action: ClipDropAction) => {
     if (!disabledDropActions.includes(action)) {
       if (action === 'queue') return 'Add to Queue';
       if (action === 'pin') return 'Pin';
       if (action === 'protect') return 'Protect';
+      if (action === 'conceal') return translate('action.conceal');
       return 'Move to Trash';
     }
     if (action === 'queue') return 'Text Clips Only';
     if (action === 'pin') return 'Already Pinned';
     if (action === 'protect') return 'Already Protected';
+    if (action === 'conceal') return translate('component.sidebar.alreadyConcealed');
     return 'Protected';
   };
 

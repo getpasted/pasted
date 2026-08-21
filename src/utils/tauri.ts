@@ -10,47 +10,11 @@ import { handleBinBrowserMock } from '../mocks/browser/bins';
 import { handleAnalysisBrowserMock } from '../mocks/browser/analysis';
 import { handleQueueBrowserMock } from '../mocks/browser/queue';
 import { handleAppStateBrowserMock } from '../mocks/browser/appState';
+import type { MockBin, MockClip } from '../mocks/browser/models';
 import {
   handleManualTransformBrowserMock,
   mockManualTransforms,
 } from '../mocks/browser/manualTransforms';
-
-type MockClip = {
-  id: number;
-  text_content: string;
-  content_type: string;
-  content_types?: string[];
-  file_formats?: string[];
-  source: string;
-  created_at: string;
-  char_count: number;
-  word_count: number;
-  line_count: number;
-  is_pinned: number;
-  is_protected: number;
-  is_explicitly_protected?: boolean;
-  protecting_bin_ids?: number[];
-  hotkey?: string | null;
-  is_transformed?: number;
-  pin_order: number;
-  is_trashed: number;
-  trashed_at?: string | null;
-  bin_id: number | null;
-  bin_ids: number[];
-  note?: string | null;
-};
-
-type MockBin = {
-  id: number;
-  name: string;
-  icon: string;
-  color: string;
-  smart_rule: string | null;
-  bin_type: string;
-  clip_order?: number[];
-  protect_clips?: boolean;
-  hotkey?: string | null;
-};
 
 let mockClips: MockClip[] = [
   {
@@ -102,6 +66,10 @@ function withMockProtection(clip: MockClip) {
     is_explicitly_protected: explicitlyProtected,
     is_protected: explicitlyProtected || Boolean(clip.hotkey) || protectingBinIds.length > 0,
     protecting_bin_ids: protectingBinIds,
+    is_concealed: Boolean(clip.is_concealed),
+    is_explicitly_concealed: Boolean(clip.is_concealed),
+    is_explicitly_revealed: false,
+    concealing_bin_ids: clip.bin_ids.filter((id) => mockBins.find((bin) => bin.id === id)?.conceal_clips),
   };
 }
 
@@ -185,11 +153,11 @@ const mockFileSearchableText = new Map<number, {
 }>();
 
 let mockContentTypes: Array<{
-  id: string; label: string; icon: string; group: string; isBuiltin: boolean; isArchived: boolean;
-  defaults: { label: string; icon: string; group: string } | null;
-}> = CONTENT_TYPES.map(({ value, label, icon, group }) => {
+  id: string; label: string; icon: string; group: string; concealClips: boolean; isBuiltin: boolean; isArchived: boolean;
+  defaults: { label: string; icon: string; group: string; concealClips: boolean } | null;
+}> = CONTENT_TYPES.map(({ value, label, icon, group, concealClips = false }) => {
   const groupId = group.toLowerCase().replace(/ & /g, '_').replace(/ /g, '_');
-  return { id: value as string, label, icon, group: groupId, isBuiltin: true, isArchived: false, defaults: { label, icon, group: groupId } };
+  return { id: value as string, label, icon, group: groupId, concealClips, isBuiltin: true, isArchived: false, defaults: { label, icon, group: groupId, concealClips } };
 });
 let mockContentTypeGroups: Array<{
   id: string; label: string; sortOrder: number; isBuiltin: boolean; isArchived: boolean;
@@ -514,14 +482,14 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'restore_default_content_type_groups':
       return mockContentTypeGroups as unknown as T;
     case 'create_content_type': {
-      const input = args?.input as { id: string; label: string; icon: string; group: string };
+      const input = args?.input as { id: string; label: string; icon: string; group: string; concealClips: boolean };
       const created = { ...input, isBuiltin: false, isArchived: false, defaults: null };
       mockContentTypes.push(created);
       return created as unknown as T;
     }
     case 'update_content_type': {
       const index = mockContentTypes.findIndex(({ id }) => id === String(args?.id));
-      if (index >= 0) mockContentTypes[index] = { ...mockContentTypes[index], ...(args?.input as Record<string, string>) };
+      if (index >= 0) mockContentTypes[index] = { ...mockContentTypes[index], ...(args?.input as Record<string, string | boolean>) };
       return mockContentTypes[index] as unknown as T;
     }
     case 'set_content_type_archived': {
@@ -1069,6 +1037,7 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         smart_rule: typeof args?.smartRule === 'string' ? args.smartRule : null,
         bin_type: 'category',
         protect_clips: false,
+        conceal_clips: false,
       };
       mockBins.push(created);
       return created as unknown as T;
@@ -1086,6 +1055,11 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'update_bin_protection': {
       const bin = mockBins.find((item) => item.id === Number(args?.id));
       if (bin && !bin.smart_rule) bin.protect_clips = Boolean(args?.protectClips);
+      return null as unknown as T;
+    }
+    case 'update_bin_concealment': {
+      const bin = mockBins.find((item) => item.id === Number(args?.id));
+      if (bin && !bin.smart_rule) bin.conceal_clips = Boolean(args?.concealClips);
       return null as unknown as T;
     }
     case 'get_clip_hotkey_assignments':
@@ -1205,6 +1179,28 @@ export async function safeInvoke<T>(cmd: string, args?: Record<string, unknown>)
         skippedCount: 0,
         clipIds: ids,
       } as unknown as T;
+    }
+    case 'toggle_clip_concealed': {
+      const clip = mockClips.find((item) => item.id === Number(args?.clipId));
+      if (clip) {
+        const concealed = !clip.is_concealed;
+        clip.is_concealed = concealed ? 1 : 0;
+        clip.is_explicitly_concealed = concealed;
+        clip.is_explicitly_revealed = !concealed;
+      }
+      return Boolean(clip?.is_concealed) as unknown as T;
+    }
+    case 'batch_conceal_clips': {
+      const ids = Array.isArray(args?.ids) ? args.ids.map(Number) : [];
+      mockClips.forEach((clip) => {
+        if (ids.includes(clip.id)) {
+          const concealed = Boolean(args?.concealedState);
+          clip.is_concealed = concealed ? 1 : 0;
+          clip.is_explicitly_concealed = concealed;
+          clip.is_explicitly_revealed = !concealed;
+        }
+      });
+      return null as unknown as T;
     }
     case 'enforce_activity_retention':
     case 'enforce_clip_retention':
