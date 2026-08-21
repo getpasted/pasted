@@ -36,6 +36,7 @@ const clipCommands = read('src-tauri/src/commands/clips.rs');
 const backupCommands = read('src-tauri/src/commands/backups.rs');
 const importCommands = read('src-tauri/src/commands/imports.rs');
 const factoryResetCommands = read('src-tauri/src/commands/factory_reset.rs');
+const extractionCommands = read('src-tauri/src/commands/extraction.rs');
 const filePreviewCommands = read('src-tauri/src/commands/file_previews.rs');
 const intelligenceCommands = read('src-tauri/src/commands/intelligence.rs');
 const manualTransformCommands = read('src-tauri/src/commands/manual_transforms.rs');
@@ -173,13 +174,22 @@ assert.match(sourceApplicationCommands, /pub fn get_installed_applications/,
   'Installed application discovery must remain with the source application adapter');
 assert.doesNotMatch(commands, /pub async fn get_source_icons|pub fn get_installed_applications/,
   'The GUI command root must not reclaim source application discovery');
+assert.match(extractionCommands, /pub fn extract_ocr_from_clip/,
+  'Interactive OCR must remain in its focused extraction adapter');
+assert.match(extractionCommands, /pub async fn extract_text_from_file_clip[\s\S]*spawn_blocking/,
+  'File extraction must remain in its focused asynchronous adapter');
+assert.match(extractionCommands, /pub fn start_ocr_backfill/,
+  'OCR backfill control must remain with extraction lifecycle commands');
+assert.doesNotMatch(commands, /pub fn extract_ocr_from_clip|pub async fn extract_text_from_file_clip|pub fn start_ocr_backfill/,
+  'The GUI command root must not reclaim extraction lifecycle operations');
 
 const sizeRatchets = new Map([
   ['src-tauri/src/db.rs', 20_111],
-  ['src-tauri/src/commands.rs', 1_616],
+  ['src-tauri/src/commands.rs', 1_437],
   ['src-tauri/src/commands/backups.rs', 180],
   ['src-tauri/src/commands/imports.rs', 287],
   ['src-tauri/src/commands/factory_reset.rs', 39],
+  ['src-tauri/src/commands/extraction.rs', 187],
   ['src-tauri/src/commands/clips.rs', 261],
   ['src-tauri/src/commands/file_previews.rs', 714],
   ['src-tauri/src/commands/intelligence.rs', 271],
@@ -245,7 +255,7 @@ for (const domain of ['clip_protection', 'retention', 'settings']) {
     `${domain} persistence must remain outside the database integration root`);
 }
 for (const adapter of [
-  'activity', 'analysis', 'app_lock', 'backups', 'content_registry', 'extractors',
+  'activity', 'analysis', 'app_lock', 'backups', 'content_registry', 'extraction', 'extractors',
   'factory_reset', 'imports', 'intelligence', 'manual_transforms', 'queue', 'retention',
   'source_apps', 'storage', 'transformations',
 ]) {

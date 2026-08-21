@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { readRustModuleTree } from './audit-source-trees.js';
 
 const read = (path) => readFileSync(path, 'utf8');
 const englishCatalog = JSON.parse(read('src/locales/en.json'));
@@ -16,12 +17,7 @@ const types = read('src/types.ts');
 const analysisSettings = read('src/components/SettingsAnalysisPanel.tsx');
 const settingsModal = read('src/components/SettingsModal.tsx');
 const analysisExecution = read('src-tauri/src/analysis_execution.rs');
-const commands = [
-  'src-tauri/src/commands.rs',
-  'src-tauri/src/commands/analysis.rs',
-  'src-tauri/src/commands/content_registry.rs',
-  'src-tauri/src/commands/extractors.rs',
-].map(read).join('\n');
+const commands = readRustModuleTree('src-tauri/src/commands.rs', 'src-tauri/src/commands');
 const builtinLifecycleManager = read('src/components/BuiltinLifecycleManagerDialog.tsx');
 const analysisApi = read('src/api/analysis.ts');
 const extractorManager = read('src/components/ContentExtractorManagerDialog.tsx');
