@@ -42,6 +42,7 @@ import { clipFacetRoute, getClipCollection, getSystemClipCollections, type ClipC
 import { CLIP_PROPERTY_ASSOCIATIONS } from '../utils/clipPropertyAssociations';
 import type { FeatureId } from '../utils/features';
 import { OverflowText } from './OverflowText';
+import { EmbeddedMenu, MenuItem } from './AnchoredMenu';
 import { ContentTypeIcon } from './ContentTypeIcon';
 import { useContentTypes } from './ContentTypeProvider';
 import { contentTypeLabel } from '../utils/contentTypes';
@@ -984,22 +985,20 @@ const SidebarComponent: React.FC<SidebarProps> = ({
       </div>
 
       {/* Pinned Bottom Search Bar Footer */}
-      {features.search && <div ref={searchMenuRootRef} className="sidebar-divider min-h-[53px] p-2.5 border-t shrink-0 relative">
+      {features.search && <div ref={searchMenuRootRef} className="sidebar-divider h-[55px] px-2.5 border-t shrink-0 relative flex items-center">
         {!isClipDragging && isSearchMenuOpen && (
-          <div
+          <EmbeddedMenu
             id="sidebar-search-filters"
-            role="menu"
-            aria-label={translate('component.sidebar.searchFilters')}
-            className="theme-menu absolute inset-x-2.5 bottom-12 rounded-xl border p-1.5 text-xs font-medium select-none"
+            ariaLabel={translate('component.sidebar.searchFilters')}
+            className="absolute inset-x-2.5 bottom-12"
           >
               {searchHelpers.map((s, index) => (
-              <button
+              <MenuItem
                 ref={(element) => {
                   searchMenuItemRefs.current[index] = element;
                 }}
-                type="button"
-                role="menuitem"
                 key={s.prefix}
+                active={activeSearchMenuIndex === index}
                 onMouseDown={(e) => {
                   e.preventDefault();
                 }}
@@ -1031,16 +1030,16 @@ const SidebarComponent: React.FC<SidebarProps> = ({
                     closeSearchMenu(true);
                   }
                 }}
-                className={`theme-menu-item w-full px-2.5 py-1.5 rounded-lg cursor-pointer flex items-center justify-between gap-3 text-start ${activeSearchMenuIndex === index ? 'is-selected' : ''}`}
+                className="cursor-pointer justify-between gap-3 px-2.5 py-1.5"
               >
                 <span className="font-mono text-[11px] font-semibold">{s.prefix}</span>
                 <span className="theme-text-subtle text-[10px]">{s.desc}</span>
-              </button>
+              </MenuItem>
             ))}
-          </div>
+          </EmbeddedMenu>
         )}
 
-        <div className="relative titlebar-no-drag">
+        <div className="relative w-full titlebar-no-drag">
           <input
             ref={searchInputRef}
             data-sidebar-search-input
@@ -1070,7 +1069,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
               }
             }}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className={`sidebar-search-input theme-input w-full h-8 border rounded-md ps-2.5 ${searchQuery ? 'pe-14' : 'pe-8'} text-[12px] focus:outline-none transition-colors titlebar-no-drag`}
+            className={`sidebar-search-input theme-input ui-field-radius h-[34px] w-full border ps-2.5 ${searchQuery ? 'pe-16' : 'pe-10'} text-xs focus:outline-none transition-colors titlebar-no-drag`}
           />
           {searchQuery && (
             <button
@@ -1085,9 +1084,9 @@ const SidebarComponent: React.FC<SidebarProps> = ({
                 onSearchFocus();
                 requestAnimationFrame(() => searchInputRef.current?.focus());
               }}
-              className="sidebar-search-clear theme-menu-item absolute end-6 top-1 grid h-5 w-5 place-items-center rounded"
+              className="sidebar-search-clear theme-menu-item absolute end-8 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-md"
             >
-              <X className="h-3 w-3" aria-hidden="true" />
+              <X className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
           )}
           <button
@@ -1116,7 +1115,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
                 closeSearchMenu();
               }
             }}
-            className={`theme-menu-item absolute end-1 top-1 grid h-5 w-5 place-items-center rounded ${isSearchMenuOpen ? 'is-selected' : ''}`}
+            className={`theme-menu-item absolute end-1 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-md ${isSearchMenuOpen ? 'is-selected' : ''}`}
           >
             <ChevronUp className={`h-3.5 w-3.5 transition-transform ${isSearchMenuOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
           </button>
