@@ -24,11 +24,13 @@ use crate::third_party_licenses::ThirdPartyLicenseDocument;
 pub(crate) mod activity;
 pub(crate) mod analysis;
 pub(crate) mod app_lock;
+pub(crate) mod clip_metadata;
 pub(crate) mod clip_policies;
 pub(crate) mod content_registry;
 pub(crate) mod extractors;
 pub(crate) mod queue;
 pub(crate) mod retention;
+pub(crate) mod search_indexes;
 pub(crate) mod storage;
 
 fn refresh_native_app_menu(app: &AppHandle, db: &Arc<DbState>) {
@@ -3688,6 +3690,7 @@ mod tests {
         );
         let clip = ClipItem {
             id: 1,
+            name: None,
             content_type: "image".to_string(),
             content_types: Vec::new(),
             file_formats: Vec::new(),

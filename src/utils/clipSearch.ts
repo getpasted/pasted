@@ -6,11 +6,11 @@ import { parseClipSearch, type ClipSearchPlan } from './clipSearchGrammar';
 export { parseClipSearch } from './clipSearchGrammar';
 export type { ClipSearchPlan } from './clipSearchGrammar';
 
-export type ClipSearchHighlightField = 'source' | 'content' | 'note';
+export type ClipSearchHighlightField = 'source' | 'content' | 'name' | 'note';
 
 export type ClipSearchFeaturePolicy = Pick<
   Record<FeatureId, boolean>,
-  'clipTypes' | 'fileFormats' | 'types' | 'sources' | 'notes' | 'pinning' | 'protection'
+  'clipTypes' | 'fileFormats' | 'types' | 'sources' | 'naming' | 'notes' | 'pinning' | 'protection'
 >;
 
 function searchableValues(clip: ClipItem, features?: ClipSearchFeaturePolicy) {
@@ -19,6 +19,7 @@ function searchableValues(clip: ClipItem, features?: ClipSearchFeaturePolicy) {
     ...getClipFilePaths(clip),
   ];
   if (!features || features.sources) values.push(clip.source);
+  if (!features || features.naming) values.push(clip.name ?? '');
   if (!features || features.notes) values.push(getClipNoteSummary(clip.note));
   if (!features || features.clipTypes) values.push(clip.content_type);
   if (!features || features.types) values.push(...(clip.content_types ?? []));
@@ -46,11 +47,13 @@ export function clipMatchesSearch(
   if (plan.clipTypes.length > 0 && features && !features.clipTypes) return false;
   if (plan.contentTypes.length > 0 && features && !features.types) return false;
   if (plan.formats.length > 0 && features && !features.fileFormats) return false;
-  if (!plan.sources.every((value) => source === value)) return false;
-  if (!plan.clipTypes.every((value) => clipType === value)) return false;
-  if (!plan.contentTypes.every((value) => contentTypes.some((type) => type === value))) return false;
-  if (!plan.formats.every((value) => formats.some((format) => format === value))) return false;
+  if (!plan.sources.every((value) => source.includes(value))) return false;
+  if (!plan.clipTypes.every((value) => clipType.includes(value))) return false;
+  if (!plan.contentTypes.every((value) => contentTypes.some((type) => type.includes(value)))) return false;
+  if (!plan.formats.every((value) => formats.some((format) => format.includes(value)))) return false;
   if (plan.requiresNote && !clip.note?.trim()) return false;
+  if (plan.requiresNamed && (!features || features.naming) && !clip.name?.trim()) return false;
+  if (plan.requiresNamed && features && !features.naming) return false;
   if (plan.requiresPinned && !clip.is_pinned) return false;
   if (plan.requiresProtected && !clip.is_protected) return false;
   if (plan.requiresTrashed && !clip.is_trashed) return false;

@@ -11,6 +11,7 @@ const clipsApi = read('src/api/clips.ts');
 const emptyState = read('src/components/EmptyClipList.tsx');
 const viewPolicy = read('src/utils/clipViewPolicy.ts');
 const app = read('src/App.tsx');
+const clipListHeader = read('src/components/ClipListHeader.tsx');
 const appNavigation = read('src/utils/appNavigation.ts');
 const dragHook = read('src/hooks/useClipBinDrag.ts');
 const nativeCommands = read('src-tauri/src/commands.rs');
@@ -35,6 +36,8 @@ for (const [id, membership, action] of [
   assert.match(propertyAssociations, new RegExp(`id:\\s*'${id}'[\\s\\S]{0,100}membership:\\s*'${membership}'[\\s\\S]{0,100}dropAction:\\s*'${action}'`), `${membership} must use the shared clip-property association contract`);
   assert.match(registry, new RegExp(`association:\\s*'${id}'`), `${membership} collection must reference its property association`);
 }
+assert.match(propertyAssociations, /id:\s*'name'[\s\S]{0,100}membership:\s*'named'/, 'Named must use the shared clip-property association contract');
+assert.match(registry, /association:\s*'name'/, 'Named collection must reference its property association');
 assert.match(clipViews, /getClipPropertyAssociation\(collection\?\.association\)/, 'Property collection filtering must use the shared association contract');
 assert.match(dragHook, /CLIP_PROPERTY_ASSOCIATIONS/, 'Property drop eligibility must use the shared association contract');
 
@@ -92,14 +95,38 @@ assert.match(appData, /record\.source_app[\s\S]*source_app:\s*_legacySource/, 'P
 assert.match(sidebar, /source\?\.trim\(\)\.toLowerCase\(\)\s*\?\?\s*''/, 'Source icon rendering must tolerate stale or incomplete cached metadata');
 assert.match(clipViews, /getClipCollection\(currentTab, selectedBin\)/, 'Clip filtering must resolve the active collection');
 assert.match(clipViews, /clipsApi\.search\(/, 'GUI Search must use the centralized Clips client');
+assert.match(
+  clipViews,
+  /setSearchResult\(\(current\) => \(\{ \.\.\.current, loading: true, failed: false \}\)\)/,
+  'Search refreshes must retain settled results until their replacement is ready',
+);
+assert.match(
+  app,
+  /isLoadingCurrentCollection && currentCollection\?\.membership !== 'search'/,
+  'Search must not reuse the History pagination loading interstitial',
+);
+assert.match(app, /useDeferredValue\(searchQuery\)/,
+  'Search result rendering must not compete with controlled input updates');
+assert.match(clipViews, /startTransition\(\(\) => \{[\s\S]{0,120}setSearchResult/,
+  'Authoritative Search results must commit at transition priority');
+assert.doesNotMatch(clipViews, /setTimeout\([\s\S]{0,300}clipsApi\.search/,
+  'Search must rely on deferred rendering instead of a fixed debounce');
+assert.match(clipViews, /if \(searchResult\.query === normalizedSearchQuery\) return searchResult\.items;[\s\S]{0,100}return searchResult\.query \? searchResult\.items : allClips/,
+  'Search must synchronously keep mounted clip cards stable before its loading effect runs');
+assert.match(app, /currentCollection\?\.membership === 'search' && Boolean\(searchDisplayQuery\)/,
+  'Search must preserve a settled empty state while its replacement query runs');
+assert.match(app, /searchQuery=\{currentTab === 'search' \? searchDisplayQuery : searchQuery\}/,
+  'A preserved Search empty state must retain its settled query until replacement');
+assert.match(database, /indexed_fts_like[\s\S]{0,300}WHERE text_content \{fts_like\}/,
+  'Ordinary Search must retain the FTS5 trigram-optimized LIKE path');
 assert.match(clipsApi, /invoke<ClipSearchResult>\('search_clips'/, 'The Clips client must use the authoritative shared Search service');
 assert.doesNotMatch(clipViews, /search_clip_searchable_text_ids/, 'GUI Search must not intersect extracted-text IDs with loaded pages');
-assert.match(database, /clips\.content_type = \? COLLATE NOCASE/, 'Collection-axis Search filters must use exact case-insensitive matching');
+assert.match(database, /LOWER\(clips\.content_type\) LIKE \? ESCAPE/, 'Collection-axis Search filters must use fuzzy case-insensitive matching');
 assert.match(clipViews, /facet\?\.kind === 'clip_type'[\s\S]{0,160}clip\.content_type === facet\.value/, 'Clip Type routes must filter structural identity only');
 assert.match(clipViews, /facet\?\.kind === 'content_type'[\s\S]{0,180}clip\.content_types/, 'Content Type routes must filter Classifier results only');
 assert.match(emptyState, /collection\?\.emptyTitle/, 'Empty states must come from the collection descriptor');
 assert.match(viewPolicy, /collection\?\.membership/, 'Interaction policy must use collection membership');
-assert.match(app, /currentCollection\?\.title/, 'The clip-list heading must use the collection descriptor');
+assert.match(clipListHeader, /collection\?\.title/, 'The clip-list heading must use the collection descriptor');
 assert.match(appNavigation, /tab\.startsWith\('clip_type-'\)[\s\S]{0,180}tab\.startsWith\('file_format-'\)/, 'Search escape must remember every collection-axis route');
 assert.match(app, /\[bins, currentTab, locale, selectedBinId\]/, 'The active collection heading must recompute when the locale changes');
 assert.doesNotMatch(dragHook, /export type ClipDropAction/, 'Drop actions must be owned by the collection contract');

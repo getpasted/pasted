@@ -119,6 +119,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             transformationsEnabled={settings.enableTransformations}
             typesEnabled={settings.enableTypes}
             sourcesEnabled={settings.enableSources}
+            searchEnabled={settings.enableSearch}
             onOpenIntelligence={() => onActiveTabChange('intelligence')}
           />
         )}

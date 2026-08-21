@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ClearHistoryMode } from '../components/ClearHistoryDialog';
 import type { Bin, ClipItem } from '../types';
+import { useClipMetadataPrompts } from './useClipMetadataPrompts';
 
 export interface ClipContextMenuState {
   x: number;
@@ -17,16 +18,17 @@ export interface BinContextMenuState {
 interface UseAppOverlaysOptions {
   binsEnabled: boolean;
   notesEnabled: boolean;
+  namingEnabled: boolean;
 }
 
-export function useAppOverlays({ binsEnabled, notesEnabled }: UseAppOverlaysOptions) {
+export function useAppOverlays({ binsEnabled, notesEnabled, namingEnabled }: UseAppOverlaysOptions) {
   const [contextMenu, setContextMenu] = useState<ClipContextMenuState | null>(null);
   const [binContextMenu, setBinContextMenu] = useState<BinContextMenuState | null>(null);
   const [isBinModalOpen, setIsBinModalOpen] = useState(false);
   const [editingBin, setEditingBin] = useState<Bin | null>(null);
   const [binToDelete, setBinToDelete] = useState<Bin | null>(null);
-  const [notePromptClip, setNotePromptClip] = useState<ClipItem | null>(null);
-  const [notePromptText, setNotePromptText] = useState('');
+  const metadataPrompts = useClipMetadataPrompts(notesEnabled, namingEnabled);
+  const { notePromptClip, setNotePromptClip, namePromptClip, setNamePromptClip } = metadataPrompts;
   const [clearHistoryMode, setClearHistoryMode] = useState<ClearHistoryMode | null>(null);
 
   useEffect(() => {
@@ -36,13 +38,14 @@ export function useAppOverlays({ binsEnabled, notesEnabled }: UseAppOverlaysOpti
       setBinToDelete(null);
       setBinContextMenu(null);
     }
-    if (!notesEnabled) setNotePromptClip(null);
-  }, [binsEnabled, notesEnabled]);
+  }, [binsEnabled]);
 
   useEffect(() => {
     const handleGlobalKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
-      const closeTopmostOverlay = notePromptClip
+      const closeTopmostOverlay = namePromptClip
+        ? () => setNamePromptClip(null)
+        : notePromptClip
         ? () => setNotePromptClip(null)
         : binToDelete
           ? () => setBinToDelete(null)
@@ -65,7 +68,7 @@ export function useAppOverlays({ binsEnabled, notesEnabled }: UseAppOverlaysOpti
     };
     window.addEventListener('keydown', handleGlobalKeyDown, true);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown, true);
-  }, [binContextMenu, binToDelete, clearHistoryMode, contextMenu, isBinModalOpen, notePromptClip]);
+  }, [binContextMenu, binToDelete, clearHistoryMode, contextMenu, isBinModalOpen, namePromptClip, notePromptClip]);
 
   useEffect(() => {
     const preventNativeContextMenu = (event: MouseEvent) => event.preventDefault();
@@ -88,13 +91,8 @@ export function useAppOverlays({ binsEnabled, notesEnabled }: UseAppOverlaysOpti
   const openBinContextMenu = useCallback((x: number, y: number, bin: Bin) => {
     setBinContextMenu({ x, y, bin });
   }, []);
-  const promptAddNote = useCallback((clip: ClipItem) => {
-    if (!notesEnabled) return;
-    setNotePromptClip(clip);
-    setNotePromptText(clip.note || '');
-  }, [notesEnabled]);
-
   return {
+    ...metadataPrompts,
     contextMenu,
     setContextMenu,
     binContextMenu,
@@ -105,16 +103,11 @@ export function useAppOverlays({ binsEnabled, notesEnabled }: UseAppOverlaysOpti
     setEditingBin,
     binToDelete,
     setBinToDelete,
-    notePromptClip,
-    setNotePromptClip,
-    notePromptText,
-    setNotePromptText,
     clearHistoryMode,
     setClearHistoryMode,
     openNewBinModal,
     editBin,
     closeBinModal,
     openBinContextMenu,
-    promptAddNote,
   };
 }

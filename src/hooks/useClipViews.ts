@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Bin, ClipItem, SequentialStatus } from '../types';
 import { getClipFilePaths, getClipOriginKind } from '../types';
 import { sortClipsChronologically } from '../utils/clipOrder';
@@ -45,6 +45,7 @@ function clipWithFeaturePolicy(
 ) {
   return features ? {
     ...clip,
+    name: features.naming ? clip.name : null,
     note: features.notes ? clip.note : null,
     is_pinned: features.pinning && clip.is_pinned,
     is_protected: features.protection && clip.is_protected,
@@ -178,11 +179,11 @@ export function useClipViews({
       return;
     }
     let active = true;
-    setSearchResult({ query: normalizedSearchQuery, items: [], totalCount: 0, loading: true, failed: false });
+    setSearchResult((current) => ({ ...current, loading: true, failed: false }));
     searchLoadingRef.current = true;
-    const timer = window.setTimeout(() => {
-      clipsApi.search({ query: normalizedSearchQuery, limit: SEARCH_PAGE_SIZE, offset: 0 }).then((result) => {
-        if (active) {
+    clipsApi.search({ query: normalizedSearchQuery, limit: SEARCH_PAGE_SIZE, offset: 0 }).then((result) => {
+      if (active) {
+        startTransition(() => {
           setSearchResult({
             query: normalizedSearchQuery,
             items: result.items,
@@ -190,19 +191,18 @@ export function useClipViews({
             loading: false,
             failed: false,
           });
-        }
-      }).catch((error) => {
-        console.error('Failed to search clips:', error);
-        if (active) {
-          setSearchResult({ query: normalizedSearchQuery, items: [], totalCount: 0, loading: false, failed: true });
-        }
-      }).finally(() => {
-        if (active) searchLoadingRef.current = false;
-      });
-    }, 120);
+        });
+      }
+    }).catch((error) => {
+      console.error('Failed to search clips:', error);
+      if (active) {
+        setSearchResult({ query: normalizedSearchQuery, items: [], totalCount: 0, loading: false, failed: true });
+      }
+    }).finally(() => {
+      if (active) searchLoadingRef.current = false;
+    });
     return () => {
       active = false;
-      window.clearTimeout(timer);
     };
   // Refresh after clip updates so newly persisted OCR or transcription joins an active search.
   }, [allClips, currentTab, features, normalizedSearchQuery, searchRevision, trashedClips]);
@@ -260,8 +260,9 @@ export function useClipViews({
     }
 
     if (collection?.membership === 'search') {
-      if (!normalizedSearchQuery) return [];
-      return searchResult.query === normalizedSearchQuery ? searchResult.items : [];
+      if (!normalizedSearchQuery) return allClips;
+      if (searchResult.query === normalizedSearchQuery) return searchResult.items;
+      return searchResult.query ? searchResult.items : allClips;
     }
 
     let clips = collection?.membership === 'trash' ? trashedClips : allClips;
@@ -298,6 +299,7 @@ export function useClipViews({
       pinnedCount: propertyCounts.get('pin') ?? 0,
       protectedCount: propertyCounts.get('protect') ?? 0,
       concealedCount: propertyCounts.get('conceal') ?? 0,
+      namedCount: propertyCounts.get('name') ?? 0,
       notesCount: features.notes ? allClips.filter((clip) => Boolean(clip.note?.trim())).length : 0,
     };
   }, [allClips, features]);
@@ -313,9 +315,15 @@ export function useClipViews({
   return {
     displayedClips,
     queuedIndexMap,
-    searchTotalCount: searchResult.query === normalizedSearchQuery ? searchResult.totalCount : 0,
-    isSearching: searchResult.loading,
-    searchFailed: searchResult.failed,
+    searchTotalCount: searchResult.query === normalizedSearchQuery
+      ? searchResult.totalCount
+      : searchResult.loading && searchResult.items.length > 0
+        ? searchResult.totalCount
+        : displayedClips.length,
+    searchDisplayQuery: normalizedSearchQuery ? searchResult.query : '',
+    isSearching: searchResult.loading
+      || Boolean(normalizedSearchQuery && searchResult.query !== normalizedSearchQuery),
+    searchFailed: searchResult.query === normalizedSearchQuery && searchResult.failed,
     retrySearch: () => setSearchRevision((revision) => revision + 1),
     loadMoreSearchResults,
     ...counts,

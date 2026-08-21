@@ -1,16 +1,16 @@
 import type { ClipItem } from '../types';
 import type { FeatureId } from './features';
 
-export type ClipPropertyAssociationId = 'pin' | 'protect' | 'conceal';
-export type ClipPropertyMembership = 'pinned' | 'protected' | 'concealed';
+export type ClipPropertyAssociationId = 'pin' | 'protect' | 'conceal' | 'name';
+export type ClipPropertyMembership = 'pinned' | 'protected' | 'concealed' | 'named';
 export type ClipPropertyDropAction = 'pin' | 'protect' | 'conceal';
 
 export interface ClipPropertyAssociation {
   id: ClipPropertyAssociationId;
   membership: ClipPropertyMembership;
-  dropAction: ClipPropertyDropAction;
+  dropAction?: ClipPropertyDropAction;
   feature: FeatureId;
-  countKey: 'pinnedCount' | 'protectedCount' | 'concealedCount';
+  countKey: 'pinnedCount' | 'protectedCount' | 'concealedCount' | 'namedCount';
   isMember: (clip: ClipItem) => boolean;
 }
 
@@ -38,6 +38,14 @@ export const CLIP_PROPERTY_ASSOCIATIONS = [
     feature: 'concealment',
     countKey: 'concealedCount',
     isMember: (clip) => Boolean(clip.is_concealed),
+  },
+  {
+    id: 'name',
+    membership: 'named',
+    dropAction: undefined,
+    feature: 'naming',
+    countKey: 'namedCount',
+    isMember: (clip) => Boolean(clip.name?.trim()),
   },
 ] as const satisfies readonly ClipPropertyAssociation[];
 

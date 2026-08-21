@@ -104,6 +104,7 @@ html[dir="rtl"] .tracking-widest {
     --accent-primary-contrast: #ffffff;
     --checkbox-check-color: var(--accent-primary-contrast);
     --queue-accent: #c084fc;
+    --named-accent: #22d3ee;
     --overlay-scrim: rgba(0, 0, 0, 0.62);
     --status-success: #6ee7b7;
     --note-accent: #facc15;
@@ -164,6 +165,7 @@ html[dir="rtl"] .tracking-widest {
     --accent-primary: #0066cc;
     --accent-primary-contrast: #ffffff;
     --queue-accent: #7e22ce;
+    --named-accent: #0e7490;
     --overlay-scrim: rgba(28, 28, 30, 0.28);
     --status-success: #047857;
     --note-accent: #a16207;

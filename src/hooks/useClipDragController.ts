@@ -71,7 +71,7 @@ export function useClipDragController({
           protect: { enabled: protectionEnabled, set: setProtected },
           conceal: { enabled: concealmentEnabled, set: setConcealed },
         } as const;
-        const handler = handlers[association.id];
+        const handler = handlers[association.dropAction!];
         if (handler.enabled) void handler.set(clipId, true);
       } else {
         void deleteClip(clipId);

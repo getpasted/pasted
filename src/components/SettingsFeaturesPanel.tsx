@@ -23,6 +23,8 @@ import {
   EyeOff,
   Layers3,
   FileType2,
+  FilePenLine,
+  Search,
 } from 'lucide-react';
 import type { AppSettings } from '../types';
 import {
@@ -56,6 +58,7 @@ const FEATURE_KEYS: Record<FeatureId, { label: TranslationKey; description: Tran
   fileFormats: { label: 'feature.fileFormats.label', description: 'feature.fileFormats.description' },
   contentClassification: { label: 'feature.contentClassification.label', description: 'feature.contentClassification.description' },
   concealment: { label: 'feature.concealment.label', description: 'feature.concealment.description' },
+  naming: { label: 'feature.naming.label', description: 'feature.naming.description' },
   notes: { label: 'feature.notes.label', description: 'feature.notes.description' },
   notifications: { label: 'feature.notifications.label', description: 'feature.notifications.description' },
   appLock: { label: 'feature.appLock.label', description: 'feature.appLock.description', caution: 'feature.appLock.caution' },
@@ -72,6 +75,7 @@ const FEATURE_KEYS: Record<FeatureId, { label: TranslationKey; description: Tran
   activityLog: { label: 'feature.activityLog.label', description: 'feature.activityLog.description' },
   types: { label: 'feature.types.label', description: 'feature.types.description' },
   sources: { label: 'feature.sources.label', description: 'feature.sources.description' },
+  search: { label: 'feature.search.label', description: 'feature.search.description' },
   cli: { label: 'feature.cli.label', description: 'feature.cli.description' },
   help: { label: 'feature.help.label', description: 'feature.help.description' },
 };
@@ -89,6 +93,7 @@ const FEATURE_ICONS = {
   fileFormats: FileType2,
   contentClassification: ScanSearch,
   concealment: EyeOff,
+  naming: FilePenLine,
   notes: StickyNote,
   notifications: Bell,
   appLock: LockKeyhole,
@@ -105,6 +110,7 @@ const FEATURE_ICONS = {
   activityLog: Activity,
   types: Shapes,
   sources: AppWindow,
+  search: Search,
   cli: Command,
   help: HelpCircle,
 } satisfies Record<FeatureId, typeof Activity>;
@@ -171,7 +177,7 @@ export function SettingsFeaturesPanel({ settings, onUpdateSettings }: SettingsFe
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex min-w-0 items-start gap-3">
                         <span className="settings-feature-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border">
-                          <Icon className="h-4 w-4" />
+                          <Icon className={`h-4 w-4 ${feature.id === 'naming' ? 'theme-named-text' : ''}`} />
                         </span>
                         <div className="min-w-0">
                           <div className="relative w-fit max-w-[calc(100%-1.5rem)]">

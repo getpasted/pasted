@@ -11,13 +11,14 @@ export type ClipCollectionTab =
   | 'pinned'
   | 'protected'
   | 'concealed'
+  | 'named'
   | 'notes'
   | 'trash'
   | 'bin';
 
 export type ClipDropAction = 'queue' | 'pin' | 'protect' | 'conceal' | 'trash';
-export type ClipCollectionIcon = 'all' | 'search' | 'queue' | 'pin' | 'protect' | 'conceal' | 'note' | 'trash' | 'bin';
-export type ClipCollectionMembership = 'all' | 'search' | 'queue' | 'pinned' | 'protected' | 'concealed' | 'noted' | 'trash' | 'bin' | 'facet';
+export type ClipCollectionIcon = 'all' | 'search' | 'queue' | 'pin' | 'protect' | 'conceal' | 'name' | 'note' | 'trash' | 'bin';
+export type ClipCollectionMembership = 'all' | 'search' | 'queue' | 'pinned' | 'protected' | 'concealed' | 'named' | 'noted' | 'trash' | 'bin' | 'facet';
 export type ClipCollectionOrdering = 'chronological' | 'queue' | 'pinned' | 'collection';
 
 export interface ClipCollectionCapabilities {
@@ -80,6 +81,10 @@ export const SYSTEM_CLIP_COLLECTIONS: readonly ClipCollectionDefinition[] = [
     emptyTitle: 'No concealed clips', emptyDescription: 'Conceal a clip to hide its contents until revealed.',
   },
   {
+    key: 'system:named', tab: 'named', label: 'Named', title: 'Named', icon: 'name', feature: 'naming', association: 'name', membership: 'named', ordering: 'chronological',
+    capabilities: calculated(), emptyTitle: 'No named clips', emptyDescription: 'Name a clip to identify it and find it here.',
+  },
+  {
     key: 'system:noted', tab: 'notes', label: 'Noted', title: 'Noted', icon: 'note', feature: 'notes', membership: 'noted', ordering: 'chronological',
     capabilities: calculated(), emptyTitle: 'No noted clips', emptyDescription: 'Add a note to any clip to annotate it and find it here later.',
   },
@@ -121,6 +126,11 @@ const COLLECTION_MESSAGE_KEYS: Record<string, { label: TranslationKey; tooltip?:
     label: 'collection.concealed',
     emptyTitle: 'collection.noConcealedClips',
     emptyDescription: 'collection.concealAClip',
+  },
+  'system:named': {
+    label: 'collection.named',
+    emptyTitle: 'collection.noNamedClips',
+    emptyDescription: 'collection.nameAClip',
   },
   'system:noted': {
     label: 'collection.noted',

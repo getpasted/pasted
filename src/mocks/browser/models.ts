@@ -24,6 +24,7 @@ export type MockClip = {
   bin_id: number | null;
   bin_ids: number[];
   note?: string | null;
+  name?: string | null;
 };
 
 export type MockBin = {

@@ -8,6 +8,7 @@ pub enum Feature {
     FileFormats,
     ContentClassification,
     Concealment,
+    Naming,
     Notes,
     Notifications,
     AppLock,
@@ -24,18 +25,20 @@ pub enum Feature {
     ActivityLog,
     ContentTypes,
     Sources,
+    Search,
     Cli,
     Help,
 }
 
 impl Feature {
-    pub const ALL: [Feature; 24] = [
+    pub const ALL: [Feature; 26] = [
         Feature::Insights,
         Feature::Bins,
         Feature::ClipTypes,
         Feature::FileFormats,
         Feature::ContentClassification,
         Feature::Concealment,
+        Feature::Naming,
         Feature::Notes,
         Feature::Notifications,
         Feature::AppLock,
@@ -52,6 +55,7 @@ impl Feature {
         Feature::ActivityLog,
         Feature::ContentTypes,
         Feature::Sources,
+        Feature::Search,
         Feature::Cli,
         Feature::Help,
     ];
@@ -64,6 +68,7 @@ impl Feature {
             Feature::FileFormats => "enableFileFormats",
             Feature::ContentClassification => "enableContentClassification",
             Feature::Concealment => "enableConcealment",
+            Feature::Naming => "enableNaming",
             Feature::Notes => "enableNotes",
             Feature::Notifications => "enableNotifications",
             Feature::AppLock => "enableAppLock",
@@ -80,6 +85,7 @@ impl Feature {
             Feature::ActivityLog => "enableActivityLog",
             Feature::ContentTypes => "enableTypes",
             Feature::Sources => "enableSources",
+            Feature::Search => "enableSearch",
             Feature::Cli => "enableCli",
             Feature::Help => "enableHelp",
         }
@@ -99,6 +105,7 @@ impl Feature {
             Feature::FileFormats => "File Formats",
             Feature::ContentClassification => "Content Classification",
             Feature::Concealment => "Concealment",
+            Feature::Naming => "Naming",
             Feature::Notes => "Notes",
             Feature::Notifications => "Notifications",
             Feature::AppLock => "App Lock",
@@ -115,6 +122,7 @@ impl Feature {
             Feature::ActivityLog => "Activity",
             Feature::ContentTypes => "Content Types",
             Feature::Sources => "Sources",
+            Feature::Search => "Clip Search",
             Feature::Cli => "CLI",
             Feature::Help => "Help",
         }
@@ -163,7 +171,7 @@ mod tests {
 
     #[test]
     fn frontend_and_native_setting_keys_are_stable() {
-        assert_eq!(Feature::ALL.len(), 24);
+        assert_eq!(Feature::ALL.len(), 26);
         for feature in Feature::ALL {
             assert_eq!(
                 Feature::from_setting_key(feature.setting_key()),

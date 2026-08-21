@@ -84,10 +84,11 @@ pub(crate) fn run_clips(args: Vec<String>, db_path: PathBuf, _conn: Connection) 
                 );
             } else {
                 println!(
-                    "#{}\t{}\t{}\t{}",
+                    "#{}\t{}\t{}\t{}\t{}",
                     clip.id,
                     clip.content_type,
                     clip.source,
+                    clip.name.as_deref().unwrap_or(""),
                     clip.text_content.as_deref().unwrap_or("")
                 );
             }
@@ -111,6 +112,33 @@ pub(crate) fn run_clips(args: Vec<String>, db_path: PathBuf, _conn: Connection) 
                 println!("{}", serde_json::json!({ "clipId": clip_id, "note": note }));
             } else {
                 println!("Updated note for clip #{clip_id}.");
+            }
+        }
+        "name" => {
+            require_feature(&db, Feature::Naming);
+            let clip_id = parse_i64_argument(
+                &args,
+                3,
+                "Usage: pasted clip name <clip-id> [--text TEXT | --clear | --stdin] [--json]",
+            );
+            let name = if args.iter().any(|argument| argument == "--clear") {
+                None
+            } else {
+                Some(match argument_value(&args, "--text") {
+                    Some(name) => name,
+                    None => read_stdin_bounded(pasted_lib::db::clip_name_input_limit())?,
+                })
+            };
+            let clip = db.update_clip_name(clip_id, name.as_deref())?;
+            if json {
+                println!(
+                    "{}",
+                    serde_json::json!({ "clipId": clip_id, "name": clip.name })
+                );
+            } else if clip.name.is_some() {
+                println!("Named clip #{clip_id}.");
+            } else {
+                println!("Cleared the name from clip #{clip_id}.");
             }
         }
         "revisions" | "versions" => {
@@ -360,7 +388,7 @@ pub(crate) fn run_clips(args: Vec<String>, db_path: PathBuf, _conn: Connection) 
             print_mutation_summary(&outcome.mutation, json)?;
         }
         _ => {
-            eprintln!("Usage: pasted clip get|note|revisions|restore-revision|provenance|copy|paste|hotkey|pin|unpin|order-pinned|protect|unprotect|conceal|reveal|trash|restore|restore-all|purge|empty-trash|assign|remove-bin|export|import [options] [--json]");
+            eprintln!("Usage: pasted clip get|name|note|revisions|restore-revision|provenance|copy|paste|hotkey|pin|unpin|order-pinned|protect|unprotect|conceal|reveal|trash|restore|restore-all|purge|empty-trash|assign|remove-bin|export|import [options] [--json]");
             std::process::exit(2);
         }
     }

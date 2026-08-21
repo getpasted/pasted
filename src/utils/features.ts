@@ -7,6 +7,7 @@ export type FeatureId =
   | 'fileFormats'
   | 'contentClassification'
   | 'concealment'
+  | 'naming'
   | 'notes'
   | 'notifications'
   | 'appLock'
@@ -23,6 +24,7 @@ export type FeatureId =
   | 'activityLog'
   | 'types'
   | 'sources'
+  | 'search'
   | 'cli'
   | 'help';
 
@@ -33,6 +35,7 @@ export type FeatureSettingKey =
   | 'enableFileFormats'
   | 'enableContentClassification'
   | 'enableConcealment'
+  | 'enableNaming'
   | 'enableNotes'
   | 'enableNotifications'
   | 'enableAppLock'
@@ -49,6 +52,7 @@ export type FeatureSettingKey =
   | 'enableActivityLog'
   | 'enableTypes'
   | 'enableSources'
+  | 'enableSearch'
   | 'enableCli'
   | 'enableHelp';
 
@@ -79,23 +83,8 @@ export interface FeatureDefinition {
 
 export const FEATURE_DEFINITIONS: readonly FeatureDefinition[] = [
   { id: 'bins', group: 'library', settingKey: 'enableBins', label: 'Bins', description: 'Organize clips manually or automatically with Smart Bins.', simple: false },
-  { id: 'clipTypes', group: 'library', settingKey: 'enableClipTypes', label: 'Clip Types', description: 'Show structural Clip Types and their collections.', simple: false },
-  { id: 'fileFormats', group: 'discovery', settingKey: 'enableFileFormats', label: 'File Formats', description: 'Identify file formats from their contents.', simple: false },
-  { id: 'contentClassification', group: 'discovery', settingKey: 'enableContentClassification', label: 'Content Classification', description: 'Assign registered Content Types to analyzable text.', simple: true },
-  { id: 'concealment', group: 'library', settingKey: 'enableConcealment', label: 'Concealment', description: 'Hide the contents of configured Content Types and Bins until revealed.', simple: true },
+  { id: 'naming', group: 'library', settingKey: 'enableNaming', label: 'Naming', description: 'Give clips short, searchable names.', simple: false },
   { id: 'notes', group: 'library', settingKey: 'enableNotes', label: 'Notes', description: 'Annotate clips and browse the Noted collection.', simple: false },
-  { id: 'notifications', group: 'app', settingKey: 'enableNotifications', label: 'Notifications', description: 'Show interactive capture feedback without interrupting the current workflow.', simple: false },
-  {
-    id: 'appLock',
-    group: 'app',
-    settingKey: 'enableAppLock',
-    label: 'App Lock',
-    description: 'Require authentication before showing clipboard history.',
-    simple: false,
-    caution: 'The saved passphrase and lock preferences remain available when App Lock is re-enabled.',
-  },
-  { id: 'ocr', group: 'discovery', settingKey: 'enableOcr', label: 'OCR', description: 'Automatically extract searchable text from copied images.', simple: false },
-  { id: 'transcriptions', group: 'discovery', settingKey: 'enableTranscriptions', label: 'Transcriptions', description: 'Create searchable text from copied audio files.', simple: false },
   { id: 'pinning', group: 'library', settingKey: 'enablePinning', label: 'Pinning', description: 'Keep important clips at the top of history.', simple: false },
   {
     id: 'protection',
@@ -106,18 +95,7 @@ export const FEATURE_DEFINITIONS: readonly FeatureDefinition[] = [
     simple: false,
     caution: 'Previously protected clips remain protected. Re-enable this feature to change them.',
   },
-  { id: 'queue', group: 'workflow', settingKey: 'enableQueue', label: 'Copy Queue', description: 'Collect copied text and paste it back in sequence.', simple: false },
-  {
-    id: 'revisions',
-    group: 'library',
-    settingKey: 'enableRevisions',
-    label: 'Revision History',
-    description: 'Keep restorable snapshots before clips change.',
-    simple: true,
-    caution: 'New edits and Transforms will not be reversible while Revision History is disabled.',
-  },
-  { id: 'hud', group: 'workflow', settingKey: 'enableHud', label: 'HUD', description: 'Open the compact keyboard-driven clipboard window.', simple: false },
-  { id: 'hotkeys', group: 'workflow', settingKey: 'enableHotkeys', label: 'Hotkeys', description: 'Assign and use system-wide hotkeys for actions, clips, Bins, and Transforms.', simple: false },
+  { id: 'concealment', group: 'library', settingKey: 'enableConcealment', label: 'Concealment', description: 'Hide the contents of configured Content Types and Bins until revealed.', simple: true },
   {
     id: 'trash',
     group: 'library',
@@ -127,11 +105,42 @@ export const FEATURE_DEFINITIONS: readonly FeatureDefinition[] = [
     simple: true,
     caution: 'When disabled, deleting a clip permanently removes it.',
   },
-  { id: 'transformations', group: 'workflow', settingKey: 'enableTransformations', label: 'Transformations', description: 'Run text workflows and receive Smart Action suggestions.', simple: false },
-  { id: 'analytics', group: 'discovery', settingKey: 'enableAnalytics', label: 'Insights', description: 'Browse active-library composition and recent additions.', simple: false },
-  { id: 'activityLog', group: 'app', settingKey: 'enableActivityLog', label: 'Activity', description: 'Record and inspect important app events.', simple: false },
+  {
+    id: 'revisions',
+    group: 'library',
+    settingKey: 'enableRevisions',
+    label: 'Revision History',
+    description: 'Keep restorable snapshots before clips change.',
+    simple: true,
+    caution: 'New edits and Transforms will not be reversible while Revision History is disabled.',
+  },
+
+  { id: 'clipTypes', group: 'discovery', settingKey: 'enableClipTypes', label: 'Clip Types', description: 'Show structural Clip Types and their collections.', simple: false },
   { id: 'types', group: 'discovery', settingKey: 'enableTypes', label: 'Content Types', description: 'Show recognized Content Types and their collections.', simple: false },
+  { id: 'contentClassification', group: 'discovery', settingKey: 'enableContentClassification', label: 'Content Classification', description: 'Assign registered Content Types to analyzable text.', simple: true },
+  { id: 'fileFormats', group: 'discovery', settingKey: 'enableFileFormats', label: 'File Formats', description: 'Identify file formats from their contents.', simple: false },
+  { id: 'ocr', group: 'discovery', settingKey: 'enableOcr', label: 'OCR', description: 'Automatically extract searchable text from copied images.', simple: false },
+  { id: 'transcriptions', group: 'discovery', settingKey: 'enableTranscriptions', label: 'Transcriptions', description: 'Create searchable text from copied audio files.', simple: false },
   { id: 'sources', group: 'discovery', settingKey: 'enableSources', label: 'Sources', description: 'Show the applications associated with captured clips and their collections.', simple: false },
+  { id: 'search', group: 'discovery', settingKey: 'enableSearch', label: 'Clip Search', description: 'Search clip contents, names, notes, sources, and extracted text.', simple: true },
+  { id: 'analytics', group: 'discovery', settingKey: 'enableAnalytics', label: 'Insights', description: 'Browse active-library composition and recent additions.', simple: false },
+
+  { id: 'queue', group: 'workflow', settingKey: 'enableQueue', label: 'Copy Queue', description: 'Collect copied text and paste it back in sequence.', simple: false },
+  { id: 'transformations', group: 'workflow', settingKey: 'enableTransformations', label: 'Transformations', description: 'Run text workflows and receive Smart Action suggestions.', simple: false },
+  { id: 'hud', group: 'workflow', settingKey: 'enableHud', label: 'HUD', description: 'Open the compact keyboard-driven clipboard window.', simple: false },
+  { id: 'hotkeys', group: 'workflow', settingKey: 'enableHotkeys', label: 'Hotkeys', description: 'Assign and use system-wide hotkeys for actions, clips, Bins, and Transforms.', simple: false },
+
+  { id: 'notifications', group: 'app', settingKey: 'enableNotifications', label: 'Notifications', description: 'Show interactive capture feedback without interrupting the current workflow.', simple: false },
+  {
+    id: 'appLock',
+    group: 'app',
+    settingKey: 'enableAppLock',
+    label: 'App Lock',
+    description: 'Require authentication before showing clipboard history.',
+    simple: false,
+    caution: 'The saved passphrase and lock preferences remain available when App Lock is re-enabled.',
+  },
+  { id: 'activityLog', group: 'app', settingKey: 'enableActivityLog', label: 'Activity', description: 'Record and inspect important app events.', simple: false },
   { id: 'cli', group: 'app', settingKey: 'enableCli', label: 'Command-Line Interface', description: 'Use pasted to automate clipboard workflows.', simple: false },
   { id: 'help', group: 'app', settingKey: 'enableHelp', label: 'Help', description: 'Show in-app documentation and its navigation entry.', simple: true },
 ] as const;
@@ -175,12 +184,14 @@ export function featureForRoute(route: string): FeatureId | null {
     pinned: 'pinning',
     protected: 'protection',
     concealed: 'concealment',
+    named: 'naming',
     notes: 'notes',
     trash: 'trash',
     bin: 'bins',
     analytics: 'analytics',
     transformations: 'transformations',
     activity: 'activityLog',
+    search: 'search',
     help: 'help',
   };
   return routes[tab] ?? null;

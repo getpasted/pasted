@@ -70,14 +70,29 @@ pub(crate) fn run_list(args: Vec<String>, db_path: PathBuf, conn: Connection) ->
         .max(0);
     let bin_id = argument_value(&args, "--bin").and_then(|value| value.parse::<i64>().ok());
     let pinned = args.iter().any(|argument| argument == "--pinned");
+    let named = args.iter().any(|argument| argument == "--named");
     let trash = args.iter().any(|argument| argument == "--trash");
-    if trash && (bin_id.is_some() || pinned) {
-        eprintln!("--trash cannot be combined with --bin or --pinned.");
+    if [bin_id.is_some(), pinned, named, trash]
+        .into_iter()
+        .filter(|selected| *selected)
+        .count()
+        > 1
+    {
+        eprintln!("--bin, --pinned, --named, and --trash cannot be combined.");
         std::process::exit(2);
     }
     drop(conn);
     let db = DbState::new(db_path.clone())?;
-    let clips = if trash {
+    let clips = if named {
+        require_feature(&db, Feature::Naming);
+        db.search_clips(&pasted_lib::db::ClipSearchRequest {
+            query: "is:named".to_string(),
+            limit: usize::try_from(limit).unwrap_or(10),
+            offset: usize::try_from(offset).unwrap_or(0),
+            ..Default::default()
+        })?
+        .items
+    } else if trash {
         db.get_trashed_clips_page(Some(limit), Some(offset))?
     } else {
         db.get_clips_page(bin_id, pinned, Some(limit), Some(offset))?
@@ -90,12 +105,12 @@ pub(crate) fn run_list(args: Vec<String>, db_path: PathBuf, conn: Connection) ->
         return Ok(());
     }
     println!(
-        "{:<5} | {:<8} | {:<15} | {:<20} | CONTENT",
-        "ID", "TYPE", "SOURCE", "DATE"
+        "{:<5} | {:<8} | {:<15} | {:<20} | {:<20} | CONTENT",
+        "ID", "TYPE", "SOURCE", "DATE", "NAME"
     );
     println!(
-        "{:-<5}-+-{:-<8}-+-{:-<15}-+-{:-<20}-+-{:-<30}",
-        "", "", "", "", ""
+        "{:-<5}-+-{:-<8}-+-{:-<15}-+-{:-<20}-+-{:-<20}-+-{:-<30}",
+        "", "", "", "", "", ""
     );
     for clip in clips {
         let snippet: String = clip
@@ -109,8 +124,13 @@ pub(crate) fn run_list(args: Vec<String>, db_path: PathBuf, conn: Connection) ->
             .take(40)
             .collect();
         println!(
-            "{:<5} | {:<8} | {:<15} | {:<20} | {}",
-            clip.id, clip.content_type, clip.source, clip.created_at, snippet
+            "{:<5} | {:<8} | {:<15} | {:<20} | {:<20} | {}",
+            clip.id,
+            clip.content_type,
+            clip.source,
+            clip.created_at,
+            clip.name.as_deref().unwrap_or(""),
+            snippet
         );
     }
     Ok(())
@@ -153,6 +173,7 @@ pub(crate) fn run_search(args: Vec<String>, db_path: PathBuf, _conn: Connection)
         .collect::<Vec<_>>()
         .join(" ");
     let db = DbState::new(db_path.clone())?;
+    require_feature(&db, Feature::Search);
     let result = db.search_clips(&pasted_lib::db::ClipSearchRequest {
         query,
         clip_types: clip_type.into_iter().collect(),

@@ -5,6 +5,7 @@ export interface ClipSearchPlan {
   formats: string[];
   terms: string[];
   requiresNote: boolean;
+  requiresNamed: boolean;
   requiresPinned: boolean;
   requiresProtected: boolean;
   requiresTrashed: boolean;
@@ -46,6 +47,7 @@ export function parseClipSearch(rawQuery: string): ClipSearchPlan {
     formats: [],
     terms: [],
     requiresNote: false,
+    requiresNamed: false,
     requiresPinned: false,
     requiresProtected: false,
     requiresTrashed: false,
@@ -89,6 +91,8 @@ export function parseClipSearch(rawQuery: string): ClipSearchPlan {
       else plan.hasIncompleteFilter = true;
     } else if (lower === 'has:note') {
       plan.requiresNote = true;
+    } else if (lower === 'has:name' || lower === 'is:named') {
+      plan.requiresNamed = true;
     } else if (lower === 'is:pinned') {
       plan.requiresPinned = true;
     } else if (lower === 'is:protected') {

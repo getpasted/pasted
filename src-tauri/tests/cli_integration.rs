@@ -636,7 +636,7 @@ fn whole_analyzer_has_one_versioned_privacy_safe_cli_contract() {
 }
 
 #[test]
-fn search_uses_the_shared_paginated_contract_and_exact_collection_filters() {
+fn search_uses_the_shared_paginated_contract_and_fuzzy_collection_filters() {
     let database = temporary_path("search", "db");
     success_json(&database, &["copy", "first@example.com", "--json"]);
     success_json(&database, &["copy", "second@example.com", "--json"]);
@@ -647,11 +647,11 @@ fn search_uses_the_shared_paginated_contract_and_exact_collection_filters() {
             "search",
             "example.com",
             "--clip",
-            "text",
+            "te",
             "--content",
-            "email",
+            "mai",
             "--source",
-            "CLI Terminal",
+            "Terminal",
             "--limit",
             "1",
             "--json",
@@ -683,7 +683,7 @@ fn search_uses_the_shared_paginated_contract_and_exact_collection_filters() {
     assert_ne!(first_page["items"][0]["id"], second_page["items"][0]["id"]);
 
     let partial_source = success_json(&database, &["search", "--source", "CLI", "--json"]);
-    assert_eq!(partial_source["totalCount"], 0);
+    assert_eq!(partial_source["totalCount"], 2);
     let oversized_page = run(&database, &["search", "--limit", "501", "--json"]);
     assert!(!oversized_page.status.success());
     assert!(String::from_utf8_lossy(&oversized_page.stderr)

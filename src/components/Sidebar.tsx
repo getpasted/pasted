@@ -34,6 +34,7 @@ import {
   Files,
   FileType2,
   X,
+  FilePenLine,
 } from 'lucide-react';
 import { Bin, ClipCollectionSummary, type ClipContentType, SequentialStatus } from '../types';
 import { useSidebarBinOrder } from '../hooks/useSidebarBinOrder';
@@ -57,6 +58,7 @@ const SEARCH_HELPERS = [
   { prefix: 'format:', get desc() { return translate('component.sidebar.fileFormats'); } },
   { prefix: 'source:', get desc() { return translate('component.sidebar.sources'); } },
   { prefix: 'has:note', get desc() { return translate('feature.notes.label'); } },
+  { prefix: 'has:name', get desc() { return translate('feature.naming.label'); } },
   { prefix: 'is:pinned', get desc() { return translate('collection.pinned'); } },
   { prefix: 'is:protected', get desc() { return translate('collection.protected'); } },
   { prefix: 'is:trashed', get desc() { return translate('collection.trashed'); } },
@@ -81,11 +83,6 @@ interface SidebarProps {
   seqStatus: SequentialStatus | null;
   onClearHistory?: () => void;
   totalClipCount: number;
-  pinnedCount?: number;
-  protectedCount?: number;
-  concealedCount?: number;
-  notesCount?: number;
-  trashedCount?: number;
   isCollapsed: boolean;
   setIsCollapsed: (collapsed: boolean | ((prev: boolean) => boolean)) => void;
   sidebarWidth?: number;
@@ -124,11 +121,6 @@ const SidebarComponent: React.FC<SidebarProps> = ({
   onEmptySearchEscape,
   seqStatus,
   totalClipCount,
-  pinnedCount = 0,
-  protectedCount = 0,
-  concealedCount = 0,
-  notesCount = 0,
-  trashedCount = 0,
   isCollapsed,
   setIsCollapsed,
   sidebarWidth = 240,
@@ -334,6 +326,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
     if (icon === 'pin') return <Pin className="sidebar-icon-success w-5 h-5 pin-icon" />;
     if (icon === 'protect') return <Shield className="sidebar-icon-info w-5 h-5" />;
     if (icon === 'conceal') return <EyeOff className="sidebar-icon-warning w-5 h-5" />;
+    if (icon === 'name') return <FilePenLine className="sidebar-icon-named w-5 h-5" />;
     if (icon === 'note') return <StickyNote className="sidebar-icon-note w-5 h-5" />;
     if (icon === 'trash') return <Trash2 className="sidebar-icon-danger w-5 h-5" />;
     return <Clipboard className="sidebar-icon-primary w-5 h-5" />;
@@ -420,12 +413,11 @@ const SidebarComponent: React.FC<SidebarProps> = ({
   const clipCountByTab: Record<string, number> = {
     all: totalClipCount,
     sequential: seqStatus?.total_count ?? 0,
-    notes: notesCount,
-    trash: trashedCount,
+    notes: clipCollectionSummary.notedCount,
+    trash: clipCollectionSummary.trashCount,
   };
-  const propertyCounts = { pinnedCount, protectedCount, concealedCount };
   for (const association of CLIP_PROPERTY_ASSOCIATIONS) {
-    clipCountByTab[association.membership] = propertyCounts[association.countKey];
+    clipCountByTab[association.membership] = clipCollectionSummary[association.countKey];
   }
 
   const getDropActionTitle = (action: ClipDropAction) => {
@@ -992,7 +984,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
       </div>
 
       {/* Pinned Bottom Search Bar Footer */}
-      <div ref={searchMenuRootRef} className="sidebar-divider p-2.5 border-t shrink-0 relative">
+      {features.search && <div ref={searchMenuRootRef} className="sidebar-divider p-2.5 border-t shrink-0 relative">
         {!isClipDragging && isSearchMenuOpen && (
           <div
             id="sidebar-search-filters"
@@ -1129,7 +1121,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
             <ChevronUp className={`h-3.5 w-3.5 transition-transform ${isSearchMenuOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
           </button>
         </div>
-      </div>
+      </div>}
     </aside>
   );
 };

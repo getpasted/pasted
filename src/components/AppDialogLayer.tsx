@@ -9,6 +9,7 @@ import { BinContextMenu } from './BinContextMenu';
 import { BinModal } from './BinModal';
 import { ClearHistoryDialog } from './ClearHistoryDialog';
 import { ClipNoteDialog } from './ClipNoteDialog';
+import { ClipNameDialog } from './ClipNameDialog';
 import { DeleteBinDialog } from './DeleteBinDialog';
 import { WelcomeSetup } from './WelcomeSetup';
 
@@ -36,6 +37,12 @@ interface AppDialogLayerProps {
   notePromptText: string;
   setNotePromptText: Dispatch<SetStateAction<string>>;
   updateClipNoteLocally: (clipId: number, note: string | null) => void;
+  namePromptClip: ClipItem | null;
+  setNamePromptClip: Dispatch<SetStateAction<ClipItem | null>>;
+  namePromptText: string;
+  setNamePromptText: Dispatch<SetStateAction<string>>;
+  updateClipNameLocally: (clipId: number, name: string | null) => void;
+  onNameCleared: (clipId: number) => void;
   clearHistoryMode: ClearHistoryMode | null;
   setClearHistoryMode: Dispatch<SetStateAction<ClearHistoryMode | null>>;
   confirmClearHistory: () => Promise<void>;
@@ -69,6 +76,12 @@ export function AppDialogLayer({
   notePromptText,
   setNotePromptText,
   updateClipNoteLocally,
+  namePromptClip,
+  setNamePromptClip,
+  namePromptText,
+  setNamePromptText,
+  updateClipNameLocally,
+  onNameCleared,
   clearHistoryMode,
   setClearHistoryMode,
   confirmClearHistory,
@@ -145,6 +158,27 @@ export function AppDialogLayer({
           setNotePromptClip(null);
           try {
             await clipsApi.updateNote(clip.id, note);
+            await fetchClipCollectionSummary();
+          } catch (error) {
+            console.error(error);
+            void fetchClips();
+          }
+        }}
+      />
+    )}
+
+    {features.naming && namePromptClip && (
+      <ClipNameDialog
+        clip={namePromptClip}
+        text={namePromptText}
+        onTextChange={setNamePromptText}
+        onCancel={() => setNamePromptClip(null)}
+        onSave={async (clip, name) => {
+          updateClipNameLocally(clip.id, name);
+          if (name === null) onNameCleared(clip.id);
+          setNamePromptClip(null);
+          try {
+            await clipsApi.updateName(clip.id, name);
             await fetchClipCollectionSummary();
           } catch (error) {
             console.error(error);

@@ -34,6 +34,7 @@ import {
   AlertTriangle,
   ShieldOff,
   X,
+  FilePenLine,
 } from 'lucide-react';
 import { ClipBinSummary } from './ClipBinSummary';
 import { SafeRasterImage } from './SafeRasterImage';
@@ -271,6 +272,7 @@ interface ClipCardProps {
   onPin: () => void;
   onToggleProtected?: () => void;
   onToggleConcealed?: () => void;
+  onName?: () => void;
   onDelete: (e?: React.MouseEvent) => void;
   onCopy: () => void;
   onRestore?: () => void;
@@ -310,6 +312,7 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
   onPin,
   onToggleProtected,
   onToggleConcealed,
+  onName,
   onDelete,
   onCopy,
   onRestore,
@@ -590,6 +593,19 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
         </div>
       </div>
 
+      {features.naming && clip.name && (
+        <div className="theme-named-text my-2.5 flex items-center space-x-2 text-xs font-semibold font-sans">
+          {(features.clipTypes || (features.types && (clip.content_types?.length ?? 0) > 0)) && (
+            <span className="clip-name-icon shrink-0 rounded border p-1">
+              <FilePenLine className="h-3.5 w-3.5" />
+            </span>
+          )}
+          <span className="truncate" title={clip.name}>
+            <HighlightedClipText text={clip.name} query={searchQuery} field="name" />
+          </span>
+        </div>
+      )}
+
       {/* Body Content */}
       <div className={`theme-text-main ${clip.content_type === 'file' ? (isSmall ? 'text-[11px]' : 'text-xs') : lineClampClass} font-mono leading-relaxed break-all`}>
         {isSensitive ? (
@@ -675,6 +691,18 @@ const ClipCardComponent: React.FC<ClipCardProps> = ({
             {concealment.effective
               ? <Eye className="h-3.5 w-3.5" />
               : <EyeOff className="h-3.5 w-3.5" />}
+          </button>
+        )}
+        {features.naming && viewPolicy.canOrganize && onName && (
+          <button
+            onClick={(event) => {
+              event.stopPropagation();
+              onName();
+            }}
+            className={`floating-action-button is-named ${clip.name ? 'is-active' : ''}`}
+            title={clip.name ? translate('action.editName') : translate('action.nameClip')}
+          >
+            <FilePenLine className="h-3.5 w-3.5" />
           </button>
         )}
 
@@ -825,6 +853,7 @@ export const ClipCard = React.memo(ClipCardComponent, (prevProps, nextProps) => 
     previousProtectingBinIds.every((id, index) => id === nextProtectingBinIds[index]) &&
     prevProps.clip.is_transformed === nextProps.clip.is_transformed &&
     prevProps.clip.note === nextProps.clip.note &&
+    prevProps.clip.name === nextProps.clip.name &&
     prevProps.clip.bin_id === nextProps.clip.bin_id &&
     previousBinIds.length === nextBinIds.length &&
     previousBinIds.every((id, index) => id === nextBinIds[index]) &&

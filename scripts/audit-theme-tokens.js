@@ -93,11 +93,13 @@ const checks = [
   ['Code content', '--code-text', '--code-surface', 4.5],
   ['Success icon on sidebar', '--status-success', '--bg-sidebar', 3],
   ['Note icon on card', '--note-accent', '--bg-card', 3],
+  ['Named icon on card', '--named-accent', '--bg-card', 3],
   ['Info action in menu', 'color-mix(in srgb, var(--status-info) 45%, var(--text-title))', '--bg-card', 4.5],
   ['Success action in menu', 'color-mix(in srgb, var(--status-success) 45%, var(--text-title))', '--bg-card', 4.5],
   ['Warning action in menu', 'color-mix(in srgb, var(--status-warning) 45%, var(--text-title))', '--bg-card', 4.5],
   ['Note action in menu', 'color-mix(in srgb, var(--note-accent) 45%, var(--text-title))', '--bg-card', 4.5],
   ['Queue action in menu', 'color-mix(in srgb, var(--queue-accent) 45%, var(--text-title))', '--bg-card', 4.5],
+  ['Named action in menu', 'color-mix(in srgb, var(--named-accent) 45%, var(--text-title))', '--bg-card', 4.5],
 ];
 const selectedMenuChecks = [
   ['Info', 'color-mix(in srgb, var(--status-info) 45%, var(--text-title))'],
@@ -105,6 +107,7 @@ const selectedMenuChecks = [
   ['Warning', 'color-mix(in srgb, var(--status-warning) 45%, var(--text-title))'],
   ['Note', 'color-mix(in srgb, var(--note-accent) 45%, var(--text-title))'],
   ['Queue', 'color-mix(in srgb, var(--queue-accent) 45%, var(--text-title))'],
+  ['Named', 'color-mix(in srgb, var(--named-accent) 45%, var(--text-title))'],
 ];
 
 let failures = 0;
