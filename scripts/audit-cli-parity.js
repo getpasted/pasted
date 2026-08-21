@@ -6,12 +6,7 @@ const read = (path) => fs.readFileSync(path, 'utf8');
 const englishCatalog = JSON.parse(read('src/locales/en.json'));
 const cli = readRustModuleTree('src-tauri/src/bin/pasted.rs', 'src-tauri/src/cli');
 const help = read('src/components/HelpView.tsx');
-const database = [
-  'src-tauri/src/db.rs',
-  'src-tauri/src/db/clip_protection.rs',
-  'src-tauri/src/db/retention.rs',
-  'src-tauri/src/db/settings.rs',
-].map(read).join('\n');
+const database = readRustModuleTree('src-tauri/src/db.rs', 'src-tauri/src/db');
 const libraryItems = read('src-tauri/src/library_items.rs');
 const commands = readRustModuleTree('src-tauri/src/commands.rs', 'src-tauri/src/commands');
 const analysis = read('src-tauri/src/content_analysis.rs');
