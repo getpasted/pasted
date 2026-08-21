@@ -11,7 +11,7 @@
     "test:wcag": "node scripts/audit-wcag.js && node scripts/audit-theme-tokens.js",
     "test:css": "node scripts/audit-css.js && node scripts/test-interaction-css.js",
     "test:security": "node --experimental-strip-types scripts/test-safe-raster-image.js && node scripts/audit-security.js",
-    "test:release": "node scripts/audit-release.js",
+    "test:release": "node scripts/test-tauri-cli-sidecar.js && node scripts/audit-release.js",
     "licenses:generate": "node scripts/generate-third-party-licenses.js",
     "licenses:check": "node scripts/generate-third-party-licenses.js --check",
     "dependencies:check": "node scripts/audit-dependency-policy.js",
@@ -42,6 +42,7 @@
     "icons:generate": "bash scripts/generate-icons.sh",
     "test:native": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings && npm run test:cli-build && npm test",
     "test:cli-build": "cargo build --manifest-path src-tauri/Cargo.toml --locked --no-default-features --features cli --bin pasted",
+    "stage:cli-sidecar": "node scripts/stage-tauri-cli-sidecar.js",
     "test:frontend": "npm run build && npm run test:css && npm run test:wcag && npm run test:ipc && npm run test:architecture && npm run test:security && npm run test:release && npm run licenses:check && npm run dependencies:check && npm run sbom:check && npm run test:features && npm run test:copy && npm run test:i18n && npm run test:dates && npm run test:errors && npm run test:docs && npm run test:collections && npm run test:menus && npm run test:cli && npm run test:transformations && npm run test:activity && npm run test:backup && npm run test:platform && npm run test:feedback && npm run test:app-lock",
     "test:all": "npm run test:native && npm run test:frontend",
     "tauri": "tauri"

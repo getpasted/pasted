@@ -304,12 +304,14 @@ jobs:
       - run: npm ci
       - name: Build headless CLI
         run: cargo build --manifest-path src-tauri/Cargo.toml --locked --release --no-default-features --features cli --bin pasted
+      - name: Stage CLI for desktop bundle
+        run: npm run stage:cli-sidecar
       - name: Build Linux AppImage
         if: runner.os == 'Linux'
-        run: npm run tauri -- build --bundles appimage
+        run: npm run tauri -- build --bundles appimage --config src-tauri/tauri.cli-sidecar.conf.json
       - name: Build Windows installer
         if: runner.os == 'Windows'
-        run: npm run tauri -- build --bundles nsis
+        run: npm run tauri -- build --bundles nsis --config src-tauri/tauri.cli-sidecar.conf.json
       - name: Extract packaged payload for SBOM
         if: runner.os == 'Linux'
         shell: bash
