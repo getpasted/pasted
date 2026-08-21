@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, State};
 
 use crate::db::DbState;
 use crate::features::{self, Feature};
@@ -242,6 +242,71 @@ pub fn register_hud_hotkey(hotkey: String, app: AppHandle) -> Result<(), String>
         std::iter::once(("hudHotkey".to_string(), hotkey)).collect(),
         &app,
     )
+}
+
+#[tauri::command]
+pub fn get_clip_hotkey_assignments(
+    db: State<'_, Arc<DbState>>,
+) -> Result<Vec<ClipHotkeyAssignment>, String> {
+    features::require(&db, Feature::Hotkeys)?;
+    db.get_clip_hotkeys()
+        .map(|assignments| {
+            assignments
+                .into_iter()
+                .map(|(clip_id, hotkey)| ClipHotkeyAssignment { clip_id, hotkey })
+                .collect()
+        })
+        .map_err(|error| error.to_string())
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClipHotkeyAssignment {
+    clip_id: i64,
+    hotkey: String,
+}
+
+#[tauri::command]
+pub fn update_clip_hotkey(
+    clip_id: i64,
+    hotkey: Option<String>,
+    db: State<'_, Arc<DbState>>,
+    app: AppHandle,
+) -> Result<crate::db::ClipItem, String> {
+    features::require(&db, Feature::Protection)?;
+    features::require(&db, Feature::Hotkeys)?;
+    let previous = db
+        .get_clip_by_id(clip_id)
+        .map_err(|error| error.to_string())?;
+    let previous_shortcut = previous.shortcut.clone();
+    let previous_explicit = previous
+        .is_explicitly_protected
+        .unwrap_or(previous.is_protected);
+    db.update_clip_hotkey(clip_id, hotkey.as_deref())
+        .map_err(|error| error.to_string())?;
+    let changed_hotkeys: Vec<String> = hotkey.clone().into_iter().collect();
+    if let Err(error) = register_changed_hotkeys(&app, &changed_hotkeys) {
+        db.restore_clip_hotkey_state(clip_id, previous_shortcut.as_deref(), previous_explicit)
+            .map_err(|rollback| {
+                format!("{error}; restoring the previous clip hotkey failed: {rollback}")
+            })?;
+        let _ = register_all_app_shortcuts(&app);
+        return Err(error);
+    }
+    let assigned = hotkey
+        .as_deref()
+        .is_some_and(|value| !value.trim().is_empty());
+    let activity_description = if assigned {
+        format!("Assigned a hotkey to clip #{clip_id}")
+    } else {
+        format!("Removed the hotkey from clip #{clip_id}")
+    };
+    let _ = db.log_activity("clip_hotkey_changed", &activity_description);
+    let clip = db
+        .get_clip_by_id(clip_id)
+        .map_err(|error| error.to_string())?;
+    crate::app_events::emit_clip_library_changed(&app, vec![clip_id]);
+    Ok(clip)
 }
 
 #[cfg(test)]
