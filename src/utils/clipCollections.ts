@@ -60,7 +60,7 @@ export const SYSTEM_CLIP_COLLECTIONS: readonly ClipCollectionDefinition[] = [
     capabilities: calculated(), emptyTitle: 'No clips yet', emptyDescription: 'Copy something in any app. It will appear here automatically.',
   },
   {
-    key: 'system:queue', tab: 'sequential', label: 'Queue', title: 'Queue', icon: 'queue', feature: 'queue', membership: 'queue', ordering: 'queue',
+    key: 'system:queue', tab: 'sequential', label: 'Queued', title: 'Queued', icon: 'queue', feature: 'queue', membership: 'queue', ordering: 'queue',
     capabilities: calculated({ acceptsClipDrop: true, dropAction: 'queue', canReorder: true, allowsDuplicateMembership: true }),
     emptyTitle: 'Queue is empty', emptyDescription: 'Add text clips or record copies to paste them back in sequence.',
   },

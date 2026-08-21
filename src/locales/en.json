@@ -62,7 +62,7 @@
   "collection.concealed": "Concealed",
   "collection.noConcealedClips": "No concealed clips",
   "collection.concealAClip": "Conceal a clip to hide its contents until revealed.",
-  "collection.queue": "Queue",
+  "collection.queue": "Queued",
   "collection.queueIsEmpty": "Queue is empty",
   "collection.search": "Search",
   "collection.searchActiveAndTrashedClips": "Search active and trashed clips.",

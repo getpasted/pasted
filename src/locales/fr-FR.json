@@ -62,7 +62,7 @@
   "collection.concealed": "Masqués",
   "collection.noConcealedClips": "Aucun clip masqué",
   "collection.concealAClip": "Masquez un clip pour cacher son contenu jusqu’à sa révélation.",
-  "collection.queue": "File d’attente",
+  "collection.queue": "En attente",
   "collection.queueIsEmpty": "La file d'attente est vide",
   "collection.search": "Recherche",
   "collection.searchActiveAndTrashedClips": "Rechercher les sélections actives et dans la corbeille.",

@@ -124,7 +124,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           onCopy();
           onClose();
         }}
-        className="theme-menu-item flex w-full items-center justify-between rounded-md px-3 py-1.5"
+        className="theme-menu-item is-info flex w-full items-center justify-between rounded-md px-3 py-1.5"
       >
         <div className="flex items-center space-x-2.5">
           <Copy className="theme-status-info-text h-3.5 w-3.5" />
@@ -142,6 +142,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           icon={<FolderPlus className="theme-status-warning-text h-3.5 w-3.5" />}
           open={activeSubmenu === 'bins'}
           onOpenChange={(open) => setSubmenuOpen('bins', open)}
+          triggerClassName="is-warning"
         >
             <MenuItem
               onClick={() => {
@@ -207,6 +208,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           open={activeSubmenu === 'workflow'}
           onOpenChange={(open) => setSubmenuOpen('workflow', open)}
           panelClassName="w-60 max-h-64 overflow-y-auto"
+          triggerClassName="is-info"
         >
             <div>
               {isLoadingTransforms ? (
@@ -220,7 +222,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                       onRunTransform(transform);
                       onClose();
                     }}
-                    className="gap-2 px-2.5 py-1.5"
+                    className="is-info gap-2 px-2.5 py-1.5"
                   >
                     <Workflow className="theme-workflow-text h-3.5 w-3.5 shrink-0" />
                     <OverflowText text={transform.name} className="bidi-interface-align min-w-0 flex-1 truncate" />
@@ -237,7 +239,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
                 onOpenTransformations();
                 onClose();
               }}
-              className="gap-2 px-2.5 py-1.5"
+              className="is-info gap-2 px-2.5 py-1.5"
             >
               <Workflow className="theme-workflow-text h-3.5 w-3.5 shrink-0" />
               <span>{translate('component.contextMenu.manageTransforms')}</span>
@@ -253,7 +255,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
           onAddNote();
           onClose();
         }}
-        className="theme-menu-item w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md"
+        className="theme-menu-item is-note w-full flex items-center space-x-2.5 px-3 py-1.5 rounded-md"
       >
         <StickyNote className="theme-note-text w-3.5 h-3.5" />
         <span>{clip.note ? translate('action.editNote') : translate('action.addNote')}</span>
@@ -282,7 +284,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         role="menuitemcheckbox"
         aria-checked={isQueued}
         active={isQueued}
-        className="gap-2.5 px-3 py-1.5"
+        className="is-queue gap-2.5 px-3 py-1.5"
       >
         <ListPlus className="theme-queue-text w-3.5 h-3.5" />
         <span>{isQueued
@@ -300,7 +302,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         role="menuitemcheckbox"
         aria-checked={Boolean(clip.is_pinned)}
         active={Boolean(clip.is_pinned)}
-        className="gap-2.5 px-3 py-1.5"
+        className="is-success gap-2.5 px-3 py-1.5"
       >
         <Pin className="w-3.5 h-3.5 pin-icon" />
         <span>
@@ -331,7 +333,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             : protectedByBin
               ? translate('component.clipPreview.protectedByBin')
               : undefined}
-          className="gap-2.5 px-3 py-1.5"
+          className="is-info gap-2.5 px-3 py-1.5"
         >
           <Shield className="theme-status-info-text w-3.5 h-3.5" />
           <span>{clip.hotkey
@@ -373,7 +375,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
               onRestore?.();
               onClose();
             }}
-          className="theme-menu-item flex w-full items-center space-x-2.5 rounded-md px-3 py-1.5"
+          className="theme-menu-item is-accent flex w-full items-center space-x-2.5 rounded-md px-3 py-1.5"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>{UI_COPY.restore}</span>

@@ -93,13 +93,30 @@ const checks = [
   ['Code content', '--code-text', '--code-surface', 4.5],
   ['Success icon on sidebar', '--status-success', '--bg-sidebar', 3],
   ['Note icon on card', '--note-accent', '--bg-card', 3],
+  ['Info action in menu', 'color-mix(in srgb, var(--status-info) 45%, var(--text-title))', '--bg-card', 4.5],
+  ['Success action in menu', 'color-mix(in srgb, var(--status-success) 45%, var(--text-title))', '--bg-card', 4.5],
+  ['Warning action in menu', 'color-mix(in srgb, var(--status-warning) 45%, var(--text-title))', '--bg-card', 4.5],
+  ['Note action in menu', 'color-mix(in srgb, var(--note-accent) 45%, var(--text-title))', '--bg-card', 4.5],
+  ['Queue action in menu', 'color-mix(in srgb, var(--queue-accent) 45%, var(--text-title))', '--bg-card', 4.5],
+];
+const selectedMenuChecks = [
+  ['Info', 'color-mix(in srgb, var(--status-info) 45%, var(--text-title))'],
+  ['Success', 'color-mix(in srgb, var(--status-success) 45%, var(--text-title))'],
+  ['Warning', 'color-mix(in srgb, var(--status-warning) 45%, var(--text-title))'],
+  ['Note', 'color-mix(in srgb, var(--note-accent) 45%, var(--text-title))'],
+  ['Queue', 'color-mix(in srgb, var(--queue-accent) 45%, var(--text-title))'],
 ];
 
 let failures = 0;
 console.log('\nLive theme-token contrast audit');
 console.log('-------------------------------');
 for (const [name, overrides] of Object.entries(themeOverrides)) {
-  const tokens = { ...common, ...(['Warm', '2894', 'Sauced'].includes(name) ? cool : {}), ...overrides };
+  const tokens = {
+    ...common,
+    ...(['Vampire', 'Flux', '808'].includes(name) ? dark : {}),
+    ...(['Warm', '2894', 'Sauced'].includes(name) ? cool : {}),
+    ...overrides,
+  };
   for (const [label, foregroundToken, backgroundToken, minimum] of checks) {
     const tokenColor = (tokenOrColor) => tokenOrColor.startsWith('--')
       ? tokens[tokenOrColor]
@@ -110,6 +127,15 @@ for (const [name, overrides] of Object.entries(themeOverrides)) {
     );
     const passed = ratio >= minimum;
     console.log(`${passed ? 'PASS' : 'FAIL'} [${name}] ${label}: ${ratio.toFixed(2)}:1`);
+    if (!passed) failures += 1;
+  }
+  for (const [label, foregroundToken] of selectedMenuChecks) {
+    const tokenColor = foregroundToken.startsWith('--') ? tokens[foregroundToken] : foregroundToken;
+    const foreground = resolveColor(tokenColor, tokens);
+    const background = mix(foreground, resolveColor(tokens['--bg-card'], tokens), 0.12);
+    const ratio = contrast(foreground, background);
+    const passed = ratio >= 4.5;
+    console.log(`${passed ? 'PASS' : 'FAIL'} [${name}] ${label} selected action in menu: ${ratio.toFixed(2)}:1`);
     if (!passed) failures += 1;
   }
 }

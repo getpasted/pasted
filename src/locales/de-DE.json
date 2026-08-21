@@ -62,7 +62,7 @@
   "collection.concealed": "Verborgen",
   "collection.noConcealedClips": "Keine verborgenen Clips",
   "collection.concealAClip": "Blendet einen Clip bis zur Freigabe seines Inhalts aus.",
-  "collection.queue": "Warteschlange",
+  "collection.queue": "Eingereiht",
   "collection.queueIsEmpty": "Die Warteschlange ist leer",
   "collection.search": "Suche",
   "collection.searchActiveAndTrashedClips": "Durchsuche aktive Clips und Clips im Papierkorb.",

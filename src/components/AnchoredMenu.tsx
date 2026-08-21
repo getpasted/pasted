@@ -252,6 +252,7 @@ interface MenuSubmenuProps {
   onSelect?: () => void;
   open: boolean;
   panelClassName?: string;
+  triggerClassName?: string;
 }
 
 export function MenuSubmenu({
@@ -262,6 +263,7 @@ export function MenuSubmenu({
   onSelect,
   open,
   panelClassName = 'w-48',
+  triggerClassName = '',
 }: MenuSubmenuProps) {
   const { direction } = useLocalization();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -319,7 +321,7 @@ export function MenuSubmenu({
           if (onSelect) onSelect();
           else onOpenChange(!open);
         }}
-        className="justify-between gap-3 px-3 py-1.5"
+        className={`justify-between gap-3 px-3 py-1.5 ${triggerClassName}`}
       >
         <span className="flex min-w-0 items-center gap-2.5">
           {icon}

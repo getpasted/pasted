@@ -62,7 +62,7 @@
   "collection.concealed": "非表示",
   "collection.noConcealedClips": "非表示のクリップはありません",
   "collection.concealAClip": "クリップの内容を、表示するまで隠します。",
-  "collection.queue": "キュー",
+  "collection.queue": "キュー済み",
   "collection.queueIsEmpty": "待ち行列は空です。",
   "collection.search": "検索",
   "collection.searchActiveAndTrashedClips": "使用中の動画と削除された動画を検索する。",
