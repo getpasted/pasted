@@ -177,7 +177,7 @@ export function SettingsFeaturesPanel({ settings, onUpdateSettings }: SettingsFe
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex min-w-0 items-start gap-3">
                         <span className="settings-feature-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border">
-                          <Icon className={`h-4 w-4 ${feature.id === 'naming' ? 'theme-named-text' : ''}`} />
+                          <Icon className="h-4 w-4" />
                         </span>
                         <div className="min-w-0">
                           <div className="relative w-fit max-w-[calc(100%-1.5rem)]">
