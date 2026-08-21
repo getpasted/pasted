@@ -31,6 +31,8 @@ const appShell = read('src/hooks/useAppShell.ts');
 const appMenuActions = read('src/hooks/useAppMenuActions.ts');
 const clipSelectionController = read('src/hooks/useClipSelectionController.ts');
 const clipListViewport = read('src/hooks/useClipListViewport.ts');
+const clipCommands = read('src-tauri/src/commands/clips.rs');
+const filePreviewCommands = read('src-tauri/src/commands/file_previews.rs');
 const appOverlays = read('src/hooks/useAppOverlays.ts');
 const clipDragController = read('src/hooks/useClipDragController.ts');
 const clipReordering = read('src/hooks/useClipReordering.ts');
@@ -127,10 +129,24 @@ assert.match(clipDragController, /useClipBinDrag\(/,
   'Clip drag behavior must remain behind its application controller');
 assert.match(clipReordering, /useStableVerticalReorder\(/,
   'Queue and Bin ordering must remain behind one shared coordinator');
+assert.match(clipCommands, /pub fn get_clips[\s\S]*db\.get_clips_page/,
+  'GUI clip retrieval must remain in the focused clip adapter');
+assert.match(clipCommands, /bin_assignment::assign_clips_to_bin/,
+  'GUI Bin assignment must remain delegated to the shared assignment workflow');
+assert.match(filePreviewCommands, /pub async fn get_file_clip_previews[\s\S]*spawn_blocking/,
+  'File preview generation must remain outside async command dispatch');
+assert.match(filePreviewCommands, /read_bounded_file[\s\S]*MAX_FILE_PREVIEW_OUTPUT_BYTES/,
+  'File previews must retain shared input and output bounds');
+assert.doesNotMatch(commands, /pub fn get_clips|pub fn update_clip_note|pub fn batch_pin_clips/,
+  'The GUI command root must not reclaim clip library operations');
+assert.doesNotMatch(commands, /pub async fn get_file_clip_previews|fn collect_file_clip_previews/,
+  'The GUI command root must not reclaim file preview generation');
 
 const sizeRatchets = new Map([
   ['src-tauri/src/db.rs', 20_111],
-  ['src-tauri/src/commands.rs', 4_157],
+  ['src-tauri/src/commands.rs', 3_205],
+  ['src-tauri/src/commands/clips.rs', 261],
+  ['src-tauri/src/commands/file_previews.rs', 714],
   ['src-tauri/src/commands/analysis.rs', 100],
   ['src-tauri/src/commands/content_registry.rs', 260],
   ['src-tauri/src/commands/extractors.rs', 180],
