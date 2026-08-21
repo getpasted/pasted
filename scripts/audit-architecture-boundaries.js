@@ -36,6 +36,7 @@ const fullBackupDatabase = read('src-tauri/src/db/full_backups.rs');
 const intelligenceConnectionDatabase = read('src-tauri/src/db/intelligence_connections.rs');
 const operationDatabase = read('src-tauri/src/db/operations.rs');
 const storedAnalysisDatabase = read('src-tauri/src/db/stored_analysis.rs');
+const transferDatabase = read('src-tauri/src/db/transfers.rs');
 const transformDatabase = read('src-tauri/src/db/transforms.rs');
 const settingsApi = read('src/api/settings.ts');
 const transformsApi = read('src/api/transforms.ts');
@@ -175,6 +176,14 @@ assert.match(fullBackupDatabase, /fn open_validated_full_backup/,
   'Full Backup integrity validation must remain private to its lifecycle subsystem');
 assert.doesNotMatch(read('src-tauri/src/db.rs'), /pub fn create_full_backup/,
   'The database integration root must not reclaim Full Backup lifecycle behavior');
+assert.match(transferDatabase, /pub fn export_backup_json/,
+  'History and Organization export must remain in its focused transfer subsystem');
+assert.match(transferDatabase, /fn preflight_library_archive/,
+  'Portable archive validation must complete before transfer mutation begins');
+assert.match(transferDatabase, /pub fn import_backup_json/,
+  'History and Organization import must remain centralized with transfer preflight');
+assert.doesNotMatch(read('src-tauri/src/db.rs'), /pub fn import_backup_json/,
+  'The database integration root must not reclaim transfer persistence');
 assert.match(clipboardActions, /fn ocr_text_never_replaces_an_image_clips_copy_fingerprint/,
   'Clipboard fingerprint regressions must remain with the shared clipboard workflow');
 assert.match(contentInspection, /fn file_metadata_reports_availability_without_crawling_directories/,
@@ -369,7 +378,7 @@ assert.doesNotMatch(commands, /pub fn extract_ocr_from_clip|pub async fn extract
   'The GUI command root must not reclaim extraction lifecycle operations');
 
 const sizeRatchets = new Map([
-  ['src-tauri/src/db.rs', 13_005],
+  ['src-tauri/src/db.rs', 11_576],
   ['src-tauri/src/db/activity.rs', 649],
   ['src-tauri/src/db/analytics.rs', 159],
   ['src-tauri/src/db/bins.rs', 652],
@@ -383,6 +392,7 @@ const sizeRatchets = new Map([
   ['src-tauri/src/db/intelligence_connections.rs', 231],
   ['src-tauri/src/db/operations.rs', 377],
   ['src-tauri/src/db/stored_analysis.rs', 818],
+  ['src-tauri/src/db/transfers.rs', 1_446],
   ['src-tauri/src/db/transforms.rs', 1_084],
   ['src-tauri/src/commands.rs', 54],
   ['src-tauri/src/commands/bins.rs', 89],
