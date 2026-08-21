@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 
 use crate::external_import::ExternalTextClip;
 
+mod analytics;
 mod clip_collections;
 mod clip_concealment;
 mod clip_names;
@@ -31,7 +32,8 @@ const BACKUP_SCHEMA_VERSION: u32 = 13;
 const FULL_BACKUP_FORMAT_VERSION: i64 = 1;
 const PENDING_CLIENT_STATE_SETTING: &str = "pendingFullBackupClientState";
 const MAX_BACKUP_INTERFACE_STATE_BYTES: usize = 1024 * 1024;
-const MAX_ANALYTICS_FILE_FORMATS: usize = 24;
+#[cfg(test)]
+use analytics::MAX_ANALYTICS_FILE_FORMATS;
 
 fn invalid_extractor_input(error: impl Into<String>) -> rusqlite::Error {
     rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
@@ -7537,156 +7539,6 @@ impl DbState {
             requested_count,
             changed_ids,
         ))
-    }
-
-    pub fn get_analytics_summary(&self) -> Result<AnalyticsSummary> {
-        let conn = self.conn.lock();
-
-        let (total_clips, total_chars): (i64, i64) = conn.query_row(
-            "SELECT COUNT(*), COALESCE(SUM(LENGTH(text_content)), 0) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0)",
-            [],
-            |r| Ok((r.get(0)?, r.get(1)?)),
-        ).unwrap_or((0, 0));
-
-        let mut source_stmt = conn.prepare(
-            "SELECT source, COUNT(*) FROM clips WHERE (is_trashed IS NULL OR is_trashed = 0) GROUP BY source ORDER BY COUNT(*) DESC, source COLLATE NOCASE ASC LIMIT 8"
-        )?;
-        let top_sources = source_stmt
-            .query_map([], |r| {
-                Ok(SourceStat {
-                    name: r.get(0)?,
-                    count: r.get(1)?,
-                })
-            })?
-            .filter_map(|r| r.ok())
-            .collect();
-
-        let mut clip_type_stmt = conn.prepare(
-            "SELECT CASE WHEN content_type = 'image' THEN 'image' WHEN content_type = 'file' THEN 'file' ELSE 'text' END AS clip_type,
-                    COUNT(*)
-             FROM clips
-             WHERE (is_trashed IS NULL OR is_trashed = 0)
-             GROUP BY clip_type
-             ORDER BY CASE
-               WHEN content_type = 'image' THEN 1
-               WHEN content_type = 'file' THEN 2
-               ELSE 0
-             END"
-        )?;
-        let clip_types = clip_type_stmt
-            .query_map([], |r| {
-                Ok(ClipTypeStat {
-                    clip_type: r.get(0)?,
-                    count: r.get(1)?,
-                })
-            })?
-            .filter_map(|r| r.ok())
-            .collect();
-
-        let mut file_format_stmt = conn.prepare(
-            "SELECT LOWER(json_extract(detected.value, '$.format')) AS file_format,
-                    COUNT(DISTINCT results.clip_id)
-             FROM clip_analysis_results AS results
-             JOIN clips ON clips.id = results.clip_id,
-                  json_each(results.result_json, '$.formats') AS detected
-             WHERE results.participant_ref = ?1
-               AND results.content_hash = clips.content_hash
-               AND results.input_hash = clips.content_hash
-               AND results.format_version = ?2
-               AND COALESCE(clips.is_trashed, 0) = 0
-             GROUP BY file_format
-             ORDER BY COUNT(DISTINCT results.clip_id) DESC, file_format COLLATE NOCASE ASC
-             LIMIT ?3",
-        )?;
-        let file_formats = file_format_stmt
-            .query_map(
-                params![
-                    crate::content_inspection::FILE_FORMAT_INSPECTOR_REF,
-                    crate::analysis_contract::ANALYSIS_CONTRACT_VERSION,
-                    MAX_ANALYTICS_FILE_FORMATS as i64,
-                ],
-                |row| {
-                    Ok(FileFormatStat {
-                        file_format: row.get(0)?,
-                        count: row.get(1)?,
-                    })
-                },
-            )?
-            .collect::<Result<Vec<_>>>()?;
-
-        let mut content_type_stmt = conn.prepare(
-            "SELECT content_type, COUNT(DISTINCT clip_id)
-             FROM (
-                SELECT classifications.clip_id, classifications.content_type
-                FROM clip_analysis_classifications AS classifications
-                JOIN clips ON clips.id = classifications.clip_id
-                WHERE classifications.input_hash = clips.content_hash
-                  AND (clips.is_trashed IS NULL OR clips.is_trashed = 0)
-                UNION
-                SELECT id AS clip_id, content_type
-                FROM clips
-                WHERE (is_trashed IS NULL OR is_trashed = 0)
-                  AND content_type NOT IN ('text', 'image', 'file')
-             )
-             GROUP BY content_type
-             ORDER BY COUNT(DISTINCT clip_id) DESC, content_type COLLATE NOCASE ASC",
-        )?;
-        let content_types = content_type_stmt
-            .query_map([], |r| {
-                Ok(TypeStat {
-                    content_type: r.get(0)?,
-                    count: r.get(1)?,
-                })
-            })?
-            .filter_map(|r| r.ok())
-            .collect();
-
-        let reference_time = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
-        let daily_activity =
-            Self::get_daily_activity_for_calendar(&conn, &reference_time, "localtime")?;
-
-        Ok(AnalyticsSummary {
-            total_clips,
-            total_chars,
-            top_sources,
-            clip_types,
-            file_formats,
-            content_types,
-            daily_activity,
-        })
-    }
-
-    fn get_daily_activity_for_calendar(
-        conn: &Connection,
-        reference_time: &str,
-        calendar_modifier: &str,
-    ) -> Result<Vec<DailyStat>> {
-        let mut daily_stmt = conn.prepare(
-            "WITH RECURSIVE recent_days(day) AS (
-                SELECT date(?1, ?2, '-13 days')
-                UNION ALL
-                SELECT date(day, '+1 day')
-                FROM recent_days
-                WHERE day < date(?1, ?2)
-             )
-             SELECT recent_days.day, COUNT(clips.id)
-             FROM recent_days
-             LEFT JOIN clips
-               ON date(clips.created_at, ?2) = recent_days.day
-              AND (clips.is_trashed IS NULL OR clips.is_trashed = 0)
-             GROUP BY recent_days.day
-             ORDER BY recent_days.day DESC",
-        )?;
-        let daily_activity = daily_stmt
-            .query_map(params![reference_time, calendar_modifier], |r| {
-                Ok(DailyStat {
-                    date: r.get(0)?,
-                    count: r.get(1)?,
-                })
-            })?
-            .filter_map(|r| r.ok())
-            .collect::<Vec<_>>();
-        Ok(daily_activity)
     }
 
     pub fn trash_unpinned_clips(&self) -> Result<()> {

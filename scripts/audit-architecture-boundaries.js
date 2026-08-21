@@ -23,6 +23,7 @@ const queueActions = read('src-tauri/src/queue_actions.rs');
 const platformCapabilities = read('src-tauri/src/platform_capabilities.rs');
 const hotkeys = read('src-tauri/src/hotkey_manager.rs');
 const settingsService = read('src-tauri/src/settings_service.rs');
+const analyticsDatabase = read('src-tauri/src/db/analytics.rs');
 const settingsApi = read('src/api/settings.ts');
 const transformsApi = read('src/api/transforms.ts');
 const localizationRuntime = read('src/localization/runtime.ts');
@@ -63,6 +64,12 @@ assert.doesNotMatch(liveApp, /crate::commands::/,
   'The live-app adapter must not call the GUI command adapter');
 assert.doesNotMatch(commands, /#\[cfg\(test\)\]/,
   'Cross-domain regressions must live with their owning subsystem instead of the GUI command root');
+assert.match(analyticsDatabase, /pub fn get_analytics_summary/,
+  'Insights aggregation must remain in its focused database subsystem');
+assert.match(analyticsDatabase, /get_daily_activity_for_calendar[\s\S]*calendar_modifier/,
+  'Insights calendar grouping must keep its explicit local-calendar boundary');
+assert.doesNotMatch(read('src-tauri/src/db.rs'), /pub fn get_analytics_summary/,
+  'The database integration root must not reclaim Insights aggregation');
 assert.match(clipboardActions, /fn ocr_text_never_replaces_an_image_clips_copy_fingerprint/,
   'Clipboard fingerprint regressions must remain with the shared clipboard workflow');
 assert.match(contentInspection, /fn file_metadata_reports_availability_without_crawling_directories/,
@@ -257,7 +264,8 @@ assert.doesNotMatch(commands, /pub fn extract_ocr_from_clip|pub async fn extract
   'The GUI command root must not reclaim extraction lifecycle operations');
 
 const sizeRatchets = new Map([
-  ['src-tauri/src/db.rs', 20_111],
+  ['src-tauri/src/db.rs', 19_914],
+  ['src-tauri/src/db/analytics.rs', 159],
   ['src-tauri/src/commands.rs', 54],
   ['src-tauri/src/commands/bins.rs', 89],
   ['src-tauri/src/commands/capture.rs', 43],
@@ -334,7 +342,7 @@ for (const handler of ['appState', 'manualTransforms', 'queue']) {
     `${handler} browser handler grew beyond 160 lines; split the capability again`);
 }
 
-for (const domain of ['clip_protection', 'retention', 'settings']) {
+for (const domain of ['analytics', 'clip_protection', 'retention', 'settings']) {
   assert.ok(fs.existsSync(`src-tauri/src/db/${domain}.rs`),
     `${domain} persistence must remain outside the database integration root`);
 }
