@@ -47,7 +47,9 @@ const sourceApplicationCommands = read('src-tauri/src/commands/source_apps.rs');
 const transformationCommands = read('src-tauri/src/commands/transformations.rs');
 const hotkeyCommands = read('src-tauri/src/commands/hotkeys.rs');
 const hudCommands = read('src-tauri/src/commands/hud.rs');
+const platformCommands = read('src-tauri/src/commands/platform.rs');
 const retentionCommands = read('src-tauri/src/commands/retention.rs');
+const settingsCommands = read('src-tauri/src/commands/settings.rs');
 const appOverlays = read('src/hooks/useAppOverlays.ts');
 const clipDragController = read('src/hooks/useClipDragController.ts');
 const clipReordering = read('src/hooks/useClipReordering.ts');
@@ -79,6 +81,20 @@ assert.doesNotMatch(commands, /pub fn copy_clip_to_system|pub fn paste_clip_by_i
   'The GUI command root must not reclaim clipboard or HUD operations');
 assert.doesNotMatch(commands, /pub fn register_all_app_shortcuts|pub fn get_hotkey_capability_status|pub fn register_app_setting_hotkeys/,
   'The GUI command root must not reclaim hotkey registration or readiness');
+assert.match(settingsCommands, /pub fn save_app_setting[\s\S]*settings_service::update_setting/,
+  'Settings persistence must remain delegated to the shared Settings service');
+assert.match(settingsCommands, /pub fn save_app_settings[\s\S]*settings_service::update_settings/,
+  'Batch Settings persistence must remain delegated to the shared Settings service');
+assert.match(settingsCommands, /apply_feature_policy_changes[\s\S]*register_all_app_shortcuts/,
+  'Settings runtime changes must coordinate feature shutdown and hotkey refresh in one adapter');
+assert.match(platformCommands, /pub fn perform_titlebar_double_click[\s\S]*titlebar::perform_titlebar_double_click/,
+  'Platform shell commands must delegate titlebar behavior to the shared titlebar service');
+assert.match(platformCommands, /pub fn get_installation_diagnostics/,
+  'Installation diagnostics must remain in the platform shell adapter');
+assert.doesNotMatch(platformCommands, /#\[tauri::command\]\s*#\[tauri::command\]/,
+  'Platform commands must not carry duplicate Tauri command attributes');
+assert.doesNotMatch(commands, /pub fn save_app_setting|pub fn set_linux_native_menu_theme|pub fn open_backing_page/,
+  'The GUI command root must not reclaim Settings or platform shell operations');
 assert.match(binCommands, /pub fn create_bin[\s\S]*refresh_native_app_menu/,
   'Bin lifecycle commands must remain in their focused organization adapter');
 assert.match(hotkeyCommands, /pub fn update_clip_hotkey[\s\S]*restore_clip_hotkey_state/,
@@ -211,13 +227,15 @@ assert.doesNotMatch(commands, /pub fn extract_ocr_from_clip|pub async fn extract
 
 const sizeRatchets = new Map([
   ['src-tauri/src/db.rs', 20_111],
-  ['src-tauri/src/commands.rs', 712],
+  ['src-tauri/src/commands.rs', 429],
   ['src-tauri/src/commands/bins.rs', 89],
   ['src-tauri/src/commands/clip_policies.rs', 70],
   ['src-tauri/src/commands/clipboard.rs', 108],
   ['src-tauri/src/commands/hotkeys.rs', 371],
   ['src-tauri/src/commands/hud.rs', 170],
+  ['src-tauri/src/commands/platform.rs', 175],
   ['src-tauri/src/commands/retention.rs', 54],
+  ['src-tauri/src/commands/settings.rs', 121],
   ['src-tauri/src/commands/backups.rs', 180],
   ['src-tauri/src/commands/imports.rs', 287],
   ['src-tauri/src/commands/factory_reset.rs', 39],
@@ -289,8 +307,8 @@ for (const domain of ['clip_protection', 'retention', 'settings']) {
 for (const adapter of [
   'activity', 'analysis', 'app_lock', 'backups', 'bins', 'clip_policies', 'clipboard',
   'content_registry', 'extraction', 'extractors', 'factory_reset', 'hotkeys', 'hud', 'imports',
-  'intelligence', 'manual_transforms', 'queue', 'retention', 'source_apps', 'storage',
-  'transformations',
+  'intelligence', 'manual_transforms', 'platform', 'queue', 'retention', 'settings',
+  'source_apps', 'storage', 'transformations',
 ]) {
   assert.ok(fs.existsSync(`src-tauri/src/commands/${adapter}.rs`),
     `${adapter} GUI commands must remain outside the command integration root`);

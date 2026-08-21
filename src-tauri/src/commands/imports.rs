@@ -6,7 +6,7 @@ use tauri_plugin_dialog::DialogExt;
 
 use crate::db::{DbState, FullBackupInspection, LibraryArchiveInspection};
 
-use super::{emit_window_appearance_change, refresh_native_app_menu};
+use super::{refresh_native_app_menu, settings::emit_window_appearance_change};
 
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]

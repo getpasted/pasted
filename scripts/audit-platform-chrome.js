@@ -154,7 +154,7 @@ assert.match(titlebarSource, /STANDARD_ZOOM_WIDTH: f64 = 1040\.0/);
 assert.match(titlebarSource, /STANDARD_ZOOM_HEIGHT: f64 = 640\.0/);
 assert.match(titlebarSource, /setFrame: next display: 1i8 animate: 0i8/);
 assert.match(titlebarSource, /TitlebarDoubleClickAction::Fill => visible/);
-assert.match(rustLibSource, /commands::perform_titlebar_double_click/);
+assert.match(rustLibSource, /commands::platform::perform_titlebar_double_click/);
 assert.match(
   rustLibSource,
   /NSVisualEffectState::Active/,
