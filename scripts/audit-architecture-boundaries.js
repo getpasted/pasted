@@ -571,6 +571,10 @@ const sizeRatchets = new Map([
   ['src/components/SettingsSyncExportSection.tsx', 129],
   ['src/components/SettingsSyncImportSection.tsx', 124],
   ['src/components/settingsSyncModel.ts', 62],
+  ['src/components/SettingsGeneralPanel.tsx', 420],
+  ['src/components/SettingsGeneralAppearanceSection.tsx', 82],
+  ['src/components/SettingsGeneralLayoutSection.tsx', 83],
+  ['src/components/SettingsGeneralRetentionSections.tsx', 125],
   ['src/components/ClipCard.tsx', 171],
   ['src/components/ClipCardActions.tsx', 194],
   ['src/components/ClipCardContent.tsx', 76],
@@ -623,6 +627,22 @@ const settingsSyncViews = [
 assert.doesNotMatch(settingsSyncViews,
   /safeInvoke|backupApi|activityApi|collectBackupClientState|restoreFull|importInspected|move_library/,
   'Storage presentation sections must remain independent from persistence and native commands');
+
+const settingsGeneralShell = read('src/components/SettingsGeneralPanel.tsx');
+for (const section of ['SettingsGeneralAppearanceSection', 'SettingsGeneralLayoutSection', 'SettingsGeneralRetentionSections']) {
+  assert.match(settingsGeneralShell, new RegExp(`<${section}`),
+    `General Settings must compose its focused ${section} view`);
+}
+assert.doesNotMatch(settingsGeneralShell,
+  /appearanceModes|appearanceGroups|APP_ZOOM_STEPS|applicationZoom|keepTrashedClipsFor|keepActivityFor/,
+  'The General Settings coordinator must not reclaim extracted presentation');
+const settingsGeneralPassiveViews = [
+  read('src/components/SettingsGeneralAppearanceSection.tsx'),
+  read('src/components/SettingsGeneralRetentionSections.tsx'),
+].join('\n');
+assert.doesNotMatch(settingsGeneralPassiveViews,
+  /safeInvoke|useToast|localStorage|window\.location|onRestoreAllTrashedClips/,
+  'General Settings presentation views must communicate mutations through callbacks');
 
 const clipPreviewShell = read('src/components/ClipPreview.tsx');
 for (const controller of ['useClipPreviewAnalysis', 'useClipPreviewNotes', 'useClipPreviewTransforms']) {
