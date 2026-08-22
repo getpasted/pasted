@@ -2,16 +2,12 @@ import { useCallback, useState, type Dispatch, type SetStateAction } from 'react
 import { type AppSettings, type Bin, type ClipItem, type ManualTransform, type SavedTransform } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { clipsApi } from '../api/clips';
-import { sortClipsForTimeline } from '../utils/clipOrder';
 import { soundManager } from '../utils/sound';
 import { runTransformation } from '../utils/transformExecution';
 import { htmlToPlainText } from '../utils/plainText';
 import type { ClipPropertyAssociationId } from '../utils/clipPropertyAssociations';
-
-interface AssignOptions {
-  includeSelection?: boolean;
-  playSound?: boolean;
-}
+import { useClipPropertyActions } from './useClipPropertyActions';
+import { useClipBinActions } from './useClipBinActions';
 
 interface ClipActionsInput {
   allClips: ClipItem[];
@@ -59,6 +55,36 @@ export function useClipActions({
   const [transformingClipIds, setTransformingClipIds] = useState<Set<number>>(() => new Set());
   const [transformErrorsByClipId, setTransformErrorsByClipId] = useState<Map<number, string>>(() => new Map());
 
+  const {
+    togglePin,
+    toggleProtected,
+    toggleConcealed,
+    setPinned,
+    setProtected,
+    setConcealed,
+  } = useClipPropertyActions({
+    allClips,
+    setAllClips,
+    setSelectedClip,
+    selectedClipIds,
+    fetchClips,
+    onCollectionChanged,
+    onClipsRepositioned,
+    onClipPropertyRemoved,
+  });
+  const { assignClipToBin, removeClipFromBin } = useClipBinActions({
+    allClips,
+    bins,
+    selectedClipIds,
+    setAllClips,
+    setBins,
+    setSelectedClip,
+    setTransformingClipIds,
+    setTransformErrorsByClipId,
+    fetchBins,
+    fetchClips,
+  });
+
   const runClipTransformationJob = useCallback(async <T,>(clipId: number, job: () => Promise<T>) => {
     setTransformingClipIds((previous) => new Set(previous).add(clipId));
     setTransformErrorsByClipId((previous) => {
@@ -85,209 +111,6 @@ export function useClipActions({
       });
     }
   }, []);
-
-  const togglePin = useCallback((id: number) => {
-    const isBatch = selectedClipIds.size > 1 && selectedClipIds.has(id);
-    const targetIds = isBatch ? Array.from(selectedClipIds) : [id];
-    const nextPinState = !(allClips.find((clip) => clip.id === id)?.is_pinned ?? false);
-
-    const targetIdSet = new Set(targetIds);
-    const idsToChange = allClips
-      .filter((clip) => targetIdSet.has(clip.id) && Boolean(clip.is_pinned) !== nextPinState)
-      .map((clip) => clip.id);
-    onClipsRepositioned?.(idsToChange);
-    if (!nextPinState) onClipPropertyRemoved?.('pin', idsToChange);
-    setAllClips((previous) => {
-      const updated = previous.map((clip) => (
-        targetIdSet.has(clip.id) ? { ...clip, is_pinned: nextPinState } : clip
-      ));
-      if (nextPinState) {
-        const newlyPinned = updated
-          .filter((clip) => targetIdSet.has(clip.id))
-          .map((clip, index) => ({ ...clip, pin_order: index }));
-        const existingPinned = updated
-          .filter((clip) => clip.is_pinned && !targetIdSet.has(clip.id))
-          .map((clip) => ({ ...clip, pin_order: (clip.pin_order ?? 0) + newlyPinned.length }));
-        return sortClipsForTimeline([
-          ...newlyPinned,
-          ...existingPinned,
-          ...updated.filter((clip) => !clip.is_pinned),
-        ]);
-      }
-      return sortClipsForTimeline(updated);
-    });
-    setSelectedClip((previous) => previous && targetIds.includes(previous.id)
-      ? { ...previous, is_pinned: nextPinState, pin_order: nextPinState ? 0 : previous.pin_order }
-      : previous);
-
-    const request = isBatch
-      ? clipsApi.setPinned(targetIds, nextPinState)
-      : clipsApi.togglePin(id);
-    void request
-      .then(onCollectionChanged)
-      .catch((error) => {
-        console.error('Failed to update pinned state:', error);
-        void fetchClips();
-      });
-  }, [allClips, fetchClips, onClipPropertyRemoved, onClipsRepositioned, onCollectionChanged, selectedClipIds, setAllClips, setSelectedClip]);
-
-  const toggleProtected = useCallback((id: number) => {
-    const current = allClips.find((clip) => clip.id === id);
-    const explicit = current?.is_explicitly_protected ?? current?.is_protected ?? false;
-    if (!current || current.hotkey || current.protecting_bin_ids?.length) return;
-    const nextExplicit = !explicit;
-    if (!nextExplicit) onClipPropertyRemoved?.('protect', [id]);
-    const update = (clip: ClipItem) => clip.id === id ? {
-      ...clip,
-      is_explicitly_protected: nextExplicit,
-      is_protected: nextExplicit || Boolean(clip.protecting_bin_ids?.length),
-    } : clip;
-    setAllClips((previous) => previous.map((clip) => (
-      update(clip)
-    )));
-    setSelectedClip((previous) => previous?.id === id
-      ? update(previous)
-      : previous);
-
-    void invoke('toggle_clip_protected', { clipId: id })
-      .then(onCollectionChanged)
-      .catch((error) => {
-        console.error('Failed to toggle protected state:', error);
-        void fetchClips();
-      });
-  }, [allClips, fetchClips, onClipPropertyRemoved, onCollectionChanged, setAllClips, setSelectedClip]);
-
-  const toggleConcealed = useCallback((id: number) => {
-    const current = allClips.find((clip) => clip.id === id);
-    if (!current || current.is_trashed) return;
-    const nextConcealed = !Boolean(current.is_concealed);
-    if (!nextConcealed) onClipPropertyRemoved?.('conceal', [id]);
-    const update = (clip: ClipItem) => clip.id === id ? {
-      ...clip,
-      is_explicitly_concealed: nextConcealed,
-      is_explicitly_revealed: !nextConcealed,
-      is_concealed: nextConcealed,
-    } : clip;
-    setAllClips((previous) => previous.map(update));
-    setSelectedClip((previous) => previous?.id === id ? update(previous) : previous);
-
-    void invoke('toggle_clip_concealed', { clipId: id })
-      .then(onCollectionChanged)
-      .catch((error) => {
-        console.error('Failed to toggle concealed state:', error);
-        void fetchClips();
-      });
-  }, [allClips, fetchClips, onClipPropertyRemoved, onCollectionChanged, setAllClips, setSelectedClip]);
-
-  const setPinned = useCallback((id: number, pinState: boolean) => {
-    const targetIds = selectedClipIds.size > 1 && selectedClipIds.has(id)
-      ? Array.from(selectedClipIds)
-      : [id];
-    const targetIdSet = new Set(targetIds);
-    const idsToChange = allClips
-      .filter((clip) => targetIdSet.has(clip.id) && Boolean(clip.is_pinned) !== pinState)
-      .map((clip) => clip.id);
-    if (idsToChange.length === 0) return;
-    const changedIdSet = new Set(idsToChange);
-
-    onClipsRepositioned?.(idsToChange);
-    if (!pinState) onClipPropertyRemoved?.('pin', idsToChange);
-    setAllClips((previous) => {
-      const updated = previous.map((clip) => (
-        changedIdSet.has(clip.id) ? { ...clip, is_pinned: pinState } : clip
-      ));
-      if (pinState) {
-        const newlyPinned = updated
-          .filter((clip) => changedIdSet.has(clip.id))
-          .map((clip, index) => ({ ...clip, pin_order: index }));
-        const existingPinned = updated
-          .filter((clip) => clip.is_pinned && !changedIdSet.has(clip.id))
-          .map((clip) => ({ ...clip, pin_order: (clip.pin_order ?? 0) + newlyPinned.length }));
-        return sortClipsForTimeline([
-          ...newlyPinned,
-          ...existingPinned,
-          ...updated.filter((clip) => !clip.is_pinned),
-        ]);
-      }
-      return sortClipsForTimeline(updated);
-    });
-    setSelectedClip((previous) => previous && changedIdSet.has(previous.id)
-      ? { ...previous, is_pinned: pinState, pin_order: pinState ? 0 : previous.pin_order }
-      : previous);
-
-    void clipsApi.setPinned(idsToChange, pinState)
-      .then(onCollectionChanged)
-      .catch((error) => {
-        console.error('Failed to set pinned state:', error);
-        void fetchClips();
-      });
-  }, [allClips, fetchClips, onClipPropertyRemoved, onClipsRepositioned, onCollectionChanged, selectedClipIds, setAllClips, setSelectedClip]);
-
-  const setProtected = useCallback((id: number, protectedState: boolean) => {
-    const targetIds = selectedClipIds.size > 1 && selectedClipIds.has(id)
-      ? Array.from(selectedClipIds)
-      : [id];
-    const idsToChange = allClips
-      .filter((clip) => targetIds.includes(clip.id)
-        && !clip.hotkey
-        && (protectedState || !clip.protecting_bin_ids?.length)
-        && Boolean(clip.is_explicitly_protected ?? clip.is_protected) !== protectedState)
-      .map((clip) => clip.id);
-    if (idsToChange.length === 0) return;
-    const changedIdSet = new Set(idsToChange);
-    if (!protectedState) onClipPropertyRemoved?.('protect', idsToChange);
-
-    setAllClips((previous) => previous.map((clip) => (
-      changedIdSet.has(clip.id) ? {
-        ...clip,
-        is_explicitly_protected: protectedState,
-        is_protected: protectedState || Boolean(clip.protecting_bin_ids?.length),
-      } : clip
-    )));
-    setSelectedClip((previous) => previous && changedIdSet.has(previous.id)
-      ? {
-        ...previous,
-        is_explicitly_protected: protectedState,
-        is_protected: protectedState || Boolean(previous.protecting_bin_ids?.length),
-      }
-      : previous);
-
-    void clipsApi.setProtected(idsToChange, protectedState)
-      .then(onCollectionChanged)
-      .catch((error) => {
-        console.error('Failed to set protected state:', error);
-        void fetchClips();
-      });
-  }, [allClips, fetchClips, onClipPropertyRemoved, onCollectionChanged, selectedClipIds, setAllClips, setSelectedClip]);
-
-  const setConcealed = useCallback((id: number, concealedState: boolean) => {
-    const targetIds = selectedClipIds.size > 1 && selectedClipIds.has(id)
-      ? Array.from(selectedClipIds)
-      : [id];
-    const idsToChange = allClips
-      .filter((clip) => targetIds.includes(clip.id)
-        && !clip.is_trashed
-        && Boolean(clip.is_concealed) !== concealedState)
-      .map((clip) => clip.id);
-    if (idsToChange.length === 0) return;
-    const changedIdSet = new Set(idsToChange);
-    if (!concealedState) onClipPropertyRemoved?.('conceal', idsToChange);
-    const update = (clip: ClipItem) => changedIdSet.has(clip.id) ? {
-      ...clip,
-      is_explicitly_concealed: concealedState,
-      is_explicitly_revealed: !concealedState,
-      is_concealed: concealedState,
-    } : clip;
-    setAllClips((previous) => previous.map(update));
-    setSelectedClip((previous) => previous ? update(previous) : previous);
-
-    void clipsApi.setConcealed(idsToChange, concealedState)
-      .then(onCollectionChanged)
-      .catch((error) => {
-        console.error('Failed to set concealed state:', error);
-        void fetchClips();
-      });
-  }, [allClips, fetchClips, onClipPropertyRemoved, onCollectionChanged, selectedClipIds, setAllClips, setSelectedClip]);
 
   const deleteClipIds = useCallback((requestedIds: number[], forcePermanent = false) => {
     const ids = requestedIds.filter((id) => !allClips.find((clip) => clip.id === id)?.is_protected);
@@ -376,170 +199,6 @@ export function useClipActions({
       console.error('Failed to copy clip:', error);
     }
   }, [settings.alwaysPastePlainText]);
-
-  const assignClipToBin = useCallback(async (
-    clipId: number,
-    binId: number | null,
-    options: AssignOptions = {},
-  ) => {
-    const targetIds = options.includeSelection
-      && selectedClipIds.size > 1
-      && selectedClipIds.has(clipId)
-      ? Array.from(selectedClipIds)
-      : [clipId];
-    const targetClips = allClips.filter((clip) => targetIds.includes(clip.id));
-    const manualBinIds = new Set(bins.filter((bin) => !bin.smart_rule).map((bin) => bin.id));
-    const targetBinProtects = binId !== null
-      && Boolean(bins.find((bin) => bin.id === binId)?.protect_clips);
-
-    const updateClip = (clip: ClipItem) => {
-      if (!targetIds.includes(clip.id)) return clip;
-      const currentBinIds = clip.bin_ids || [];
-      const currentProtectingBinIds = clip.protecting_bin_ids || [];
-      const explicitlyProtected = clip.is_explicitly_protected
-        ?? (Boolean(clip.is_protected) && !clip.hotkey && currentProtectingBinIds.length === 0);
-      if (binId === null) {
-        const nextProtectingBinIds = currentProtectingBinIds.filter((id) => !manualBinIds.has(id));
-        return {
-          ...clip,
-          bin_id: null,
-          bin_ids: currentBinIds.filter((id) => !manualBinIds.has(id)),
-          protecting_bin_ids: nextProtectingBinIds,
-          is_protected: explicitlyProtected || Boolean(clip.hotkey) || nextProtectingBinIds.length > 0,
-        };
-      }
-      const nextProtectingBinIds = targetBinProtects && !currentProtectingBinIds.includes(binId)
-        ? [...currentProtectingBinIds, binId]
-        : currentProtectingBinIds;
-      return {
-        ...clip,
-        bin_id: binId,
-        bin_ids: currentBinIds.includes(binId) ? currentBinIds : [...currentBinIds, binId],
-        protecting_bin_ids: nextProtectingBinIds,
-        is_protected: explicitlyProtected || Boolean(clip.hotkey) || nextProtectingBinIds.length > 0,
-      };
-    };
-    setAllClips((previous) => previous.map(updateClip));
-    setSelectedClip((previous) => previous ? updateClip(previous) : previous);
-
-    setBins((previous) => previous.map((bin) => {
-      if (bin.smart_rule) return bin;
-      let delta = 0;
-      for (const clip of targetClips) {
-        const oldBinIds = new Set((clip.bin_ids || []).filter((id) => manualBinIds.has(id)));
-        if (binId === null && oldBinIds.has(bin.id)) delta -= 1;
-        if (bin.id === binId && !oldBinIds.has(bin.id)) delta += 1;
-      }
-      return delta === 0 ? bin : { ...bin, clip_count: Math.max(0, (bin.clip_count || 0) + delta) };
-    }));
-
-    if (options.playSound) {
-      requestAnimationFrame(() => soundManager.playCopySound());
-    }
-
-    if (binId !== null) {
-      setTransformingClipIds((previous) => {
-        const next = new Set(previous);
-        targetIds.forEach((id) => next.add(id));
-        return next;
-      });
-      setTransformErrorsByClipId((previous) => {
-        if (!targetIds.some((id) => previous.has(id))) return previous;
-        const next = new Map(previous);
-        targetIds.forEach((id) => next.delete(id));
-        return next;
-      });
-    }
-
-    try {
-      if (targetIds.length > 1) {
-        const outcome = await clipsApi.assignManyToBin(targetIds, binId);
-        if (outcome.updatedClips.length > 0) {
-          const updatedById = new Map(outcome.updatedClips.map((clip) => [clip.id, clip]));
-          setAllClips((previous) => previous.map((clip) => updatedById.get(clip.id) ?? clip));
-          setSelectedClip((previous) => previous
-            ? updatedById.get(previous.id) ?? previous
-            : previous);
-        }
-      } else {
-        const transformedClip = await clipsApi.assignBin(clipId, binId);
-        if (transformedClip) {
-          // Replace the optimistic snapshot immediately so the selected
-          // inspector and its metadata update in the same frame as the card.
-          setAllClips((previous) => previous.map((clip) => (
-            clip.id === transformedClip.id ? transformedClip : clip
-          )));
-          setSelectedClip((previous) => previous?.id === transformedClip.id
-            ? transformedClip
-            : previous);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to assign clips to bin:', error);
-      if (binId !== null) {
-        setTransformErrorsByClipId((previous) => {
-          const next = new Map(previous);
-          const message = error instanceof Error ? error.message : String(error);
-          targetIds.forEach((id) => next.set(id, message));
-          return next;
-        });
-      }
-      // The optimistic clip and count updates are authoritative on success.
-      // Reconcile the complete data sets only when persistence fails.
-      void fetchClips();
-      void fetchBins();
-    } finally {
-      if (binId !== null) {
-        setTransformingClipIds((previous) => {
-          if (!targetIds.some((id) => previous.has(id))) return previous;
-          const next = new Set(previous);
-          targetIds.forEach((id) => next.delete(id));
-          return next;
-        });
-      }
-    }
-  }, [allClips, bins, fetchBins, fetchClips, selectedClipIds, setAllClips, setBins, setSelectedClip]);
-
-  const removeClipFromBin = useCallback(async (clipId: number, binId: number) => {
-    const manualBinIds = new Set(bins.filter((bin) => !bin.smart_rule).map((bin) => bin.id));
-    const updateClip = (clip: ClipItem) => {
-      if (clip.id !== clipId) return clip;
-      const nextBinIds = (clip.bin_ids || []).filter((id) => id !== binId);
-      const nextProtectingBinIds = (clip.protecting_bin_ids || []).filter((id) => id !== binId);
-      const nextPrimary = clip.bin_id === binId
-        ? nextBinIds.find((id) => manualBinIds.has(id)) ?? null
-        : clip.bin_id;
-      const explicitlyProtected = clip.is_explicitly_protected
-        ?? (Boolean(clip.is_protected) && !clip.hotkey && (clip.protecting_bin_ids?.length ?? 0) === 0);
-      return {
-        ...clip,
-        bin_id: nextPrimary,
-        bin_ids: nextBinIds,
-        protecting_bin_ids: nextProtectingBinIds,
-        is_protected: explicitlyProtected || Boolean(clip.hotkey) || nextProtectingBinIds.length > 0,
-      };
-    };
-    setAllClips((previous) => previous.map(updateClip));
-    setSelectedClip((previous) => previous ? updateClip(previous) : previous);
-    setBins((previous) => previous.map((bin) => (
-      bin.id === binId
-        ? { ...bin, clip_count: Math.max(0, (bin.clip_count || 0) - 1) }
-        : bin
-    )));
-
-    try {
-      const outcome = await clipsApi.removeBin(clipId, binId);
-      const updatedClip = outcome.updatedClips[0];
-      if (updatedClip) {
-        setAllClips((previous) => previous.map((clip) => clip.id === clipId ? updatedClip : clip));
-        setSelectedClip((previous) => previous?.id === clipId ? updatedClip : previous);
-      }
-    } catch (error) {
-      console.error('Failed to remove clip from Bin:', error);
-      void fetchClips();
-      void fetchBins();
-    }
-  }, [bins, fetchBins, fetchClips, setAllClips, setBins, setSelectedClip]);
 
   const runManualTransformForClip = useCallback(async (
     clip: ClipItem,

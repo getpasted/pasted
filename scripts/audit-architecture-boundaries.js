@@ -577,6 +577,9 @@ const sizeRatchets = new Map([
   ['src/components/SettingsGeneralRetentionSections.tsx', 125],
   ['src/components/ActivityLogView.tsx', 269],
   ['src/components/ActivityEventBadge.tsx', 431],
+  ['src/hooks/useClipActions.ts', 316],
+  ['src/hooks/useClipPropertyActions.ts', 240],
+  ['src/hooks/useClipBinActions.ts', 201],
   ['src/components/ClipCard.tsx', 171],
   ['src/components/ClipCardActions.tsx', 194],
   ['src/components/ClipCardContent.tsx', 76],
@@ -654,6 +657,21 @@ assert.doesNotMatch(activityView, /case 'recording_manually_paused'|case 'clip_t
   'The Activity lifecycle view must not reclaim event badge mapping');
 assert.doesNotMatch(activityBadge, /activityApi|useEffect|useState|IntersectionObserver/,
   'Activity badge presentation must remain independent from loading and lifecycle state');
+
+const clipActionsFacade = read('src/hooks/useClipActions.ts');
+for (const controller of ['useClipPropertyActions', 'useClipBinActions']) {
+  assert.match(clipActionsFacade, new RegExp(`${controller}\\(`),
+    `Clip Actions must compose the ${controller} controller`);
+}
+assert.doesNotMatch(clipActionsFacade,
+  /clipsApi\.setPinned|clipsApi\.setProtected|clipsApi\.setConcealed|clipsApi\.assignManyToBin|clipsApi\.removeBin/,
+  'The Clip Actions facade must not reclaim property or Bin persistence');
+const clipPropertyActions = read('src/hooks/useClipPropertyActions.ts');
+const clipBinActions = read('src/hooks/useClipBinActions.ts');
+assert.doesNotMatch(clipPropertyActions, /assignManyToBin|assignBin|removeBin/,
+  'Clip property mutations must remain separate from Bin membership');
+assert.doesNotMatch(clipBinActions, /setPinned|setProtected|setConcealed|toggle_clip_protected/,
+  'Clip Bin mutations must remain separate from direct property mutations');
 
 const clipPreviewShell = read('src/components/ClipPreview.tsx');
 for (const controller of ['useClipPreviewAnalysis', 'useClipPreviewNotes', 'useClipPreviewTransforms']) {

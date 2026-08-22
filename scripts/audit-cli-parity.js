@@ -38,7 +38,11 @@ const backupApi = read('src/api/backup.ts');
 const extraction = readRustModuleTree('src-tauri/src/content_extraction.rs', 'src-tauri/src/content_extraction');
 const clipboardMonitor = read('src-tauri/src/clipboard_monitor.rs');
 const ocr = read('src-tauri/src/ocr.rs');
-const actions = read('src/hooks/useClipActions.ts');
+const actions = [
+  'src/hooks/useClipActions.ts',
+  'src/hooks/useClipPropertyActions.ts',
+  'src/hooks/useClipBinActions.ts',
+].map(read).join('\n');
 const storageSettings = read('src/components/SettingsSyncPanel.tsx');
 const tauriMock = [
   read('src/utils/tauri.ts'),
