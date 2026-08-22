@@ -1281,6 +1281,7 @@
   "component.settingsAnalysisPanel.classificationFailed": "فشل التصنيف.",
   "component.settingsAnalysisPanel.classifierContentType": "نوع محتوى الفئة",
   "component.settingsAnalysisPanel.classifiers": "الفئات",
+  "component.settingsAnalysisPanel.customClassifier": "مصنّف مخصص",
   "component.settingsAnalysisPanel.classifierSettings": "إعدادات الفئة",
   "component.settingsAnalysisPanel.classify": "تصنيف",
   "component.settingsAnalysisPanel.contentType": "نوع المحتوى",

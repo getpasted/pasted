@@ -1253,6 +1253,7 @@
   "component.settingsAnalysisPanel.classificationFailed": "分類に失敗しました。",
   "component.settingsAnalysisPanel.classifierContentType": "分類器の種類",
   "component.settingsAnalysisPanel.classifiers": "分類器",
+  "component.settingsAnalysisPanel.customClassifier": "カスタム分類器",
   "component.settingsAnalysisPanel.classifierSettings": "分類器設定",
   "component.settingsAnalysisPanel.classify": "分類する",
   "component.settingsAnalysisPanel.contentType": "コンテンツタイプ",

@@ -1260,6 +1260,7 @@
   "component.settingsAnalysisPanel.classificationFailed": "ניתוח נכשל.",
   "component.settingsAnalysisPanel.classifierContentType": "סוג תוכן של סיווג",
   "component.settingsAnalysisPanel.classifiers": "סיווגים",
+  "component.settingsAnalysisPanel.customClassifier": "מסווג מותאם אישית",
   "component.settingsAnalysisPanel.classifierSettings": "הגדרות סיווג",
   "component.settingsAnalysisPanel.classify": "לסווג",
   "component.settingsAnalysisPanel.contentType": "סוג תוכן",
