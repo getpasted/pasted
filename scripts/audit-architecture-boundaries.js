@@ -575,6 +575,8 @@ const sizeRatchets = new Map([
   ['src/components/SettingsGeneralAppearanceSection.tsx', 82],
   ['src/components/SettingsGeneralLayoutSection.tsx', 83],
   ['src/components/SettingsGeneralRetentionSections.tsx', 125],
+  ['src/components/ActivityLogView.tsx', 269],
+  ['src/components/ActivityEventBadge.tsx', 431],
   ['src/components/ClipCard.tsx', 171],
   ['src/components/ClipCardActions.tsx', 194],
   ['src/components/ClipCardContent.tsx', 76],
@@ -643,6 +645,15 @@ const settingsGeneralPassiveViews = [
 assert.doesNotMatch(settingsGeneralPassiveViews,
   /safeInvoke|useToast|localStorage|window\.location|onRestoreAllTrashedClips/,
   'General Settings presentation views must communicate mutations through callbacks');
+
+const activityView = read('src/components/ActivityLogView.tsx');
+const activityBadge = read('src/components/ActivityEventBadge.tsx');
+assert.match(activityView, /<ActivityEventBadge type=\{log\.event_type\} description=\{log\.description\} \/>/,
+  'Activity must delegate event presentation to its badge system');
+assert.doesNotMatch(activityView, /case 'recording_manually_paused'|case 'clip_trashed'|case 'transform_executed'/,
+  'The Activity lifecycle view must not reclaim event badge mapping');
+assert.doesNotMatch(activityBadge, /activityApi|useEffect|useState|IntersectionObserver/,
+  'Activity badge presentation must remain independent from loading and lifecycle state');
 
 const clipPreviewShell = read('src/components/ClipPreview.tsx');
 for (const controller of ['useClipPreviewAnalysis', 'useClipPreviewNotes', 'useClipPreviewTransforms']) {
