@@ -1,7 +1,10 @@
 import fs from 'node:fs';
 
 const sharedMenu = fs.readFileSync('src/components/AnchoredMenu.tsx', 'utf8');
-const sidebar = fs.readFileSync('src/components/Sidebar.tsx', 'utf8');
+const sidebar = [
+  'src/components/Sidebar.tsx',
+  'src/components/SidebarSearchFooter.tsx',
+].map((path) => fs.readFileSync(path, 'utf8')).join('\n');
 const nativeMenu = fs.readFileSync('src-tauri/src/app_menu.rs', 'utf8');
 const englishCatalog = JSON.parse(fs.readFileSync('src/locales/en.json', 'utf8'));
 const floatingMenus = [

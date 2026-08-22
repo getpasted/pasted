@@ -1,7 +1,5 @@
 import React from 'react';
 import { localizedSourceName } from '../localization/presentation';
-import { formatEmojiIcon } from '../utils/emoji';
-import { binTextColor } from '../utils/binColor';
 import { handleWindowDragDoubleClick, startWindowDrag } from '../utils/windowDrag';
 import {
   Clipboard,
@@ -10,12 +8,7 @@ import {
   Workflow,
   Settings,
   Trash2,
-  Plus,
-  ChevronUp,
   PanelLeftClose,
-  PanelLeftOpen,
-  Sparkles,
-  Edit3,
   StickyNote,
   Activity,
   BarChart3,
@@ -33,16 +26,18 @@ import {
   Image as ImageIcon,
   Files,
   FileType2,
-  X,
   FilePenLine,
 } from 'lucide-react';
 import { Bin, ClipCollectionSummary, type ClipContentType, SequentialStatus } from '../types';
 import { useSidebarBinOrder } from '../hooks/useSidebarBinOrder';
-import { clipFacetRoute, getClipCollection, getSystemClipCollections, type ClipCollectionIcon, type ClipDropAction } from '../utils/clipCollections';
+import { useSidebarHoverState } from '../hooks/useSidebarHoverState';
+import { clipFacetRoute, getSystemClipCollections, type ClipCollectionIcon, type ClipDropAction } from '../utils/clipCollections';
 import { CLIP_PROPERTY_ASSOCIATIONS } from '../utils/clipPropertyAssociations';
 import type { FeatureId } from '../utils/features';
 import { OverflowText } from './OverflowText';
-import { EmbeddedMenu, MenuItem } from './AnchoredMenu';
+import { SidebarSearchFooter } from './SidebarSearchFooter';
+import { CollapsedSidebar } from './CollapsedSidebar';
+import { SidebarBinsSection } from './SidebarBinsSection';
 import { ContentTypeIcon } from './ContentTypeIcon';
 import { useContentTypes } from './ContentTypeProvider';
 import { contentTypeLabel } from '../utils/contentTypes';
@@ -51,19 +46,6 @@ import type { SidebarSectionId, SidebarSectionState } from '../utils/appUiState'
 import { SafeRasterImage } from './SafeRasterImage';
 import { translate } from '../localization/runtime';
 import { useLocalization } from '../localization/LocalizationProvider';
-
-const SEARCH_HELPERS = [
-  { prefix: 'regex:', get desc() { return translate('component.sidebar.regex'); } },
-  { prefix: 'clip:', get desc() { return translate('component.sidebar.clipTypes'); } },
-  { prefix: 'content:', get desc() { return translate('component.sidebar.contentTypes'); } },
-  { prefix: 'format:', get desc() { return translate('component.sidebar.fileFormats'); } },
-  { prefix: 'source:', get desc() { return translate('component.sidebar.sources'); } },
-  { prefix: 'has:note', get desc() { return translate('feature.notes.label'); } },
-  { prefix: 'has:name', get desc() { return translate('feature.naming.label'); } },
-  { prefix: 'is:pinned', get desc() { return translate('collection.pinned'); } },
-  { prefix: 'is:protected', get desc() { return translate('collection.protected'); } },
-  { prefix: 'is:trashed', get desc() { return translate('collection.trashed'); } },
-] as const;
 
 interface SidebarProps {
   currentTab: string;
@@ -147,85 +129,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
   const setIsSourcesOpen = (open: boolean) => onSectionStateChange('sources', open);
   const setIsToolsOpen = (open: boolean) => onSectionStateChange('tools', open);
 
-  const [dropTargetBinId, setDropTargetBinId] = React.useState<number | null>(null);
-  const [isSearchMenuOpen, setIsSearchMenuOpen] = React.useState(false);
-  const [activeSearchMenuIndex, setActiveSearchMenuIndex] = React.useState(-1);
-  const searchMenuRootRef = React.useRef<HTMLDivElement | null>(null);
-  const searchInputRef = React.useRef<HTMLInputElement | null>(null);
-  const searchMenuItemRefs = React.useRef<Array<HTMLButtonElement | null>>([]);
-  const searchHelpers = React.useMemo(
-    () => SEARCH_HELPERS.filter(({ prefix }) => {
-      if (prefix === 'clip:') return features.clipTypes;
-      if (prefix === 'content:') return features.types;
-      if (prefix === 'format:') return features.fileFormats;
-      if (prefix === 'source:') return features.sources;
-      if (prefix === 'has:note') return features.notes;
-      if (prefix === 'is:pinned') return features.pinning;
-      if (prefix === 'is:protected') return features.protection;
-      if (prefix === 'is:trashed') return features.trash;
-      return true;
-    }),
-    [features.clipTypes, features.fileFormats, features.notes, features.pinning, features.protection, features.sources, features.trash, features.types],
-  );
-
-  const closeSearchMenu = (returnFocus = false) => {
-    setIsSearchMenuOpen(false);
-    setActiveSearchMenuIndex(-1);
-    if (returnFocus) requestAnimationFrame(() => searchInputRef.current?.focus());
-  };
-
-  const focusSearchMenuItem = (index: number) => {
-    const normalizedIndex = (index + searchHelpers.length) % searchHelpers.length;
-    setActiveSearchMenuIndex(normalizedIndex);
-    requestAnimationFrame(() => searchMenuItemRefs.current[normalizedIndex]?.focus());
-  };
-
-  React.useEffect(() => {
-    if (!isSearchMenuOpen) return undefined;
-    const closeOnOutsidePointer = (event: PointerEvent) => {
-      if (!searchMenuRootRef.current?.contains(event.target as Node)) {
-        closeSearchMenu();
-      }
-    };
-    const closeOnOutsideFocus = (event: FocusEvent) => {
-      if (!searchMenuRootRef.current?.contains(event.target as Node)) {
-        closeSearchMenu();
-      }
-    };
-    document.addEventListener('pointerdown', closeOnOutsidePointer);
-    document.addEventListener('focusin', closeOnOutsideFocus);
-    return () => {
-      document.removeEventListener('pointerdown', closeOnOutsidePointer);
-      document.removeEventListener('focusin', closeOnOutsideFocus);
-    };
-  }, [isSearchMenuOpen]);
-
-  React.useEffect(() => {
-    const focusSearch = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'f') return;
-      event.preventDefault();
-      setIsSearchMenuOpen(false);
-      setActiveSearchMenuIndex(-1);
-      onSearchFocus();
-      requestAnimationFrame(() => {
-        searchInputRef.current?.focus();
-        searchInputRef.current?.select();
-      });
-    };
-    window.addEventListener('keydown', focusSearch);
-    return () => window.removeEventListener('keydown', focusSearch);
-  }, [onSearchFocus]);
-
-  const [isPostDragHoverSuppressed, setIsPostDragHoverSuppressed] = React.useState(false);
-  const [hoveredSidebarControl, setHoveredSidebarControl] = React.useState<string | null>(null);
-  const wasClipDraggingRef = React.useRef(false);
-  const wasBinReorderingRef = React.useRef(false);
-  const isPointerOverSidebarRef = React.useRef(false);
-  const lastSidebarPointerRef = React.useRef<{ x: number; y: number } | null>(null);
   const isClipDragging = draggedClipId !== null && draggedClipId !== undefined;
-  React.useEffect(() => {
-    if (isClipDragging) closeSearchMenu();
-  }, [isClipDragging]);
   const {
     activeDragBinId,
     sortedBins,
@@ -236,59 +140,14 @@ const SidebarComponent: React.FC<SidebarProps> = ({
     startBinDrag: handlePointerDownBin,
     consumeBinDragClick,
   } = useSidebarBinOrder(bins, isClipDragging);
-  const isAnySidebarDrag = isClipDragging || isBinReorderActive;
-  const isSidebarHoverMuted = isAnySidebarDrag || isPostDragHoverSuppressed;
-
-  React.useLayoutEffect(() => {
-    if (isAnySidebarDrag) setHoveredSidebarControl(null);
-    if (wasClipDraggingRef.current && !isClipDragging) {
-      setIsPostDragHoverSuppressed(isPointerOverSidebarRef.current);
-    } else if (wasBinReorderingRef.current && !isBinReorderActive) {
-      setIsPostDragHoverSuppressed(false);
-      const pointer = lastSidebarPointerRef.current;
-      if (isPointerOverSidebarRef.current && pointer) {
-        const frame = requestAnimationFrame(() => {
-          const control = document
-            .elementFromPoint(pointer.x, pointer.y)
-            ?.closest<HTMLElement>('[data-sidebar-hover-key]');
-          setHoveredSidebarControl(control?.dataset.sidebarHoverKey ?? null);
-        });
-        wasClipDraggingRef.current = isClipDragging;
-        wasBinReorderingRef.current = isBinReorderActive;
-        return () => cancelAnimationFrame(frame);
-      }
-    }
-    wasClipDraggingRef.current = isClipDragging;
-    wasBinReorderingRef.current = isBinReorderActive;
-  }, [isAnySidebarDrag, isBinReorderActive, isClipDragging]);
-
-  const handleSidebarPointerEnter = () => {
-    isPointerOverSidebarRef.current = true;
-  };
-
-  const handleSidebarPointerMove = (event: React.PointerEvent<HTMLElement>) => {
-    lastSidebarPointerRef.current = { x: event.clientX, y: event.clientY };
-    if (isSidebarHoverMuted) {
-      if (hoveredSidebarControl !== null) setHoveredSidebarControl(null);
-      return;
-    }
-    const control = (event.target as HTMLElement).closest<HTMLElement>('[data-sidebar-hover-key]');
-    const nextKey = control && event.currentTarget.contains(control)
-      ? control.dataset.sidebarHoverKey ?? null
-      : null;
-    if (nextKey !== hoveredSidebarControl) setHoveredSidebarControl(nextKey);
-  };
-
-  const handleSidebarPointerLeave = () => {
-    isPointerOverSidebarRef.current = false;
-    lastSidebarPointerRef.current = null;
-    setHoveredSidebarControl(null);
-    if (!isAnySidebarDrag) setIsPostDragHoverSuppressed(false);
-  };
-
-  const getBinIcon = (iconName: string) => {
-    return <span className="text-sm">{formatEmojiIcon(iconName)}</span>;
-  };
+  const sidebarHover = useSidebarHoverState(isClipDragging, isBinReorderActive);
+  const {
+    hoveredControl: hoveredSidebarControl,
+    isHoverMuted: isSidebarHoverMuted,
+    onPointerEnter: handleSidebarPointerEnter,
+    onPointerMove: handleSidebarPointerMove,
+    onPointerLeave: handleSidebarPointerLeave,
+  } = sidebarHover;
 
   const sourceFallbackIcon = (source: string | null | undefined) => {
     const normalized = source?.trim().toLowerCase() ?? '';
@@ -438,130 +297,29 @@ const SidebarComponent: React.FC<SidebarProps> = ({
 
   if (isCollapsed) {
     return (
-      <aside
+      <CollapsedSidebar
+        binsEnabled={features.bins}
+        bins={sortedBins}
+        clipNavItems={clipNavItems}
+        toolNavItems={toolNavItems}
+        currentTab={currentTab}
+        selectedBinId={selectedBinId}
+        isClipDragging={isClipDragging}
+        disabledDropActions={disabledDropActions}
+        pointerDropTargetAction={pointerDropTargetAction}
+        hoveredControl={hoveredSidebarControl}
+        isHoverMuted={isSidebarHoverMuted}
+        setIsCollapsed={setIsCollapsed}
+        navigateTo={navigateTo}
+        selectBin={(id) => {
+          setCurrentTab('bin');
+          setSelectedBinId(id);
+        }}
+        getDropActionTitle={getDropActionTitle}
         onPointerEnter={handleSidebarPointerEnter}
         onPointerMove={handleSidebarPointerMove}
         onPointerLeave={handleSidebarPointerLeave}
-        className={`w-[100px] col-sidebar h-screen flex flex-col items-center border-e backdrop-blur-xl select-none ${isSidebarHoverMuted ? 'suppress-sidebar-hover' : ''}`}
-      >
-        {/* macOS reserves this header for overlaid traffic lights. Native framed
-            platforms can use it for the sidebar control immediately. */}
-        <div
-          onMouseDown={startWindowDrag}
-          onDoubleClick={handleWindowDragDoubleClick}
-          className="platform-sidebar-header h-[56px] w-full cursor-default titlebar-drag-handle shrink-0"
-        >
-          <button
-            data-sidebar-hover-key="expand-header"
-            onClick={() => setIsCollapsed(false)}
-            disabled={isClipDragging}
-            className={`platform-framed-only sidebar-control-muted ui-control-radius w-9 h-9 items-center justify-center p-0 transition-colors duration-75 border titlebar-no-drag ${isClipDragging ? 'border-transparent cursor-default' : `cursor-pointer ${hoveredSidebarControl === 'expand-header' ? 'sidebar-item-hovered' : 'border-transparent'}`}`}
-            title={translate('component.sidebar.expandSidebar')}
-          >
-            <PanelLeftOpen className="h-5 w-5 rtl:-scale-x-100" />
-          </button>
-        </div>
-
-        {/* Scrollable Nav Items Container for small window heights */}
-        <div className="w-full flex-1 overflow-y-auto overflow-x-hidden sidebar-scroll-container flex flex-col items-center gap-1.5 py-2 px-1 custom-scrollbar">
-          {/* macOS keeps this below the overlaid traffic-light safe area. */}
-          <button
-            data-sidebar-hover-key="expand"
-            onClick={() => setIsCollapsed(false)}
-            disabled={isClipDragging}
-            className={`platform-macos-only sidebar-control-muted ui-control-radius w-9 h-9 items-center justify-center p-0 transition-colors duration-75 border shrink-0 ${isClipDragging ? 'border-transparent cursor-default' : `cursor-pointer ${hoveredSidebarControl === 'expand' ? 'sidebar-item-hovered' : 'border-transparent'}`}`}
-            title={translate('component.sidebar.expandSidebar')}
-          >
-            <PanelLeftOpen className="h-5 w-5 rtl:-scale-x-100" />
-          </button>
-
-          <div className="w-full flex items-center justify-center py-1 shrink-0">
-            <div className="w-8 border-t sidebar-divider" />
-          </div>
-
-          {clipNavItems.map((item) => {
-            const isActionDisabled = item.dropAction !== undefined && disabledDropActions.includes(item.dropAction);
-            const isEligibleAction = isClipDragging && item.dropAction !== undefined && !isActionDisabled;
-            const isActionTarget = isEligibleAction && pointerDropTargetAction === item.dropAction;
-            return (
-              <button
-                key={item.tab}
-                data-sidebar-hover-key={`clip:${item.tab}`}
-                data-clip-drop-action={isEligibleAction ? item.dropAction : undefined}
-                onClick={isClipDragging ? undefined : () => navigateTo(item.tab)}
-                disabled={isClipDragging && !isEligibleAction}
-                className={`ui-control-radius w-9 h-9 flex items-center justify-center p-0 transition-colors duration-75 border shrink-0 ${
-                  isActionTarget
-                    ? `sidebar-action-drop sidebar-action-drop-${item.dropAction} sidebar-action-drop-target cursor-grabbing`
-                    : isEligibleAction
-                    ? `sidebar-action-drop sidebar-action-drop-${item.dropAction} sidebar-action-drop-eligible cursor-grabbing`
-                    : isClipDragging
-                    ? 'sidebar-action-drop-ineligible cursor-default'
-                    : currentTab === item.tab && (item.tab !== 'all' || selectedBinId === null)
-                    ? 'sidebar-item-active shadow-sm cursor-pointer'
-                    : hoveredSidebarControl === `clip:${item.tab}`
-                    ? 'sidebar-item-hovered border-transparent cursor-pointer'
-                    : 'sidebar-item-idle border-transparent cursor-pointer'
-                }`}
-                title={isClipDragging && item.dropAction ? getDropActionTitle(item.dropAction) : item.tooltip ?? item.title}
-              >
-                {item.icon}
-              </button>
-            );
-          })}
-
-          {features.bins && sortedBins.length > 0 && (
-            <div className="w-full flex items-center justify-center py-1 shrink-0">
-              <div className="w-8 border-t sidebar-divider" />
-            </div>
-          )}
-
-          {features.bins && sortedBins.map((b) => (
-            <button
-              key={b.id}
-              data-sidebar-hover-key={`bin:${b.id}`}
-              onClick={() => {
-                setCurrentTab('bin');
-                setSelectedBinId(b.id);
-              }}
-              disabled={isClipDragging}
-              className={`ui-control-radius w-9 h-9 flex items-center justify-center p-0 transition-colors duration-75 border shrink-0 cursor-pointer ${
-                currentTab === 'bin' && selectedBinId === b.id
-                  ? 'sidebar-item-active shadow-sm'
-                  : hoveredSidebarControl === `bin:${b.id}`
-                  ? 'sidebar-item-hovered border-transparent'
-                  : 'sidebar-item-idle border-transparent'
-              }`}
-              title={b.name}
-            >
-              {getBinIcon(b.icon)}
-            </button>
-          ))}
-
-          <div className="w-full flex items-center justify-center py-1 shrink-0">
-            <div className="w-8 border-t sidebar-divider" />
-          </div>
-
-          {toolNavItems.map((item) => (
-            <button
-              key={item.tab}
-              data-sidebar-hover-key={`tool:${item.tab}`}
-              onClick={() => navigateTo(item.tab)}
-              disabled={isClipDragging}
-              className={`ui-control-radius w-9 h-9 flex items-center justify-center p-0 transition-colors duration-75 border shrink-0 cursor-pointer ${
-                currentTab === item.tab
-                  ? 'sidebar-item-active shadow-sm'
-                  : hoveredSidebarControl === `tool:${item.tab}`
-                  ? 'sidebar-item-hovered border-transparent'
-                  : 'sidebar-item-idle border-transparent'
-              }`}
-              title={item.title}
-            >
-              {item.icon}
-            </button>
-          ))}
-        </div>
-      </aside>
+      />
     );
   }
 
@@ -673,221 +431,36 @@ const SidebarComponent: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        {/* Section 2: Bins */}
-        {features.bins && <div>
-          <div
-            data-sidebar-hover-key="section:bins"
-            onClick={isClipDragging ? undefined : () => setIsBinsOpen(!isBinsOpen)}
-            className={`px-2.5 pb-1 flex items-center justify-between select-none ${isClipDragging ? 'cursor-default' : 'cursor-pointer'}`}
-            title={translate('component.sidebar.toggleBins')}
-          >
-            <span className={`sidebar-section-label text-[11px] font-semibold transition-colors tracking-tight ${hoveredSidebarControl === 'section:bins' ? 'is-hovered' : ''}`}>
-              {translate('component.sidebar.bins')}
-            </span>
-            <button
-              data-sidebar-hover-key="create-bin"
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenNewBinModal();
-              }}
-              disabled={isClipDragging}
-              className={`sidebar-add-btn p-0.5 rounded transition-colors ${isClipDragging ? 'cursor-default' : `cursor-pointer ${hoveredSidebarControl === 'create-bin' ? 'is-hovered' : ''}`}`}
-              title={translate('component.sidebar.newBin')}
-            >
-              <Plus className="w-3.5 h-3.5" strokeWidth={2} />
-            </button>
-          </div>
-          <div className={`grid transition-[grid-template-rows,opacity] duration-150 ease-in-out ${isBinsOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
-            <nav
-              ref={binListRef}
-              className={`min-h-0 space-y-0.5 ${isBinsOpen ? 'overflow-visible' : 'overflow-hidden'} ${isBinReorderSettling ? 'is-settling-stable-reorder' : ''}`}
-            >
-              {sortedBins.map((b) => {
-                const isDragging = activeDragBinId === b.id;
-                const binCollection = getClipCollection('bin', b);
-                const isManualBin = Boolean(binCollection?.capabilities.acceptsClipDrop);
-                const isDisabledDropTarget =
-                  isClipDragging && disabledDropBinId === b.id;
-                const isIneligibleSmartBin = isClipDragging && !isManualBin;
-                const isDropTarget =
-                  (dropTargetBinId === b.id || pointerDropTargetBinId === b.id) &&
-                  isManualBin &&
-                  !isDisabledDropTarget;
-                const isBinHovered = !isSidebarHoverMuted && hoveredSidebarControl === `bin:${b.id}`;
-                const dropAccent = binTextColor(b.color) ?? 'var(--accent-primary)';
-
-                return (
-                  <div
-                    key={b.id}
-                    data-stable-reorder-id={String(b.id)}
-                    style={{
-                      '--sidebar-bin-drop-color': dropAccent,
-                      ...(binReorderOffsets[b.id] !== undefined ? {
-                        transform: `translateY(${binReorderOffsets[b.id]}px)`,
-                        zIndex: activeDragBinId === b.id ? 20 : 10,
-                      } : {}),
-                    } as React.CSSProperties}
-                    data-sidebar-hover-key={`bin:${b.id}`}
-                    data-bin-drop-id={isManualBin && !isDisabledDropTarget ? b.id : undefined}
-                    role="button"
-                    tabIndex={0}
-                    title={
-                      isDisabledDropTarget
-                        ? translate('component.sidebar.alreadyInThisBin')
-                        : isIneligibleSmartBin
-                        ? translate('component.sidebar.smartBinAutomatic')
-                        : undefined
-                    }
-                    onPointerDown={(event) => handlePointerDownBin(String(b.id), event)}
-                    onDragOver={(e) => {
-                      if (!isManualBin || isDisabledDropTarget) return;
-                      e.preventDefault();
-                      e.stopPropagation();
-                      e.dataTransfer.dropEffect = 'copy';
-                      if (dropTargetBinId !== b.id) {
-                        setDropTargetBinId(b.id);
-                      }
-                    }}
-                    onDragEnter={(e) => {
-                      if (!isManualBin || isDisabledDropTarget) return;
-                      e.preventDefault();
-                      e.stopPropagation();
-                      e.dataTransfer.dropEffect = 'copy';
-                      setDropTargetBinId(b.id);
-                    }}
-                    onDragLeave={(e) => {
-                      if (!isManualBin || isDisabledDropTarget) return;
-                      e.preventDefault();
-                      if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget as Node)) {
-                        return;
-                      }
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      if (
-                        e.clientX >= rect.left &&
-                        e.clientX <= rect.right &&
-                        e.clientY >= rect.top &&
-                        e.clientY <= rect.bottom
-                      ) {
-                        return;
-                      }
-                      setDropTargetBinId((prev) => (prev === b.id ? null : prev));
-                    }}
-                    onDrop={(e) => {
-                      if (!isManualBin || isDisabledDropTarget) return;
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setDropTargetBinId(null);
-                      const rawClipId = e.dataTransfer.getData('clip_id');
-                      const rawText = e.dataTransfer.getData('text/plain');
-                      const parsedClip = parseInt(rawClipId, 10);
-                      const parsedText = parseInt(rawText, 10);
-                      const targetClipId =
-                        !isNaN(parsedClip) && parsedClip > 0
-                          ? parsedClip
-                          : !isNaN(parsedText) && parsedText > 0
-                          ? parsedText
-                          : draggedClipId;
-
-                      if (targetClipId && onClipDropOnBin) {
-                        onClipDropOnBin(targetClipId, b.id);
-                      }
-                    }}
-                    onClick={() => {
-                      if (consumeBinDragClick()) return;
-                      if (!activeDragBinId) {
-                        setCurrentTab('bin');
-                        setSelectedBinId(b.id);
-                      }
-                    }}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      if (onBinContextMenu) onBinContextMenu(e.clientX, e.clientY, b);
-                    }}
-                    className={`sidebar-nav-row justify-between select-none transition-[background-color,border-color,color,box-shadow,opacity,transform] duration-100 ${
-                      isDisabledDropTarget || isIneligibleSmartBin
-                        ? 'cursor-not-allowed'
-                        : isClipDragging
-                        ? 'cursor-grabbing'
-                        : 'cursor-pointer active:cursor-grabbing'
-                    } ${
-                      isDropTarget
-                        ? 'sidebar-bin-drop-target'
-                        : isDisabledDropTarget || isIneligibleSmartBin
-                        ? 'sidebar-bin-ineligible'
-                        : isClipDragging && isManualBin
-                        ? 'sidebar-bin-drop-eligible font-normal'
-                        : isDragging
-                        ? 'sidebar-bin-drag-source rounded-md relative pointer-events-none'
-                        : currentTab === 'bin' && selectedBinId === b.id
-                        ? 'sidebar-item-active font-medium'
-                        : isBinHovered
-                        ? 'sidebar-item-hovered font-normal'
-                        : 'sidebar-item-idle font-normal'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 truncate pe-1 min-w-0">
-                      <span className="sidebar-nav-icon sidebar-nav-icon-emoji sidebar-icon-primary">{getBinIcon(b.icon)}</span>
-                      <OverflowText text={b.name} className="truncate" style={{ color: binTextColor(b.color) }} />
-                    </div>
-
-                    {/* Right side container */}
-                    <div className="flex items-center justify-end shrink-0 ps-1">
-                      <div className={`flex items-center space-x-1.5 ${isBinHovered && !isDragging ? 'hidden' : ''}`}>
-                        {b.smart_rule && (b.clip_count ?? 0) > 0 ? (
-                          <span
-                            title={translate('component.sidebar.smartBinCountMatches', { count: b.clip_count ?? 0 })}
-                            className="sidebar-badge text-[11px] px-1.5 py-0.5 rounded-md font-mono flex items-center space-x-1"
-                          >
-                            <Sparkles className="theme-note-text w-3 h-3 shrink-0" />
-                            <span>{b.clip_count}</span>
-                          </span>
-                        ) : (
-                          !!b.clip_count && b.clip_count > 0 && (
-                            <span className="sidebar-badge text-[11px] px-1.5 py-0.5 rounded-md font-mono">
-                              {b.clip_count}
-                            </span>
-                          )
-                        )}
-                      </div>
-
-                      {/* Hover State: Edit & Trash action buttons (hidden when dragging) */}
-                      <div className={`${isBinHovered && !isDragging ? 'flex' : 'hidden'} items-center space-x-1`}>
-                        <button
-                          type="button"
-                          onPointerDown={(e) => e.stopPropagation()}
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (onEditBin) onEditBin(b);
-                          }}
-                          className="sidebar-row-action is-edit p-1 rounded transition-colors cursor-pointer"
-                          title={translate('component.sidebar.editBin')}
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onPointerDown={(e) => e.stopPropagation()}
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (onDeleteBin) onDeleteBin(b);
-                          }}
-                          className="sidebar-row-action is-danger p-1 rounded transition-colors cursor-pointer"
-                          title={translate('component.sidebar.deleteBin')}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </nav>
-          </div>
-        </div>}
-
+        {features.bins && (
+          <SidebarBinsSection
+            bins={sortedBins}
+            isOpen={isBinsOpen}
+            setIsOpen={setIsBinsOpen}
+            currentTab={currentTab}
+            selectedBinId={selectedBinId}
+            isClipDragging={isClipDragging}
+            draggedClipId={draggedClipId}
+            disabledDropBinId={disabledDropBinId}
+            pointerDropTargetBinId={pointerDropTargetBinId}
+            activeDragBinId={activeDragBinId}
+            reorderOffsets={binReorderOffsets}
+            isReorderSettling={isBinReorderSettling}
+            isHoverMuted={isSidebarHoverMuted}
+            hoveredControl={hoveredSidebarControl}
+            binListRef={binListRef}
+            onStartBinDrag={handlePointerDownBin}
+            consumeBinDragClick={consumeBinDragClick}
+            onOpenNewBin={onOpenNewBinModal}
+            onSelectBin={(id) => {
+              setCurrentTab('bin');
+              setSelectedBinId(id);
+            }}
+            onClipDropOnBin={onClipDropOnBin}
+            onEditBin={onEditBin}
+            onDeleteBin={onDeleteBin}
+            onBinContextMenu={onBinContextMenu}
+          />
+        )}
         {([
           { id: 'clipTypes', get label() { return translate('component.sidebar.clipTypes'); }, enabled: features.clipTypes, open: isClipTypesOpen, setOpen: setIsClipTypesOpen, items: clipTypeItems },
           { id: 'types', get label() { return translate('component.sidebar.contentTypes'); }, enabled: features.types, open: isTypesOpen, setOpen: setIsTypesOpen, items: typeItems },
@@ -984,143 +557,16 @@ const SidebarComponent: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      {/* Pinned Bottom Search Bar Footer */}
-      {features.search && <div ref={searchMenuRootRef} className="sidebar-divider h-[55px] px-2.5 border-t shrink-0 relative flex items-center">
-        {!isClipDragging && isSearchMenuOpen && (
-          <EmbeddedMenu
-            id="sidebar-search-filters"
-            ariaLabel={translate('component.sidebar.searchFilters')}
-            className="absolute inset-x-2.5 bottom-12"
-          >
-              {searchHelpers.map((s, index) => (
-              <MenuItem
-                ref={(element) => {
-                  searchMenuItemRefs.current[index] = element;
-                }}
-                key={s.prefix}
-                active={activeSearchMenuIndex === index}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                }}
-                onClick={() => {
-                  setSearchQuery(s.prefix);
-                  closeSearchMenu(true);
-                }}
-                onFocus={() => setActiveSearchMenuIndex(index)}
-                onKeyDown={(event) => {
-                  if (event.key === 'ArrowDown') {
-                    event.preventDefault();
-                    focusSearchMenuItem(index + 1);
-                  } else if (event.key === 'ArrowUp') {
-                    event.preventDefault();
-                    focusSearchMenuItem(index - 1);
-                  } else if (event.key === 'Home') {
-                    event.preventDefault();
-                    focusSearchMenuItem(0);
-                  } else if (event.key === 'End') {
-                    event.preventDefault();
-                    focusSearchMenuItem(searchHelpers.length - 1);
-                  } else if (event.key === 'Escape') {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    closeSearchMenu(true);
-                  } else if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    setSearchQuery(s.prefix);
-                    closeSearchMenu(true);
-                  }
-                }}
-                className="cursor-pointer justify-between gap-3 px-2.5 py-1.5"
-              >
-                <span className="font-mono text-[11px] font-semibold">{s.prefix}</span>
-                <span className="theme-text-subtle text-[10px]">{s.desc}</span>
-              </MenuItem>
-            ))}
-          </EmbeddedMenu>
-        )}
-
-        <div className="relative w-full titlebar-no-drag">
-          <input
-            ref={searchInputRef}
-            data-sidebar-search-input
-            type="text"
-            disabled={isClipDragging}
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="off"
-            spellCheck={false}
-            placeholder={translate('component.sidebar.searchAllClips')}
-            value={searchQuery}
-            onFocus={() => {
-              onSearchFocus();
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-                e.preventDefault();
-                if (!isSearchMenuOpen) setIsSearchMenuOpen(true);
-                focusSearchMenuItem(e.key === 'ArrowDown' ? 0 : searchHelpers.length - 1);
-              } else if (e.key === 'Escape') {
-                e.preventDefault();
-                if (isSearchMenuOpen) closeSearchMenu();
-                else {
-                  (e.target as HTMLInputElement).blur();
-                  if (!searchQuery.trim()) onEmptySearchEscape();
-                }
-              }
-            }}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className={`sidebar-search-input theme-input ui-field-radius h-[34px] w-full border ps-2.5 ${searchQuery ? 'pe-16' : 'pe-10'} text-xs focus:outline-none transition-colors titlebar-no-drag`}
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              disabled={isClipDragging}
-              aria-label={translate('component.sidebar.clearSearch')}
-              title={translate('component.sidebar.clearSearch2')}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => {
-                setSearchQuery('');
-                closeSearchMenu();
-                onSearchFocus();
-                requestAnimationFrame(() => searchInputRef.current?.focus());
-              }}
-              className="sidebar-search-clear theme-menu-item absolute end-8 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-md"
-            >
-              <X className="h-3.5 w-3.5" aria-hidden="true" />
-            </button>
-          )}
-          <button
-            type="button"
-            disabled={isClipDragging}
-            aria-label={translate('component.sidebar.searchFilters')}
-            aria-haspopup="menu"
-            aria-expanded={isSearchMenuOpen}
-            aria-controls="sidebar-search-filters"
-            title={translate('component.sidebar.searchFilters2')}
-            onClick={() => {
-              onSearchFocus();
-              setIsSearchMenuOpen((open) => {
-                if (open) setActiveSearchMenuIndex(-1);
-                return !open;
-              });
-              requestAnimationFrame(() => searchInputRef.current?.focus());
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-                event.preventDefault();
-                setIsSearchMenuOpen(true);
-                focusSearchMenuItem(event.key === 'ArrowDown' ? 0 : searchHelpers.length - 1);
-              } else if (event.key === 'Escape' && isSearchMenuOpen) {
-                event.preventDefault();
-                closeSearchMenu();
-              }
-            }}
-            className={`theme-menu-item absolute end-1 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-md ${isSearchMenuOpen ? 'is-selected' : ''}`}
-          >
-            <ChevronUp className={`h-3.5 w-3.5 transition-transform ${isSearchMenuOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
-          </button>
-        </div>
-      </div>}
+      {features.search && (
+        <SidebarSearchFooter
+          features={features}
+          isDragActive={isClipDragging}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          onSearchFocus={onSearchFocus}
+          onEmptySearchEscape={onEmptySearchEscape}
+        />
+      )}
     </aside>
   );
 };

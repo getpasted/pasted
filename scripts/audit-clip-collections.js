@@ -5,7 +5,12 @@ import { readRustModuleTree } from './audit-source-trees.js';
 const read = (path) => fs.readFileSync(path, 'utf8');
 const registry = read('src/utils/clipCollections.ts');
 const propertyAssociations = read('src/utils/clipPropertyAssociations.ts');
-const sidebar = read('src/components/Sidebar.tsx');
+const sidebar = [
+  'src/components/Sidebar.tsx',
+  'src/components/CollapsedSidebar.tsx',
+  'src/components/SidebarBinsSection.tsx',
+  'src/components/SidebarSearchFooter.tsx',
+].map(read).join('\n');
 const clipViews = read('src/hooks/useClipViews.ts');
 const clipsApi = read('src/api/clips.ts');
 const emptyState = read('src/components/EmptyClipList.tsx');
@@ -56,7 +61,7 @@ for (const field of [
 
 assert.match(sidebar, /getSystemClipCollections\(features\)/, 'Sidebar navigation must come from the shared collection registry');
 assert.match(sidebar, /useLocalization\(\)/, 'Memoized sidebar navigation must subscribe to locale changes');
-assert.match(sidebar, /getClipCollection\('bin', b\)/, 'Bins must inherit collection capabilities in the sidebar');
+assert.match(sidebar, /getClipCollection\('bin', (?:bin|b)\)/, 'Bins must inherit collection capabilities in the sidebar');
 assert.match(sidebar, /id: 'clipTypes'[\s\S]{0,500}id: 'types'/, 'Clip Types must appear before semantic Content Types');
 assert.match(sidebar, /clipFacetRoute\('clip_type', value\)/, 'Clip Type navigation must use stable structural routes');
 assert.match(sidebar, /clipFacetRoute\('content_type', value\)/, 'Content Type navigation must use stable calculated-collection routes');

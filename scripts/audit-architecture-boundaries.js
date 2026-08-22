@@ -542,10 +542,15 @@ const sizeRatchets = new Map([
   ['src/components/ClipPreview.tsx', 972],
   ['src/components/ClipPreviewFooter.tsx', 118],
   ['src/components/ClipPreviewNotesPanel.tsx', 87],
+  ['src/components/Sidebar.tsx', 574],
+  ['src/components/CollapsedSidebar.tsx', 165],
+  ['src/components/SidebarBinsSection.tsx', 206],
+  ['src/components/SidebarSearchFooter.tsx', 224],
   ['src/components/clipPreviewModel.ts', 197],
   ['src/hooks/useClipPreviewAnalysis.ts', 319],
   ['src/hooks/useClipPreviewNotes.ts', 129],
   ['src/hooks/useClipPreviewRevisions.ts', 149],
+  ['src/hooks/useSidebarHoverState.ts', 67],
   ['src/utils/tauri.ts', 10],
   ['src/mocks/browser/runtime.ts', 30],
   ['src/mocks/browser/contentRuntime.ts', 372],
@@ -566,6 +571,14 @@ for (const controller of ['useClipPreviewAnalysis', 'useClipPreviewNotes', 'useC
 assert.doesNotMatch(clipPreviewShell,
   /get_clip_versions|get_clip_extraction_results|update_clip_note|get_clip_content_matches/,
   'Clip Preview must not reclaim controller-owned persistence and analysis commands');
+
+const sidebarShell = read('src/components/Sidebar.tsx');
+for (const subsystem of ['CollapsedSidebar', 'SidebarBinsSection', 'SidebarSearchFooter', 'useSidebarHoverState']) {
+  assert.match(sidebarShell, new RegExp(`${subsystem}`),
+    `Sidebar must compose the ${subsystem} subsystem`);
+}
+assert.doesNotMatch(sidebarShell, /get_clip_extraction_history|SEARCH_HELPERS|data-stable-reorder-id/,
+  'Sidebar must not reclaim search or Bin interaction internals');
 
 const centralizedCommands = [
   'get_activity_logs', 'clear_activity_logs', 'export_activity_json', 'export_activity_csv',
