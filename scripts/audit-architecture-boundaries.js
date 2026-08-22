@@ -465,6 +465,12 @@ assert.doesNotMatch(commands, /pub fn extract_ocr_from_clip|pub async fn extract
 
 const sizeRatchets = new Map([
   ['src-tauri/src/db.rs', 210],
+  ['src-tauri/src/content_analysis.rs', 186],
+  ['src-tauri/src/content_analysis/pipeline.rs', 413],
+  ['src-tauri/src/content_analysis/tests.rs', 558],
+  ['src-tauri/src/content_extraction.rs', 785],
+  ['src-tauri/src/content_extraction/engine_runtime.rs', 1_213],
+  ['src-tauri/src/content_extraction/tests.rs', 458],
   ['src-tauri/src/db/activity.rs', 649],
   ['src-tauri/src/db/analysis_activity.rs', 71],
   ['src-tauri/src/db/analytics.rs', 159],
@@ -591,6 +597,17 @@ assert.match(binModalShell, /SmartConditionTargetSelect[\s\S]*SmartConditionValu
   'BinModal must compose the shared smart-condition controls');
 assert.doesNotMatch(binModalShell, /binsApi\.|get_bin_transform_ref|normalizeSmartCondition/,
   'BinModal must not reclaim controller-owned persistence and rule normalization');
+
+const contentAnalysisFacade = read('src-tauri/src/content_analysis.rs');
+assert.match(contentAnalysisFacade, /mod pipeline;/,
+  'Content Analysis must keep scheduler participants behind its pipeline module');
+assert.doesNotMatch(contentAnalysisFacade, /fn schedule\(|fn extractor_participant\(/,
+  'Content Analysis contracts must not reclaim scheduler implementation');
+const contentExtractionFacade = read('src-tauri/src/content_extraction.rs');
+assert.match(contentExtractionFacade, /mod engine_runtime;/,
+  'Content Extraction must keep operating-system engines behind its runtime module');
+assert.doesNotMatch(contentExtractionFacade, /perform_tesseract_ocr|perform_whisper_cpp_transcription|execute_custom_command/,
+  'Content Extraction definitions must not reclaim engine process execution');
 
 const centralizedCommands = [
   'get_activity_logs', 'clear_activity_logs', 'export_activity_json', 'export_activity_csv',
