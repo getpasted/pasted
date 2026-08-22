@@ -10,7 +10,7 @@ const SOURCE_ROOT = 'src';
 const ALLOWED_COMPOSITIONS = [
   { file: 'components/ClipRevisionHistory.tsx', snippets: ['LoaderCircle', "translate('component.clipRevisionHistory.loadingOlder')"], reason: 'Loading icon and one complete status label.' },
   { file: 'components/OperationsManager.tsx', snippets: ['operationCategoryLabel', "translate('component.operationsManager.builtIn')"], reason: 'Explicit category and provenance metadata.' },
-  { file: 'components/SettingsGeneralPanel.tsx', snippets: ["translate('component.settingsGeneralPanel.colorScheme')", 'appearanceModes.find'], reason: 'Explicit setting label and selected value.' },
+  { file: 'components/SettingsGeneralAppearanceSection.tsx', snippets: ["translate('component.settingsGeneralPanel.colorScheme')", 'appearanceModes.find'], reason: 'Explicit setting label and selected value.' },
   { file: 'components/SettingsSyncImportSection.tsx', snippets: ['inspection.sizeBytes', "translate('component.settingsSyncPanel.completeRecoveryBackup')"], reason: 'Compact type and size metadata.' },
   { file: 'components/SettingsSyncImportSection.tsx', snippets: ["'component.settingsSyncPanel.activityInspectionSummary'"], reason: 'Mutually exclusive complete inspection summaries.' },
   { file: 'components/SettingsSyncImportSection.tsx', snippets: ["translate('component.settingsSyncPanel.addsNewClipsSkipsExistingMatchesAndKeepsUnrelatedData')"], reason: 'Mutually exclusive complete import descriptions.' },

@@ -1,15 +1,16 @@
 import { useState } from 'react';
-import { Building2, Coffee, Droplet, Drum, Laptop, Minus, Moon, Pizza, Plus, RotateCcw, Sliders, Snowflake, Trash2, Zap } from 'lucide-react';
+import { Sliders } from 'lucide-react';
 import type { AppSettings } from '../types';
 import { useAltKeyPressed } from '../hooks/useAltKeyPressed';
 import { MenuSelect } from './MenuSelect';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
 import { SettingsSubsectionHeader } from './SettingsSubsectionHeader';
-import { ACTUAL_SIZE, APP_ZOOM_STEPS, appZoomPercent, stepAppZoom } from '../utils/appZoom';
 import { useToast } from './ToastProvider';
-import { ActionButton } from './AppDialogLayout';
 import { useLocalization } from '../localization/LocalizationProvider';
 import { translate } from '../localization/runtime';
+import { SettingsGeneralAppearanceSection } from './SettingsGeneralAppearanceSection';
+import { SettingsGeneralLayoutSection } from './SettingsGeneralLayoutSection';
+import { SettingsGeneralRetentionSections } from './SettingsGeneralRetentionSections';
 
 interface SettingsGeneralPanelProps {
   settings: AppSettings;
@@ -19,24 +20,6 @@ interface SettingsGeneralPanelProps {
   trashedClipCount?: number;
   onResetColumnWidths?: () => void;
 }
-
-const appearanceModes = [
-  { value: 'system', get label() { return translate('common.system'); }, Icon: Laptop },
-  { value: 'dark', get label() { return translate('component.settingsGeneralPanel.dark'); }, Icon: Moon },
-  { value: 'cool', get label() { return translate('component.settingsGeneralPanel.cool'); }, Icon: Snowflake },
-  { value: 'warm', get label() { return translate('component.settingsGeneralPanel.warm'); }, Icon: Coffee },
-  { value: '2894', label: '2894', Icon: Building2 },
-  { value: 'sauced', get label() { return translate('component.settingsGeneralPanel.sauced'); }, Icon: Pizza },
-  { value: 'vampire', get label() { return translate('component.settingsGeneralPanel.vampire'); }, Icon: Droplet },
-  { value: 'flux', get label() { return translate('component.settingsGeneralPanel.flux'); }, Icon: Zap },
-  { value: '808', label: '808', Icon: Drum },
-] as const;
-
-const appearanceGroups = [
-  { get label() { return translate('common.system'); }, values: ['system'] },
-  { get label() { return translate('component.settingsGeneralPanel.darkSchemes'); }, values: ['dark', 'vampire', 'flux', '808'] },
-  { get label() { return translate('component.settingsGeneralPanel.lightSchemes'); }, values: ['cool', 'warm', '2894', 'sauced'] },
-] as const;
 
 const pasteBehaviorOptions = [
   { value: 'rich', get label() { return translate('component.settingsGeneralPanel.preserveFormattingDefault'); } },
@@ -98,17 +81,6 @@ const retentionAgeOptions = [
   { value: '365', get label() { return translate('component.settingsGeneralPanel.value1Year'); } },
 ];
 
-const rowHeightOptions = [
-  { value: 'small', get label() { return translate('component.settingsGeneralPanel.compact'); } },
-  { value: 'medium', get label() { return translate('component.settingsGeneralPanel.standard'); } },
-  { value: 'large', get label() { return translate('component.settingsGeneralPanel.spacious'); } },
-];
-
-const startupViewOptions = [
-  { value: 'last_active', get label() { return translate('component.settingsGeneralPanel.lastActivePage'); } },
-  { value: 'clip_history', get label() { return translate('component.settingsGeneralPanel.clipHistory'); } },
-];
-
 export function SettingsGeneralPanel({
   settings,
   onUpdateSettings,
@@ -118,7 +90,7 @@ export function SettingsGeneralPanel({
   onResetColumnWidths,
 }: SettingsGeneralPanelProps) {
   const { showToast } = useToast();
-  const { t, locales } = useLocalization();
+  const { t } = useLocalization();
   const [isRestoringTrash, setIsRestoringTrash] = useState(false);
   const isAltPressed = useAltKeyPressed();
   const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.userAgent || navigator.platform);
@@ -203,166 +175,15 @@ export function SettingsGeneralPanel({
               title={translate('component.settingsGeneralPanel.general')}
               description={translate('component.settingsGeneralPanel.appearanceClipboardBehaviorAndHistory')}
             />
-            {/* General Preferences */}
-            <div className="space-y-4">
-              <SettingsSubsectionHeader
-                title={translate('component.settingsGeneralPanel.appearance')}
-                description={translate('component.settingsGeneralPanel.chooseAColorSchemeAndDisplayScale')}
-              />
-
-              {/* Appearance Mode Switcher */}
-              <div className="flex items-center justify-between pb-1">
-                <span className="font-medium">
-                  {translate('component.settingsGeneralPanel.colorScheme')} <strong className="theme-text-muted ms-1">{appearanceModes.find(({ value }) => value === (settings.themeMode || 'system'))?.label}</strong>
-                </span>
-                <div className="theme-surface appearance-picker flex items-center p-1 rounded-xl border gap-1" role="group" aria-label={translate('component.settingsGeneralPanel.appearanceScheme')}>
-                  {appearanceGroups.map((group) => (
-                    <div key={group.label} className="appearance-picker-group flex items-center gap-1" role="group" aria-label={group.label}>
-                      {group.values.map((value) => {
-                        const mode = appearanceModes.find((candidate) => candidate.value === value)!;
-                        const isActive = (settings.themeMode || 'system') === value;
-                        return (
-                          <button
-                            key={value}
-                            type="button"
-                            title={mode.label}
-                            aria-label={translate('component.settingsGeneralPanel.labelAppearance', { label: mode.label })}
-                            aria-pressed={isActive}
-                            onClick={() => onUpdateSettings({ themeMode: value })}
-                            className={`appearance-mode-button flex h-8 w-8 items-center justify-center rounded-lg transition-[background-color,color,box-shadow] ${isActive ? 'is-active' : ''}`}
-                          >
-                            <mode.Icon className="w-3.5 h-3.5" />
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0 flex-1 pe-4">
-                  <span className="font-semibold theme-text-main block">{t('settings.general.language.label')}</span>
-                  <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                    {t('settings.general.language.description')}
-                  </p>
-                </div>
-                <MenuSelect
-                  value={settings.language}
-                  options={[
-                    { value: 'system', label: t('common.automatic') },
-                    ...locales.map(({ code, nativeName }, index) => ({ value: code, label: nativeName, dividerBefore: index === 0 })),
-                  ]}
-                  onChange={(value) => onUpdateSettings({ language: value })}
-                  label={t('settings.general.language.ariaLabel')}
-                  className="settings-menu-select shrink-0"
-                />
-              </div>
-            </div>
+            <SettingsGeneralAppearanceSection settings={settings} onUpdateSettings={onUpdateSettings} />
 
             <div className="theme-divider border-t" />
 
-            <div className="space-y-4">
-              <SettingsSubsectionHeader
-                title={translate('component.settingsGeneralPanel.layout')}
-                description={translate('component.settingsGeneralPanel.adjustAppScalingClipDensityAndWorkspaceDimensions')}
-              />
-
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.zoom')}</span>
-                  <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                    {translate('component.settingsGeneralPanel.adjustTheSizeOfNavigationControlsAndClipContent')}
-                  </p>
-                </div>
-                <div className="theme-surface flex shrink-0 items-center overflow-hidden rounded-lg border" role="group" aria-label={translate('component.settingsGeneralPanel.applicationZoom')}>
-                  <button
-                    type="button"
-                    aria-label={translate('component.settingsGeneralPanel.zoomOut')}
-                    title={translate('component.settingsGeneralPanel.zoomOut2')}
-                    disabled={settings.textSize <= APP_ZOOM_STEPS[0]}
-                    onClick={() => onUpdateSettings({ textSize: stepAppZoom(settings.textSize, -1) })}
-                    className="theme-secondary-button flex h-8 w-8 items-center justify-center border-0 border-e disabled:cursor-not-allowed disabled:opacity-35"
-                  >
-                    <Minus className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={translate('component.settingsGeneralPanel.actualSize')}
-                    title={translate('component.settingsGeneralPanel.actualSize0')}
-                    onClick={() => onUpdateSettings({ textSize: ACTUAL_SIZE })}
-                    className="theme-secondary-button h-8 min-w-14 border-0 px-2 font-mono text-[10px] font-semibold"
-                  >
-                    {appZoomPercent(settings.textSize)}%
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={translate('component.settingsGeneralPanel.zoomIn')}
-                    title={translate('component.settingsGeneralPanel.zoomIn2')}
-                    disabled={settings.textSize >= APP_ZOOM_STEPS[APP_ZOOM_STEPS.length - 1]}
-                    onClick={() => onUpdateSettings({ textSize: stepAppZoom(settings.textSize, 1) })}
-                    className="theme-secondary-button flex h-8 w-8 items-center justify-center border-0 border-s disabled:cursor-not-allowed disabled:opacity-35"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex items-start justify-between">
-                <div className="pe-4 flex-1 min-w-0">
-                  <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.clipDensity')}</span>
-                  <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                    {translate('component.settingsGeneralPanel.adjustsClipSpacingTextDepthAndPreviewSizeThroughoutTheHistoryList')}
-                  </p>
-                </div>
-                <MenuSelect
-                  value={settings.rowHeight}
-                  options={rowHeightOptions}
-                  onChange={(value) => onUpdateSettings({ rowHeight: value as AppSettings['rowHeight'] })}
-                  label={translate('component.settingsGeneralPanel.clipDensity2')}
-                  className="settings-menu-select"
-                />
-              </div>
-
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.startupView')}</span>
-                  <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                    {translate('component.settingsGeneralPanel.reopenTheLastViewOrAlwaysStartInClipHistory')}
-                  </p>
-                </div>
-                <MenuSelect
-                  value={settings.startupView}
-                  options={startupViewOptions}
-                  onChange={(value) => onUpdateSettings({ startupView: value as AppSettings['startupView'] })}
-                  label={translate('component.settingsGeneralPanel.startupView2')}
-                  className="settings-menu-select"
-                />
-              </div>
-
-              <div className="flex items-start justify-between">
-                <div className="pe-4 flex-1 min-w-0">
-                  <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.columnWidths')}</span>
-                  <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                    {translate('component.settingsGeneralPanel.resetsTheLeftSidebarAndMiddleHistoryListPanelWidthsToTheir')}
-                  </p>
-                </div>
-                <ActionButton
-                  onClick={() => {
-                    if (onResetColumnWidths) onResetColumnWidths();
-                    else {
-                      localStorage.removeItem('pasted_sidebar_width');
-                      localStorage.removeItem('pasted_list_width');
-                      window.location.reload();
-                    }
-                  }}
-                  className="shrink-0 cursor-pointer"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>{translate('component.settingsGeneralPanel.resetColumnWidths')}</span>
-                </ActionButton>
-              </div>
-            </div>
+            <SettingsGeneralLayoutSection
+              settings={settings}
+              onUpdateSettings={onUpdateSettings}
+              onResetColumnWidths={onResetColumnWidths}
+            />
 
             <div className="theme-divider border-t" />
 
@@ -579,143 +400,20 @@ export function SettingsGeneralPanel({
 
             </div>
 
-            {settings.enableTrash && <>
-              <div className="theme-divider border-t" />
-
-              {/* Trash Preferences */}
-              <div className="space-y-4">
-              <SettingsSubsectionHeader
-                title={translate('component.settingsGeneralPanel.trash')}
-                description={translate('component.settingsGeneralPanel.controlHowMuchDeletedHistoryRemainsRecoverable')}
-              />
-
-              <div className="theme-surface overflow-hidden rounded-xl border">
-                <div className="flex items-center justify-between gap-4 px-3 py-2.5">
-                  <div className="min-w-0">
-                    <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.keepTrashedClipsFor')}</span>
-                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                      {translate('component.settingsGeneralPanel.olderTrashedClipsArePermanentlyPurged')}
-                    </p>
-                  </div>
-                  <MenuSelect
-                    value={String(settings.trashAgeDays)}
-                    options={trashAgeMenuOptions}
-                    onChange={(value) => onUpdateSettings({ trashAgeDays: Number(value) })}
-                    label={translate('component.settingsGeneralPanel.maximumTrashAge')}
-                    className="settings-menu-select w-40 shrink-0"
-                  />
-                </div>
-                <div className="theme-divider flex items-center justify-between gap-4 border-t px-3 py-2.5">
-                  <div className="min-w-0">
-                    <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.maximumTrashedClips')}</span>
-                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                      {translate('component.settingsGeneralPanel.theOldestEligibleItemsArePermanentlyPurgedFirst')}
-                    </p>
-                  </div>
-                  <MenuSelect
-                    value={String(settings.trashCapacityCount)}
-                    options={trashCountOptions}
-                    onChange={(value) => onUpdateSettings({ trashCapacityCount: Number(value) })}
-                    label={translate('component.settingsGeneralPanel.maximumTrashedClipsRetained')}
-                    className="settings-menu-select w-40 shrink-0"
-                  />
-                </div>
-                <p className="theme-divider theme-text-subtle border-t px-3 py-2 text-[10px] leading-normal">
-                  {translate('component.settingsGeneralPanel.bothLimitsApplyProtectedClipsAreAlwaysKept')}
-                </p>
-              </div>
-
-              <div className="theme-surface overflow-hidden rounded-xl border">
-                <div className="flex items-start justify-between gap-4 px-3 py-2.5">
-                  <div className="min-w-0">
-                    <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.restoreTrashedClips')}</span>
-                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                      {translate('component.settingsGeneralPanel.returnEveryTrashedClipToHistory')}
-                    </p>
-                  </div>
-                  <div className="shrink-0">
-                    <ActionButton
-                      onClick={() => void restoreAllTrashedClips()}
-                      disabled={!onRestoreAllTrashedClips || trashedClipCount === 0 || isRestoringTrash}
-                      className="disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                      <span>{isRestoringTrash ? translate('component.settingsGeneralPanel.restoring') : translate('component.settingsGeneralPanel.restoreTrashedClips')}</span>
-                    </ActionButton>
-                  </div>
-                </div>
-                <div className="theme-divider flex items-start justify-between gap-4 border-t px-3 py-2.5">
-                  <div className="min-w-0">
-                    <span className={`font-semibold block ${isAltPressed ? 'theme-danger-text' : 'theme-text-main'}`}>
-                      {isAltPressed ? translate('component.settingsGeneralPanel.deleteAllClips') : translate('component.settingsGeneralPanel.trashAllClips')}
-                    </span>
-                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                      {isAltPressed
-                        ? translate('component.settingsGeneralPanel.permanentlyDeleteAllUnpinnedAndUnprotectedClips')
-                        : translate('component.settingsGeneralPanel.moveAllUnpinnedAndUnprotectedClipsToTrashHoldOptionToPermanently')}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={(e) => onClearHistory?.(e.altKey)}
-                    className="theme-status-danger flex shrink-0 items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>{isAltPressed ? translate('component.settingsGeneralPanel.deleteAllClips2') : translate('component.settingsGeneralPanel.trashAllClips2')}</span>
-                  </button>
-                </div>
-              </div>
-              </div>
-            </>}
-
-            {settings.enableActivityLog && <>
-              <div className="theme-divider border-t" />
-
-              {/* Activity preferences */}
-              <div className="space-y-4">
-              <SettingsSubsectionHeader
-                title={translate('component.settingsGeneralPanel.activityHistory')}
-                description={translate('component.settingsGeneralPanel.chooseHowMuchActivityHistoryToKeep')}
-              />
-
-              <div className="theme-surface overflow-hidden rounded-xl border">
-                <div className="flex items-center justify-between gap-4 px-3 py-2.5">
-                  <div className="min-w-0">
-                    <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.keepActivityFor')}</span>
-                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                      {translate('component.settingsGeneralPanel.olderActivityEntriesAreRemovedAutomatically')}
-                    </p>
-                  </div>
-                  <MenuSelect
-                    value={String(settings.activityLogAgeDays)}
-                    options={activityAgeMenuOptions}
-                    onChange={(value) => onUpdateSettings({ activityLogAgeDays: Number(value) })}
-                    label={translate('component.settingsGeneralPanel.maximumActivityAge')}
-                    className="settings-menu-select w-40 shrink-0"
-                  />
-                </div>
-                <div className="theme-divider flex items-center justify-between gap-4 border-t px-3 py-2.5">
-                  <div className="min-w-0">
-                    <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.maximumActivityEntries')}</span>
-                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                      {translate('component.settingsGeneralPanel.theOldestEntriesAreRemovedFirst')}
-                    </p>
-                  </div>
-                  <MenuSelect
-                    value={String(settings.activityLogCapacity)}
-                    options={activityCountOptions}
-                    onChange={(value) => onUpdateSettings({ activityLogCapacity: Number(value) })}
-                    label={translate('component.settingsGeneralPanel.maximumActivityEntriesRetained')}
-                    className="settings-menu-select w-40 shrink-0"
-                  />
-                </div>
-                <p className="theme-divider theme-text-subtle border-t px-3 py-2 text-[10px] leading-normal">
-                  {translate('component.settingsGeneralPanel.bothLimitsApplyUnlimitedAndForeverDisableAutomaticRemoval')}
-                </p>
-              </div>
-
-              </div>
-            </>}
+            <SettingsGeneralRetentionSections
+              settings={settings}
+              trashAgeOptions={trashAgeMenuOptions}
+              trashCountOptions={trashCountOptions}
+              activityAgeOptions={activityAgeMenuOptions}
+              activityCountOptions={activityCountOptions}
+              trashedClipCount={trashedClipCount}
+              isRestoringTrash={isRestoringTrash}
+              isAltPressed={isAltPressed}
+              canRestoreTrash={Boolean(onRestoreAllTrashedClips)}
+              onUpdateSettings={onUpdateSettings}
+              onRestoreTrash={() => void restoreAllTrashedClips()}
+              onClearHistory={onClearHistory}
+            />
 
           </div>
   );
