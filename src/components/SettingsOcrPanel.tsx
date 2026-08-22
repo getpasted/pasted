@@ -8,7 +8,7 @@ import { SettingsSubsectionHeader } from './SettingsSubsectionHeader';
 import { useToast } from './ToastProvider';
 import type { ContentExtractor } from './contentExtractorModel';
 import { translate } from '../localization/runtime';
-import { actionableOcrCount, OCR_STATUS_CARD_KEYS, ocrScanCommand } from './ocrStatusModel';
+import { actionableOcrCount, OCR_STATUS_CARD_KEYS, shouldRetryFailedOcr } from './ocrStatusModel';
 
 const EMPTY_OCR_STATUS: OcrBackfillStatus = {
   totalImages: 0,
@@ -75,6 +75,9 @@ export function SettingsOcrPanel({ extractorRevision }: { extractorRevision: num
 
   const busy = status.runningCount > 0 || status.queuedCount > 0;
   const actionableCount = actionableOcrCount(status);
+  const scan = () => shouldRetryFailedOcr(status)
+    ? invoke('retry_failed_ocr')
+    : invoke('start_ocr_backfill');
   const activeExtractor = extractors.find((extractor) => (
     extractor.enabled && extractor.isAvailable && extractor.recipe.accepts.includes('image')
   ));
@@ -109,7 +112,7 @@ export function SettingsOcrPanel({ extractorRevision }: { extractorRevision: num
             <Square className="h-3.5 w-3.5" /> {translate('common.cancel')}
           </ActionButton>
         ) : (
-          <ActionButton variant="primary" disabled={actionableCount === 0 || !activeExtractor} onClick={() => void run(() => invoke(ocrScanCommand(status)))}>
+          <ActionButton variant="primary" disabled={actionableCount === 0 || !activeExtractor} onClick={() => void run(scan)}>
             <ScanText className="h-3.5 w-3.5" /> {translate('component.settingsOcrPanel.scan')}
           </ActionButton>
         )}

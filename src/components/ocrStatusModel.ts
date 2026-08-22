@@ -13,6 +13,6 @@ export function actionableOcrCount(status: OcrBackfillStatus) {
   return status.eligibleCount + status.failedCount;
 }
 
-export function ocrScanCommand(status: OcrBackfillStatus) {
-  return status.failedCount > 0 ? 'retry_failed_ocr' : 'start_ocr_backfill';
+export function shouldRetryFailedOcr(status: OcrBackfillStatus) {
+  return status.failedCount > 0;
 }

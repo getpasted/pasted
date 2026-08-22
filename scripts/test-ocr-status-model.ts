@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { actionableOcrCount, ocrScanCommand } from '../src/components/ocrStatusModel.ts';
+import { actionableOcrCount, shouldRetryFailedOcr } from '../src/components/ocrStatusModel.ts';
 import type { OcrBackfillStatus } from '../src/types.ts';
 
 const status = (eligibleCount: number, failedCount: number): OcrBackfillStatus => ({
@@ -15,9 +15,9 @@ const status = (eligibleCount: number, failedCount: number): OcrBackfillStatus =
 
 assert.equal(actionableOcrCount(status(4, 6)), 10,
   'waiting and failed images must form one actionable scan pool');
-assert.equal(ocrScanCommand(status(4, 6)), 'retry_failed_ocr',
+assert.equal(shouldRetryFailedOcr(status(4, 6)), true,
   'a unified scan must reset failed attempts before scanning the whole pool');
-assert.equal(ocrScanCommand(status(4, 0)), 'start_ocr_backfill',
+assert.equal(shouldRetryFailedOcr(status(4, 0)), false,
   'a waiting-only scan must start without resetting history');
 
 console.log('OCR status model tests passed.');
