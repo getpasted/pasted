@@ -561,7 +561,11 @@ const sizeRatchets = new Map([
   ['src/hooks/useClipDragController.ts', 130],
   ['src/hooks/useClipReordering.ts', 100],
   ['src/components/AppDialogLayer.tsx', 210],
-  ['src/components/ClipPreview.tsx', 972],
+  ['src/components/ClipPreview.tsx', 607],
+  ['src/components/ClipPreviewHeader.tsx', 250],
+  ['src/components/ClipPreviewOrganization.tsx', 93],
+  ['src/components/ClipPreviewTransformControls.tsx', 159],
+  ['src/components/ClipPreviewWorkspace.tsx', 84],
   ['src/components/ClipCard.tsx', 171],
   ['src/components/ClipCardActions.tsx', 194],
   ['src/components/ClipCardContent.tsx', 76],
@@ -605,6 +609,23 @@ for (const controller of ['useClipPreviewAnalysis', 'useClipPreviewNotes', 'useC
 assert.doesNotMatch(clipPreviewShell,
   /get_clip_versions|get_clip_extraction_results|update_clip_note|get_clip_content_matches/,
   'Clip Preview must not reclaim controller-owned persistence and analysis commands');
+for (const subsystem of [
+  'ClipPreviewHeader',
+  'ClipPreviewOrganization',
+  'ClipPreviewTransformControls',
+  'ClipPreviewWorkspace',
+]) {
+  assert.match(clipPreviewShell, new RegExp(`<${subsystem}`),
+    `Clip Preview must compose the ${subsystem} presentation subsystem`);
+}
+assert.doesNotMatch(clipPreviewShell, /startWindowDrag|ClipBinPicker|MenuSelect|smart-actions-bar/,
+  'Clip Preview must not reclaim extracted header, organization, or Transform presentation internals');
+assert.doesNotMatch(clipPreviewShell, /useMinuteTick/,
+  'Clip Preview must not rerender its full controller tree for relative-time updates');
+for (const timestampSurface of ['ClipPreviewWorkspace.tsx', 'ClipPreviewFooter.tsx']) {
+  assert.match(read(`src/components/${timestampSurface}`), /useMinuteTick\(\)/,
+    `${timestampSurface} must own its scoped relative-time refresh`);
+}
 
 const clipCardShell = read('src/components/ClipCard.tsx');
 for (const subsystem of ['ClipCardActions', 'ClipCardContent', 'ClipCardHeader', 'useClipCardPointerDrag']) {

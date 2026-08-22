@@ -22,6 +22,10 @@ const suggestionExecution = read('src-tauri/src/suggestion_execution.rs');
 const clipPreview = [
   'src/components/ClipPreview.tsx',
   'src/components/ClipPreviewContent.tsx',
+  'src/components/ClipPreviewHeader.tsx',
+  'src/components/ClipPreviewOrganization.tsx',
+  'src/components/ClipPreviewTransformControls.tsx',
+  'src/components/ClipPreviewWorkspace.tsx',
   'src/components/clipPreviewModel.ts',
   'src/hooks/useClipPreviewAnalysis.ts',
   'src/hooks/useClipPreviewRevisions.ts',

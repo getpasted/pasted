@@ -11,6 +11,9 @@ const suggestion = read('src-tauri/src/content_suggestions.rs');
 const suggestionExecution = read('src-tauri/src/suggestion_execution.rs');
 const clipPreview = [
   'src/components/ClipPreview.tsx',
+  'src/components/ClipPreviewHeader.tsx',
+  'src/components/ClipPreviewTransformControls.tsx',
+  'src/components/ClipPreviewWorkspace.tsx',
   'src/hooks/useClipPreviewAnalysis.ts',
   'src/hooks/useClipPreviewRevisions.ts',
 ].map(read).join('\n');
@@ -97,6 +100,10 @@ assert.match(suggestionExecution, /get_transform_definitions/,
   'Smart Actions must resolve suggestions from the canonical Transform facade');
 assert.match(clipPreview, /smartActions\.result\.actions\.map/,
   'Clip Preview must render shared Smart Action suggestions');
+assert.match(read('src/components/ClipPreview.tsx'), /showSmartActions=\{features\.transformations\}/,
+  'The Transformations feature must gate Smart Actions without hiding Advanced Transforms');
+assert.doesNotMatch(read('src/components/ClipPreview.tsx'), /features\.transformations && <ClipPreviewTransformControls/,
+  'Advanced Transforms must remain independent from optional Transformations chrome');
 
 assert.match(sound, /setEnabled\(enabled: boolean\)/, 'Interaction sound state must have one global authority');
 assert.match(app, /soundManager\.setEnabled\(appSettings\.enableSounds\)/,

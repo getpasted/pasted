@@ -1,4 +1,5 @@
 import { dateTimeAttribute, formatFullDateTime, formatRelativeTime } from '../utils/date';
+import { useMinuteTick } from '../hooks/useMinuteTick';
 import { translate } from '../localization/runtime';
 import { getClipFilePaths, type ClipItem } from '../types';
 import {
@@ -17,7 +18,6 @@ interface ClipPreviewFooterProps {
   lineCount: number;
   revisionCount: number | null;
   showHistory: boolean;
-  relativeTimeNow: number;
   onToggleHistory: () => void;
 }
 
@@ -31,9 +31,9 @@ export function ClipPreviewFooter({
   lineCount,
   revisionCount,
   showHistory,
-  relativeTimeNow,
   onToggleHistory,
 }: ClipPreviewFooterProps) {
+  const relativeTimeNow = useMinuteTick();
   return (
     <div className="clip-preview-footer min-h-[55px] px-4 py-2.5 border-t flex text-[11px]">
       <div className="clip-preview-footer-stats">

@@ -16,7 +16,11 @@ const clipPreview = [
   'src/components/ClipPreview.tsx',
   'src/components/ClipPreviewContent.tsx',
   'src/components/ClipPreviewFooter.tsx',
+  'src/components/ClipPreviewHeader.tsx',
   'src/components/ClipPreviewNotesPanel.tsx',
+  'src/components/ClipPreviewOrganization.tsx',
+  'src/components/ClipPreviewTransformControls.tsx',
+  'src/components/ClipPreviewWorkspace.tsx',
   'src/components/clipPreviewModel.ts',
   'src/hooks/useClipPreviewAnalysis.ts',
   'src/hooks/useClipPreviewNotes.ts',
@@ -126,7 +130,7 @@ assert.match(clipPreview, /features\.clipTypes && <span[\s\S]{0,500}contentTypeL
   'Clip Preview must hide structural Clip Type chrome when disabled');
 assert.match(clipPreview, /features\.types && visibleContentTypes\.map/,
   'Clip Preview must hide detected Content Types when Content Types is disabled');
-assert.match(clipPreview, /features\.sources && <OverflowText text=\{localizedSourceName\(clip\.source\)\}/,
+assert.match(clipPreview, /features\.sources && <OverflowText[\s\S]{0,100}text=\{localizedSourceName\(clip\.source\)\}/,
   'Clip Preview must hide its Source label when Sources is disabled');
 assert.match(analytics, /features\.sources && <div className="theme-panel[\s\S]{0,1000}translate\('component\.analyticsView\.topSourceInHistory'\)/,
   'Insights must hide Source summaries when Sources is disabled');
