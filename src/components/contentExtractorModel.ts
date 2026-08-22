@@ -97,12 +97,6 @@ export const EXTRACTOR_OUTPUT_OPTIONS = [
   { value: 'searchable_text', get label() { return translate('component.contentExtractorManagerDialog.searchableText'); } },
 ] as const;
 
-export const EXTRACTOR_FILE_FORMAT_OPTIONS = [
-  '*',
-  'aac', 'bmp', 'flac', 'gif', 'heif', 'jpg', 'm4a', 'mp3', 'ogg',
-  'pdf', 'png', 'tif', 'wav', 'webp',
-] as const;
-
 export const emptyRecipe = (): ExtractorRecipe => ({
   definitionVersion: 1,
   accepts: ['image'],

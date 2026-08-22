@@ -6,6 +6,7 @@ import { OverflowText } from './OverflowText';
 export interface MenuMultiSelectOption {
   value: string;
   label: string;
+  group?: string;
   icon?: ReactNode;
   disabled?: boolean;
 }
@@ -52,30 +53,36 @@ export function MenuMultiSelect({
       anchor={{ kind: 'element', ref: triggerRef, align: 'start' }}
       ariaLabel={label}
       onClose={() => setIsOpen(false)}
+      className="max-h-80 overflow-y-auto"
       style={{ width: Math.max(triggerRef.current?.getBoundingClientRect().width ?? 220, 220) }}
     >
-      {options.map((option) => {
+      {options.map((option, index) => {
         const active = values.includes(option.value);
-        return <MenuItem
-          key={option.value}
-          type="button"
-          role="menuitemcheckbox"
-          aria-checked={active}
-          active={active}
-          disabled={option.disabled}
-          className="gap-2 px-2.5 py-2"
-          onClick={() => {
-            if (option.disabled) return;
-            const next = active
-              ? values.filter((value) => value !== option.value)
-              : [...values, option.value];
-            if (next.length > 0) onChange(next);
-          }}
-        >
-          {option.icon && <span className="grid h-4 w-4 shrink-0 place-items-center">{option.icon}</span>}
-          <OverflowText text={option.label} className="bidi-interface-align min-w-0 flex-1 truncate" />
-          <Check className={`h-3.5 w-3.5 shrink-0 ${active ? '' : 'invisible'}`} aria-hidden="true" />
-        </MenuItem>;
+        const showGroup = option.group && option.group !== options[index - 1]?.group;
+        return <div key={option.value} role="none">
+          {showGroup && <div className={`theme-text-subtle px-2.5 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wider ${index > 0 ? 'theme-divider mt-1 border-t' : ''}`}>
+            {option.group}
+          </div>}
+          <MenuItem
+            type="button"
+            role="menuitemcheckbox"
+            aria-checked={active}
+            active={active}
+            disabled={option.disabled}
+            className="gap-2 px-2.5 py-2"
+            onClick={() => {
+              if (option.disabled) return;
+              const next = active
+                ? values.filter((value) => value !== option.value)
+                : [...values, option.value];
+              if (next.length > 0) onChange(next);
+            }}
+          >
+            {option.icon && <span className="grid h-4 w-4 shrink-0 place-items-center">{option.icon}</span>}
+            <OverflowText text={option.label} className="bidi-interface-align min-w-0 flex-1 truncate" />
+            <Check className={`h-3.5 w-3.5 shrink-0 ${active ? '' : 'invisible'}`} aria-hidden="true" />
+          </MenuItem>
+        </div>;
       })}
     </AnchoredMenu>}
   </>;

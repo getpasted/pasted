@@ -90,11 +90,12 @@ pub async fn extract_text_from_file_clip(
     clip_id: i64,
     db: State<'_, Arc<DbState>>,
 ) -> Result<crate::extraction_execution::ExtractionApplicationResult, String> {
+    let ocr_enabled = features::is_enabled(&db, Feature::Ocr);
     let transcriptions_enabled = features::is_enabled(&db, Feature::Transcriptions);
     let db = db.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let extractors = db
-            .active_file_text_extractors_for_features(transcriptions_enabled)
+            .active_file_text_extractors_for_features(ocr_enabled, transcriptions_enabled)
             .map_err(|error| error.to_string())?;
         if extractors.is_empty() {
             return Err("No available file text Extractor is enabled".to_string());

@@ -892,6 +892,14 @@ fn extractor_lifecycle_and_registry_capabilities_run_end_to_end() {
         serde_json::json!(["tesseract"])
     );
     assert_eq!(tesseract["inputContract"], "image");
+    assert_eq!(
+        tesseract["recipe"]["accepts"],
+        serde_json::json!(["image", "file_references"])
+    );
+    assert_eq!(
+        tesseract["recipe"]["acceptedFileFormats"],
+        serde_json::json!(["bmp", "gif", "jpg", "png", "tif", "webp"])
+    );
     assert_eq!(tesseract["outputContract"], "searchable_text");
     assert!(tesseract["isAvailable"].is_boolean());
     assert_eq!(tesseract["runtime"]["method"], "recipe");

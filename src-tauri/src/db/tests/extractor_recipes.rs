@@ -75,7 +75,7 @@ fn extractor_recipes_preserve_multi_input_authoring_history() {
         .iter()
         .any(|extractor| extractor.stable_ref == created.stable_ref));
     assert!(db
-        .active_file_text_extractors_for_features(true)
+        .active_file_text_extractors_for_features(true, true)
         .unwrap()
         .iter()
         .any(|extractor| extractor.stable_ref == created.stable_ref));

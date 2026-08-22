@@ -10,12 +10,19 @@ import type {
   ExtractorInput,
   ExtractorRecipe,
 } from '../src/components/contentExtractorModel.ts';
+import { EXTRACTOR_FILE_FORMAT_GROUPS } from '../src/components/extractorFileFormats.ts';
 
 const extractor = (stableRef: string) => ({ stableRef } as ContentExtractor);
 const apple = extractor('extractor:apple-vision-ocr');
 const tesseract = extractor('extractor:tesseract-ocr');
 const whisper = extractor('extractor:whisper-transcription');
 const custom = extractor('extractor:custom');
+
+assert.deepEqual(EXTRACTOR_FILE_FORMAT_GROUPS.map(({ id }) => id),
+  ['any', 'audio', 'images', 'video', 'documents'],
+  'Extractor File Formats must remain grouped by their detected media type');
+assert.deepEqual(EXTRACTOR_FILE_FORMAT_GROUPS.find(({ id }) => id === 'documents')?.formats, ['pdf'],
+  'PDF must be presented as a Document format');
 
 assert.deepEqual(
   visibleContentExtractors([apple, tesseract, whisper, custom], {

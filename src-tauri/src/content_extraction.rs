@@ -238,6 +238,8 @@ mod engine_runtime;
 pub(crate) mod file_routing;
 mod format_defaults;
 mod outcome;
+#[cfg(test)]
+mod preset_tests;
 pub fn system_engine_registry() -> ExtractorEngineRegistry<'static> {
     engine_runtime::system_engine_registry()
 }
@@ -360,7 +362,7 @@ pub const EXTRACTOR_PRESETS: &[ExtractorPreset] = &[
         input_contract: RepresentationKind::ImageBytes.stable_name(),
         output_contract: RepresentationKind::SearchableText.stable_name(),
         priority: 10,
-        revision: 4,
+        revision: 5,
     },
     ExtractorPreset {
         stable_ref: TESSERACT_OCR_REF,
@@ -372,7 +374,7 @@ pub const EXTRACTOR_PRESETS: &[ExtractorPreset] = &[
         input_contract: RepresentationKind::ImageBytes.stable_name(),
         output_contract: RepresentationKind::SearchableText.stable_name(),
         priority: 20,
-        revision: 3,
+        revision: 4,
     },
     ExtractorPreset {
         stable_ref: WHISPER_TRANSCRIPTION_REF,
@@ -649,6 +651,9 @@ impl ExtractorPreset {
         }
         .into();
         let mut recipe = recipe_for_legacy_definition(&definition);
+        if matches!(self.stable_ref, APPLE_VISION_OCR_REF | TESSERACT_OCR_REF) {
+            recipe.accepts.push(ExtractorInputKind::FileReferences);
+        }
         recipe.accepted_file_formats = format_defaults::for_builtin(self.stable_ref);
         recipe
     }

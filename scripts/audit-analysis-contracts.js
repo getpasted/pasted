@@ -209,8 +209,8 @@ assert.match(classifierManager, /errorMessage\(error\)/,
   'Classifier management must use the shared structured error presenter');
 assert.match(analysisSettingsShell, /<ContentExtractorManagerDialog[\s\S]{0,220}ocrEnabled=\{ocrEnabled\}[\s\S]{0,100}transcriptionsEnabled=\{transcriptionsEnabled\}/,
   'Analysis Settings must pass both extraction feature gates to Extractor management');
-assert.match(commands, /extract_text_from_file_clip[\s\S]{0,400}active_file_text_extractors_for_features\(transcriptions_enabled\)/,
-  'Native file extraction must preserve custom Extractors when Transcriptions is disabled');
+assert.match(commands, /extract_text_from_file_clip[\s\S]{0,500}active_file_text_extractors_for_features\(ocr_enabled, transcriptions_enabled\)/,
+  'Native file extraction must apply both built-in feature gates without hiding custom Extractors');
 assert.match(clipPreviewContent, /transcriptionsEnabled && <section className="theme-panel overflow-hidden rounded-xl border shadow-lg">/,
   'Clip Preview must hide transcription controls when Transcriptions is disabled');
 for (const command of [

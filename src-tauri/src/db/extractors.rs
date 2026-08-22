@@ -692,23 +692,25 @@ impl DbState {
         &self,
     ) -> Result<Option<crate::content_extraction::Extractor>> {
         Ok(self
-            .active_file_text_extractors_for_features(true)?
+            .active_file_text_extractors_for_features(true, true)?
             .into_iter()
             .next())
     }
 
     pub fn active_file_text_extractor_for_features(
         &self,
+        ocr_enabled: bool,
         transcriptions_enabled: bool,
     ) -> Result<Option<crate::content_extraction::Extractor>> {
         Ok(self
-            .active_file_text_extractors_for_features(transcriptions_enabled)?
+            .active_file_text_extractors_for_features(ocr_enabled, transcriptions_enabled)?
             .into_iter()
             .next())
     }
 
     pub fn active_file_text_extractors_for_features(
         &self,
+        ocr_enabled: bool,
         transcriptions_enabled: bool,
     ) -> Result<Vec<crate::content_extraction::Extractor>> {
         Ok(self
@@ -717,6 +719,12 @@ impl DbState {
             .filter(|extractor| {
                 extractor.enabled
                     && extractor.is_available
+                    && (ocr_enabled
+                        || !matches!(
+                            extractor.stable_ref.as_str(),
+                            crate::content_extraction::APPLE_VISION_OCR_REF
+                                | crate::content_extraction::TESSERACT_OCR_REF
+                        ))
                     && (transcriptions_enabled
                         || extractor.stable_ref
                             != crate::content_extraction::WHISPER_TRANSCRIPTION_REF)

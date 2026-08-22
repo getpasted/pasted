@@ -8,7 +8,6 @@ import { MenuSelect } from './MenuSelect';
 import { SettingsSwitch } from './SettingsSwitch';
 import {
   emptyRecipe,
-  EXTRACTOR_FILE_FORMAT_OPTIONS,
   EXTRACTOR_INPUT_OPTIONS,
   EXTRACTOR_OUTPUT_OPTIONS,
   type ExtractorCapture,
@@ -16,6 +15,7 @@ import {
   type ExtractorRecipe,
   type ExtractorTestOutcome,
 } from './contentExtractorModel';
+import { EXTRACTOR_FILE_FORMAT_GROUPS, EXTRACTOR_FILE_FORMAT_OPTIONS } from './extractorFileFormats';
 
 export function ExtractorRecipeEditor({
   recipe,
@@ -63,8 +63,12 @@ export function ExtractorRecipeEditor({
   const resourceRequiredLabel = translate('component.contentExtractorManagerDialog.resourceRequired');
   const fileFormatOptions = [
     ...EXTRACTOR_FILE_FORMAT_OPTIONS,
-    ...recipe.acceptedFileFormats.filter((format) => !EXTRACTOR_FILE_FORMAT_OPTIONS.includes(format as typeof EXTRACTOR_FILE_FORMAT_OPTIONS[number])),
+    ...recipe.acceptedFileFormats.filter((format) => !EXTRACTOR_FILE_FORMAT_OPTIONS.includes(format)),
   ];
+  const fileFormatGroup = (format: string) => {
+    const group = EXTRACTOR_FILE_FORMAT_GROUPS.find(({ formats }) => formats.includes(format))?.id ?? 'other';
+    return translate(`component.contentExtractorManagerDialog.fileFormatGroup.${group}`);
+  };
 
   return <>
             <details className="theme-subtle-surface rounded-xl border p-3 text-[10px]">
@@ -72,11 +76,11 @@ export function ExtractorRecipeEditor({
               <div className="mt-3 space-y-4">
                 <div className="grid grid-cols-1 gap-3 @md:grid-cols-3">
                   <label className="space-y-1">
-                    <span className="theme-text-muted block font-semibold">{translate('component.contentExtractorManagerDialog.acceptedInputs')}</span>
+                    <span className="theme-text-muted block font-semibold">{translate('component.contentExtractorManagerDialog.acceptedClipTypes')}</span>
                     <MenuMultiSelect
                       values={recipe.accepts}
                       onChange={(values) => onChange({ ...recipe, accepts: values as ExtractorInputKind[] })}
-                      label={translate('component.contentExtractorManagerDialog.acceptedInputs')}
+                      label={translate('component.contentExtractorManagerDialog.acceptedClipTypes')}
                       placeholder={translate('component.contentExtractorManagerDialog.chooseInputs')}
                       className="w-full"
                       options={EXTRACTOR_INPUT_OPTIONS.filter((option) => !option.disabled).map((option) => ({ value: option.value, label: option.label }))}
@@ -96,8 +100,10 @@ export function ExtractorRecipeEditor({
                       label={translate('component.contentExtractorManagerDialog.acceptedFileFormats')}
                       placeholder={translate('component.contentExtractorManagerDialog.chooseFileFormats')}
                       className="w-full"
+                      disabled={!recipe.accepts.includes('file_references')}
                       options={fileFormatOptions.map((format) => ({
                         value: format,
+                        group: fileFormatGroup(format),
                         label: format === '*'
                           ? translate('component.contentExtractorManagerDialog.anyFileFormat')
                           : format.toUpperCase(),

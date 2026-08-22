@@ -1,4 +1,4 @@
-import { CircleAlert, CircleCheck, RotateCcw, ScanText, Sparkles } from 'lucide-react';
+import { CircleAlert, CircleCheck, RotateCcw, ScanText } from 'lucide-react';
 import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading, SaveButtonContent } from './AppDialogLayout';
 import { ConfirmationDialog } from './ConfirmationDialog';
@@ -7,6 +7,7 @@ import { RegistryPanelFooter } from './RegistryPanelFooter';
 import { RegistryPanelHeader } from './RegistryPanelHeader';
 import { translate } from '../localization/runtime';
 import { ExtractorAuthoringHistoryDialog } from './ExtractorAuthoringHistoryDialog';
+import { ExtractorAiAuthoringPanel } from './ExtractorAiAuthoringPanel';
 import { ExtractorRecipeEditor } from './ExtractorRecipeEditor';
 import { ExtractorRegistryPanel } from './ExtractorRegistryPanel';
 import { useContentExtractorManager } from '../hooks/useContentExtractorManager';
@@ -139,33 +140,12 @@ export function ContentExtractorManagerDialog({
               <ModifiedFieldLabel modified={selectedId !== 'new' && draft.description !== defaults?.description}>{translate('common.description')}</ModifiedFieldLabel>
               <input value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} className="theme-input ui-field-radius w-full border px-3 py-2" />
             </label>
-            <div className="theme-subtle-surface space-y-3 rounded-xl border p-3">
-              <label className="block space-y-1">
-                <span className="theme-text-muted block text-[10px] font-semibold">{translate('component.contentExtractorManagerDialog.describeExtractor')}</span>
-                <textarea dir="auto"
-                  value={authoringPrompt}
-                  onChange={(event) => setAuthoringPrompt(event.target.value)}
-                  placeholder={translate('component.contentExtractorManagerDialog.describeExtractorPlaceholder')}
-                  className="theme-input ui-field-radius min-h-20 w-full resize-y border px-3 py-2"
-                />
-              </label>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="theme-text-muted text-[10px]">{translate('component.contentExtractorManagerDialog.aiCreatesLocalReviewableRecipe')}</span>
-                {hasIntelligence
-                  ? <AppDialogButton variant="primary" onClick={() => void generateRecipe()} disabled={!authoringPrompt.trim() || generating}>
-                    <Sparkles className="h-3.5 w-3.5" /> {generating ? translate('component.contentExtractorManagerDialog.creating') : translate('component.contentExtractorManagerDialog.createWithAi')}
-                  </AppDialogButton>
-                  : <AppDialogButton onClick={onOpenIntelligence} disabled={!onOpenIntelligence}>
-                    <Sparkles className="h-3.5 w-3.5" /> {translate('component.contentExtractorManagerDialog.connectAi')}
-                  </AppDialogButton>}
-              </div>
-              {setupGuidance.length > 0 && <div className="theme-subtle-surface rounded-lg border p-2.5">
-                <span className="theme-text-muted block text-[10px] font-semibold">{translate('component.contentExtractorManagerDialog.setup')}</span>
-                <ul className="mt-1 list-disc space-y-1 ps-4 text-[10px]">
-                  {setupGuidance.map((item) => <li key={item}>{item}</li>)}
-                </ul>
-              </div>}
-            </div>
+            <ExtractorAiAuthoringPanel
+              isNew={selectedId === 'new'} prompt={authoringPrompt} generating={generating}
+              hasIntelligence={hasIntelligence} setupGuidance={setupGuidance}
+              onPromptChange={setAuthoringPrompt} onGenerate={() => void generateRecipe()}
+              onOpenIntelligence={onOpenIntelligence}
+            />
             <ExtractorRecipeEditor
               recipe={recipeDraft}
               onChange={setRecipeDraft}

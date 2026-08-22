@@ -1,4 +1,5 @@
-const imageFormats = ['bmp', 'gif', 'heif', 'jpg', 'png', 'tif', 'webp'];
+const appleImageFormats = ['bmp', 'gif', 'heif', 'jpg', 'png', 'tif', 'webp'];
+const tesseractImageFormats = ['bmp', 'gif', 'jpg', 'png', 'tif', 'webp'];
 const audioFormats = ['aac', 'flac', 'm4a', 'mp3', 'ogg', 'wav'];
 const appleDefaults = { name: 'Apple Vision OCR', description: 'Extracts searchable text from images locally with Apple Vision.', engine: 'recipe-v1', executablePath: null, modelPath: null, inputContract: 'image', outputContract: 'searchable_text', enabled: true, priority: 10 };
 const tesseractDefaults = { name: 'Tesseract OCR', description: 'Extracts searchable text from images locally with Tesseract.', engine: 'recipe-v1', executablePath: null, modelPath: null, inputContract: 'image', outputContract: 'searchable_text', enabled: true, priority: 20 };
@@ -13,8 +14,8 @@ export type MockExtractorRecipe = {
   resources: Array<{ id: string; label: string; kind: 'file' | 'directory'; required: boolean; path: string | null }>;
 };
 
-export const mockExtractorRecipe = (input: 'image' | 'file_references', command: string, acceptedFileFormats = ['*']): MockExtractorRecipe => ({
-  definitionVersion: 1, accepts: [input], acceptedFileFormats, output: 'searchable_text',
+export const mockExtractorRecipe = (input: 'image' | 'file_references' | Array<'image' | 'file_references'>, command: string, acceptedFileFormats = ['*']): MockExtractorRecipe => ({
+  definitionVersion: 1, accepts: Array.isArray(input) ? input : [input], acceptedFileFormats, output: 'searchable_text',
   steps: [{ id: 'extract', executable: { path: null, discover: [command], versionArguments: ['--version'] }, arguments: ['{input.path}'], mode: 'once', capture: 'stdout_text', outputExtension: null, timeoutSeconds: 60 }],
   resources: [],
 });
@@ -38,16 +39,16 @@ const builtin = (id: number, stableRef: string, defaults: typeof appleDefaults, 
     : id === 2
       ? 'Tesseract OCR is not installed. Install Tesseract 5, then check again.'
       : 'Whisper.cpp is not installed. Install whisper-cpp, then check again.',
-  recipe: mockExtractorRecipe(defaults.inputContract as 'image' | 'file_references', command, formats),
+  recipe: mockExtractorRecipe(id === 3 ? 'file_references' : ['image', 'file_references'], command, formats),
   recipeHash: `mock-${id}`,
-  defaultRecipe: mockExtractorRecipe(defaults.inputContract as 'image' | 'file_references', command, formats),
+  defaultRecipe: mockExtractorRecipe(id === 3 ? 'file_references' : ['image', 'file_references'], command, formats),
   defaults: { ...defaults },
 });
 
 export function mockBuiltinExtractors() {
   return [
-    builtin(1, 'extractor:apple-vision-ocr', appleDefaults, 'pasted-bundled-extractor', imageFormats),
-    builtin(2, 'extractor:tesseract-ocr', tesseractDefaults, 'tesseract', imageFormats),
+    builtin(1, 'extractor:apple-vision-ocr', appleDefaults, 'pasted-bundled-extractor', appleImageFormats),
+    builtin(2, 'extractor:tesseract-ocr', tesseractDefaults, 'tesseract', tesseractImageFormats),
     builtin(3, 'extractor:whisper-transcription', whisperDefaults, 'whisper-cli', audioFormats),
   ];
 }

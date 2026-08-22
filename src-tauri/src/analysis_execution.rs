@@ -98,10 +98,10 @@ fn execute(
                 db,
                 crate::features::Feature::Ocr,
             )),
-            "file" => db.active_file_text_extractors_for_features(crate::features::is_enabled(
-                db,
-                crate::features::Feature::Transcriptions,
-            )),
+            "file" => db.active_file_text_extractors_for_features(
+                crate::features::is_enabled(db, crate::features::Feature::Ocr),
+                crate::features::is_enabled(db, crate::features::Feature::Transcriptions),
+            ),
             _ => Ok(Vec::new()),
         }
         .map_err(|error| error.to_string())?
