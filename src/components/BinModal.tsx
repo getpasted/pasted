@@ -1,28 +1,30 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { ChevronDown, Folder, Plus, Minus } from 'lucide-react';
+import React from 'react';
+import { Folder, Plus, Minus } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
-import { binsApi } from '../api/bins';
-import { Bin, TransformDefinition } from '../types';
+import { Bin } from '../types';
 import { formatEmojiIcon } from '../utils/emoji';
 import { detectDesktopPlatform } from '../utils/platform';
 import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading, SaveButtonContent } from './AppDialogLayout';
-import { AnchoredMenu, MenuDivider, MenuItem, MenuSubmenu } from './AnchoredMenu';
+import { AnchoredMenu } from './AnchoredMenu';
 import { MenuSelect } from './MenuSelect';
 import { useContentTypes } from './ContentTypeProvider';
-import { translate, type TranslationKey } from '../localization/runtime';
+import { translate } from '../localization/runtime';
 import { localizedContentTypeGroupLabel } from '../localization/presentation';
 import { contentTypeLabel } from '../utils/contentTypes';
 import { SettingsSwitch } from './SettingsSwitch';
-
-interface SmartBinFeatures {
-  clipTypes: boolean;
-  fileFormats: boolean;
-  sources: boolean;
-  types: boolean;
-  protection: boolean;
-  concealment: boolean;
-}
+import { SmartConditionTargetSelect, SmartConditionValueInput } from './BinModalSmartConditionInputs';
+import {
+  BIN_EMOJI_OPTIONS,
+  COLOR_PALETTE,
+  STRUCTURAL_CLIP_TYPES,
+  emojiLabel,
+  type SmartBinFeatures,
+  type SmartConditionRow,
+  type SmartConditionTarget,
+  type SmartTargetSection,
+} from './binModalModel';
+import { useBinModalForm } from '../hooks/useBinModalForm';
 
 interface BinModalProps {
   isOpen: boolean;
@@ -32,320 +34,6 @@ interface BinModalProps {
   sources: string[];
   onClose: () => void;
   onRefreshBins: () => void;
-}
-
-type SmartConditionTarget = 'clip_type' | 'file_format' | 'source' | 'content_type' | 'origin_kind' | 'contains' | 'file_extension' | 'file_path';
-
-interface SmartConditionRow {
-  id: string;
-  target: SmartConditionTarget;
-  operator: 'is' | 'contains';
-  value: string;
-}
-
-interface SmartTargetChoice {
-  value: string;
-  label: string;
-  group?: string;
-  disabled?: boolean;
-}
-
-interface SmartTargetSection {
-  target: SmartConditionTarget;
-  label: string;
-  choices?: SmartTargetChoice[];
-  dividerBefore?: boolean;
-}
-
-function SmartConditionTargetSelect({
-  condition,
-  sections,
-  onSelect,
-}: {
-  condition: SmartConditionRow;
-  sections: SmartTargetSection[];
-  onSelect: (target: SmartConditionTarget, value: string) => void;
-}) {
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const [isOpen, setIsOpen] = useState(false);
-  const [activeSubmenu, setActiveSubmenu] = useState<SmartConditionTarget | null>(null);
-  const selectedSection = sections.find(({ target }) => target === condition.target);
-
-  const close = () => {
-    setIsOpen(false);
-    setActiveSubmenu(null);
-    triggerRef.current?.focus();
-  };
-
-  return <>
-    <button
-      ref={triggerRef}
-      type="button"
-      className="menu-select-trigger flex w-28 min-w-0 items-center gap-2 rounded-lg border px-2 text-start"
-      aria-label={translate('component.binModal.conditionTarget')}
-      aria-haspopup="menu"
-      aria-expanded={isOpen}
-      onClick={() => setIsOpen((open) => !open)}
-    >
-      <span className="bidi-interface-align min-w-0 flex-1 truncate py-1.5 text-xs font-semibold">
-        {selectedSection?.label ?? condition.target}
-      </span>
-      <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
-    </button>
-    {isOpen && (
-      <AnchoredMenu
-        anchor={{ kind: 'element', ref: triggerRef, align: 'start' }}
-        ariaLabel={translate('component.binModal.conditionTarget')}
-        onClose={close}
-        className="w-56"
-      >
-        {sections.map((section) => <React.Fragment key={section.target}>
-          {section.dividerBefore && <MenuDivider />}
-          {section.choices ? (
-            <MenuSubmenu
-              label={section.label}
-              open={activeSubmenu === section.target}
-              onOpenChange={(open) => setActiveSubmenu((current) => (
-                open ? section.target : current === section.target ? null : current
-              ))}
-              onSelect={() => {
-                onSelect(
-                  section.target,
-                  section.target === 'clip_type'
-                    ? condition.target === 'clip_type' ? condition.value : 'text'
-                    : condition.target === section.target ? condition.value : '',
-                );
-                close();
-              }}
-              panelClassName="w-64 max-h-72 overflow-y-auto"
-            >
-              {section.choices.map((choice, index) => <React.Fragment key={`${section.target}:${choice.value}`}>
-                {choice.group && choice.group !== section.choices?.[index - 1]?.group && (
-                  <div className={`theme-text-subtle px-2.5 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wider ${index > 0 ? 'theme-divider mt-1 border-t' : ''}`}>
-                    {choice.group}
-                  </div>
-                )}
-                <MenuItem
-                  active={condition.target === section.target && condition.value === choice.value}
-                  disabled={choice.disabled}
-                  role="menuitemradio"
-                  aria-checked={condition.target === section.target && condition.value === choice.value}
-                  className="px-2.5 py-1.5"
-                  onClick={() => {
-                    if (choice.disabled) return;
-                    onSelect(section.target, choice.value);
-                    close();
-                  }}
-                >
-                  {choice.label}
-                </MenuItem>
-              </React.Fragment>)}
-            </MenuSubmenu>
-          ) : (
-            <MenuItem
-              active={condition.target === section.target}
-              role="menuitemradio"
-              aria-checked={condition.target === section.target}
-              className="px-3 py-1.5"
-              onClick={() => {
-                onSelect(section.target, '');
-                close();
-              }}
-            >
-              {section.label}
-            </MenuItem>
-          )}
-        </React.Fragment>)}
-      </AnchoredMenu>
-    )}
-  </>;
-}
-
-function SmartConditionValueInput({
-  value,
-  choices,
-  label,
-  onChange,
-}: {
-  value: string;
-  choices: SmartTargetChoice[];
-  label: string;
-  onChange: (value: string) => void;
-}) {
-  const anchorRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [isOpen, setIsOpen] = useState(false);
-  const [showAll, setShowAll] = useState(true);
-  const selectedChoice = choices.find((choice) => choice.value === value);
-  const displayedValue = selectedChoice?.label ?? value;
-  const normalizedValue = displayedValue.trim().toLowerCase();
-  const visibleChoices = showAll || !normalizedValue
-    ? choices
-    : choices.filter((choice) => (
-      `${choice.label} ${choice.value}`.toLowerCase().includes(normalizedValue)
-    ));
-
-  return <div ref={anchorRef} className="theme-input form-field-valid flex min-w-0 flex-1 items-center rounded-lg border">
-    <input
-      ref={inputRef}
-      type="text"
-      role="combobox"
-      aria-label={label}
-      aria-autocomplete="list"
-      aria-expanded={isOpen}
-      placeholder={label}
-      value={displayedValue}
-      onFocus={() => {
-        setShowAll(true);
-        setIsOpen(true);
-      }}
-      onChange={(event) => {
-        setShowAll(false);
-        setIsOpen(true);
-        onChange(event.target.value);
-      }}
-      onKeyDown={(event) => {
-        if (event.key !== 'ArrowDown') return;
-        event.preventDefault();
-        setShowAll(true);
-        setIsOpen(true);
-      }}
-      className="bidi-content min-w-0 flex-1 bg-transparent px-3 py-1.5 text-xs font-semibold focus:outline-none"
-    />
-    <button
-      type="button"
-      className="theme-text-muted grid self-stretch shrink-0 place-items-center px-2"
-      aria-label={label}
-      aria-haspopup="menu"
-      aria-expanded={isOpen}
-      onClick={() => {
-        if (isOpen) {
-          setIsOpen(false);
-          return;
-        }
-        setShowAll(true);
-        setIsOpen(true);
-        inputRef.current?.focus({ preventScroll: true });
-      }}
-    >
-      <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
-    </button>
-    {isOpen && (
-      <AnchoredMenu
-        anchor={{ kind: 'element', ref: anchorRef, align: 'start', gap: 4 }}
-        ariaLabel={label}
-        onClose={() => setIsOpen(false)}
-        restoreFocus={false}
-        className="max-h-72 overflow-y-auto"
-        style={{ width: anchorRef.current?.getBoundingClientRect().width ?? 220 }}
-      >
-        {visibleChoices.map((choice, index) => <React.Fragment key={choice.value}>
-          {choice.group && choice.group !== visibleChoices[index - 1]?.group && (
-            <div className={`theme-text-subtle px-2.5 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wider ${index > 0 ? 'theme-divider mt-1 border-t' : ''}`}>
-              {choice.group}
-            </div>
-          )}
-          <MenuItem
-            active={value === choice.value}
-            disabled={choice.disabled}
-            role="menuitemradio"
-            aria-checked={value === choice.value}
-            className="px-2.5 py-1.5"
-            onClick={() => {
-              if (choice.disabled) return;
-              onChange(choice.value);
-              setIsOpen(false);
-            }}
-          >
-            {choice.label}
-          </MenuItem>
-        </React.Fragment>)}
-        {visibleChoices.length === 0 && (
-          <div className="theme-text-subtle px-3 py-4 text-center text-xs">
-            {translate('component.menuSelect.noMatches')}
-          </div>
-        )}
-      </AnchoredMenu>
-    )}
-  </div>;
-}
-
-const STRUCTURAL_CLIP_TYPES = new Set(['text', 'image', 'file']);
-
-function normalizeSmartCondition(condition: any, index: number): SmartConditionRow {
-  const value = typeof condition?.value === 'string' ? condition.value : '';
-  const legacyStructuralType = condition?.type === 'content_type' && STRUCTURAL_CLIP_TYPES.has(value);
-  return {
-    id: String(index + 1),
-    target: legacyStructuralType ? 'clip_type' : condition?.type || 'source',
-    operator: condition?.operator || 'is',
-    value,
-  };
-}
-
-const COLOR_PALETTE = [
-  { hex: 'default', get label() { return translate('common.default'); } },
-  { hex: '#ef4444', get label() { return translate('component.binModal.red'); } },
-  { hex: '#f97316', get label() { return translate('component.binModal.orange'); } },
-  { hex: '#eab308', get label() { return translate('component.binModal.yellow'); } },
-  { hex: '#10b981', get label() { return translate('component.binModal.green'); } },
-  { hex: '#ec4899', get label() { return translate('component.binModal.pink'); } },
-  { hex: '#8b5cf6', get label() { return translate('component.binModal.purple'); } },
-  { hex: '#06b6d4', get label() { return translate('component.binModal.cyan'); } },
-  { hex: '#3b82f6', get label() { return translate('component.binModal.blue'); } },
-  { hex: '#6b7280', get label() { return translate('component.binModal.gray'); } },
-  { hex: '#d97706', get label() { return translate('component.binModal.amber'); } },
-];
-
-const BIN_EMOJI_OPTIONS = [
-  ['📂', 'folder'], ['📁', 'openFolder'], ['🗂️', 'dividers'], ['🗃️', 'archive'],
-  ['📋', 'clipboard'], ['📌', 'pin'], ['🔖', 'bookmark'], ['🏷️', 'label'],
-  ['⭐', 'star'], ['✨', 'sparkles'], ['❤️', 'favorite'], ['🔥', 'hot'],
-  ['💡', 'idea'], ['🧠', 'knowledge'], ['📝', 'notes'], ['📚', 'reference'],
-  ['📄', 'document'], ['📊', 'data'], ['📸', 'screenshot'], ['🖼️', 'image'],
-  ['🎨', 'design'], ['🎵', 'audio'], ['🎬', 'video'], ['🎮', 'games'],
-  ['🔗', 'links'], ['🌐', 'web'], ['💬', 'messages'], ['📧', 'email'],
-  ['💻', 'computer'], ['⌨️', 'code'], ['🧰', 'tools'], ['⚙️', 'settings'],
-  ['🔐', 'secure'], ['🛡️', 'protected'], ['🔑', 'keys'], ['🧪', 'testing'],
-  ['✅', 'complete'], ['🚧', 'inProgress'], ['⚠️', 'important'], ['🗑️', 'trash'],
-  ['🏠', 'home'], ['💼', 'work'], ['👤', 'personal'], ['👥', 'people'],
-  ['🛒', 'shopping'], ['💰', 'finance'], ['✈️', 'travel'], ['📍', 'places'],
-  ['🍔', 'food'], ['☕', 'coffee'], ['🏋️', 'fitness'], ['💊', 'health'],
-  ['🌱', 'growth'], ['🌙', 'later'], ['🚀', 'launch'], ['🎯', 'goals'],
-] as const;
-
-const emojiLabel = (key: string) => translate(`component.binModal.emoji.${key}` as TranslationKey);
-
-function defaultSmartCondition(features: SmartBinFeatures): SmartConditionRow {
-  if (features.clipTypes) return { id: '1', target: 'clip_type', operator: 'is', value: 'text' };
-  if (features.types) return { id: '1', target: 'content_type', operator: 'is', value: 'code' };
-  if (features.fileFormats) return { id: '1', target: 'file_format', operator: 'is', value: '' };
-  if (features.sources) return { id: '1', target: 'source', operator: 'is', value: '1Password' };
-  return { id: '1', target: 'contains', operator: 'contains', value: '' };
-}
-
-function initialBinForm(editingBin: Bin | null | undefined, features: SmartBinFeatures) {
-  if (editingBin?.smart_rule) {
-    try {
-      const parsed = JSON.parse(editingBin.smart_rule);
-      return {
-        modalTab: 'smart',
-        conditions: parsed.conditions?.length > 0
-          ? parsed.conditions.map(normalizeSmartCondition)
-          : [defaultSmartCondition(features)],
-        matchCondition: parsed.match || 'any',
-      };
-    } catch {
-      // Fall through to the safe manual defaults used by the editor.
-    }
-  }
-  return {
-    modalTab: 'bin',
-    conditions: [editingBin
-      ? { ...defaultSmartCondition(features), value: '' }
-      : defaultSmartCondition(features)],
-    matchCondition: 'any',
-  };
 }
 
 export const BinModal: React.FC<BinModalProps> = ({
@@ -358,229 +46,37 @@ export const BinModal: React.FC<BinModalProps> = ({
   onRefreshBins,
 }) => {
   const { definitions: contentTypes, groups: contentTypeGroups } = useContentTypes();
-  const [modalTab, setModalTab] = useState<'bin' | 'smart'>(() => {
-    if (editingBin?.smart_rule) return 'smart';
-    return 'bin';
+  const form = useBinModalForm({
+    isOpen,
+    editingBin,
+    features,
+    fileFormats,
+    contentTypes,
+    onClose,
+    onRefreshBins,
   });
-  const [name, setName] = useState(() => editingBin?.name || '');
-  const [selectedColor, setSelectedColor] = useState(() => editingBin?.color || 'default');
-  const [icon, setIcon] = useState(() => (editingBin ? formatEmojiIcon(editingBin.icon) : '📂'));
-  const [isEmojiMenuOpen, setIsEmojiMenuOpen] = useState(false);
-  const emojiTriggerRef = useRef<HTMLButtonElement>(null);
+  const {
+    modalTab, setModalTab,
+    name, setName,
+    selectedColor, setSelectedColor,
+    icon, setIcon,
+    isEmojiMenuOpen, setIsEmojiMenuOpen, emojiTriggerRef,
+    errors, setErrors,
+    installedApps,
+    transforms, transformRef, setTransformRef,
+    protectClips, setProtectClips,
+    concealClips, setConcealClips,
+    conditions, matchCondition, setMatchCondition,
+    addCondition: handleAddCondition,
+    removeCondition: handleRemoveCondition,
+    updateCondition: handleUpdateCondition,
+    submit: handleSubmit,
+    isDirty,
+  } = form;
   const desktopPlatform = detectDesktopPlatform();
-
-  // Form Validation State
-  const [errors, setErrors] = useState<{ name?: boolean; color?: boolean; icon?: boolean }>({});
-
-  // Installed OS Apps state
-  const [installedApps, setInstalledApps] = useState<string[]>([]);
-  const [transforms, setTransforms] = useState<TransformDefinition[]>([]);
-  const [transformRef, setTransformRef] = useState('');
-  const [protectClips, setProtectClips] = useState(() => Boolean(editingBin?.protect_clips));
-  const [concealClips, setConcealClips] = useState(() => Boolean(editingBin?.conceal_clips));
-
-  // Multi-condition Smart Rules state
-  const [conditions, setConditions] = useState<SmartConditionRow[]>(() => {
-    if (editingBin?.smart_rule) {
-      try {
-        const parsed = JSON.parse(editingBin.smart_rule);
-        if (parsed.conditions && parsed.conditions.length > 0) {
-          return parsed.conditions.map(normalizeSmartCondition);
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    return [defaultSmartCondition(features)];
-  });
-  const [matchCondition, setMatchCondition] = useState<'any' | 'all'>(() => {
-    if (editingBin?.smart_rule) {
-      try {
-        const parsed = JSON.parse(editingBin.smart_rule);
-        return parsed.match || 'any';
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    return 'any';
-  });
-
-  const initialTransformRef = React.useRef('');
-
-  useEffect(() => {
-    if (isOpen) {
-      setErrors({});
-      setIsEmojiMenuOpen(false);
-
-      if (editingBin) {
-        setName(editingBin.name);
-        setSelectedColor(editingBin.color || 'default');
-        setIcon(formatEmojiIcon(editingBin.icon));
-        setProtectClips(Boolean(editingBin.protect_clips));
-        setConcealClips(Boolean(editingBin.conceal_clips));
-        if (editingBin.smart_rule) {
-          setModalTab('smart');
-          try {
-            const parsed = JSON.parse(editingBin.smart_rule);
-            if (parsed.conditions && parsed.conditions.length > 0) {
-              setConditions(
-                parsed.conditions.map(normalizeSmartCondition)
-              );
-            } else {
-              setConditions([{ ...defaultSmartCondition(features), value: '' }]);
-            }
-            setMatchCondition(parsed.match || 'any');
-          } catch (e) {
-            console.error(e);
-            setConditions([{ ...defaultSmartCondition(features), value: '' }]);
-          }
-        } else {
-          setModalTab('bin');
-          setConditions([{ ...defaultSmartCondition(features), value: '' }]);
-        }
-      } else {
-        setName('');
-        setSelectedColor('default');
-        setIcon('📂');
-        setProtectClips(false);
-        setConcealClips(false);
-        setModalTab('bin');
-        setConditions([defaultSmartCondition(features)]);
-      }
-
-      invoke<string[]>('get_installed_applications')
-        .then((apps) => {
-          setInstalledApps(Array.isArray(apps) ? apps : []);
-        })
-        .catch(console.error);
-      invoke<TransformDefinition[]>('get_transforms')
-        .then((savedTransforms) => setTransforms(Array.isArray(savedTransforms) ? savedTransforms : []))
-        .catch(console.error);
-      if (editingBin) {
-        invoke<string | null>('get_bin_transform_ref', { binId: editingBin.id })
-          .then((value) => {
-            initialTransformRef.current = value || '';
-            setTransformRef(value || '');
-          })
-          .catch(console.error);
-      } else {
-        initialTransformRef.current = '';
-        setTransformRef('');
-      }
-    }
-  }, [isOpen, editingBin]);
 
   if (!isOpen) return null;
 
-  const handleAddCondition = () => {
-    const target: SmartConditionTarget = features.clipTypes
-      ? 'clip_type'
-      : features.types
-        ? 'content_type'
-        : features.fileFormats
-          ? 'file_format'
-          : features.sources
-            ? 'source'
-          : 'contains';
-    const defaultVal = target === 'clip_type'
-      ? 'text'
-      : target === 'file_format'
-        ? fileFormats[0] || ''
-      : target === 'source'
-        ? installedApps[0] || 'Safari'
-        : target === 'content_type'
-          ? contentTypes.find((type) => !type.isArchived && !STRUCTURAL_CLIP_TYPES.has(type.id))?.id || ''
-          : '';
-    setConditions((prev) => [
-      ...prev,
-      {
-        id: String(Date.now() + Math.random()),
-        target,
-        operator: 'is',
-        value: defaultVal,
-      },
-    ]);
-  };
-
-  const handleRemoveCondition = (id: string) => {
-    if (conditions.length <= 1) return;
-    setConditions((prev) => prev.filter((c) => c.id !== id));
-  };
-
-  const handleUpdateCondition = (id: string, updates: Partial<SmartConditionRow>) => {
-    setConditions((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
-    );
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    // Validation Check
-    const newErrors: { name?: boolean; color?: boolean; icon?: boolean } = {};
-    if (!name.trim()) newErrors.name = true;
-    if (!selectedColor) newErrors.color = true;
-    if (!icon || !icon.trim()) newErrors.icon = true;
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
-
-    setErrors({});
-
-    let smartRuleJson: string | null = null;
-    if (modalTab === 'smart') {
-      smartRuleJson = JSON.stringify({
-        version: 1,
-        conditions: conditions.map((c) => ({
-          type: c.target,
-          operator: c.operator,
-          value: c.value.trim(),
-        })),
-        match: matchCondition,
-      });
-    }
-
-    try {
-      if (editingBin) {
-        await binsApi.update(editingBin.id, {
-          name: name.trim(),
-          icon: icon || '📂',
-          color: selectedColor,
-          smartRule: smartRuleJson,
-        });
-        await binsApi.setTransform(editingBin.id, transformRef || null);
-        if (modalTab === 'bin' && features.protection) {
-          await binsApi.updateProtection(editingBin.id, protectClips);
-        }
-        if (modalTab === 'bin' && features.concealment) {
-          await binsApi.updateConcealment(editingBin.id, concealClips);
-        }
-      } else {
-        const created = await binsApi.create({
-          name: name.trim(),
-          icon: icon || '📂',
-          color: selectedColor,
-          smartRule: smartRuleJson,
-        });
-        await binsApi.setTransform(created.id, transformRef || null);
-        if (modalTab === 'bin' && features.protection && protectClips) {
-          await binsApi.updateProtection(created.id, true);
-        }
-        if (modalTab === 'bin' && features.concealment && concealClips) {
-          await binsApi.updateConcealment(created.id, true);
-        }
-      }
-      setName('');
-      onRefreshBins();
-      onClose();
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const initial = initialBinForm(editingBin, features);
   const activeContentTypes = contentTypes.filter((type) => (
     !type.isArchived && !STRUCTURAL_CLIP_TYPES.has(type.id)
   ));
@@ -642,28 +138,6 @@ export const BinModal: React.FC<BinModalProps> = ({
       }] : []),
     ];
   };
-  const isDirty = JSON.stringify({
-    modalTab,
-    name,
-    selectedColor,
-    icon,
-    conditions,
-    matchCondition,
-    transformRef,
-    protectClips: modalTab === 'bin' && protectClips,
-    concealClips: modalTab === 'bin' && concealClips,
-  }) !== JSON.stringify({
-    modalTab: initial.modalTab,
-    name: editingBin?.name || '',
-    selectedColor: editingBin?.color || 'default',
-    icon: editingBin ? formatEmojiIcon(editingBin.icon) : '📂',
-    conditions: initial.conditions,
-    matchCondition: initial.matchCondition,
-    transformRef: initialTransformRef.current,
-    protectClips: initial.modalTab === 'bin' && Boolean(editingBin?.protect_clips),
-    concealClips: initial.modalTab === 'bin' && Boolean(editingBin?.conceal_clips),
-  });
-
   return (
     <AppDialog
       isOpen={isOpen}
