@@ -15,7 +15,11 @@ const clipViews = read('src/hooks/useClipViews.ts');
 const clipsApi = read('src/api/clips.ts');
 const emptyState = read('src/components/EmptyClipList.tsx');
 const viewPolicy = read('src/utils/clipViewPolicy.ts');
-const clipCard = read('src/components/ClipCard.tsx');
+const clipCard = [
+  'src/components/ClipCard.tsx',
+  'src/components/ClipCardActions.tsx',
+  'src/components/clipCardModel.ts',
+].map(read).join('\n');
 const app = read('src/App.tsx');
 const clipListHeader = read('src/components/ClipListHeader.tsx');
 const appNavigation = read('src/utils/appNavigation.ts');

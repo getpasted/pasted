@@ -23,7 +23,10 @@ const clipPreview = [
   'src/hooks/useClipPreviewRevisions.ts',
 ].map(read).join('\n');
 const clipPreviewContent = read('src/components/ClipPreviewContent.tsx');
-const clipCard = read('src/components/ClipCard.tsx');
+const clipCard = [
+  'src/components/ClipCard.tsx',
+  'src/components/ClipCardHeader.tsx',
+].map(read).join('\n');
 const analytics = read('src/components/AnalyticsView.tsx');
 const clipOrder = read('src/utils/clipOrder.ts');
 const database = readRustModuleTree('src-tauri/src/db.rs', 'src-tauri/src/db');
@@ -115,7 +118,7 @@ assert.match(analysisLifecycle, /step=\{1\}[\s\S]{0,220}translate\('component\.s
   'Capture must remain visible independently of optional presentation features');
 assert.match(builtinLifecycleManager, /stableRef !== 'capture:source-attribution-v1'/,
   'Disabling Sources must hide Source Attribution without hiding Clip Type');
-assert.match(clipCard, /features\.clipTypes \|\| \(features\.types[\s\S]{0,260}structuralClipType/,
+assert.match(clipCard, /features\.clipTypes[\s\S]{0,100}features\.types[\s\S]{0,500}structuralClipType/,
   'Clip cards must independently gate structural and detected type chrome');
 assert.match(clipCard, /features\.sources && <span className="font-medium theme-text-main/,
   'Clip cards must hide Source chrome when Sources is disabled');
