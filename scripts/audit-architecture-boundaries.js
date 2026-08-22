@@ -546,11 +546,15 @@ const sizeRatchets = new Map([
   ['src/components/CollapsedSidebar.tsx', 165],
   ['src/components/SidebarBinsSection.tsx', 206],
   ['src/components/SidebarSearchFooter.tsx', 224],
+  ['src/components/BinModal.tsx', 571],
+  ['src/components/BinModalSmartConditionInputs.tsx', 219],
+  ['src/components/binModalModel.ts', 110],
   ['src/components/clipPreviewModel.ts', 197],
   ['src/hooks/useClipPreviewAnalysis.ts', 319],
   ['src/hooks/useClipPreviewNotes.ts', 129],
   ['src/hooks/useClipPreviewRevisions.ts', 149],
   ['src/hooks/useSidebarHoverState.ts', 67],
+  ['src/hooks/useBinModalForm.ts', 204],
   ['src/utils/tauri.ts', 10],
   ['src/mocks/browser/runtime.ts', 30],
   ['src/mocks/browser/contentRuntime.ts', 372],
@@ -579,6 +583,14 @@ for (const subsystem of ['CollapsedSidebar', 'SidebarBinsSection', 'SidebarSearc
 }
 assert.doesNotMatch(sidebarShell, /get_clip_extraction_history|SEARCH_HELPERS|data-stable-reorder-id/,
   'Sidebar must not reclaim search or Bin interaction internals');
+
+const binModalShell = read('src/components/BinModal.tsx');
+assert.match(binModalShell, /useBinModalForm\(/,
+  'BinModal must delegate form lifecycle and persistence to its controller');
+assert.match(binModalShell, /SmartConditionTargetSelect[\s\S]*SmartConditionValueInput/,
+  'BinModal must compose the shared smart-condition controls');
+assert.doesNotMatch(binModalShell, /binsApi\.|get_bin_transform_ref|normalizeSmartCondition/,
+  'BinModal must not reclaim controller-owned persistence and rule normalization');
 
 const centralizedCommands = [
   'get_activity_logs', 'clear_activity_logs', 'export_activity_json', 'export_activity_csv',
