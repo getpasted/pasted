@@ -28,7 +28,11 @@ const hotkeyManager = readRustModuleTree(
 const manualTransformService = read('src-tauri/src/manual_transform_service.rs');
 const clipPreview = [
   'src/components/ClipPreview.tsx',
+  'src/components/ClipPreviewHeader.tsx',
   'src/components/ClipPreviewNotesPanel.tsx',
+  'src/components/ClipPreviewOrganization.tsx',
+  'src/components/ClipPreviewTransformControls.tsx',
+  'src/components/ClipPreviewWorkspace.tsx',
   'src/hooks/useClipPreviewAnalysis.ts',
   'src/hooks/useClipPreviewNotes.ts',
   'src/hooks/useClipPreviewRevisions.ts',
