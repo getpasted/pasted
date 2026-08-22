@@ -5,6 +5,8 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
+use self::outcome::normalize as normalize_extraction_outcome;
+
 use crate::analysis_contract::{RepresentationContract, RepresentationKind};
 use crate::extractor_recipe::{
     ExtractorCapture, ExtractorCommandStep, ExtractorExecutable, ExtractorInputKind,
@@ -190,10 +192,14 @@ impl<'a> ExtractorEngineRegistry<'a> {
                 },
             };
         }
+        let eligible_paths = file_routing::eligible_paths(&extractor.stable_ref, paths);
+        if eligible_paths.is_empty() {
+            return ExtractionOutcome::NoOutput;
+        }
         if extractor.engine == RECIPE_ENGINE {
             return normalize_extraction_outcome(crate::extractor_recipe::execute_files(
                 &extractor.recipe,
-                paths,
+                eligible_paths.as_ref(),
             ));
         }
         let Some(engine) = self
@@ -222,33 +228,16 @@ impl<'a> ExtractorEngineRegistry<'a> {
             };
         }
         normalize_extraction_outcome(engine.extract_files_with_configuration(
-            paths,
+            eligible_paths.as_ref(),
             executable_path,
             model_path,
         ))
     }
 }
 
-fn normalize_extraction_outcome(outcome: ExtractionOutcome) -> ExtractionOutcome {
-    match outcome {
-        ExtractionOutcome::Produced { text } if text.trim().is_empty() => {
-            ExtractionOutcome::NoOutput
-        }
-        ExtractionOutcome::Produced { text }
-            if text.len() > crate::resource_limits::MAX_OCR_TEXT_BYTES =>
-        {
-            ExtractionOutcome::Failed {
-                failure: ExtractionFailure {
-                    code: "output_too_large".into(),
-                    message: "Extracted text exceeds the supported size limit.".into(),
-                },
-            }
-        }
-        outcome => outcome,
-    }
-}
-
 mod engine_runtime;
+mod file_routing;
+mod outcome;
 pub fn system_engine_registry() -> ExtractorEngineRegistry<'static> {
     engine_runtime::system_engine_registry()
 }

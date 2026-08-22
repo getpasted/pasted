@@ -79,10 +79,10 @@ function FileCopyField({
   };
 
   return <div
-    className={`file-copy-field flex min-h-10 min-w-0 items-center gap-1 px-1.5 py-0.5 ${emphasized ? 'theme-subtle-surface' : ''}`}
+    className={`file-copy-field flex min-h-11 min-w-0 items-center gap-1 px-1.5 py-1.5 ${emphasized ? 'theme-subtle-surface' : ''}`}
     onPointerDown={handlePointerDown}
   >
-    <span className="theme-text-subtle w-9 shrink-0 ps-1 text-[9px] font-semibold uppercase tracking-wide">{label}</span>
+    <span className="theme-text-subtle w-12 shrink-0 pe-1 text-end text-[9px] font-semibold uppercase tracking-wide">{label}</span>
     <div
       ref={viewportRef}
       dir="ltr"

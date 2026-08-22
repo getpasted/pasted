@@ -141,7 +141,7 @@ function ExtractionActivity({
                           ? translate('component.clipPreviewContent.sameTextAsName', { name: duplicateName })
                           : translate('component.clipPreviewContent.sameTextAsEarlierExtractor')
                         : result.outcome === 'failed'
-                          ? result.failure?.message || translate('component.clipPreviewContent.extractorFailed')
+                          ? result.failure?.code === 'engine_failed' ? translate('component.clipPreviewContent.extractorFailed') : result.failure?.message || translate('component.clipPreviewContent.extractorFailed')
                           : result.outcome === 'produced'
                             ? translate('component.clipPreviewContent.extractedTextSuccessfully')
                             : translate('component.clipPreviewContent.noTextFound')}</p>

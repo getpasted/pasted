@@ -491,6 +491,8 @@ const sizeRatchets = new Map([
   ['src-tauri/src/content_analysis/tests.rs', 558],
   ['src-tauri/src/content_extraction.rs', 785],
   ['src-tauri/src/content_extraction/engine_runtime.rs', 1_213],
+  ['src-tauri/src/content_extraction/file_routing.rs', 30],
+  ['src-tauri/src/content_extraction/outcome.rs', 20],
   ['src-tauri/src/content_extraction/tests.rs', 458],
   ['src-tauri/src/db/activity.rs', 649],
   ['src-tauri/src/db/analysis_activity.rs', 71],

@@ -667,14 +667,11 @@ fn execute_recipe(recipe: &ExtractorRecipe, input: RecipeInput<'_>) -> Extractio
                     failed_inputs.insert(run_index);
                     first_input_failure.get_or_insert_with(|| ExtractionFailure {
                         code: "engine_failed".into(),
-                        message: "The Extractor command did not complete successfully.".into(),
+                        message: "Extractor failed.".into(),
                     });
                     continue;
                 }
-                return failure(
-                    "engine_failed",
-                    "The Extractor command did not complete successfully.",
-                );
+                return failure("engine_failed", "Extractor failed.");
             }
             artifacts.insert((step.id.clone(), run_index), artifact_path.clone());
             let captured_path = match step.capture {
