@@ -71,10 +71,14 @@ pub(crate) fn read_extractor_recipe(path: &Path) -> Result<ExtractorRecipe> {
 
 pub(crate) fn extractor_recipe_definition_from_args(
     args: &[String],
-    recipe: ExtractorRecipe,
+    mut recipe: ExtractorRecipe,
     current: Option<&pasted_lib::content_extraction::Extractor>,
     authoring: Option<ExtractorAuthoringManifest>,
 ) -> ExtractorRecipeDefinitionInput {
+    let accepted_file_formats = argument_values(args, "--format");
+    if !accepted_file_formats.is_empty() {
+        recipe.accepted_file_formats = accepted_file_formats;
+    }
     ExtractorRecipeDefinitionInput {
         name: argument_value(args, "--name").unwrap_or_else(|| {
             current
@@ -138,6 +142,10 @@ pub(crate) fn print_extractor(
             println!("Version: {version}");
         }
         println!("Revision: {}", extractor.revision);
+        println!(
+            "File formats: {}",
+            extractor.recipe.accepted_file_formats.join(", ")
+        );
     }
     Ok(())
 }

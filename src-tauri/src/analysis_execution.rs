@@ -121,7 +121,8 @@ fn execute(
         policy: options.policy,
         inspector: true,
         file_format_inspector: clip_kind == "file"
-            && crate::features::is_enabled(db, crate::features::Feature::FileFormats),
+            && (options.include_extractor
+                || crate::features::is_enabled(db, crate::features::Feature::FileFormats)),
         extractors: extractor_sources,
         classifiers: run_classifiers.then_some(classifiers.as_slice()),
         suggestion: (allow_text_participants && options.include_suggestions).then_some(

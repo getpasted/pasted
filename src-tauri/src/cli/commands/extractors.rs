@@ -78,7 +78,7 @@ pub(crate) fn run_extractor(args: Vec<String>, db_path: PathBuf, conn: Connectio
         }
         "update" => {
             let reference = args.get(3).unwrap_or_else(|| {
-            eprintln!("Usage: pasted extractor update <ref> --recipe FILE [--name NAME] [--description TEXT] [--priority N] [--enabled|--disabled] [--json]");
+            eprintln!("Usage: pasted extractor update <ref> --recipe FILE [--format FORMAT]... [--name NAME] [--description TEXT] [--priority N] [--enabled|--disabled] [--json]");
             std::process::exit(2);
         });
             let current = db.get_content_extractor(reference)?;
@@ -86,6 +86,14 @@ pub(crate) fn run_extractor(args: Vec<String>, db_path: PathBuf, conn: Connectio
                 let recipe = read_extractor_recipe(Path::new(&recipe_path))?;
                 let input =
                     extractor_recipe_definition_from_args(&args, recipe, Some(&current), None);
+                db.update_content_extractor_recipe(current.id, &input)?
+            } else if args.iter().any(|argument| argument == "--format") {
+                let input = extractor_recipe_definition_from_args(
+                    &args,
+                    current.recipe.clone(),
+                    Some(&current),
+                    None,
+                );
                 db.update_content_extractor_recipe(current.id, &input)?
             } else {
                 let input = extractor_definition_from_args(&args, Some(&current));

@@ -1,30 +1,19 @@
-use std::{borrow::Cow, path::Path};
-
-use super::WHISPER_TRANSCRIPTION_REF;
-
-pub(super) fn eligible_paths<'a>(stable_ref: &str, paths: &'a [String]) -> Cow<'a, [String]> {
-    if stable_ref != WHISPER_TRANSCRIPTION_REF {
-        return Cow::Borrowed(paths);
+pub(crate) fn eligible_paths(
+    accepted_formats: &[String],
+    paths: &[String],
+    detected_formats: &[Option<String>],
+) -> Vec<String> {
+    if accepted_formats.iter().any(|format| format == "*") {
+        return paths.to_vec();
     }
-    Cow::Owned(
-        paths
-            .iter()
-            .filter(|path| {
-                super::engine_runtime::whisper_audio_preparation(Path::new(path)).is_some()
-            })
-            .cloned()
-            .collect(),
-    )
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn whisper_receives_only_audio_file_references() {
-        let paths = vec!["document.pdf".into(), "recording.m4a".into()];
-        let eligible = eligible_paths(WHISPER_TRANSCRIPTION_REF, &paths);
-        assert_eq!(eligible.as_ref(), ["recording.m4a"]);
-    }
+    paths
+        .iter()
+        .zip(detected_formats)
+        .filter(|(_, detected)| {
+            detected
+                .as_ref()
+                .is_some_and(|format| accepted_formats.contains(format))
+        })
+        .map(|(path, _)| path.clone())
+        .collect()
 }

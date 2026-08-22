@@ -20,6 +20,8 @@ export function visibleContentExtractors(
 
 export function canSaveExtractorRecipe(recipe: ExtractorRecipe) {
   return recipe.accepts.length > 0
+    && recipe.acceptedFileFormats.length > 0
+    && !(recipe.acceptedFileFormats.length > 1 && recipe.acceptedFileFormats.includes('*'))
     && recipe.steps.length > 0
     && recipe.steps.every((step) => (
       Boolean(step.executable.path || step.executable.discover.length > 0)

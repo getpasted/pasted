@@ -29,6 +29,7 @@ assert.deepEqual(
 const validRecipe: ExtractorRecipe = {
   definitionVersion: 1,
   accepts: ['image'],
+  acceptedFileFormats: ['*'],
   output: 'searchable_text',
   steps: [{
     id: 'extract',
@@ -52,6 +53,10 @@ assert.equal(canSaveExtractorRecipe({
 }), true, 'a named step with an executable discovery command may save');
 assert.equal(canSaveExtractorRecipe({ ...validRecipe, accepts: [] }), false,
   'a recipe without an accepted input must not save');
+assert.equal(canSaveExtractorRecipe({ ...validRecipe, acceptedFileFormats: [] }), false,
+  'a recipe without accepted file formats must not save');
+assert.equal(canSaveExtractorRecipe({ ...validRecipe, acceptedFileFormats: ['*', 'pdf'] }), false,
+  'the any-format selector cannot be combined with a specific format');
 
 const baselineDraft: ExtractorInput = {
   name: 'Extractor',

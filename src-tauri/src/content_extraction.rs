@@ -192,14 +192,13 @@ impl<'a> ExtractorEngineRegistry<'a> {
                 },
             };
         }
-        let eligible_paths = file_routing::eligible_paths(&extractor.stable_ref, paths);
-        if eligible_paths.is_empty() {
+        if paths.is_empty() {
             return ExtractionOutcome::NoOutput;
         }
         if extractor.engine == RECIPE_ENGINE {
             return normalize_extraction_outcome(crate::extractor_recipe::execute_files(
                 &extractor.recipe,
-                eligible_paths.as_ref(),
+                paths,
             ));
         }
         let Some(engine) = self
@@ -228,7 +227,7 @@ impl<'a> ExtractorEngineRegistry<'a> {
             };
         }
         normalize_extraction_outcome(engine.extract_files_with_configuration(
-            eligible_paths.as_ref(),
+            paths,
             executable_path,
             model_path,
         ))
@@ -236,7 +235,8 @@ impl<'a> ExtractorEngineRegistry<'a> {
 }
 
 mod engine_runtime;
-mod file_routing;
+pub(crate) mod file_routing;
+mod format_defaults;
 mod outcome;
 pub fn system_engine_registry() -> ExtractorEngineRegistry<'static> {
     engine_runtime::system_engine_registry()
@@ -360,7 +360,7 @@ pub const EXTRACTOR_PRESETS: &[ExtractorPreset] = &[
         input_contract: RepresentationKind::ImageBytes.stable_name(),
         output_contract: RepresentationKind::SearchableText.stable_name(),
         priority: 10,
-        revision: 3,
+        revision: 4,
     },
     ExtractorPreset {
         stable_ref: TESSERACT_OCR_REF,
@@ -372,7 +372,7 @@ pub const EXTRACTOR_PRESETS: &[ExtractorPreset] = &[
         input_contract: RepresentationKind::ImageBytes.stable_name(),
         output_contract: RepresentationKind::SearchableText.stable_name(),
         priority: 20,
-        revision: 2,
+        revision: 3,
     },
     ExtractorPreset {
         stable_ref: WHISPER_TRANSCRIPTION_REF,
@@ -384,7 +384,7 @@ pub const EXTRACTOR_PRESETS: &[ExtractorPreset] = &[
         input_contract: RepresentationKind::FileReferences.stable_name(),
         output_contract: RepresentationKind::SearchableText.stable_name(),
         priority: 30,
-        revision: 3,
+        revision: 4,
     },
 ];
 
@@ -602,6 +602,7 @@ pub fn recipe_for_legacy_definition(input: &ExtractorDefinitionInput) -> Extract
     ExtractorRecipe {
         definition_version: EXTRACTOR_RECIPE_VERSION,
         accepts,
+        accepted_file_formats: vec!["*".into()],
         output: ExtractorOutputKind::SearchableText,
         steps,
         resources,
@@ -647,7 +648,9 @@ impl ExtractorPreset {
             _ => CUSTOM_COMMAND_ENGINE,
         }
         .into();
-        recipe_for_legacy_definition(&definition)
+        let mut recipe = recipe_for_legacy_definition(&definition);
+        recipe.accepted_file_formats = format_defaults::for_builtin(self.stable_ref);
+        recipe
     }
 }
 

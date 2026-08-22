@@ -8,6 +8,7 @@ import { MenuSelect } from './MenuSelect';
 import { SettingsSwitch } from './SettingsSwitch';
 import {
   emptyRecipe,
+  EXTRACTOR_FILE_FORMAT_OPTIONS,
   EXTRACTOR_INPUT_OPTIONS,
   EXTRACTOR_OUTPUT_OPTIONS,
   type ExtractorCapture,
@@ -60,12 +61,16 @@ export function ExtractorRecipeEditor({
   };
 
   const resourceRequiredLabel = translate('component.contentExtractorManagerDialog.resourceRequired');
+  const fileFormatOptions = [
+    ...EXTRACTOR_FILE_FORMAT_OPTIONS,
+    ...recipe.acceptedFileFormats.filter((format) => !EXTRACTOR_FILE_FORMAT_OPTIONS.includes(format as typeof EXTRACTOR_FILE_FORMAT_OPTIONS[number])),
+  ];
 
   return <>
             <details className="theme-subtle-surface rounded-xl border p-3 text-[10px]">
               <summary className="theme-text-muted cursor-pointer font-semibold">{translate('component.contentExtractorManagerDialog.advanced')}</summary>
               <div className="mt-3 space-y-4">
-                <div className="grid grid-cols-1 gap-3 @md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 @md:grid-cols-3">
                   <label className="space-y-1">
                     <span className="theme-text-muted block font-semibold">{translate('component.contentExtractorManagerDialog.acceptedInputs')}</span>
                     <MenuMultiSelect
@@ -75,6 +80,28 @@ export function ExtractorRecipeEditor({
                       placeholder={translate('component.contentExtractorManagerDialog.chooseInputs')}
                       className="w-full"
                       options={EXTRACTOR_INPUT_OPTIONS.filter((option) => !option.disabled).map((option) => ({ value: option.value, label: option.label }))}
+                    />
+                  </label>
+                  <label className="space-y-1">
+                    <span className="theme-text-muted block font-semibold">{translate('component.contentExtractorManagerDialog.acceptedFileFormats')}</span>
+                    <MenuMultiSelect
+                      values={recipe.acceptedFileFormats}
+                      onChange={(values) => {
+                        const addedAny = values.includes('*') && !recipe.acceptedFileFormats.includes('*');
+                        onChange({
+                          ...recipe,
+                          acceptedFileFormats: addedAny ? ['*'] : values.filter((value) => value !== '*'),
+                        });
+                      }}
+                      label={translate('component.contentExtractorManagerDialog.acceptedFileFormats')}
+                      placeholder={translate('component.contentExtractorManagerDialog.chooseFileFormats')}
+                      className="w-full"
+                      options={fileFormatOptions.map((format) => ({
+                        value: format,
+                        label: format === '*'
+                          ? translate('component.contentExtractorManagerDialog.anyFileFormat')
+                          : format.toUpperCase(),
+                      }))}
                     />
                   </label>
                   <label className="space-y-1">

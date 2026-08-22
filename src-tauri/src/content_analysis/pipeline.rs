@@ -1,27 +1,7 @@
 use super::*;
 
-fn file_format_inspector_participant(paths: Vec<String>) -> AnalysisParticipant<'static> {
-    AnalysisParticipant::new(
-        ParticipantContract {
-            stable_ref: crate::content_inspection::FILE_FORMAT_INSPECTOR_REF.into(),
-            name: "File Format".into(),
-            pass: AnalysisPass::Inspect,
-            priority: 10,
-            requires: vec![RepresentationKind::FileReferences],
-            provides: vec![RepresentationKind::FileFormats],
-        },
-        move |context| {
-            let inspection = crate::content_inspection::inspect_file_formats(&paths);
-            let outcome = if inspection.formats.is_empty() {
-                ParticipantOutcome::NoOutput
-            } else {
-                ParticipantOutcome::Produced
-            };
-            context.file_formats = Some(inspection);
-            Ok(outcome)
-        },
-    )
-}
+mod file_extraction;
+mod file_inspection;
 
 fn inspector_participant(input: AnalysisInput) -> AnalysisParticipant<'static> {
     AnalysisParticipant::new(
@@ -261,7 +241,7 @@ fn extractor_participant<'a>(
             name: extractor_name,
             pass: AnalysisPass::Extract,
             priority: extractor_priority,
-            requires: vec![representation_contract.input],
+            requires: file_extraction::requirements(representation_contract.input),
             provides: provided_representations,
         },
         move |context| {
@@ -276,7 +256,12 @@ fn extractor_participant<'a>(
                     let Some(paths) = context.file_references.as_deref() else {
                         return Ok(ParticipantOutcome::NoOutput);
                     };
-                    registry.execute_files(extractor, paths)
+                    file_extraction::execute(
+                        extractor,
+                        registry,
+                        paths,
+                        context.file_formats.as_ref(),
+                    )
                 }
                 _ => ExtractionOutcome::Failed {
                     failure: crate::content_extraction::ExtractionFailure {
@@ -380,11 +365,6 @@ pub(crate) fn analyze(request: AnalysisRequest<'_>) -> AnalysisReport {
     let mut participants = Vec::new();
     if request.inspector {
         participants.push(inspector_participant(request.input.clone()));
-        if request.file_format_inspector {
-            if let AnalysisInput::Files { paths, .. } = &request.input {
-                participants.push(file_format_inspector_participant(paths.clone()));
-            }
-        }
         if request.policy == AnalysisPolicy::Interactive {
             if let AnalysisInput::Files { paths, .. } = &request.input {
                 let probe_paths = paths
@@ -394,6 +374,11 @@ pub(crate) fn analyze(request: AnalysisRequest<'_>) -> AnalysisReport {
                     .collect();
                 participants.push(media_inspector_participant(probe_paths));
             }
+        }
+    }
+    if request.file_format_inspector {
+        if let AnalysisInput::Files { paths, .. } = &request.input {
+            participants.push(file_inspection::participant(paths.clone()));
         }
     }
     for source in request.extractors {

@@ -250,32 +250,49 @@ pub struct DetectedFileFormat {
     pub count: usize,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FileFormatInspection {
     pub formats: Vec<DetectedFileFormat>,
     pub inspected_count: usize,
     pub unknown_count: usize,
     pub unavailable_count: usize,
+    #[serde(skip)]
+    pub(crate) routes: Vec<Option<String>>,
 }
+
+impl PartialEq for FileFormatInspection {
+    fn eq(&self, other: &Self) -> bool {
+        self.formats == other.formats
+            && self.inspected_count == other.inspected_count
+            && self.unknown_count == other.unknown_count
+            && self.unavailable_count == other.unavailable_count
+    }
+}
+
+impl Eq for FileFormatInspection {}
 
 pub fn inspect_file_formats(paths: &[String]) -> FileFormatInspection {
     let mut inspection = FileFormatInspection::default();
     let mut formats = BTreeMap::<(String, String), usize>::new();
+    let mut routes = Vec::with_capacity(paths.len());
     for path in paths
         .iter()
         .take(crate::resource_limits::MAX_MEDIA_PROBE_FILES)
     {
         let Ok(metadata) = fs::metadata(path) else {
             inspection.unavailable_count += 1;
+            routes.push(None);
             continue;
         };
         if !metadata.is_file() {
             inspection.unknown_count += 1;
+            routes.push(None);
             continue;
         }
         let Ok(file) = fs::File::open(path) else {
             inspection.unavailable_count += 1;
+            routes.push(None);
             continue;
         };
         let mut bytes = Vec::new();
@@ -285,18 +302,19 @@ pub fn inspect_file_formats(paths: &[String]) -> FileFormatInspection {
             .is_err()
         {
             inspection.unavailable_count += 1;
+            routes.push(None);
             continue;
         }
         inspection.inspected_count += 1;
         let Some(kind) = infer::get(&bytes) else {
             inspection.unknown_count += 1;
+            routes.push(None);
             continue;
         };
+        let format = kind.extension().to_ascii_lowercase();
+        routes.push(Some(format.clone()));
         *formats
-            .entry((
-                kind.extension().to_ascii_lowercase(),
-                kind.mime_type().into(),
-            ))
+            .entry((format, kind.mime_type().into()))
             .or_default() += 1;
     }
     inspection.formats = formats
@@ -307,6 +325,8 @@ pub fn inspect_file_formats(paths: &[String]) -> FileFormatInspection {
             count,
         })
         .collect();
+    routes.resize(paths.len(), None);
+    inspection.routes = routes;
     inspection
 }
 

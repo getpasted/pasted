@@ -25,27 +25,10 @@ fn search_test_clips(db: &DbState, query: &str) -> Vec<ClipItem> {
     .items
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct SearchGrammarFixture {
-    query: String,
-    sources: Vec<String>,
-    clip_types: Vec<String>,
-    content_types: Vec<String>,
-    file_formats: Vec<String>,
-    terms: Vec<String>,
-    requires_note: bool,
-    requires_named: bool,
-    requires_pinned: bool,
-    requires_protected: bool,
-    requires_trashed: bool,
-    incomplete: bool,
-    regex: Option<String>,
-    regex_fallback: Option<String>,
-}
-
+mod analytics;
 mod bins_and_transforms;
 mod capture_and_lifecycle;
+mod extractor_recipes;
 mod migrations_and_intelligence;
 mod retention_and_activity;
 mod revisions_and_mutations;

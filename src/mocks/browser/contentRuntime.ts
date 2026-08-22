@@ -1,6 +1,7 @@
 import { CONTENT_TYPES } from '../../utils/contentTypes';
 import type { MockClip } from './models';
 import { mockManualTransforms } from './manualTransforms';
+import { mockBuiltinExtractors, mockExtractorRecipe, type MockExtractor, type MockExtractorRecipe } from './extractors';
 import { unhandledValue } from './result';
 
 function mockClassifier<T extends { id: number; patterns: string[] }>(classifier: T) {
@@ -11,65 +12,6 @@ let mockClassifiers = [
   mockClassifier({ id: 2, stable_ref: 'credential', name: 'Credentials', content_type: 'credential', description: 'Known API-key formats and secret assignments', patterns: [String.raw`^(?:sk_|ghp_).+$`], validator: null, enabled: true, priority: 60, is_builtin: true }),
   mockClassifier({ id: 3, stable_ref: 'phone', name: 'Phone Numbers', content_type: 'phone', description: 'Formatted international and local phone numbers', patterns: [String.raw`^\+?[0-9 ()-]{7,}$`], validator: 'phone', enabled: true, priority: 160, is_builtin: true }),
 ];
-const mockAppleExtractorDefaults = { name: 'Apple Vision OCR', description: 'Extracts searchable text from images locally with Apple Vision.', engine: 'recipe-v1', executablePath: null, modelPath: null, inputContract: 'image', outputContract: 'searchable_text', enabled: true, priority: 10 };
-const mockTesseractExtractorDefaults = { name: 'Tesseract OCR', description: 'Extracts searchable text from images locally with Tesseract.', engine: 'recipe-v1', executablePath: null, modelPath: null, inputContract: 'image', outputContract: 'searchable_text', enabled: true, priority: 20 };
-const mockWhisperExtractorDefaults = { name: 'Whisper Transcription', description: 'Extracts searchable text from local audio files with whisper.cpp.', engine: 'recipe-v1', executablePath: null, modelPath: null, inputContract: 'file_references', outputContract: 'searchable_text', enabled: true, priority: 30 };
-type MockExtractorRecipe = {
-  definitionVersion: 1;
-  accepts: Array<'image' | 'file_references'>;
-  output: 'searchable_text';
-  steps: Array<{ id: string; executable: { path: string | null; discover: string[]; versionArguments: string[] }; arguments: string[]; mode: 'once' | 'each_input'; capture: 'ignore' | 'stdout_text' | 'file_text' | 'pasted_json_v1'; outputExtension: string | null; timeoutSeconds: number }>;
-  resources: Array<{ id: string; label: string; kind: 'file' | 'directory'; required: boolean; path: string | null }>;
-};
-const mockExtractorRecipe = (input: 'image' | 'file_references', command: string): MockExtractorRecipe => ({
-  definitionVersion: 1,
-  accepts: [input],
-  output: 'searchable_text',
-  steps: [{ id: 'extract', executable: { path: null, discover: [command], versionArguments: ['--version'] }, arguments: ['{input.path}'], mode: 'once', capture: 'stdout_text', outputExtension: null, timeoutSeconds: 60 }],
-  resources: [],
-});
-type MockExtractor = {
-  id: number; stableRef: string; name: string; description: string; engine: string;
-  executablePath: string | null; modelPath: string | null; revision: number;
-  inputContract: string; outputContract: string; enabled: boolean; priority: number;
-  isBuiltin: boolean; isAvailable: boolean; unavailableReason: string | null;
-  runtime: { method: string; location: string | null; version: string | null; usesAutomaticDiscovery: boolean; dependencies: Array<{ name: string; location: string | null; version: string | null; isAvailable: boolean; unavailableReason: string | null }> };
-  recipe: MockExtractorRecipe; recipeHash: string; defaultRecipe: MockExtractorRecipe | null;
-  defaults: typeof mockAppleExtractorDefaults | null;
-};
-function mockBuiltinExtractors(): MockExtractor[] {
-  return [{
-    id: 1,
-    stableRef: 'extractor:apple-vision-ocr',
-    ...mockAppleExtractorDefaults,
-    revision: 1,
-    runtime: { method: 'system', location: 'macOS Vision framework', version: null, usesAutomaticDiscovery: false, dependencies: [] },
-    isBuiltin: true,
-    isAvailable: true,
-    unavailableReason: null,
-    recipe: mockExtractorRecipe('image', 'pasted-bundled-extractor'), recipeHash: 'mock-apple', defaultRecipe: mockExtractorRecipe('image', 'pasted-bundled-extractor'), defaults: { ...mockAppleExtractorDefaults },
-  }, {
-    id: 2,
-    stableRef: 'extractor:tesseract-ocr',
-    ...mockTesseractExtractorDefaults,
-    revision: 1,
-    runtime: { method: 'command', location: null, version: null, usesAutomaticDiscovery: true, dependencies: [] },
-    isBuiltin: true,
-    isAvailable: false,
-    unavailableReason: 'Tesseract OCR is not installed. Install Tesseract 5, then check again.',
-    recipe: mockExtractorRecipe('image', 'tesseract'), recipeHash: 'mock-tesseract', defaultRecipe: mockExtractorRecipe('image', 'tesseract'), defaults: { ...mockTesseractExtractorDefaults },
-  }, {
-    id: 3,
-    stableRef: 'extractor:whisper-transcription',
-    ...mockWhisperExtractorDefaults,
-    revision: 1,
-    runtime: { method: 'command', location: null, version: null, usesAutomaticDiscovery: true, dependencies: [{ name: 'FFmpeg', location: '/mock/bin/ffmpeg', version: 'ffmpeg mock', isAvailable: true, unavailableReason: null }] },
-    isBuiltin: true,
-    isAvailable: false,
-    unavailableReason: 'Whisper.cpp is not installed. Install whisper-cpp, then check again.',
-    recipe: mockExtractorRecipe('file_references', 'whisper-cli'), recipeHash: 'mock-whisper', defaultRecipe: mockExtractorRecipe('file_references', 'whisper-cli'), defaults: { ...mockWhisperExtractorDefaults },
-  }];
-}
 let nextMockExtractorId = 4;
 let mockExtractors: MockExtractor[] = mockBuiltinExtractors();
 const mockFileSearchableText = new Map<number, {

@@ -14,6 +14,7 @@ const MAX_ARGUMENTS: usize = 128;
 const MAX_ARGUMENT_BYTES: usize = 4_096;
 const MAX_STEPS: usize = 16;
 const MAX_RESOURCES: usize = 32;
+const MAX_ACCEPTED_FILE_FORMATS: usize = 64;
 const MAX_TRANSCRIPT_MESSAGES: usize = 256;
 const MAX_TRANSCRIPT_BYTES: usize = 1_048_576;
 
@@ -109,11 +110,17 @@ pub struct ExtractorResource {
 pub struct ExtractorRecipe {
     pub definition_version: u32,
     pub accepts: Vec<ExtractorInputKind>,
+    #[serde(default = "default_accepted_file_formats")]
+    pub accepted_file_formats: Vec<String>,
     pub output: ExtractorOutputKind,
     #[serde(default)]
     pub steps: Vec<ExtractorCommandStep>,
     #[serde(default)]
     pub resources: Vec<ExtractorResource>,
+}
+
+fn default_accepted_file_formats() -> Vec<String> {
+    vec!["*".into()]
 }
 
 impl ExtractorRecipe {
@@ -244,6 +251,38 @@ pub fn validate_recipe(recipe: &ExtractorRecipe) -> Result<(), String> {
     let unique_inputs = recipe.accepts.iter().collect::<HashSet<_>>();
     if unique_inputs.len() != recipe.accepts.len() {
         return Err("Extractor recipe inputs must be unique".into());
+    }
+    if recipe.accepted_file_formats.is_empty()
+        || recipe.accepted_file_formats.len() > MAX_ACCEPTED_FILE_FORMATS
+    {
+        return Err(format!(
+            "Extractor recipes require 1–{MAX_ACCEPTED_FILE_FORMATS} accepted file formats"
+        ));
+    }
+    let mut formats = HashSet::new();
+    for format in &recipe.accepted_file_formats {
+        if format != "*"
+            && (format.is_empty()
+                || format.len() > 16
+                || !format
+                    .chars()
+                    .all(|character| character.is_ascii_lowercase() || character.is_ascii_digit()))
+        {
+            return Err(
+                "Accepted file formats require lowercase letters or numbers without a dot".into(),
+            );
+        }
+        if !formats.insert(format.as_str()) {
+            return Err("Accepted file formats must be unique".into());
+        }
+    }
+    if recipe.accepted_file_formats.len() > 1
+        && recipe
+            .accepted_file_formats
+            .iter()
+            .any(|format| format == "*")
+    {
+        return Err("The any-format selector cannot be combined with specific formats".into());
     }
     if recipe.steps.is_empty() || recipe.steps.len() > MAX_STEPS {
         return Err(format!(
@@ -924,6 +963,7 @@ mod tests {
                 ExtractorInputKind::Image,
                 ExtractorInputKind::FileReferences,
             ],
+            accepted_file_formats: vec!["*".into()],
             output: ExtractorOutputKind::SearchableText,
             steps: vec![ExtractorCommandStep {
                 id: "extract".into(),
@@ -940,6 +980,30 @@ mod tests {
             }],
             resources: Vec::new(),
         }
+    }
+
+    #[test]
+    fn legacy_recipes_accept_any_file_format() {
+        let value = serde_json::json!({
+            "definitionVersion": 1,
+            "accepts": ["file_references"],
+            "output": "searchable_text",
+            "steps": recipe().steps,
+            "resources": []
+        });
+        let parsed: ExtractorRecipe = serde_json::from_value(value).unwrap();
+        assert_eq!(parsed.accepted_file_formats, ["*"]);
+    }
+
+    #[test]
+    fn accepted_file_formats_are_bounded_and_unambiguous() {
+        let mut candidate = recipe();
+        candidate.accepted_file_formats = vec!["*".into(), "pdf".into()];
+        assert!(validate_recipe(&candidate).is_err());
+        candidate.accepted_file_formats = vec!["PDF".into()];
+        assert!(validate_recipe(&candidate).is_err());
+        candidate.accepted_file_formats = vec!["pdf".into(), "wav".into()];
+        assert!(validate_recipe(&candidate).is_ok());
     }
 
     #[test]
