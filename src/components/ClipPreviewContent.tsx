@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, Check, ChevronDown, Copy, Files, Palette, Sparkles } from 'lucide-react';
+import { AlertTriangle, Check, ChevronDown, Copy, Palette, Sparkles } from 'lucide-react';
 import { getClipFilePaths, type ClipItem } from '../types';
 import type { ColorFormats } from '../utils/color';
 import { UI_COPY } from '../utils/uiCopy';
@@ -8,19 +8,15 @@ import { SafeRasterImage } from './SafeRasterImage';
 import { translate } from '../localization/runtime';
 import { dateTimeAttribute, formatFullDateTime, formatRelativeTime } from '../utils/date';
 import type { ExtractionAttempt, ExtractionResult } from './clipPreviewModel';
+import type { FileClipPreview } from './fileClipPreviewModel';
+import { FileClipPreviewPanel } from './FileClipPreviewPanel';
 
 interface ClipPreviewContentProps {
   clip: ClipItem;
   displayText: string;
   colorData: ColorFormats | null;
   resolvedImageBase64: string | null;
-  filePreviews: Array<{
-    index: number;
-    dataUrl: string | null;
-    textContent: string | null;
-    width: number | null;
-    height: number | null;
-  }>;
+  filePreviews: FileClipPreview[];
   isFilePreviewLoading: boolean;
   fileSearchableText: {
     extractorName: string;
@@ -41,6 +37,7 @@ interface ClipPreviewContentProps {
   onRunOCR: () => void;
   onRunFileExtraction: () => void;
   onLoadExtractionHistory: (reset: boolean) => void;
+  onRecheckFileReferences: () => void;
 }
 
 function ExtractionCards({
@@ -177,109 +174,6 @@ function getOcrExtractorLabel(clip: ClipItem): string | null {
   }
 }
 
-function useAutoHorizontalScroll(
-  ref: React.RefObject<HTMLDivElement | null>,
-  value: string,
-  enabled: boolean,
-) {
-  React.useEffect(() => {
-    const viewport = ref.current;
-    if (!viewport || !enabled || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
-    let frame = 0;
-    let direction = 1;
-    let lastTime = performance.now();
-    let holdUntil = lastTime + 900;
-    const animate = (time: number) => {
-      const maximum = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
-      const paused = viewport.matches(':hover') || viewport.contains(document.activeElement);
-      if (maximum > 3 && !paused && time >= holdUntil) {
-        const elapsed = Math.min(40, time - lastTime);
-        viewport.scrollLeft += direction * 58 * (elapsed / 1000);
-        if (viewport.scrollLeft >= maximum - 0.5) {
-          viewport.scrollLeft = maximum;
-          direction = -1;
-          holdUntil = time + 900;
-        } else if (viewport.scrollLeft <= 0.5) {
-          viewport.scrollLeft = 0;
-          direction = 1;
-          holdUntil = time + 900;
-        }
-      }
-      lastTime = time;
-      frame = requestAnimationFrame(animate);
-    };
-    frame = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(frame);
-  }, [enabled, ref, value]);
-}
-
-function FileCopyField({
-  label,
-  value,
-  copyLabel,
-  autoScroll = false,
-  emphasized = false,
-  copiedFormat,
-  onCopyFormat,
-}: {
-  label: string;
-  value: string;
-  copyLabel: string;
-  autoScroll?: boolean;
-  emphasized?: boolean;
-  copiedFormat: string | null;
-  onCopyFormat: (label: string, value: string) => void;
-}) {
-  const viewportRef = React.useRef<HTMLDivElement>(null);
-  useAutoHorizontalScroll(viewportRef, value, autoScroll);
-  const selectAll = React.useCallback(() => {
-    const viewport = viewportRef.current;
-    if (!viewport) return;
-    const selection = window.getSelection();
-    if (!selection) return;
-    const range = document.createRange();
-    range.selectNodeContents(viewport);
-    selection.removeAllRanges();
-    selection.addRange(range);
-  }, []);
-
-  const handleFieldPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if ((event.target as HTMLElement).closest('button')) return;
-    const viewport = viewportRef.current;
-    if (!viewport || document.activeElement === viewport) return;
-    event.preventDefault();
-    viewport.focus();
-    selectAll();
-  };
-
-  return (
-    <div
-      className={`file-copy-field flex min-h-10 min-w-0 items-center gap-1 px-1.5 py-0.5 ${emphasized ? 'theme-subtle-surface' : ''}`}
-      onPointerDown={handleFieldPointerDown}
-    >
-      <span className="theme-text-subtle w-9 shrink-0 ps-1 text-[9px] font-semibold uppercase tracking-wide">{label}</span>
-      <div
-        ref={viewportRef}
-        dir="ltr"
-        tabIndex={0}
-        className={`file-attribute-scroll theme-text-main min-w-0 flex-1 cursor-text overflow-x-auto whitespace-nowrap rounded-md px-2 py-1.5 font-mono outline-none select-text ${emphasized ? 'text-xs' : 'text-[11px]'}`}
-        title={value}
-        onFocus={() => selectAll()}
-      >
-        {value}
-      </div>
-      <button
-        type="button"
-        onClick={() => onCopyFormat(copyLabel, value)}
-        className="theme-icon-button theme-focusable flex h-8 w-8 shrink-0 items-center justify-center rounded-md border transition-colors"
-        title={copiedFormat === copyLabel ? UI_COPY.copied : translate('component.clipPreviewContent.copyLabel', { label: label })}
-      >
-        {copiedFormat === copyLabel ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-      </button>
-    </div>
-  );
-}
-
 export function ClipPreviewContent({
   clip,
   displayText,
@@ -303,6 +197,7 @@ export function ClipPreviewContent({
   onRunOCR,
   onRunFileExtraction,
   onLoadExtractionHistory,
+  onRecheckFileReferences,
 }: ClipPreviewContentProps) {
   const ocrExtractorLabel = getOcrExtractorLabel(clip);
   const filePaths = getClipFilePaths(clip);
@@ -323,66 +218,14 @@ export function ClipPreviewContent({
     <>
         {clip.content_type === 'file' ? (
           <div className="space-y-4">
-            <div className="theme-panel rounded-2xl border p-4 shadow-lg">
-              <div className="theme-title mb-3 flex items-center gap-2 text-xs font-semibold">
-                <Files className="theme-status-info-text h-4 w-4" />
-                <span>{filePaths.length === 1 ? translate('component.clipPreviewContent.copiedFile') : translate('component.clipPreviewContent.lengthCopiedFiles', { length: filePaths.length })}</span>
-              </div>
-              {isFilePreviewLoading && (
-                <div className="theme-text-muted mb-3 flex items-center justify-center gap-2 rounded-xl py-8 text-xs">
-                  <Sparkles className="h-4 w-4 animate-spin" />
-                  <span>{translate('component.clipPreviewContent.preparingFilePreview')}</span>
-                </div>
-              )}
-              {filePaths.length > 0 && (
-                <div className={`grid gap-2 ${filePaths.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                  {filePaths.map((path, index) => {
-                    const preview = filePreviews.find((item) => item.index === index);
-                    const filename = path.split(/[\\/]/).pop() || path;
-                    return (
-                      <article key={`${index}-${path}`} className="theme-surface min-w-0 overflow-hidden rounded-xl border">
-                        {preview && (
-                          <div className="theme-code-surface flex min-h-36 items-center justify-center border-b p-2">
-                            {preview.dataUrl ? (
-                              <SafeRasterImage
-                                source={preview.dataUrl}
-                                alt={translate('common.previewOfName', { name: filename || translate('component.clipPreviewContent.copiedFileLowercase') })}
-                                className="max-h-72 w-full rounded-lg object-contain"
-                              />
-                            ) : (
-                              <pre className="theme-text-main overlay-scroll-region max-h-72 w-full overflow-auto whitespace-pre-wrap break-words p-2 font-mono text-xs">
-                                {preview.textContent}
-                              </pre>
-                            )}
-                          </div>
-                        )}
-                        <div>
-                          <FileCopyField
-                            label={translate('common.name')}
-                            value={filename}
-                            copyLabel={translate('component.clipPreviewContent.fileNameValue', { value: index + 1 })}
-                            autoScroll
-                            copiedFormat={copiedFormat}
-                            onCopyFormat={onCopyFormat}
-                          />
-                          <div className="theme-divider border-t">
-                            <FileCopyField
-                              label={translate('component.clipPreviewContent.path')}
-                              value={path}
-                              copyLabel={translate('component.clipPreviewContent.filePathValue', { value: index + 1 })}
-                              autoScroll
-                              emphasized
-                              copiedFormat={copiedFormat}
-                              onCopyFormat={onCopyFormat}
-                            />
-                          </div>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            <FileClipPreviewPanel
+              paths={filePaths}
+              previews={filePreviews}
+              isLoading={isFilePreviewLoading}
+              copiedFormat={copiedFormat}
+              onCopyFormat={onCopyFormat}
+              onRecheck={onRecheckFileReferences}
+            />
 
             {transcriptionsEnabled && <section className="theme-panel overflow-hidden rounded-xl border shadow-lg">
               <header className="theme-divider flex min-h-12 items-center justify-between gap-3 border-b px-4 py-2">

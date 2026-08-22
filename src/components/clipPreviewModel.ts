@@ -1,6 +1,3 @@
-import type { AppSettings } from '../types';
-import { safeInvoke as invoke } from '../utils/tauri';
-
 export interface StructuralInspection {
   formatVersion: number;
   policy: 'capture' | 'background' | 'interactive' | 'rescan';
@@ -76,14 +73,6 @@ export interface AnalyzerPreview {
   liveFileObservations?: StructuralInspection['liveFileObservations'];
 }
 
-export interface FileClipPreview {
-  index: number;
-  dataUrl: string | null;
-  textContent: string | null;
-  width: number | null;
-  height: number | null;
-}
-
 export interface ExtractionApplicationResult {
   formatVersion: number;
   policy: 'capture' | 'background' | 'interactive' | 'rescan';
@@ -137,30 +126,6 @@ export interface ClipContentMatch {
   startOffset: number | null;
   endOffset: number | null;
   updatedAt: string;
-}
-
-const filePreviewResultCache = new Map<string, FileClipPreview[]>();
-const filePreviewRequestCache = new Map<string, Promise<FileClipPreview[]>>();
-
-export const getCachedFilePreviews = (cacheKey: string) => filePreviewResultCache.get(cacheKey);
-
-export function loadFilePreviews(
-  cacheKey: string,
-  request: { clipId: number; mode: AppSettings['filePreviewMode']; maxSizeMb: number },
-): Promise<FileClipPreview[]> {
-  const cached = filePreviewResultCache.get(cacheKey);
-  if (cached) return Promise.resolve(cached);
-  const pending = filePreviewRequestCache.get(cacheKey);
-  if (pending) return pending;
-  const next = invoke<FileClipPreview[]>('get_file_clip_previews', request)
-    .then((items) => {
-      const previews = Array.isArray(items) ? items : [];
-      filePreviewResultCache.set(cacheKey, previews);
-      return previews;
-    })
-    .finally(() => filePreviewRequestCache.delete(cacheKey));
-  filePreviewRequestCache.set(cacheKey, next);
-  return next;
 }
 
 export function formatFileSize(bytes: number): string {

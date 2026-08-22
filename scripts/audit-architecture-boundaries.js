@@ -76,6 +76,7 @@ const importCommands = read('src-tauri/src/commands/imports.rs');
 const factoryResetCommands = read('src-tauri/src/commands/factory_reset.rs');
 const extractionCommands = read('src-tauri/src/commands/extraction.rs');
 const filePreviewCommands = read('src-tauri/src/commands/file_previews.rs');
+const fileReferenceHealth = read('src-tauri/src/file_reference_health.rs');
 const intelligenceCommands = read('src-tauri/src/commands/intelligence.rs');
 const libraryAccessCommands = read('src-tauri/src/commands/library_access.rs');
 const manualTransformCommands = read('src-tauri/src/commands/manual_transforms.rs');
@@ -440,6 +441,10 @@ assert.match(filePreviewCommands, /pub async fn get_file_clip_previews[\s\S]*spa
   'File preview generation must remain outside async command dispatch');
 assert.match(filePreviewCommands, /read_bounded_file[\s\S]*MAX_FILE_PREVIEW_OUTPUT_BYTES/,
   'File previews must retain shared input and output bounds');
+assert.match(filePreviewCommands, /resolve_file_reference_health/,
+  'File previews must delegate reference checks to the shared health service');
+assert.match(fileReferenceHealth, /clip_file_reference_health[\s\S]*retry_interval/,
+  'File reference failures must use persistent bounded retry state');
 assert.doesNotMatch(commands, /pub fn get_clips|pub fn update_clip_note|pub fn batch_pin_clips/,
   'The GUI command root must not reclaim clip library operations');
 assert.doesNotMatch(commands, /pub async fn get_file_clip_previews|fn collect_file_clip_previews/,
@@ -538,7 +543,9 @@ const sizeRatchets = new Map([
   ['src-tauri/src/commands/factory_reset.rs', 39],
   ['src-tauri/src/commands/extraction.rs', 187],
   ['src-tauri/src/commands/clips.rs', 261],
-  ['src-tauri/src/commands/file_previews.rs', 714],
+  ['src-tauri/src/commands/file_previews.rs', 623],
+  ['src-tauri/src/commands/file_preview_cache.rs', 191],
+  ['src-tauri/src/file_reference_health.rs', 288],
   ['src-tauri/src/commands/intelligence.rs', 271],
   ['src-tauri/src/commands/library_access.rs', 38],
   ['src-tauri/src/commands/manual_transforms.rs', 164],
@@ -561,7 +568,10 @@ const sizeRatchets = new Map([
   ['src/hooks/useClipDragController.ts', 130],
   ['src/hooks/useClipReordering.ts', 100],
   ['src/components/AppDialogLayer.tsx', 210],
-  ['src/components/ClipPreview.tsx', 419],
+  ['src/components/ClipPreview.tsx', 410],
+  ['src/components/ClipPreviewContent.tsx', 425],
+  ['src/components/ClipPreviewEmptyState.tsx', 15],
+  ['src/components/FileClipPreviewPanel.tsx', 198],
   ['src/components/ClipPreviewHeader.tsx', 250],
   ['src/components/ClipPreviewOrganization.tsx', 93],
   ['src/components/ClipPreviewTransformControls.tsx', 159],
@@ -597,8 +607,10 @@ const sizeRatchets = new Map([
   ['src/components/BinModal.tsx', 571],
   ['src/components/BinModalSmartConditionInputs.tsx', 219],
   ['src/components/binModalModel.ts', 110],
-  ['src/components/clipPreviewModel.ts', 197],
-  ['src/hooks/useClipPreviewAnalysis.ts', 319],
+  ['src/components/clipPreviewModel.ts', 162],
+  ['src/components/fileClipPreviewModel.ts', 46],
+  ['src/hooks/useClipPreviewAnalysis.ts', 299],
+  ['src/hooks/useFileClipPreviews.ts', 61],
   ['src/hooks/useClipPreviewNotes.ts', 129],
   ['src/hooks/useClipPreviewRevisions.ts', 149],
   ['src/hooks/useClipPreviewTransforms.ts', 289],
