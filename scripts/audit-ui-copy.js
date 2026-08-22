@@ -38,6 +38,9 @@ const TOOL_COPY_FILES = [
   'src/components/SettingsNotificationsPanel.tsx',
   'src/components/SettingsResetPanel.tsx',
   'src/components/SettingsSyncPanel.tsx',
+  'src/components/SettingsSyncLibrarySection.tsx',
+  'src/components/SettingsSyncExportSection.tsx',
+  'src/components/SettingsSyncImportSection.tsx',
   'src/components/SettingsTabs.tsx',
   'src/components/TransformComposerModal.tsx',
   'src/components/TransformationsView.tsx',
@@ -89,7 +92,12 @@ assert.deepEqual(
   `Tools UI copy must use neutral, in-app phrasing. Add only necessary, documented exceptions:\n${violations.join('\n')}`,
 );
 
-const settingsImportExport = fs.readFileSync('src/components/SettingsSyncPanel.tsx', 'utf8');
+const settingsImportExport = [
+  'src/components/SettingsSyncPanel.tsx',
+  'src/components/SettingsSyncLibrarySection.tsx',
+  'src/components/SettingsSyncExportSection.tsx',
+  'src/components/SettingsSyncImportSection.tsx',
+].map((file) => fs.readFileSync(file, 'utf8')).join('\n');
 const settingsTabs = fs.readFileSync('src/components/SettingsTabs.tsx', 'utf8');
 const settingsHotkeys = fs.readFileSync('src/components/SettingsHotkeysPanel.tsx', 'utf8');
 const settingsFeatures = fs.readFileSync('src/components/SettingsFeaturesPanel.tsx', 'utf8');
@@ -115,6 +123,9 @@ const canonicalAnalysisCopyFiles = [
   'src/hooks/useAnalysisMaintenance.ts',
   'src/hooks/useClassifierManager.ts',
   'src/components/SettingsSyncPanel.tsx',
+  'src/components/SettingsSyncLibrarySection.tsx',
+  'src/components/SettingsSyncExportSection.tsx',
+  'src/components/SettingsSyncImportSection.tsx',
 ];
 for (const file of canonicalAnalysisCopyFiles) {
   const source = fs.readFileSync(file, 'utf8');
@@ -182,7 +193,9 @@ for (const [file, labels] of Object.entries({
   'src/components/ExtractorRegistryPanel.tsx': ['Delete…'],
   'src/components/ContentTypeManagerDialog.tsx': ['Manage Content Type Groups', 'Manage…'],
   'src/components/SettingsGeneralPanel.tsx': ['Delete All Clips…', 'Trash All Clips…'],
-  'src/components/SettingsSyncPanel.tsx': ['Move…', 'Export…', 'Choose File…', 'Recover…'],
+  'src/components/SettingsSyncLibrarySection.tsx': ['Move…'],
+  'src/components/SettingsSyncExportSection.tsx': ['Export…'],
+  'src/components/SettingsSyncImportSection.tsx': ['Choose File…', 'Recover…'],
   'src/components/SettingsResetPanel.tsx': ['Reset Pasted…'],
   'src/components/FactoryResetDialog.tsx': ['Create Full Backup…'],
 })) {
