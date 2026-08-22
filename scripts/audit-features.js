@@ -36,6 +36,7 @@ const clipPreview = [
   'src/hooks/useClipPreviewAnalysis.ts',
   'src/hooks/useClipPreviewNotes.ts',
   'src/hooks/useClipPreviewRevisions.ts',
+  'src/hooks/useClipPreviewTransforms.ts',
 ].map(read).join('\n');
 const clipNameDialog = read('src/components/ClipNameDialog.tsx');
 const quickHud = read('src/components/QuickHudWindow.tsx');

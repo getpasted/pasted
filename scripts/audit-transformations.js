@@ -16,6 +16,7 @@ const clipPreview = [
   'src/components/ClipPreviewWorkspace.tsx',
   'src/hooks/useClipPreviewAnalysis.ts',
   'src/hooks/useClipPreviewRevisions.ts',
+  'src/hooks/useClipPreviewTransforms.ts',
 ].map(read).join('\n');
 const sound = read('src/utils/sound.ts');
 const app = read('src/App.tsx');

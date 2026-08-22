@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ClipItem, Bin, ManualTransform } from '../types';
 import type { AppSettings } from '../types';
-import type { ClipTransformationProvenance, TransformationExecutionOutcome, SavedTransform } from '../types';
 import { parseColor, ColorFormats } from '../utils/color';
 import { soundManager } from '../utils/sound';
 import { ClipRevisionHistory } from './ClipRevisionHistory';
@@ -10,11 +9,9 @@ import { ClipNoteViewer } from './ClipNoteViewer';
 import { FileText } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { useClipPreviewNotes } from '../hooks/useClipPreviewNotes';
-import { useClipPreviewRevisions } from '../hooks/useClipPreviewRevisions';
 import { useClipPreviewAnalysis } from '../hooks/useClipPreviewAnalysis';
+import { useClipPreviewTransforms } from '../hooks/useClipPreviewTransforms';
 import type { ClipViewPolicy } from '../utils/clipViewPolicy';
-import { startTransformation, type TransformationExecutionHandle } from '../utils/transformExecution';
-import { useIntelligenceRequestStatus } from '../hooks/useIntelligenceRequestStatus';
 import { useFeatures } from '../hooks/useFeatures';
 import { useToast } from './ToastProvider';
 import { translate } from '../localization/runtime';
@@ -78,18 +75,6 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const { showToast } = useToast();
   const [copied, setCopied] = useState(false);
   const [copiedFormat, setCopiedFormat] = useState<string | null>(null);
-  const [transformedText, setTransformedText] = useState<string | null>(null);
-  const [activeManualTransformRef, setActiveManualTransformRef] = useState<string | null>(null);
-  const [activeManualTransformName, setActiveManualTransformName] = useState<string | null>(null);
-  const [transforms, setTransforms] = useState<SavedTransform[]>([]);
-  const [activeTransformRef, setActiveTransformRef] = useState<string | null>(null);
-  const [activeTransformName, setActiveTransformName] = useState<string | null>(null);
-  const [isWorkflowMenuOpen, setIsWorkflowMenuOpen] = useState(false);
-  const [transformPreviewOutcome, setTransformPreviewOutcome] = useState<TransformationExecutionOutcome | null>(null);
-  const [provenance, setProvenance] = useState<ClipTransformationProvenance | null>(null);
-  const [isManualTransformRunning, setIsManualTransformRunning] = useState(false);
-  const [pipelineAction, setManualTransformAction] = useState<'copied' | 'pasted' | null>(null);
-  const [pipelineError, setManualTransformError] = useState<string | null>(null);
   const notesController = useClipPreviewNotes({
     clip,
     canEdit: viewPolicy.canEditNotes,
@@ -104,24 +89,39 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const workflowTriggerRef = useRef<HTMLButtonElement>(null);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copiedFormatTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pipelineRequestIdRef = useRef(0);
-  const activeTransformExecutionRef = useRef<TransformationExecutionHandle | null>(null);
-  const [transformClientRequestId, setTransformClientRequestId] = useState<string | null>(null);
-  const transformRequestStatus = useIntelligenceRequestStatus(transformClientRequestId);
-
-  const revisions = useClipPreviewRevisions({
+  const transformController = useClipPreviewTransforms({
     clip,
-    enabled: features.revisions,
-    canRestore: viewPolicy.canMutateContent,
-    onBeforeRestore: () => {
-      setTransformedText(null);
-      setActiveManualTransformRef(null);
-      setActiveManualTransformName(null);
-      setManualTransformAction(null);
-      setManualTransformError(null);
-    },
+    manualTransforms,
+    revisionsEnabled: features.revisions,
+    canMutateContent: viewPolicy.canMutateContent,
+    canRunManualTransforms: viewPolicy.canRunManualTransforms,
     onUpdateClip,
   });
+  const {
+    activeManualTransformName,
+    activeManualTransformRef,
+    activeTransformName,
+    activeTransformRef,
+    applyTransform: handleApplyTransform,
+    clientRequestId: transformClientRequestId,
+    isManualTransformRunning,
+    isWorkflowMenuOpen,
+    pipelineAction,
+    pipelineError,
+    previewManualTransform: handlePreviewManualTransform,
+    previewTransform: handlePreviewTransform,
+    provenance,
+    requestStatus: transformRequestStatus,
+    resetTransform: handleResetTransform,
+    retryTransform: handleRetryTransform,
+    revisions,
+    setIsWorkflowMenuOpen,
+    setTransformedText,
+    transformedText,
+    transformPreviewOutcome,
+    transforms,
+    outputTransform: handleManualTransformOutput,
+  } = transformController;
   const {
     isOpen: showHistory,
     previewedVersion,
@@ -161,52 +161,11 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   } = analysis;
 
   useEffect(() => {
-    invoke<SavedTransform[]>('get_intent_transforms')
-      .then((items) => setTransforms(Array.isArray(items) ? items : []))
-      .catch((error) => console.error('Failed to load Transforms:', error));
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!clip) {
-      setProvenance(null);
-      return () => { cancelled = true; };
-    }
-    invoke<ClipTransformationProvenance | null>('get_clip_transformation_provenance', { clipId: clip.id })
-      .then((value) => { if (!cancelled) setProvenance(value); })
-      .catch((error) => console.error('Failed to load transformation provenance:', error));
-    return () => { cancelled = true; };
-  }, [clip?.id, clip?.is_transformed, clip?.text_content]);
-
-  useEffect(() => {
-    void activeTransformExecutionRef.current?.cancel();
-    activeTransformExecutionRef.current = null;
-    setTransformClientRequestId(null);
-    pipelineRequestIdRef.current += 1;
-    setTransformedText(null);
-    setActiveManualTransformRef(null);
-    setActiveManualTransformName(null);
-    setActiveTransformRef(null);
-    setActiveTransformName(null);
-    setIsWorkflowMenuOpen(false);
-    setTransformPreviewOutcome(null);
-    setIsManualTransformRunning(false);
-    setManualTransformAction(null);
-    setManualTransformError(null);
     setCopied(false);
     setCopiedFormat(null);
     if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
     if (copiedFormatTimerRef.current) clearTimeout(copiedFormatTimerRef.current);
   }, [clip]);
-
-  useEffect(() => {
-    if (viewPolicy.canRunManualTransforms) return;
-    setTransformedText(null);
-    setActiveManualTransformRef(null);
-    setActiveManualTransformName(null);
-    setManualTransformAction(null);
-    setManualTransformError(null);
-  }, [viewPolicy.canRunManualTransforms]);
 
   useEffect(() => () => {
     if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
@@ -291,153 +250,6 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
       copiedFormatTimerRef.current = setTimeout(() => setCopiedFormat(null), 2000);
     } catch (e) {
       console.error(e);
-    }
-  };
-
-  const handlePreviewManualTransform = async (manualTransform: ManualTransform) => {
-    if (!clip.text_content) return;
-    revisions.clearPreview();
-    const requestId = ++pipelineRequestIdRef.current;
-    setActiveManualTransformRef(manualTransform.stableRef);
-    setActiveManualTransformName(manualTransform.name);
-    setActiveTransformRef(null);
-    setActiveTransformName(null);
-    setTransformPreviewOutcome(null);
-    setTransformedText(null);
-    setIsManualTransformRunning(true);
-    setManualTransformAction(null);
-    setManualTransformError(null);
-    try {
-      const execution = startTransformation(
-        clip.text_content,
-        { kind: 'manual_transform', transformRef: manualTransform.stableRef },
-        { sourceClipId: clip.id },
-      );
-      activeTransformExecutionRef.current = execution;
-      setTransformClientRequestId(execution.clientRequestId);
-      const res = await execution.promise;
-      if (requestId !== pipelineRequestIdRef.current) return;
-      setTransformedText(res.output);
-    } catch (e) {
-      if (requestId !== pipelineRequestIdRef.current) return;
-      console.error(e);
-      setManualTransformError(e instanceof Error ? e.message : translate('component.clipPreview.advancedTransformFailedToRun'));
-    } finally {
-      if (requestId === pipelineRequestIdRef.current) {
-        activeTransformExecutionRef.current = null;
-        setTransformClientRequestId(null);
-        setIsManualTransformRunning(false);
-      }
-    }
-  };
-
-  const handlePreviewTransform = async (transform: SavedTransform) => {
-    if (!clip.text_content) return;
-    revisions.clearPreview();
-    const requestId = ++pipelineRequestIdRef.current;
-    setActiveTransformRef(transform.stableRef);
-    setActiveTransformName(transform.name);
-    setActiveManualTransformRef(null);
-    setActiveManualTransformName(null);
-    setTransformedText(null);
-    setTransformPreviewOutcome(null);
-    setIsManualTransformRunning(true);
-    setManualTransformAction(null);
-    setManualTransformError(null);
-    revisions.clearPreview();
-    try {
-      const execution = startTransformation(
-        clip.text_content,
-        { kind: 'transform', transformRef: transform.stableRef },
-        { sourceClipId: clip.id },
-      );
-      activeTransformExecutionRef.current = execution;
-      setTransformClientRequestId(execution.clientRequestId);
-      const result = await execution.promise;
-      if (requestId !== pipelineRequestIdRef.current) return;
-      setTransformPreviewOutcome(result);
-      setTransformedText(result.output);
-    } catch (error) {
-      if (requestId !== pipelineRequestIdRef.current) return;
-      setManualTransformError(error instanceof Error ? error.message : translate('component.clipPreview.transformFailedToRun'));
-    } finally {
-      if (requestId === pipelineRequestIdRef.current) {
-        activeTransformExecutionRef.current = null;
-        setTransformClientRequestId(null);
-        setIsManualTransformRunning(false);
-      }
-    }
-  };
-
-  const handleApplyTransform = async () => {
-    if (!activeTransformRef || !transformPreviewOutcome || transformedText === null || !clip.text_content) return;
-    setIsManualTransformRunning(true);
-    setManualTransformError(null);
-    try {
-      const saved = await invoke<ClipTransformationProvenance>('apply_transform_preview_to_clip', {
-        clipId: clip.id,
-        transformRef: activeTransformRef,
-        expectedInput: clip.text_content,
-        output: transformedText,
-        connectionId: transformPreviewOutcome.connectionId,
-        durationMs: transformPreviewOutcome.durationMs,
-      });
-      setProvenance(saved);
-      revisions.noteRevisionAdded();
-      soundManager.playCopySound();
-      handleResetTransform();
-      onUpdateClip();
-    } catch (error) {
-      setManualTransformError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setIsManualTransformRunning(false);
-    }
-  };
-
-  const handleResetTransform = () => {
-    void activeTransformExecutionRef.current?.cancel();
-    activeTransformExecutionRef.current = null;
-    setTransformClientRequestId(null);
-    pipelineRequestIdRef.current += 1;
-    setTransformedText(null);
-    setActiveManualTransformRef(null);
-    setActiveManualTransformName(null);
-    setActiveTransformRef(null);
-    setActiveTransformName(null);
-    setTransformPreviewOutcome(null);
-    setManualTransformAction(null);
-    setManualTransformError(null);
-    revisions.clearPreview();
-  };
-
-  const handleRetryTransform = () => {
-    if (activeTransformRef) {
-      const transform = transforms.find((candidate) => candidate.stableRef === activeTransformRef);
-      if (transform) void handlePreviewTransform(transform);
-      return;
-    }
-    if (activeManualTransformRef) {
-      const manualTransform = manualTransforms.find((candidate) => candidate.stableRef === activeManualTransformRef);
-      if (manualTransform) void handlePreviewManualTransform(manualTransform);
-    }
-  };
-
-  const handleManualTransformOutput = async (destination: 'copy' | 'paste') => {
-    if (transformedText === null) return;
-    try {
-      if (destination === 'copy') {
-        await invoke('copy_clip_to_system', { text: transformedText, imageBase64: null });
-        setManualTransformAction('copied');
-        soundManager.playCopySound();
-      } else {
-        await invoke('paste_text_to_frontmost', { text: transformedText });
-        setManualTransformAction('pasted');
-        soundManager.playPasteSound();
-      }
-      setManualTransformError(null);
-    } catch (error) {
-      console.error(`Failed to ${destination} Advanced Transform output:`, error);
-      setManualTransformError(translate('component.clipPreview.couldNotDestinationTheAdvancedTransformResult', { destination: destination }));
     }
   };
 

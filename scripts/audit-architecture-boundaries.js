@@ -561,7 +561,7 @@ const sizeRatchets = new Map([
   ['src/hooks/useClipDragController.ts', 130],
   ['src/hooks/useClipReordering.ts', 100],
   ['src/components/AppDialogLayer.tsx', 210],
-  ['src/components/ClipPreview.tsx', 607],
+  ['src/components/ClipPreview.tsx', 419],
   ['src/components/ClipPreviewHeader.tsx', 250],
   ['src/components/ClipPreviewOrganization.tsx', 93],
   ['src/components/ClipPreviewTransformControls.tsx', 159],
@@ -587,6 +587,7 @@ const sizeRatchets = new Map([
   ['src/hooks/useClipPreviewAnalysis.ts', 319],
   ['src/hooks/useClipPreviewNotes.ts', 129],
   ['src/hooks/useClipPreviewRevisions.ts', 149],
+  ['src/hooks/useClipPreviewTransforms.ts', 289],
   ['src/hooks/useSidebarHoverState.ts', 67],
   ['src/hooks/useBinModalForm.ts', 204],
   ['src/utils/tauri.ts', 10],
@@ -602,13 +603,28 @@ for (const [path, maximum] of sizeRatchets) {
 }
 
 const clipPreviewShell = read('src/components/ClipPreview.tsx');
-for (const controller of ['useClipPreviewAnalysis', 'useClipPreviewNotes', 'useClipPreviewRevisions']) {
+for (const controller of ['useClipPreviewAnalysis', 'useClipPreviewNotes', 'useClipPreviewTransforms']) {
   assert.match(clipPreviewShell, new RegExp(`${controller}\\(`),
     `Clip Preview must compose the ${controller} controller`);
 }
 assert.doesNotMatch(clipPreviewShell,
-  /get_clip_versions|get_clip_extraction_results|update_clip_note|get_clip_content_matches/,
-  'Clip Preview must not reclaim controller-owned persistence and analysis commands');
+  /get_clip_versions|get_clip_extraction_results|update_clip_note|get_clip_content_matches|startTransformation|apply_transform_preview_to_clip/,
+  'Clip Preview must not reclaim controller-owned persistence, analysis, or Transform commands');
+const clipPreviewTransforms = read('src/hooks/useClipPreviewTransforms.ts');
+assert.match(clipPreviewTransforms, /useClipPreviewRevisions\(\{/,
+  'The Transform controller must coordinate revision preview and restore state');
+assert.match(clipPreviewTransforms, /requestIdRef\.current \+= 1;[\s\S]{0,100}activeExecutionRef\.current\?\.cancel\(\)/,
+  'Unmounting the Transform controller must invalidate stale responses and cancel active work');
+assert.match(clipPreviewTransforms, /if \(requestId !== requestIdRef\.current\) return;/,
+  'Transform responses must be rejected after a newer request or reset');
+assert.match(clipPreviewTransforms, /const invalidateActiveExecution[\s\S]{0,100}requestIdRef\.current \+= 1;[\s\S]{0,100}activeExecutionRef\.current\?\.cancel\(\)/,
+  'The Transform controller must centralize stale-response invalidation and cancellation');
+assert.match(clipPreviewTransforms, /const resetTransform = \(\) => \{[\s\S]{0,80}invalidateActiveExecution\(\);/,
+  'Resetting a Transform preview must invalidate and cancel active work');
+assert.match(clipPreviewTransforms, /if \(canRunManualTransforms\) return;[\s\S]{0,100}invalidateActiveExecution\(\);/,
+  'Losing Transform permission must cancel active work and invalidate its response');
+assert.match(clipPreviewTransforms, /onBeforeRestore:[\s\S]{0,100}invalidateActiveExecution\(\);/,
+  'Restoring a revision must cancel active Transform work before replacing preview state');
 for (const subsystem of [
   'ClipPreviewHeader',
   'ClipPreviewOrganization',
