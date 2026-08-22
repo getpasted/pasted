@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { readRustModuleTree } from './audit-source-trees.js';
 
 const read = (path) => readFileSync(path, 'utf8');
+const lineCount = (path) => read(path).trimEnd().split(/\r?\n/).length;
 const englishCatalog = JSON.parse(read('src/locales/en.json'));
 const fixture = (name) => JSON.parse(read(`contracts/analysis/v1/${name}.json`));
 const frontendMock = [
@@ -33,7 +34,16 @@ const analysisExecution = read('src-tauri/src/analysis_execution.rs');
 const commands = readRustModuleTree('src-tauri/src/commands.rs', 'src-tauri/src/commands');
 const builtinLifecycleManager = read('src/components/BuiltinLifecycleManagerDialog.tsx');
 const analysisApi = read('src/api/analysis.ts');
-const extractorManager = read('src/components/ContentExtractorManagerDialog.tsx');
+const extractorManagerFiles = [
+  'src/hooks/useContentExtractorManager.ts',
+  'src/components/ContentExtractorManagerDialog.tsx',
+  'src/components/ExtractorAuthoringHistoryDialog.tsx',
+  'src/components/ExtractorRecipeEditor.tsx',
+  'src/components/ExtractorRegistryPanel.tsx',
+  'src/components/contentExtractorModel.ts',
+  'src/components/contentExtractorPolicy.ts',
+];
+const extractorManager = extractorManagerFiles.map(read).join('\n');
 const contentTypeManager = read('src/components/ContentTypeManagerDialog.tsx');
 const contentTypeGroupManager = read('src/components/ContentTypeGroupManagerDialog.tsx');
 const registryPanelHeader = read('src/components/RegistryPanelHeader.tsx');
@@ -141,6 +151,16 @@ assert.match(extractorManager, /value: 'searchable_text',[\s\S]{0,100}translate\
   'Extractor settings must present the searchable-text output contract readably');
 assert.doesNotMatch(extractorManager, />Pass<|>extract<\/strong>/,
   'Extractor settings must not repeat the enclosing Analysis step');
+assert.ok(lineCount('src/components/ContentExtractorManagerDialog.tsx') <= 215,
+  'The Extractor manager coordinator must stay within its extracted size boundary');
+assert.match(read('src/hooks/useContentExtractorManager.ts'), /export function useContentExtractorManager/,
+  'Extractor persistence and authoring state must remain in its focused controller');
+assert.match(read('src/components/ExtractorRecipeEditor.tsx'), /export function ExtractorRecipeEditor/,
+  'Advanced Extractor recipe editing must remain in its focused surface');
+assert.match(read('src/components/contentExtractorPolicy.ts'), /export function visibleContentExtractors/,
+  'Extractor feature visibility policy must remain independent from its React controller');
+assert.match(read('src/components/contentExtractorPolicy.ts'), /export function canSaveExtractorRecipe/,
+  'Extractor recipe validation policy must remain independently testable');
 assert.match(analysisSettings, /<ContentExtractorManagerDialog[\s\S]{0,220}ocrEnabled=\{ocrEnabled\}[\s\S]{0,100}transcriptionsEnabled=\{transcriptionsEnabled\}/,
   'Analysis Settings must pass both extraction feature gates to Extractor management');
 assert.match(commands, /extract_text_from_file_clip[\s\S]{0,400}active_file_text_extractors_for_features\(transcriptions_enabled\)/,

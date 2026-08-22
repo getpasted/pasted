@@ -6,7 +6,7 @@ import { analysisApi } from '../api/analysis';
 import { ActionButton } from './AppDialogLayout';
 import { SettingsSubsectionHeader } from './SettingsSubsectionHeader';
 import { useToast } from './ToastProvider';
-import type { ContentExtractor } from './ContentExtractorManagerDialog';
+import type { ContentExtractor } from './contentExtractorModel';
 import { translate } from '../localization/runtime';
 
 const EMPTY_OCR_STATUS: OcrBackfillStatus = {
