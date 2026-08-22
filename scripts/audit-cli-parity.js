@@ -40,7 +40,14 @@ const tauriMock = [
   ...fs.readdirSync('src/mocks/browser').filter((name) => name.endsWith('.ts')).sort()
     .map((name) => read(`src/mocks/browser/${name}`)),
 ].join('\n');
-const extractorManager = read('src/components/ContentExtractorManagerDialog.tsx');
+const extractorManager = [
+  'src/components/ContentExtractorManagerDialog.tsx',
+  'src/components/ExtractorRecipeEditor.tsx',
+  'src/components/ExtractorRegistryPanel.tsx',
+  'src/components/contentExtractorModel.ts',
+  'src/components/contentExtractorPolicy.ts',
+  'src/hooks/useContentExtractorManager.ts',
+].map(read).join('\n');
 const classifierManager = read('src/components/SettingsAnalysisPanel.tsx');
 const smartBins = read('src-tauri/src/smart_bins.rs');
 const manualTransforms = read('src-tauri/src/manual_transform_service.rs');
