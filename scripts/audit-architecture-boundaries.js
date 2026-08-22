@@ -591,6 +591,8 @@ const sizeRatchets = new Map([
   ['src/components/ExtractorAiAuthoringPanel.tsx', 65],
   ['src/components/extractorFileFormats.ts', 20],
   ['src/components/ocrStatusModel.ts', 25],
+  ['src/components/menuMultiSelectModel.ts', 30],
+  ['src-tauri/src/extractor_recipe/local_configuration.rs', 35],
   ['src/components/ClipPreviewTransformControls.tsx', 159],
   ['src/components/ClipPreviewWorkspace.tsx', 84],
   ['src/components/SettingsSyncPanel.tsx', 456],

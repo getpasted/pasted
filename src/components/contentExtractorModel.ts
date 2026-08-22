@@ -90,7 +90,7 @@ export interface ExtractorInput {
 export const EXTRACTOR_INPUT_OPTIONS = [
   { value: 'original_text', get label() { return translate('component.contentExtractorManagerDialog.text'); }, disabled: true },
   { value: 'image', get label() { return translate('component.contentExtractorManagerDialog.image'); }, disabled: false },
-  { value: 'file_references', get label() { return translate('component.contentExtractorManagerDialog.files'); }, disabled: false },
+  { value: 'file_references', get label() { return translate('component.contentExtractorManagerDialog.file'); }, disabled: false },
 ] as const;
 
 export const EXTRACTOR_OUTPUT_OPTIONS = [

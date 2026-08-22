@@ -171,8 +171,8 @@ assert.match(extractorManager, /value: 'original_text',[\s\S]{0,100}translate\('
   'Extractor settings must explain that Text clips are already searchable');
 assert.match(extractorManager, /value: 'image',[\s\S]{0,100}translate\('component\.contentExtractorManagerDialog\.image'\)/,
   'Extractor settings must present the Image Clip Type instead of its wire contract');
-assert.match(extractorManager, /value: 'file_references',[\s\S]{0,100}translate\('component\.contentExtractorManagerDialog\.files'\)/,
-  'Extractor settings must present the Files Clip Type instead of its wire contract');
+assert.match(extractorManager, /value: 'file_references',[\s\S]{0,100}translate\('component\.contentExtractorManagerDialog\.file'\)/,
+  'Extractor settings must present the singular File Clip Type instead of its wire contract');
 assert.match(extractorManager, /value: 'searchable_text',[\s\S]{0,100}translate\('component\.contentExtractorManagerDialog\.searchableText'\)/,
   'Extractor settings must present the searchable-text output contract readably');
 assert.doesNotMatch(extractorManager, />Pass<|>extract<\/strong>/,

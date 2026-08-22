@@ -22,6 +22,7 @@ import {
 import {
   canSaveExtractorRecipe,
   extractorDraftIsDirty,
+  resetExtractorRecipePreservingLocalPaths,
   visibleContentExtractors,
 } from '../components/contentExtractorPolicy';
 
@@ -105,10 +106,18 @@ export function useContentExtractorManager({
     hasAuthoredChanges: authoring !== null,
   });
   const defaults = selected?.defaults;
-  const defaultDraft = selected && defaults ? { ...toInput(selected), ...defaults } : null;
+  const defaultDraft = selected && defaults ? {
+    ...toInput(selected),
+    ...defaults,
+    executablePath: selected.executablePath,
+    modelPath: selected.modelPath,
+  } : null;
+  const defaultRecipeDraft = selected?.defaultRecipe
+    ? resetExtractorRecipePreservingLocalPaths(selected.recipe, selected.defaultRecipe)
+    : null;
   const differsFromDefaults = defaultDraft !== null && (
     JSON.stringify(draft) !== JSON.stringify(defaultDraft)
-    || JSON.stringify(recipeDraft) !== JSON.stringify(selected?.defaultRecipe)
+    || JSON.stringify(recipeDraft) !== JSON.stringify(defaultRecipeDraft)
   );
   const runtimeConfigurationChanged = selected !== undefined
     && JSON.stringify(recipeDraft) !== JSON.stringify(selected.recipe);
@@ -322,7 +331,7 @@ export function useContentExtractorManager({
 
   const resetDraft = () => {
     if (defaultDraft) setDraft(defaultDraft);
-    if (selected?.defaultRecipe) setRecipeDraft(selected.defaultRecipe);
+    if (defaultRecipeDraft) setRecipeDraft(defaultRecipeDraft);
     setAuthoring(null);
     setSetupGuidance([]);
   };

@@ -8,6 +8,9 @@ use std::time::Duration;
 
 use crate::content_extraction::{ExtractionFailure, ExtractionOutcome};
 
+mod local_configuration;
+pub use local_configuration::reset_preserving_local_paths;
+
 pub const EXTRACTOR_RECIPE_VERSION: u32 = 1;
 pub const EXTRACTOR_AUTHORING_VERSION: u32 = 1;
 const MAX_ARGUMENTS: usize = 128;

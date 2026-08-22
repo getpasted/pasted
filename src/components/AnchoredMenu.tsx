@@ -33,6 +33,7 @@ interface AnchoredMenuProps {
   ariaLabel: string;
   children: ReactNode;
   className?: string;
+  initialScrollTarget?: string;
   onClose: () => void;
   restoreFocus?: boolean;
   style?: CSSProperties;
@@ -58,6 +59,7 @@ export function AnchoredMenu({
   ariaLabel,
   children,
   className = '',
+  initialScrollTarget,
   onClose,
   restoreFocus = true,
   style,
@@ -176,6 +178,14 @@ export function AnchoredMenu({
   }, [anchorAlign, anchorGap, anchorKind, anchorRef, anchorX, anchorY, onClose, restoreFocus]);
 
   const isPositionReady = position.ready && position.anchorKey === anchorKey;
+
+  useLayoutEffect(() => {
+    if (!isPositionReady || !initialScrollTarget) return;
+    const menu = menuRef.current;
+    const target = [...(menu?.querySelectorAll<HTMLElement>('[data-menu-scroll-key]') ?? [])]
+      .find((element) => element.dataset.menuScrollKey === initialScrollTarget);
+    if (menu && target) menu.scrollTop = Math.max(0, target.offsetTop - 6);
+  }, [initialScrollTarget, isPositionReady]);
   const normalizedChildren = normalizeMenuDividers(children, MenuDivider);
 
   if (!isPositionReady) {

@@ -574,7 +574,33 @@ impl DbState {
         let mut conn = self.conn.lock();
         let transaction = conn.transaction()?;
         for preset in crate::content_extraction::EXTRACTOR_PRESETS {
-            let recipe = preset.recipe();
+            let default_recipe = preset.recipe();
+            let current_recipe = transaction
+                .query_row(
+                    "SELECT recipe_json FROM content_extractors WHERE stable_ref = ?1",
+                    params![preset.stable_ref],
+                    |row| row.get::<_, Option<String>>(0),
+                )
+                .optional()?
+                .flatten()
+                .map(|json| serde_json::from_str(&json))
+                .transpose()
+                .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+            let recipe = current_recipe
+                .as_ref()
+                .map(|current| {
+                    crate::extractor_recipe::reset_preserving_local_paths(current, &default_recipe)
+                })
+                .unwrap_or(default_recipe);
+            let executable_path = recipe
+                .steps
+                .first()
+                .and_then(|step| step.executable.path.as_deref());
+            let model_path = recipe
+                .resources
+                .iter()
+                .find(|resource| resource.id == "model")
+                .and_then(|resource| resource.path.as_deref());
             let recipe_json = serde_json::to_string(&recipe)
                 .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
             let recipe_hash = recipe.hash().map_err(invalid_extractor_input)?;
@@ -601,8 +627,8 @@ impl DbState {
                     preset.name,
                     preset.description,
                     preset.engine,
-                    preset.executable_path,
-                    preset.model_path,
+                    executable_path,
+                    model_path,
                     preset.input_contract,
                     preset.output_contract,
                     preset.priority,

@@ -48,3 +48,25 @@ export function extractorDraftIsDirty({
     || hasAuthoredChanges
   );
 }
+
+export function resetExtractorRecipePreservingLocalPaths(
+  current: ExtractorRecipe,
+  defaults: ExtractorRecipe,
+) {
+  return {
+    ...defaults,
+    steps: defaults.steps.map((step) => ({
+      ...step,
+      executable: {
+        ...step.executable,
+        path: current.steps.find((candidate) => candidate.id === step.id)?.executable.path
+          ?? step.executable.path,
+      },
+    })),
+    resources: defaults.resources.map((resource) => ({
+      ...resource,
+      path: current.resources.find((candidate) => candidate.id === resource.id)?.path
+        ?? resource.path,
+    })),
+  };
+}

@@ -330,7 +330,7 @@ fn content_extractors_are_versioned_available_and_restorable() {
             .unwrap()
             .model_path
             .as_deref(),
-        None
+        Some("/tmp/pasted-missing-whisper-model.bin")
     );
     assert!(restored_extractors.iter().any(|extractor| {
         extractor.stable_ref == duplicate.stable_ref

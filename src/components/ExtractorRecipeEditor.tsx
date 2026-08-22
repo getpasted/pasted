@@ -99,6 +99,7 @@ export function ExtractorRecipeEditor({
                       }}
                       label={translate('component.contentExtractorManagerDialog.acceptedFileFormats')}
                       placeholder={translate('component.contentExtractorManagerDialog.chooseFileFormats')}
+                      groupToggleLabel={translate('common.all')}
                       className="w-full"
                       disabled={!recipe.accepts.includes('file_references')}
                       options={fileFormatOptions.map((format) => ({

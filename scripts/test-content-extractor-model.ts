@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   canSaveExtractorRecipe,
   extractorDraftIsDirty,
+  resetExtractorRecipePreservingLocalPaths,
   visibleContentExtractors,
 } from '../src/components/contentExtractorPolicy.ts';
 import type {
@@ -11,6 +12,7 @@ import type {
   ExtractorRecipe,
 } from '../src/components/contentExtractorModel.ts';
 import { EXTRACTOR_FILE_FORMAT_GROUPS } from '../src/components/extractorFileFormats.ts';
+import { groupSelectionState, initialMultiSelectScrollKey, toggleMultiSelectGroup } from '../src/components/menuMultiSelectModel.ts';
 
 const extractor = (stableRef: string) => ({ stableRef } as ContentExtractor);
 const apple = extractor('extractor:apple-vision-ocr');
@@ -23,6 +25,16 @@ assert.deepEqual(EXTRACTOR_FILE_FORMAT_GROUPS.map(({ id }) => id),
   'Extractor File Formats must remain grouped by their detected media type');
 assert.deepEqual(EXTRACTOR_FILE_FORMAT_GROUPS.find(({ id }) => id === 'documents')?.formats, ['pdf'],
   'PDF must be presented as a Document format');
+const audioFormats = EXTRACTOR_FILE_FORMAT_GROUPS.find(({ id }) => id === 'audio')?.formats
+  .map((value) => ({ value })) ?? [];
+assert.deepEqual(groupSelectionState(['mp3'], audioFormats), { all: false, some: true },
+  'a partially selected File Format group must expose its mixed state');
+assert.deepEqual(toggleMultiSelectGroup(['pdf'], audioFormats), ['pdf', 'aac', 'flac', 'm4a', 'mp3', 'ogg', 'wav'],
+  'selecting a File Format group must preserve other groups and select every member');
+assert.deepEqual(toggleMultiSelectGroup(['pdf', ...audioFormats.map(({ value }) => value)], audioFormats), ['pdf'],
+  'clearing a File Format group must preserve selections in other groups');
+assert.equal(initialMultiSelectScrollKey(['mp3'], audioFormats.map((option) => ({ ...option, group: 'Audio' }))), 'group:Audio',
+  'a grouped menu must initially orient the first selected group toward the top');
 
 assert.deepEqual(
   visibleContentExtractors([apple, tesseract, whisper, custom], {
@@ -64,6 +76,22 @@ assert.equal(canSaveExtractorRecipe({ ...validRecipe, acceptedFileFormats: [] })
   'a recipe without accepted file formats must not save');
 assert.equal(canSaveExtractorRecipe({ ...validRecipe, acceptedFileFormats: ['*', 'pdf'] }), false,
   'the any-format selector cannot be combined with a specific format');
+const configuredRecipe: ExtractorRecipe = {
+  ...validRecipe,
+  steps: validRecipe.steps.map((step) => ({
+    ...step,
+    executable: { ...step.executable, path: '/local/extractor' },
+  })),
+  resources: [{ id: 'model', label: 'Model', kind: 'file', required: true, path: '/local/model.bin' }],
+};
+const resetRecipe = resetExtractorRecipePreservingLocalPaths(configuredRecipe, {
+  ...validRecipe,
+  resources: [{ id: 'model', label: 'Default Model', kind: 'file', required: true, path: null }],
+});
+assert.equal(resetRecipe.steps[0]?.executable.path, '/local/extractor',
+  'resetting an Extractor must preserve its local executable binding');
+assert.equal(resetRecipe.resources[0]?.path, '/local/model.bin',
+  'resetting an Extractor must preserve its local model binding');
 
 const baselineDraft: ExtractorInput = {
   name: 'Extractor',
