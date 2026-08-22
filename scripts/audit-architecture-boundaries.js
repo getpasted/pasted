@@ -566,6 +566,11 @@ const sizeRatchets = new Map([
   ['src/components/ClipPreviewOrganization.tsx', 93],
   ['src/components/ClipPreviewTransformControls.tsx', 159],
   ['src/components/ClipPreviewWorkspace.tsx', 84],
+  ['src/components/SettingsSyncPanel.tsx', 456],
+  ['src/components/SettingsSyncLibrarySection.tsx', 66],
+  ['src/components/SettingsSyncExportSection.tsx', 129],
+  ['src/components/SettingsSyncImportSection.tsx', 124],
+  ['src/components/settingsSyncModel.ts', 62],
   ['src/components/ClipCard.tsx', 171],
   ['src/components/ClipCardActions.tsx', 194],
   ['src/components/ClipCardContent.tsx', 76],
@@ -601,6 +606,23 @@ for (const [path, maximum] of sizeRatchets) {
   assert.ok(lineCount(path) <= maximum,
     `${path} grew beyond its ${maximum}-line architecture ratchet; extract a capability instead`);
 }
+
+const settingsSyncShell = read('src/components/SettingsSyncPanel.tsx');
+for (const section of ['SettingsSyncLibrarySection', 'SettingsSyncExportSection', 'SettingsSyncImportSection']) {
+  assert.match(settingsSyncShell, new RegExp(`<${section}`),
+    `Storage must compose its focused ${section} view`);
+}
+assert.doesNotMatch(settingsSyncShell,
+  /library-location-title|export-title|import-title|SettingsSwitch|checkingFile|supportedFormatsValue/,
+  'The Storage coordinator must not reclaim section-owned presentation');
+const settingsSyncViews = [
+  read('src/components/SettingsSyncLibrarySection.tsx'),
+  read('src/components/SettingsSyncExportSection.tsx'),
+  read('src/components/SettingsSyncImportSection.tsx'),
+].join('\n');
+assert.doesNotMatch(settingsSyncViews,
+  /safeInvoke|backupApi|activityApi|collectBackupClientState|restoreFull|importInspected|move_library/,
+  'Storage presentation sections must remain independent from persistence and native commands');
 
 const clipPreviewShell = read('src/components/ClipPreview.tsx');
 for (const controller of ['useClipPreviewAnalysis', 'useClipPreviewNotes', 'useClipPreviewTransforms']) {
