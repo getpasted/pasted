@@ -37,7 +37,7 @@ interface ClipPreviewContentProps {
   onRunOCR: () => void;
   onRunFileExtraction: () => void;
   onLoadExtractionHistory: (reset: boolean) => void;
-  onRecheckFileReferences: () => void;
+  onRecheckFileReference: (index: number) => Promise<void>;
 }
 
 function ExtractionCards({
@@ -197,7 +197,7 @@ export function ClipPreviewContent({
   onRunOCR,
   onRunFileExtraction,
   onLoadExtractionHistory,
-  onRecheckFileReferences,
+  onRecheckFileReference,
 }: ClipPreviewContentProps) {
   const ocrExtractorLabel = getOcrExtractorLabel(clip);
   const filePaths = getClipFilePaths(clip);
@@ -207,7 +207,7 @@ export function ClipPreviewContent({
   const [imageLoadingIndicatorClipId, setImageLoadingIndicatorClipId] = React.useState<number | null>(null);
   React.useEffect(() => {
     if (clip.content_type !== 'image' || resolvedImageBase64) return undefined;
-    const timer = window.setTimeout(() => setImageLoadingIndicatorClipId(clip.id), 120);
+    const timer = window.setTimeout(() => setImageLoadingIndicatorClipId(clip.id), 400);
     return () => window.clearTimeout(timer);
   }, [clip.content_type, clip.id, resolvedImageBase64]);
   const showImageLoadingIndicator = clip.content_type === 'image'
@@ -224,7 +224,7 @@ export function ClipPreviewContent({
               isLoading={isFilePreviewLoading}
               copiedFormat={copiedFormat}
               onCopyFormat={onCopyFormat}
-              onRecheck={onRecheckFileReferences}
+              onRecheck={onRecheckFileReference}
             />
 
             {transcriptionsEnabled && <section className="theme-panel overflow-hidden rounded-xl border shadow-lg">

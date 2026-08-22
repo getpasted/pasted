@@ -331,7 +331,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           onRunOCR: () => void handleRunOCR(),
           onRunFileExtraction: () => void handleRunFileExtraction(),
           onLoadExtractionHistory: (reset) => void loadExtractionHistory(reset),
-          onRecheckFileReferences: () => void analysis.recheckFileReferences(),
+          onRecheckFileReference: analysis.recheckFileReference,
         }}
         isManualTransformRunning={isManualTransformRunning}
         isTransforming={isTransforming}

@@ -289,7 +289,7 @@ export function useClipPreviewAnalysis({
     isFileExtractionLoading,
     filePreviews: filePreview.filePreviews,
     isFilePreviewLoading: filePreview.isFilePreviewLoading,
-    recheckFileReferences: filePreview.recheckFileReferences,
+    recheckFileReference: filePreview.recheckFileReference,
     isOcrLoading,
     resolvedImage,
     loadExtractionHistory,

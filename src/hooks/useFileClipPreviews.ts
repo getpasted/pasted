@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { FileClipPreview } from '../components/fileClipPreviewModel';
-import { getCachedFilePreviews, loadFilePreviews } from '../components/fileClipPreviewModel';
+import { getCachedFilePreviews, loadFilePreviews, recheckFilePreview } from '../components/fileClipPreviewLoader';
 import type { ClipItem } from '../types';
 
 interface UseFileClipPreviewsInput {
@@ -17,6 +17,8 @@ export function useFileClipPreviews({ clip, mode, maxSizeMb }: UseFileClipPrevie
     () => clip ? `${clip.id}:${clip.content_hash}:${mode}:${maxSizeMb}` : '',
     [clip?.content_hash, clip?.id, maxSizeMb, mode],
   );
+  const activeCacheKey = useRef(cacheKey);
+  activeCacheKey.current = cacheKey;
 
   useEffect(() => {
     let cancelled = false;
@@ -40,22 +42,19 @@ export function useFileClipPreviews({ clip, mode, maxSizeMb }: UseFileClipPrevie
     return () => { cancelled = true; };
   }, [cacheKey, clip?.content_type, clip?.id, maxSizeMb, mode]);
 
-  const recheck = useCallback(async () => {
+  const recheck = useCallback(async (index: number) => {
     if (!clip || clip.content_type !== 'file') return;
-    setIsLoading(true);
     try {
-      const previews = await loadFilePreviews(
+      const previews = await recheckFilePreview(
         cacheKey,
-        { clipId: clip.id, mode, maxSizeMb, forceRecheck: true },
-        true,
+        { clipId: clip.id, mode, maxSizeMb },
+        index,
       );
-      setItems(previews);
+      if (activeCacheKey.current === cacheKey) setItems(previews);
     } catch (error) {
       console.error('Failed to recheck file references:', error);
-    } finally {
-      setIsLoading(false);
     }
   }, [cacheKey, clip, maxSizeMb, mode]);
 
-  return { filePreviews: items, isFilePreviewLoading: isLoading, recheckFileReferences: recheck };
+  return { filePreviews: items, isFilePreviewLoading: isLoading, recheckFileReference: recheck };
 }

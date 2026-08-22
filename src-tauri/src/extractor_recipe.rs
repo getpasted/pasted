@@ -587,6 +587,8 @@ fn execute_recipe(recipe: &ExtractorRecipe, input: RecipeInput<'_>) -> Extractio
     };
     let mut produced = Vec::new();
     let mut artifacts = HashMap::<(String, usize), PathBuf>::new();
+    let mut failed_inputs = HashSet::new();
+    let mut first_input_failure = None;
     for (step_index, step) in recipe.steps.iter().enumerate() {
         let Some(executable) = resolve_executable(&step.executable) else {
             return failure(
@@ -594,14 +596,12 @@ fn execute_recipe(recipe: &ExtractorRecipe, input: RecipeInput<'_>) -> Extractio
                 format!("{} is not installed.", executable_label(step)),
             );
         };
-        let runs = match step.mode {
-            ExtractorStepMode::Once => vec![input_paths.first().map(PathBuf::as_path)],
-            ExtractorStepMode::EachInput => input_paths
-                .iter()
-                .map(|path| Some(path.as_path()))
-                .collect(),
-        };
+        let runs = step_runs(step, &input_paths);
+        let isolates_input_failures = runs.len() > 1;
         for (run_index, input_path) in runs.into_iter().enumerate() {
+            if isolates_input_failures && failed_inputs.contains(&run_index) {
+                continue;
+            }
             let extension = step
                 .output_extension
                 .as_deref()
@@ -663,6 +663,14 @@ fn execute_recipe(recipe: &ExtractorRecipe, input: RecipeInput<'_>) -> Extractio
                 }
             };
             if !status.success() {
+                if isolates_input_failures {
+                    failed_inputs.insert(run_index);
+                    first_input_failure.get_or_insert_with(|| ExtractionFailure {
+                        code: "engine_failed".into(),
+                        message: "The Extractor command did not complete successfully.".into(),
+                    });
+                    continue;
+                }
                 return failure(
                     "engine_failed",
                     "The Extractor command did not complete successfully.",
@@ -723,7 +731,9 @@ fn execute_recipe(recipe: &ExtractorRecipe, input: RecipeInput<'_>) -> Extractio
         }
     }
     if produced.is_empty() {
-        ExtractionOutcome::NoOutput
+        first_input_failure
+            .map(|failure| ExtractionOutcome::Failed { failure })
+            .unwrap_or(ExtractionOutcome::NoOutput)
     } else {
         let text = produced.join("\n");
         if text.len() > crate::resource_limits::MAX_OCR_TEXT_BYTES {
@@ -734,6 +744,20 @@ fn execute_recipe(recipe: &ExtractorRecipe, input: RecipeInput<'_>) -> Extractio
         } else {
             ExtractionOutcome::Produced { text }
         }
+    }
+}
+
+fn step_runs<'a>(step: &ExtractorCommandStep, input_paths: &'a [PathBuf]) -> Vec<Option<&'a Path>> {
+    let uses_singular_input = step.arguments.iter().any(|argument| {
+        argument.contains("{input.path}") || argument.contains("{input.stagedPath}")
+    });
+    if step.mode == ExtractorStepMode::EachInput || uses_singular_input && input_paths.len() > 1 {
+        input_paths
+            .iter()
+            .map(|path| Some(path.as_path()))
+            .collect()
+    } else {
+        vec![input_paths.first().map(PathBuf::as_path)]
     }
 }
 
@@ -979,5 +1003,16 @@ mod tests {
         )
         .unwrap();
         assert_eq!(arguments, ["/private/input-1.wav", "/private/transcript"]);
+    }
+
+    #[test]
+    fn singular_input_placeholders_fan_out_even_for_legacy_once_recipes() {
+        let mut recipe = recipe();
+        recipe.steps[0].mode = ExtractorStepMode::Once;
+        let paths = vec![PathBuf::from("first.pdf"), PathBuf::from("second.pdf")];
+        assert_eq!(step_runs(&recipe.steps[0], &paths).len(), 2);
+
+        recipe.steps[0].arguments = vec!["{request.path}".into()];
+        assert_eq!(step_runs(&recipe.steps[0], &paths).len(), 1);
     }
 }
