@@ -107,10 +107,10 @@ function ExtractionActivity({
 
   return (
     <footer className="theme-divider border-t text-xs">
-      <div className="flex min-h-12 items-center justify-end p-2">
+      <div className="flex min-h-9 items-center justify-end px-2 py-1">
         <button
           type="button"
-          className="theme-secondary-button theme-focusable flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 font-semibold transition-colors"
+          className="theme-secondary-button theme-focusable flex items-center gap-1.5 rounded-lg border px-2 py-1 font-semibold transition-colors"
           onClick={toggle}
           aria-expanded={expanded}
         >
@@ -119,14 +119,14 @@ function ExtractionActivity({
         </button>
       </div>
       {expanded && (
-        <div className="theme-text-muted theme-divider space-y-3 border-t px-4 py-3">
+        <div className="theme-text-muted theme-divider space-y-2 border-t px-3 py-2">
           {runs.map((run) => (
-            <section key={run.runId} className="space-y-1.5">
+            <section key={run.runId} className="space-y-1">
               <time className="theme-text-subtle text-[10px]" dateTime={dateTimeAttribute(run.runAt)} title={formatFullDateTime(run.runAt)}>{formatRelativeTime(run.runAt)}</time>
               {run.attempts.map((result) => {
                 const duplicateName = run.attempts.find((candidate) => candidate.extractorRef === result.duplicateOf)?.extractorName;
                 return (
-                  <div key={`${run.runId}:${result.extractorRef}`} className="flex items-start gap-2 py-1">
+                  <div key={`${run.runId}:${result.extractorRef}`} className="flex items-start gap-2 py-0.5">
                     {result.outcome === 'failed' && <AlertTriangle className="theme-status-warning-text mt-0.5 h-3.5 w-3.5 shrink-0" />}
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
@@ -252,7 +252,7 @@ export function ClipPreviewContent({
                   </button>
                 </div>
               </header>
-              {(hasProducedExtraction || fileSearchableText || extractionResults.length === 0) && <div className="space-y-3 p-4">
+              <div className="space-y-3 px-4 py-3">
                 {hasProducedExtraction ? (
                   <ExtractionCards results={extractionResults} copiedFormat={copiedFormat} onCopyFormat={onCopyFormat} />
                 ) : fileSearchableText ? <>
@@ -263,7 +263,7 @@ export function ClipPreviewContent({
                 </> : (
                   <p className="theme-text-muted text-xs italic">{translate('component.clipPreviewContent.runAnAvailableFileTextExtractorToCreateSearchableText')}</p>
                 )}
-              </div>}
+              </div>
               <ExtractionActivity key={clip.id} history={extractionHistory} hasMore={extractionHistoryHasMore} loading={isExtractionHistoryLoading} onLoad={onLoadExtractionHistory} />
             </section>}
           </div>
@@ -396,7 +396,7 @@ export function ClipPreviewContent({
                   </button>}
                 </div>
               </header>
-              {(hasProducedExtraction || clip.text_content || extractionResults.length === 0) && <div className="space-y-3 p-4">
+              <div className="space-y-3 px-4 py-3">
                 {!hasProducedExtraction && clip.text_content && ocrExtractorLabel && (
                   <p className="theme-text-muted text-xs">{translate('component.clipPreviewContent.extractedByName', { name: ocrExtractorLabel })}</p>
                 )}
@@ -411,7 +411,7 @@ export function ClipPreviewContent({
                     {ocrEnabled ? translate('component.clipPreviewContent.runOcrToRecognizeTextInThisImage') : translate('component.clipPreviewContent.ocrIsDisabledInSettingsFunctionality')}
                   </p>
                 )}
-              </div>}
+              </div>
               <ExtractionActivity key={clip.id} history={extractionHistory} hasMore={extractionHistoryHasMore} loading={isExtractionHistoryLoading} onLoad={onLoadExtractionHistory} />
             </section>
           </div>
