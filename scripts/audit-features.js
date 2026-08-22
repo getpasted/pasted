@@ -17,7 +17,13 @@ const captureFeedbackWindow = read('src/components/CaptureFeedbackWindow.tsx');
 const clipboardMonitor = read('src-tauri/src/clipboard_monitor.rs');
 const hotkeyManager = read('src-tauri/src/hotkey_manager.rs');
 const manualTransformService = read('src-tauri/src/manual_transform_service.rs');
-const clipPreview = read('src/components/ClipPreview.tsx');
+const clipPreview = [
+  'src/components/ClipPreview.tsx',
+  'src/components/ClipPreviewNotesPanel.tsx',
+  'src/hooks/useClipPreviewAnalysis.ts',
+  'src/hooks/useClipPreviewNotes.ts',
+  'src/hooks/useClipPreviewRevisions.ts',
+].map(read).join('\n');
 const clipNameDialog = read('src/components/ClipNameDialog.tsx');
 const quickHud = read('src/components/QuickHudWindow.tsx');
 const settingsHotkeys = read('src/components/SettingsHotkeysPanel.tsx');

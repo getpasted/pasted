@@ -19,7 +19,13 @@ const inspection = read('src-tauri/src/content_inspection.rs');
 const inspectionExecution = read('src-tauri/src/inspection_execution.rs');
 const suggestion = read('src-tauri/src/content_suggestions.rs');
 const suggestionExecution = read('src-tauri/src/suggestion_execution.rs');
-const clipPreview = read('src/components/ClipPreview.tsx');
+const clipPreview = [
+  'src/components/ClipPreview.tsx',
+  'src/components/ClipPreviewContent.tsx',
+  'src/components/clipPreviewModel.ts',
+  'src/hooks/useClipPreviewAnalysis.ts',
+  'src/hooks/useClipPreviewRevisions.ts',
+].map(read).join('\n');
 const clipViews = read('src/hooks/useClipViews.ts');
 const clipsApi = read('src/api/clips.ts');
 const activityApi = read('src/api/activity.ts');

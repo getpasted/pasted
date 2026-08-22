@@ -9,7 +9,11 @@ const commands = readRustModuleTree('src-tauri/src/commands.rs', 'src-tauri/src/
 const service = read('src-tauri/src/transformation_service.rs');
 const suggestion = read('src-tauri/src/content_suggestions.rs');
 const suggestionExecution = read('src-tauri/src/suggestion_execution.rs');
-const clipPreview = read('src/components/ClipPreview.tsx');
+const clipPreview = [
+  'src/components/ClipPreview.tsx',
+  'src/hooks/useClipPreviewAnalysis.ts',
+  'src/hooks/useClipPreviewRevisions.ts',
+].map(read).join('\n');
 const sound = read('src/utils/sound.ts');
 const app = read('src/App.tsx');
 const analytics = read('src/components/AnalyticsView.tsx');

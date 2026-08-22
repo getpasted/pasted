@@ -11,7 +11,16 @@ const frontendMock = [
     .map((name) => read(`src/mocks/browser/${name}`)),
 ].join('\n');
 const cliTests = read('src-tauri/tests/cli_integration.rs');
-const clipPreview = read('src/components/ClipPreview.tsx');
+const clipPreview = [
+  'src/components/ClipPreview.tsx',
+  'src/components/ClipPreviewContent.tsx',
+  'src/components/ClipPreviewFooter.tsx',
+  'src/components/ClipPreviewNotesPanel.tsx',
+  'src/components/clipPreviewModel.ts',
+  'src/hooks/useClipPreviewAnalysis.ts',
+  'src/hooks/useClipPreviewNotes.ts',
+  'src/hooks/useClipPreviewRevisions.ts',
+].map(read).join('\n');
 const clipPreviewContent = read('src/components/ClipPreviewContent.tsx');
 const clipCard = read('src/components/ClipCard.tsx');
 const analytics = read('src/components/AnalyticsView.tsx');
