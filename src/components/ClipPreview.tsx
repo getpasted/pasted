@@ -1,20 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { dateTimeAttribute, formatFullDateTime, formatRelativeTime } from '../utils/date';
 import { useMinuteTick } from '../hooks/useMinuteTick';
-import { ClipItem, Bin, ManualTransform, ClipNote, parseClipNotes, serializeClipNotes, ClipVersion, getClipFilePaths } from '../types';
+import { ClipItem, Bin, ManualTransform, getClipFilePaths } from '../types';
 import type { AppSettings } from '../types';
 import type { ClipTransformationProvenance, TransformationExecutionOutcome, SavedTransform } from '../types';
 import { parseColor, ColorFormats } from '../utils/color';
 import { soundManager } from '../utils/sound';
 import { handleWindowDragDoubleClick, startWindowDrag } from '../utils/windowDrag';
 import { ClipRevisionHistory } from './ClipRevisionHistory';
-import { ClipPreviewContent, type ExtractionAttempt, type ExtractionResult } from './ClipPreviewContent';
+import { ClipPreviewFooter } from './ClipPreviewFooter';
+import { ClipPreviewContent } from './ClipPreviewContent';
 import { ClipTransformBar } from './ClipTransformBar';
 import { ClipWorkflowMenu } from './ClipWorkflowMenu';
 import { MenuSelect } from './MenuSelect';
 import { ClipBinPicker } from './ClipBinPicker';
 import { ClipNoteViewer } from './ClipNoteViewer';
-import { NoteRowItem } from './ClipNoteRow';
+import { ClipPreviewNotesPanel } from './ClipPreviewNotesPanel';
 import { OverflowText } from './OverflowText';
 import { HotkeyRecorder } from './HotkeyRecorder';
 import {
@@ -40,8 +41,9 @@ import {
   FilePenLine,
 } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
-import { analysisApi } from '../api/analysis';
-import { useStableVerticalReorder } from '../hooks/useStableVerticalReorder';
+import { useClipPreviewNotes } from '../hooks/useClipPreviewNotes';
+import { useClipPreviewRevisions } from '../hooks/useClipPreviewRevisions';
+import { useClipPreviewAnalysis } from '../hooks/useClipPreviewAnalysis';
 import type { ClipViewPolicy } from '../utils/clipViewPolicy';
 import { clipDeleteLabel, UI_COPY } from '../utils/uiCopy';
 import { startTransformation, type TransformationExecutionHandle } from '../utils/transformExecution';
@@ -53,6 +55,7 @@ import { formatTransformRequestPhase, translate } from '../localization/runtime'
 import { localizedSourceName } from '../localization/presentation';
 import { useContentTypes } from './ContentTypeProvider';
 import { clipConcealmentPolicy } from '../utils/clipConcealment';
+import { contentMatchTitle } from './clipPreviewModel';
 
 interface ClipPreviewProps {
   clip: ClipItem | null;
@@ -77,190 +80,6 @@ interface ClipPreviewProps {
   filePreviewMode: AppSettings['filePreviewMode'];
   filePreviewMaxMb: number;
 }
-
-interface StructuralInspection {
-  formatVersion: number;
-  policy: 'capture' | 'background' | 'interactive' | 'rescan';
-  through: 'inspect' | 'extract' | 'classify' | 'suggest';
-  result: {
-    origin: 'clipboard_content' | 'file_reference' | 'screenshot' | 'command_line';
-    byteCount: number;
-    text?: { characterCount: number; wordCount: number; lineCount: number };
-    image?: { width: number; height: number };
-    files?: { itemCount: number; extensions: string[] };
-  };
-  appliedClipId: number | null;
-  mediaMetadata?: {
-    examinedFileCount: number;
-    mediaFileCount: number;
-    audioStreamCount: number;
-    videoStreamCount: number;
-    totalDurationMs: number;
-    containers: string[];
-    codecs: string[];
-  };
-  fileFormats?: {
-    formats: Array<{ format: string; mimeType: string; count: number }>;
-    inspectedCount: number;
-    unknownCount: number;
-    unavailableCount: number;
-  };
-  liveFileObservations?: {
-    availableCount: number;
-    fileCount: number;
-    directoryCount: number;
-    totalSizeBytes: number;
-  };
-}
-
-interface SmartActionSuggestion {
-  formatVersion: number;
-  policy: 'interactive';
-  through: 'suggest';
-  result: {
-    signals: Array<'url' | 'json' | 'html' | 'markdown' | 'multi_line' | 'email' | 'phone'>;
-    signalLabels: string[];
-    actions: Array<{
-      transformRef: string;
-      transformName: string;
-      transformRevision: number;
-      reasons: string[];
-    }>;
-  };
-  appliedClipId: null;
-}
-
-interface AnalyzerPreview {
-  formatVersion: number;
-  policy: 'capture' | 'background' | 'interactive' | 'rescan';
-  through: 'inspect' | 'extract' | 'classify' | 'suggest';
-  result: {
-    clipKind: string;
-    structure?: StructuralInspection['result'];
-    mediaMetadata?: StructuralInspection['mediaMetadata'];
-    classificationMatches?: Array<{
-      classifierRef: string;
-      classifierName: string;
-      contentType: string;
-      priority: number;
-      startOffset: number;
-      endOffset: number;
-    }>;
-    searchableTextAvailable: boolean;
-    suggestions?: SmartActionSuggestion['result'];
-  };
-  appliedClipId: null;
-  liveFileObservations?: StructuralInspection['liveFileObservations'];
-}
-
-interface FileClipPreview {
-  index: number;
-  dataUrl: string | null;
-  textContent: string | null;
-  width: number | null;
-  height: number | null;
-}
-
-interface ExtractionApplicationResult {
-  formatVersion: number;
-  policy: 'capture' | 'background' | 'interactive' | 'rescan';
-  through: 'inspect' | 'extract' | 'classify' | 'suggest';
-  outcome: 'produced' | 'no_output' | 'failed';
-  output: string | null;
-  classificationMatches: AnalyzerPreview['result']['classificationMatches'];
-  failure: { code: string; message: string } | null;
-  appliedClipId: number | null;
-  ocrUpdated: boolean;
-  searchableTextUpdated: boolean;
-  classificationUpdated: boolean;
-}
-
-interface ClipSearchableText {
-  clipId: number;
-  extractorRef: string;
-  extractorName: string;
-  engine: string;
-  inputHash: string;
-  searchableText: string;
-  updatedAt: string;
-}
-
-interface ClipContentMatch {
-  id: number;
-  clipId: number;
-  contentType: string;
-  classifierRef: string;
-  classifierName: string;
-  priority: number;
-  sourceRepresentation: 'original_text' | 'searchable_text';
-  inputHash: string;
-  startOffset: number | null;
-  endOffset: number | null;
-  updatedAt: string;
-}
-
-const filePreviewResultCache = new Map<string, FileClipPreview[]>();
-const filePreviewRequestCache = new Map<string, Promise<FileClipPreview[]>>();
-
-function loadFilePreviews(
-  cacheKey: string,
-  request: { clipId: number; mode: AppSettings['filePreviewMode']; maxSizeMb: number },
-): Promise<FileClipPreview[]> {
-  const cached = filePreviewResultCache.get(cacheKey);
-  if (cached) return Promise.resolve(cached);
-  const pending = filePreviewRequestCache.get(cacheKey);
-  if (pending) return pending;
-  const next = invoke<FileClipPreview[]>('get_file_clip_previews', request)
-    .then((items) => {
-      const previews = Array.isArray(items) ? items : [];
-      filePreviewResultCache.set(cacheKey, previews);
-      return previews;
-    })
-    .finally(() => filePreviewRequestCache.delete(cacheKey));
-  filePreviewRequestCache.set(cacheKey, next);
-  return next;
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  const units = ['KB', 'MB', 'GB', 'TB'];
-  let value = bytes / 1024;
-  let unit = units[0];
-  for (let index = 1; index < units.length && value >= 1024; index += 1) {
-    value /= 1024;
-    unit = units[index];
-  }
-  return `${value >= 10 ? value.toFixed(0) : value.toFixed(1)} ${unit}`;
-}
-
-function formatMediaDuration(milliseconds: number): string {
-  const totalSeconds = Math.floor(milliseconds / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  return hours > 0
-    ? `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
-    : `${minutes}:${String(seconds).padStart(2, '0')}`;
-}
-
-function contentMatchTitle(contentType: string, matches: ClipContentMatch[]): string | undefined {
-  const counts = matches
-    .filter((match) => match.contentType === contentType)
-    .reduce((result, match) => {
-      result.set(match.classifierName, (result.get(match.classifierName) ?? 0) + 1);
-      return result;
-    }, new Map<string, number>());
-  if (counts.size === 0) return undefined;
-  return [...counts].map(([name, count]) => count > 1 ? `${name} ×${count}` : name).join(', ');
-}
-
-const CLEVER_PLACEHOLDERS = [
-  "Add a note before future-you forgets why you copied this...",
-  "Jot down your secret brilliance...",
-  "What's the tea on this snippet?...",
-  "Note to self: Don't lose this thought...",
-  "Drop some wisdom, context, or grocery items...",
-];
 
 export const ClipPreview: React.FC<ClipPreviewProps> = ({
   clip,
@@ -290,7 +109,6 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const { showToast } = useToast();
   const relativeTimeNow = useMinuteTick();
   const [copied, setCopied] = useState(false);
-  const [contentMatches, setContentMatches] = useState<ClipContentMatch[]>([]);
   const [copiedFormat, setCopiedFormat] = useState<string | null>(null);
   const [transformedText, setTransformedText] = useState<string | null>(null);
   const [activeManualTransformRef, setActiveManualTransformRef] = useState<string | null>(null);
@@ -304,239 +122,75 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const [isManualTransformRunning, setIsManualTransformRunning] = useState(false);
   const [pipelineAction, setManualTransformAction] = useState<'copied' | 'pasted' | null>(null);
   const [pipelineError, setManualTransformError] = useState<string | null>(null);
-  const [notes, setNotes] = useState<ClipNote[]>(() => parseClipNotes(clip?.note));
-  const notesRef = useRef(notes);
-  const noteBoxRef = useRef<HTMLDivElement>(null);
+  const notesController = useClipPreviewNotes({
+    clip,
+    canEdit: viewPolicy.canEditNotes,
+    onUpdateClipNote,
+  });
+  const {
+    isAdding: isAddingNote,
+    viewingNote,
+    setViewingNote,
+    toggleAdding: handleToggleAddNote,
+  } = notesController;
   const workflowTriggerRef = useRef<HTMLButtonElement>(null);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const copiedFormatTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pipelineRequestIdRef = useRef(0);
-  const fileExtractionRequestIdRef = useRef(0);
-  const extractionHistoryRequestIdRef = useRef(0);
   const activeTransformExecutionRef = useRef<TransformationExecutionHandle | null>(null);
   const [transformClientRequestId, setTransformClientRequestId] = useState<string | null>(null);
   const transformRequestStatus = useIntelligenceRequestStatus(transformClientRequestId);
 
-  useEffect(() => {
-    notesRef.current = notes;
-  }, [notes]);
-
-  const [isAddingNote, setIsAddingNote] = useState<boolean>(false);
-  const [newNoteText, setNewNoteText] = useState<string>('');
-  const [placeholderText, setPlaceholderText] = useState<string>(CLEVER_PLACEHOLDERS[0]);
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [editingNoteText, setEditingNoteText] = useState<string>('');
-  const [viewingNote, setViewingNote] = useState<ClipNote | null>(null);
-  const [isOcrLoading, setIsOcrLoading] = useState<boolean>(false);
-  const [resolvedImage, setResolvedImage] = useState<{ clipId: number; base64: string } | null>(null);
-  const [showHistory, setShowHistory] = useState<boolean>(false);
-  const [versions, setVersions] = useState<ClipVersion[]>([]);
-  const [previewedVersion, setPreviewedVersion] = useState<ClipVersion | null>(null);
-  const [restoringVersionId, setRestoringVersionId] = useState<number | null>(null);
-  const [revisionCount, setRevisionCount] = useState<number | null>(null);
-  const [inspection, setInspection] = useState<StructuralInspection | null>(null);
-  const [smartActions, setSmartActions] = useState<SmartActionSuggestion | null>(null);
-  const [fileSearchableText, setFileSearchableText] = useState<ClipSearchableText | null>(null);
-  const [extractionResults, setExtractionResults] = useState<ExtractionResult[]>([]);
-  const [extractionHistory, setExtractionHistory] = useState<ExtractionAttempt[]>([]);
-  const [extractionHistoryHasMore, setExtractionHistoryHasMore] = useState(false);
-  const [isExtractionHistoryLoading, setIsExtractionHistoryLoading] = useState(false);
-  const [isFileExtractionLoading, setIsFileExtractionLoading] = useState(false);
-  const [filePreviews, setFilePreviews] = useState<FileClipPreview[]>([]);
-  const [isFilePreviewLoading, setIsFilePreviewLoading] = useState(false);
-  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
-  const [isLoadingOlderVersions, setIsLoadingOlderVersions] = useState(false);
-  const [hasMoreVersions, setHasMoreVersions] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!clip || !features.types) {
-      setContentMatches([]);
-      return () => { cancelled = true; };
-    }
-    invoke<ClipContentMatch[]>('get_clip_content_matches', { clipId: clip.id })
-      .then((matches) => {
-        if (!cancelled) setContentMatches(Array.isArray(matches) ? matches : []);
-      })
-      .catch(() => {
-        if (!cancelled) setContentMatches([]);
-      });
-    return () => { cancelled = true; };
-  }, [clip?.content_hash, clip?.id, features.types]);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!clip) {
-      setInspection(null);
-      setSmartActions(null);
-      return () => { cancelled = true; };
-    }
-    const text = transformedText ?? clip.text_content ?? '';
-    if (transformedText !== null && !text) {
-      setInspection(null);
-      setSmartActions(null);
-      return () => { cancelled = true; };
-    }
-    const input = transformedText === null
-      ? { clipId: clip.id, includeExtractor: false }
-      : { text, source: clip.source, includeExtractor: false };
-    const includeSuggestions = features.transformations
-      && viewPolicy.canRunManualTransforms
-      && clip.content_type !== 'image'
-      && clip.content_type !== 'file';
-    setInspection(null);
-    setSmartActions(null);
-    analysisApi.analyze<AnalyzerPreview>({
-      ...input,
-      includeClassifiers: includeSuggestions,
-      includeSuggestions,
-    })
-      .then((result) => {
-        if (cancelled) return;
-        setInspection(result.result.structure ? {
-          formatVersion: result.formatVersion,
-          policy: result.policy,
-          through: result.through,
-          result: result.result.structure,
-          mediaMetadata: result.result.mediaMetadata,
-          appliedClipId: null,
-          liveFileObservations: result.liveFileObservations,
-        } : null);
-        setSmartActions(result.result.suggestions ? {
-          formatVersion: result.formatVersion,
-          policy: 'interactive',
-          through: 'suggest',
-          result: result.result.suggestions,
-          appliedClipId: null,
-        } : null);
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          setInspection(null);
-          setSmartActions(null);
-          console.error('Failed to analyze clip:', error);
-        }
-      });
-    return () => { cancelled = true; };
-  }, [clip?.content_hash, clip?.content_type, clip?.id, clip?.source, clip?.text_content, features.transformations, transformedText, viewPolicy.canRunManualTransforms]);
-
-  useEffect(() => {
-    let cancelled = false;
-    fileExtractionRequestIdRef.current += 1;
-    setIsFileExtractionLoading(false);
-    if (!features.transcriptions || !clip || clip.content_type !== 'file') {
-      setFileSearchableText(null);
-      return () => { cancelled = true; };
-    }
-    setFileSearchableText(null);
-    invoke<ClipSearchableText | null>('get_clip_searchable_text', { clipId: clip.id })
-      .then((result) => {
-        if (!cancelled) setFileSearchableText(result);
-      })
-      .catch((error) => {
-        if (!cancelled) console.error('Failed to load extracted file text:', error);
-      });
-    return () => { cancelled = true; };
-  }, [clip?.content_hash, clip?.content_type, clip?.id, features.transcriptions]);
-
-  const loadExtractionResults = React.useCallback(async (clipId: number) => {
-    const results = await invoke<ExtractionResult[]>('get_clip_extraction_results', { clipId });
-    setExtractionResults(Array.isArray(results) ? results : []);
-    const requestId = ++extractionHistoryRequestIdRef.current;
-    setIsExtractionHistoryLoading(true);
-    try {
-      const attempts = await invoke<ExtractionAttempt[]>('get_clip_extraction_history', {
-        clipId,
-        limit: 101,
-        offset: 0,
-      });
-      if (requestId !== extractionHistoryRequestIdRef.current) return;
-      const page = Array.isArray(attempts) ? attempts : [];
-      setExtractionHistory(page.slice(0, 100));
-      setExtractionHistoryHasMore(page.length > 100);
-    } catch (error) {
-      console.error('Failed to refresh Extractor history:', error);
-    } finally {
-      if (requestId === extractionHistoryRequestIdRef.current) setIsExtractionHistoryLoading(false);
-    }
-  }, []);
-
-  const loadExtractionHistory = React.useCallback(async (reset: boolean) => {
-    if (!clip || (clip.content_type !== 'image' && clip.content_type !== 'file')) return;
-    const requestedClipId = clip.id;
-    const offset = reset ? 0 : extractionHistory.length;
-    const requestId = ++extractionHistoryRequestIdRef.current;
-    setIsExtractionHistoryLoading(true);
-    try {
-      const attempts = await invoke<ExtractionAttempt[]>('get_clip_extraction_history', {
-        clipId: requestedClipId,
-        limit: 101,
-        offset,
-      });
-      if (requestId !== extractionHistoryRequestIdRef.current) return;
-      const page = Array.isArray(attempts) ? attempts : [];
-      setExtractionHistory((current) => reset ? page.slice(0, 100) : [...current, ...page.slice(0, 100)]);
-      setExtractionHistoryHasMore(page.length > 100);
-    } catch (error) {
-      console.error('Failed to load Extractor history:', error);
-    } finally {
-      if (requestId === extractionHistoryRequestIdRef.current) setIsExtractionHistoryLoading(false);
-    }
-  }, [clip, extractionHistory.length]);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!clip || (clip.content_type !== 'image' && clip.content_type !== 'file')) {
-      extractionHistoryRequestIdRef.current += 1;
-      setExtractionResults([]);
-      setExtractionHistory([]);
-      setExtractionHistoryHasMore(false);
-      setIsExtractionHistoryLoading(false);
-      return () => { cancelled = true; };
-    }
-    setExtractionResults([]);
-    extractionHistoryRequestIdRef.current += 1;
-    setExtractionHistory([]);
-    setExtractionHistoryHasMore(false);
-    setIsExtractionHistoryLoading(false);
-    invoke<ExtractionResult[]>('get_clip_extraction_results', { clipId: clip.id })
-      .then((results) => {
-        if (!cancelled) setExtractionResults(Array.isArray(results) ? results : []);
-      })
-      .catch((error) => {
-        if (!cancelled) console.error('Failed to load Extractor results:', error);
-      });
-    return () => { cancelled = true; };
-  }, [clip?.content_hash, clip?.content_type, clip?.id, clip?.ocr_extractor_ref, clip?.text_content]);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!clip || clip.content_type !== 'file' || filePreviewMode === 'off') {
-      setFilePreviews([]);
-      setIsFilePreviewLoading(false);
-      return () => { cancelled = true; };
-    }
-    const cacheKey = `${clip.id}:${clip.content_hash}:${filePreviewMode}:${filePreviewMaxMb}`;
-    const cached = filePreviewResultCache.get(cacheKey);
-    if (cached) {
-      setFilePreviews(cached);
-      setIsFilePreviewLoading(false);
-      return () => { cancelled = true; };
-    }
-    setFilePreviews([]);
-    setIsFilePreviewLoading(true);
-    loadFilePreviews(cacheKey, { clipId: clip.id, mode: filePreviewMode, maxSizeMb: filePreviewMaxMb })
-      .then((items) => {
-        if (!cancelled) setFilePreviews(items);
-      })
-      .catch((error) => {
-        if (!cancelled) console.error('Failed to load file previews:', error);
-      })
-      .finally(() => {
-        if (!cancelled) setIsFilePreviewLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [clip?.content_type, clip?.id, filePreviewMode, filePreviewMaxMb]);
+  const revisions = useClipPreviewRevisions({
+    clip,
+    enabled: features.revisions,
+    canRestore: viewPolicy.canMutateContent,
+    onBeforeRestore: () => {
+      setTransformedText(null);
+      setActiveManualTransformRef(null);
+      setActiveManualTransformName(null);
+      setManualTransformAction(null);
+      setManualTransformError(null);
+    },
+    onUpdateClip,
+  });
+  const {
+    isOpen: showHistory,
+    previewedVersion,
+    count: revisionCount,
+  } = revisions;
+  const analysis = useClipPreviewAnalysis({
+    clip,
+    transformedText,
+    typesEnabled: features.types,
+    transformationsEnabled: features.transformations,
+    transcriptionsEnabled: features.transcriptions,
+    canRunTransforms: viewPolicy.canRunManualTransforms,
+    canMutateContent: viewPolicy.canMutateContent,
+    filePreviewMode,
+    filePreviewMaxMb,
+    onRevisionAdded: revisions.noteRevisionAdded,
+    onUpdateClip: () => onUpdateClip(),
+    onError: (message) => showToast({ tone: 'error', message }),
+  });
+  const {
+    contentMatches,
+    inspection,
+    smartActions,
+    fileSearchableText,
+    extractionResults,
+    extractionHistory,
+    extractionHistoryHasMore,
+    isExtractionHistoryLoading,
+    isFileExtractionLoading,
+    filePreviews,
+    isFilePreviewLoading,
+    isOcrLoading,
+    resolvedImage,
+    loadExtractionHistory,
+    runOcr: handleRunOCR,
+    runFileExtraction: handleRunFileExtraction,
+  } = analysis;
 
   useEffect(() => {
     invoke<SavedTransform[]>('get_intent_transforms')
@@ -557,83 +211,6 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   }, [clip?.id, clip?.is_transformed, clip?.text_content]);
 
   useEffect(() => {
-    let cancelled = false;
-    if (!features.revisions || !clip || clip.content_type === 'file') {
-      setRevisionCount(null);
-      setShowHistory(false);
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    setRevisionCount(null);
-    invoke<number>('get_clip_version_count', { clipId: clip.id })
-      .then((count) => {
-        if (!cancelled) setRevisionCount(Number.isFinite(count) ? count : 0);
-      })
-      .catch((error) => console.error('Failed to load clip revision count:', error));
-
-    return () => {
-      cancelled = true;
-    };
-  }, [clip?.id, clip?.is_transformed, clip?.text_content, features.revisions]);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (features.revisions && clip && clip.content_type !== 'file' && showHistory) {
-      setVersions([]);
-      setIsHistoryLoading(true);
-      Promise.all([
-        invoke<ClipVersion[]>('get_clip_versions', { clipId: clip.id, limit: 50, offset: 0 }),
-        invoke<number>('get_clip_version_count', { clipId: clip.id }),
-      ])
-        .then(([res, count]) => {
-          if (cancelled) return;
-          const items = Array.isArray(res) ? res : [];
-          setVersions(items);
-          setRevisionCount(count);
-          setHasMoreVersions(items.length < count);
-        })
-        .catch((e) => console.error('Failed to load clip versions:', e))
-        .finally(() => {
-          if (!cancelled) setIsHistoryLoading(false);
-        });
-    } else {
-      setIsHistoryLoading(false);
-      setHasMoreVersions(false);
-    }
-    return () => {
-      cancelled = true;
-    };
-  }, [clip?.id, clip?.is_transformed, clip?.text_content, features.revisions, showHistory]);
-
-  useEffect(() => {
-    let cancelled = false;
-    let frame = 0;
-    setResolvedImage(null);
-    if (clip?.content_type === 'image') {
-      const clipId = clip.id;
-      const embeddedImage = clip.image_base64;
-      frame = requestAnimationFrame(() => {
-        if (cancelled) return;
-        if (embeddedImage) {
-          setResolvedImage({ clipId, base64: embeddedImage });
-          return;
-        }
-        invoke<string | null>('get_clip_image', { id: clipId })
-          .then((base64) => {
-            if (!cancelled && base64) setResolvedImage({ clipId, base64 });
-          })
-          .catch(console.error);
-      });
-    }
-    return () => {
-      cancelled = true;
-      if (frame) cancelAnimationFrame(frame);
-    };
-  }, [clip?.id, clip?.image_base64, clip?.content_type]);
-
-  useEffect(() => {
     void activeTransformExecutionRef.current?.cancel();
     activeTransformExecutionRef.current = null;
     setTransformClientRequestId(null);
@@ -648,35 +225,11 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     setIsManualTransformRunning(false);
     setManualTransformAction(null);
     setManualTransformError(null);
-    setShowHistory(false);
-    const parsed = parseClipNotes(clip?.note);
-    setNotes(parsed);
-    notesRef.current = parsed;
-    setIsAddingNote(false);
-    setNewNoteText('');
-    setEditingNoteId(null);
-    setEditingNoteText('');
-    setViewingNote(null);
-    setIsOcrLoading(false);
     setCopied(false);
     setCopiedFormat(null);
-    setVersions([]);
-    setPreviewedVersion(null);
-    setRestoringVersionId(null);
-    setIsHistoryLoading(false);
-    setIsLoadingOlderVersions(false);
-    setHasMoreVersions(false);
     if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
     if (copiedFormatTimerRef.current) clearTimeout(copiedFormatTimerRef.current);
   }, [clip]);
-
-  useEffect(() => {
-    if (viewPolicy.canEditNotes) return;
-    setIsAddingNote(false);
-    setNewNoteText('');
-    setEditingNoteId(null);
-    setEditingNoteText('');
-  }, [viewPolicy.canEditNotes]);
 
   useEffect(() => {
     if (viewPolicy.canRunManualTransforms) return;
@@ -691,127 +244,6 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
     if (copiedFormatTimerRef.current) clearTimeout(copiedFormatTimerRef.current);
   }, []);
-
-  const saveNotes = (updatedNotes: ClipNote[]) => {
-    if (!clip || !viewPolicy.canEditNotes) return;
-    setNotes(updatedNotes);
-    notesRef.current = updatedNotes;
-    const serialized = serializeClipNotes(updatedNotes);
-    if (onUpdateClipNote) {
-      onUpdateClipNote(clip.id, serialized);
-    }
-    invoke('update_clip_note', {
-      clipId: clip.id,
-      note: serialized,
-    }).catch((e) => console.error('Failed to update clip note:', e));
-  };
-
-  const {
-    activeId: activeNoteId,
-    offsets: noteReorderOffsets,
-    isSettling: isNoteReorderSettling,
-    startPointerReorder: startNotePointerReorder,
-  } = useStableVerticalReorder({
-    itemIds: notes.map((note) => note.id),
-    containerRef: noteBoxRef,
-    disabled: !viewPolicy.canEditNotes || notes.length < 2 || editingNoteId !== null,
-    onCommit: (orderedIds) => {
-      const byId = new Map(notesRef.current.map((note) => [note.id, note]));
-      const reordered = orderedIds
-        .map((id) => byId.get(id))
-        .filter((note): note is ClipNote => Boolean(note));
-      saveNotes(reordered);
-    },
-  });
-
-  const handleCreateNote = () => {
-    if (!viewPolicy.canEditNotes || !newNoteText.trim()) return;
-    const newNote: ClipNote = {
-      id: `note-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      text: newNoteText.trim(),
-      created_at: new Date().toISOString(),
-    };
-    const updated = [...notes, newNote];
-    setNewNoteText('');
-    setIsAddingNote(false);
-    saveNotes(updated);
-  };
-
-  const handleUpdateNoteItem = (id: string, text: string) => {
-    if (!viewPolicy.canEditNotes) return;
-    const updated = notes
-      .map((n) => (n.id === id ? { ...n, text: text.trim() } : n))
-      .filter((n) => n.text.length > 0);
-    setEditingNoteId(null);
-    saveNotes(updated);
-  };
-
-  const handleDeleteNoteItem = (id: string) => {
-    if (!viewPolicy.canEditNotes) return;
-    const updated = notes.filter((n) => n.id !== id);
-    saveNotes(updated);
-  };
-
-  const handleRunOCR = async () => {
-    if (!clip || !viewPolicy.canMutateContent) return;
-    setIsOcrLoading(true);
-    try {
-      const result = await invoke<ExtractionApplicationResult>('extract_ocr_from_clip', { clipId: clip.id });
-      if (result.outcome === 'failed') {
-        await loadExtractionResults(clip.id);
-        throw new Error(result.failure?.message ?? 'The Extractor failed.');
-      }
-      if (result.outcome === 'no_output') {
-        await loadExtractionResults(clip.id);
-        return;
-      }
-      if (features.revisions) {
-        invoke<number>('get_clip_version_count', { clipId: clip.id })
-          .then(setRevisionCount)
-          .catch((error) => console.error('Failed to refresh clip revision count:', error));
-      }
-      soundManager.playCopySound();
-      await loadExtractionResults(clip.id);
-      onUpdateClip();
-    } catch (e) {
-      console.error('OCR Extraction Failed:', e);
-    } finally {
-      setIsOcrLoading(false);
-    }
-  };
-
-  const handleRunFileExtraction = async () => {
-    if (!features.transcriptions || !clip || clip.content_type !== 'file' || !viewPolicy.canMutateContent) return;
-    const requestedClipId = clip.id;
-    const requestId = ++fileExtractionRequestIdRef.current;
-    setIsFileExtractionLoading(true);
-    try {
-      const result = await invoke<ExtractionApplicationResult>('extract_text_from_file_clip', { clipId: requestedClipId });
-      if (requestId !== fileExtractionRequestIdRef.current) return;
-      if (result.outcome === 'failed') {
-        await loadExtractionResults(requestedClipId);
-        throw new Error(result.failure?.message ?? 'The Extractor failed.');
-      }
-      if (result.outcome === 'no_output') {
-        await loadExtractionResults(requestedClipId);
-        return;
-      }
-      const stored = await invoke<ClipSearchableText | null>('get_clip_searchable_text', { clipId: requestedClipId });
-      if (requestId !== fileExtractionRequestIdRef.current) return;
-      setFileSearchableText(stored);
-      await loadExtractionResults(requestedClipId);
-      soundManager.playCopySound();
-      onUpdateClip();
-    } catch (error) {
-      if (requestId === fileExtractionRequestIdRef.current) {
-        showToast({ tone: 'error', message: String(error) });
-      }
-    } finally {
-      if (requestId === fileExtractionRequestIdRef.current) {
-        setIsFileExtractionLoading(false);
-      }
-    }
-  };
 
   if (!clip) {
     return (
@@ -896,7 +328,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
 
   const handlePreviewManualTransform = async (manualTransform: ManualTransform) => {
     if (!clip.text_content) return;
-    setPreviewedVersion(null);
+    revisions.clearPreview();
     const requestId = ++pipelineRequestIdRef.current;
     setActiveManualTransformRef(manualTransform.stableRef);
     setActiveManualTransformName(manualTransform.name);
@@ -933,7 +365,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
 
   const handlePreviewTransform = async (transform: SavedTransform) => {
     if (!clip.text_content) return;
-    setPreviewedVersion(null);
+    revisions.clearPreview();
     const requestId = ++pipelineRequestIdRef.current;
     setActiveTransformRef(transform.stableRef);
     setActiveTransformName(transform.name);
@@ -944,7 +376,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     setIsManualTransformRunning(true);
     setManualTransformAction(null);
     setManualTransformError(null);
-    setPreviewedVersion(null);
+    revisions.clearPreview();
     try {
       const execution = startTransformation(
         clip.text_content,
@@ -983,7 +415,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         durationMs: transformPreviewOutcome.durationMs,
       });
       setProvenance(saved);
-      setRevisionCount((count) => (count ?? 0) + 1);
+      revisions.noteRevisionAdded();
       soundManager.playCopySound();
       handleResetTransform();
       onUpdateClip();
@@ -1007,7 +439,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     setTransformPreviewOutcome(null);
     setManualTransformAction(null);
     setManualTransformError(null);
-    setPreviewedVersion(null);
+    revisions.clearPreview();
   };
 
   const handleRetryTransform = () => {
@@ -1050,64 +482,10 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     }
   };
 
-  const handleRestoreVersion = async (version: ClipVersion) => {
-    if (!viewPolicy.canMutateContent || restoringVersionId !== null) return;
-    setRestoringVersionId(version.id);
-    try {
-      const restoredClip = await invoke<ClipItem>('restore_clip_version', {
-        clipId: clip.id,
-        versionId: version.id,
-      });
-      invoke<number>('get_clip_version_count', { clipId: clip.id })
-        .then(setRevisionCount)
-        .catch((error) => console.error('Failed to refresh clip revision count:', error));
-      setTransformedText(null);
-      setActiveManualTransformRef(null);
-      setActiveManualTransformName(null);
-      setManualTransformAction(null);
-      setManualTransformError(null);
-      setShowHistory(false);
-      setPreviewedVersion(null);
-      soundManager.playCopySound();
-      onUpdateClip(restoredClip);
-    } catch (error) {
-      console.error('Failed to restore clip version:', error);
-    } finally {
-      setRestoringVersionId(null);
-    }
-  };
-
-  const handleLoadOlderVersions = async () => {
-    if (!clip || isLoadingOlderVersions || !hasMoreVersions) return;
-    setIsLoadingOlderVersions(true);
-    try {
-      const older = await invoke<ClipVersion[]>('get_clip_versions', {
-        clipId: clip.id,
-        limit: 50,
-        offset: versions.length,
-      });
-      const items = Array.isArray(older) ? older : [];
-      setVersions((current) => [...current, ...items]);
-      setHasMoreVersions(versions.length + items.length < (revisionCount ?? 0));
-    } catch (error) {
-      console.error('Failed to load older clip revisions:', error);
-    } finally {
-      setIsLoadingOlderVersions(false);
-    }
-  };
-
   const inspectedText = transformedText === null ? inspection?.result.text : undefined;
   const charCount = inspectedText?.characterCount ?? displayText.length;
   const wordCount = inspectedText?.wordCount ?? (displayText.trim() ? displayText.trim().split(/\s+/).length : 0);
   const lineCount = inspectedText?.lineCount ?? (displayText ? displayText.split('\n').length : 0);
-
-  const handleToggleAddNote = () => {
-    if (!isAddingNote) {
-      const nextIdx = Math.floor(Math.random() * CLEVER_PLACEHOLDERS.length);
-      setPlaceholderText(CLEVER_PLACEHOLDERS[nextIdx]);
-    }
-    setIsAddingNote((current) => !current);
-  };
 
   return (
     <div className="flex-1 col-preview h-screen flex flex-col overflow-hidden">
@@ -1345,77 +723,11 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         </button>
       )}
 
-      {/* Multi-Note Container (Inline Input Row, Stable Animated Reordering, Non-Selectable) */}
-      {features.notes && (notes.length > 0 || isAddingNote) && (
-        <div className="px-4 py-2.5 border-b space-y-2 note-container select-none">
-          <div className="note-header-text flex items-center space-x-1.5 text-[11px] font-semibold uppercase tracking-wider select-none">
-            <StickyNote className="w-3.5 h-3.5" />
-            <span>{translate('component.clipPreview.noteCount', { count: notes.length })}</span>
-          </div>
-
-          <div
-            ref={noteBoxRef}
-            className={`note-row-stack relative space-y-2 ${isNoteReorderSettling ? 'is-settling-stable-reorder' : ''}`}
-          >
-                {notes.map((noteItem) => (
-                  <NoteRowItem
-                    key={noteItem.id}
-                    noteItem={noteItem}
-                    totalNotes={notes.length}
-                    editingNoteId={editingNoteId}
-                    editingNoteText={editingNoteText}
-                    setEditingNoteId={setEditingNoteId}
-                    setEditingNoteText={setEditingNoteText}
-                    handleUpdateNoteItem={handleUpdateNoteItem}
-                    handleDeleteNoteItem={handleDeleteNoteItem}
-                    setViewingNote={setViewingNote}
-                    readOnly={!viewPolicy.canEditNotes}
-                    isDragging={activeNoteId === noteItem.id}
-                    reorderOffsetY={noteReorderOffsets[noteItem.id] ?? 0}
-                    onReorderPointerDown={(event) => startNotePointerReorder(noteItem.id, event)}
-                  />
-                ))}
-
-            {/* Inline New Note Card */}
-            {isAddingNote && (
-              <div className="note-input-row p-3 rounded-lg border flex flex-col space-y-2 animate-in fade-in duration-100">
-                <textarea dir="auto"
-                  rows={3}
-                  placeholder={placeholderText}
-                  value={newNoteText}
-                  onChange={(e) => setNewNoteText(e.target.value)}
-                  className="w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-xs resize-y min-h-[60px] note-input font-sans leading-relaxed"
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === 'Escape') {
-                      setIsAddingNote(false);
-                      setNewNoteText('');
-                    }
-                  }}
-                />
-                <div className="flex items-center justify-end space-x-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsAddingNote(false);
-                      setNewNoteText('');
-                    }}
-                    className="note-cancel-button px-3 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer"
-                  >
-                    {translate('common.cancel')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleCreateNote}
-                    className="note-save-button px-3 py-1 rounded-md text-xs font-semibold shadow cursor-pointer"
-                  >
-                    {translate('common.save')}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+      {features.notes && (
+        <ClipPreviewNotesPanel
+          controller={notesController}
+          readOnly={!viewPolicy.canEditNotes}
+        />
       )}
 
       {/* Main Preview Workspace */}
@@ -1619,102 +931,33 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
 
       {features.revisions && showHistory && clip.content_type !== 'file' && (
         <ClipRevisionHistory
-          versions={versions}
-          isLoading={isHistoryLoading}
+          versions={revisions.versions}
+          isLoading={revisions.isLoading}
           readOnly={!viewPolicy.canMutateContent}
-          onClose={() => setShowHistory(false)}
+          onClose={() => revisions.setIsOpen(false)}
           previewedVersionId={previewedVersion?.id ?? null}
-          restoringVersionId={restoringVersionId}
-          hasMore={hasMoreVersions}
-          isLoadingMore={isLoadingOlderVersions}
-          onLoadMore={() => void handleLoadOlderVersions()}
-          onPreview={(version) => setPreviewedVersion((current) => (
-            current?.id === version.id ? null : version
-          ))}
-          onRestore={(version) => void handleRestoreVersion(version)}
+          restoringVersionId={revisions.restoringVersionId}
+          hasMore={revisions.hasMore}
+          isLoadingMore={revisions.isLoadingMore}
+          onLoadMore={() => void revisions.loadMore()}
+          onPreview={revisions.togglePreview}
+          onRestore={(version) => void revisions.restore(version)}
         />
       )}
 
-      {/* Stats Footer */}
-      <div className="clip-preview-footer min-h-[55px] px-4 py-2.5 border-t flex text-[11px]">
-        <div className="clip-preview-footer-stats">
-          {clip.content_type === 'file' ? (
-            <>
-              <span className="clip-preview-footer-stat">
-                <span>{translate('component.clipPreview.items')}</span>
-                <strong>{inspection?.result.files?.itemCount ?? getClipFilePaths(clip).length}</strong>
-              </span>
-              <span className="clip-preview-footer-stat" title={inspection?.result.files?.extensions.join(', ') || translate('component.clipPreview.noFileExtensions')}>
-                <span>{translate('component.clipPreview.fileExtensions')}</span>
-                <strong>{inspection?.result.files ? (inspection.result.files.extensions.length > 2 ? translate('component.clipPreview.valueValue2', { value: inspection.result.files.extensions.slice(0, 2).join(', '), value2: inspection.result.files.extensions.length - 2 }) : inspection.result.files.extensions.join(', ') || '—') : '…'}</strong>
-              </span>
-              {features.fileFormats && <span className="clip-preview-footer-stat" title={inspection?.fileFormats?.formats.map(({ mimeType }) => mimeType).join(', ')}>
-                <span>{translate('component.clipPreview.fileFormats')}</span>
-                <strong>{inspection?.fileFormats
-                  ? inspection.fileFormats.formats.map(({ format }) => format.toUpperCase()).join(', ') || '—'
-                  : '…'}</strong>
-              </span>}
-              <span className="clip-preview-footer-stat">
-                <span>{translate('component.clipPreview.size')}</span>
-                <strong>{inspection?.liveFileObservations ? (inspection.liveFileObservations.fileCount > 0 ? formatFileSize(inspection.liveFileObservations.totalSizeBytes) : '—') : '…'}</strong>
-              </span>
-              <span className="clip-preview-footer-stat">
-                <span>{translate('component.clipPreview.available')}</span>
-                <strong>{inspection?.liveFileObservations ? `${inspection.liveFileObservations.availableCount}/${inspection.result.files?.itemCount ?? 0}` : '…'}</strong>
-              </span>
-              {inspection?.mediaMetadata && <>
-                <span className="clip-preview-footer-stat" title={inspection.mediaMetadata.containers.join(', ')}>
-                  <span>{translate('component.clipPreview.media')}</span>
-                  <strong>{inspection.mediaMetadata.mediaFileCount}</strong>
-                </span>
-                <span className="clip-preview-footer-stat" title={inspection.mediaMetadata.codecs.join(', ')}>
-                  <span>{translate('component.clipPreview.codecs')}</span>
-                  <strong>{inspection.mediaMetadata.codecs.slice(0, 2).join(', ') || '—'}</strong>
-                </span>
-                <span className="clip-preview-footer-stat">
-                  <span>{translate('component.clipPreview.duration')}</span>
-                  <strong>{formatMediaDuration(inspection.mediaMetadata.totalDurationMs)}</strong>
-                </span>
-              </>}
-            </>
-          ) : (
-            <>
-          <span className="clip-preview-footer-stat">
-            <span>{translate('component.clipPreview.chars')}</span>
-            <strong>{charCount}</strong>
-          </span>
-          <span className="clip-preview-footer-stat">
-            <span>{translate('component.clipPreview.words')}</span>
-            <strong>{wordCount}</strong>
-          </span>
-          <span className="clip-preview-footer-stat">
-            <span>{translate('component.clipPreview.lines')}</span>
-            <strong>{lineCount}</strong>
-          </span>
-          {features.revisions && <span className="clip-preview-footer-stat">
-            <span>{translate('component.clipPreview.revisions')}</span>
-            <button
-              type="button"
-              onClick={() => setShowHistory((prev) => !prev)}
-              className={`clip-revision-count ${showHistory ? 'is-active' : ''}`}
-              title={revisionCount === null ? translate('component.clipPreview.loadingRevisions') : translate('component.clipPreview.viewRevisions')}
-              aria-label={revisionCount === null ? translate('component.clipPreview.loadingClipRevisionCount') : translate('component.clipPreview.viewCountClipRevisions', { count: revisionCount })}
-              aria-expanded={showHistory}
-              aria-controls="clip-revision-history-panel"
-            >
-              {revisionCount ?? '…'}
-            </button>
-          </span>}
-            </>
-          )}
-        </div>
-        <div className="clip-preview-footer-captured">
-          <span>{translate('component.clipPreview.captured')}</span>
-          <time dateTime={dateTimeAttribute(clip.created_at)} title={formatFullDateTime(clip.created_at)}>
-            {formatRelativeTime(clip.created_at, relativeTimeNow)}
-          </time>
-        </div>
-      </div>
+      <ClipPreviewFooter
+        clip={clip}
+        inspection={inspection}
+        fileFormatsEnabled={features.fileFormats}
+        revisionsEnabled={features.revisions}
+        characterCount={charCount}
+        wordCount={wordCount}
+        lineCount={lineCount}
+        revisionCount={revisionCount}
+        showHistory={showHistory}
+        relativeTimeNow={relativeTimeNow}
+        onToggleHistory={revisions.toggleOpen}
+      />
 
       {viewingNote && (
         <ClipNoteViewer

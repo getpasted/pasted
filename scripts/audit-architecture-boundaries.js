@@ -539,6 +539,13 @@ const sizeRatchets = new Map([
   ['src/hooks/useClipDragController.ts', 130],
   ['src/hooks/useClipReordering.ts', 100],
   ['src/components/AppDialogLayer.tsx', 210],
+  ['src/components/ClipPreview.tsx', 972],
+  ['src/components/ClipPreviewFooter.tsx', 118],
+  ['src/components/ClipPreviewNotesPanel.tsx', 87],
+  ['src/components/clipPreviewModel.ts', 197],
+  ['src/hooks/useClipPreviewAnalysis.ts', 319],
+  ['src/hooks/useClipPreviewNotes.ts', 129],
+  ['src/hooks/useClipPreviewRevisions.ts', 149],
   ['src/utils/tauri.ts', 10],
   ['src/mocks/browser/runtime.ts', 30],
   ['src/mocks/browser/contentRuntime.ts', 372],
@@ -550,6 +557,15 @@ for (const [path, maximum] of sizeRatchets) {
   assert.ok(lineCount(path) <= maximum,
     `${path} grew beyond its ${maximum}-line architecture ratchet; extract a capability instead`);
 }
+
+const clipPreviewShell = read('src/components/ClipPreview.tsx');
+for (const controller of ['useClipPreviewAnalysis', 'useClipPreviewNotes', 'useClipPreviewRevisions']) {
+  assert.match(clipPreviewShell, new RegExp(`${controller}\\(`),
+    `Clip Preview must compose the ${controller} controller`);
+}
+assert.doesNotMatch(clipPreviewShell,
+  /get_clip_versions|get_clip_extraction_results|update_clip_note|get_clip_content_matches/,
+  'Clip Preview must not reclaim controller-owned persistence and analysis commands');
 
 const centralizedCommands = [
   'get_activity_logs', 'clear_activity_logs', 'export_activity_json', 'export_activity_csv',

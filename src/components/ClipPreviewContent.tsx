@@ -7,6 +7,7 @@ import { OverflowText } from './OverflowText';
 import { SafeRasterImage } from './SafeRasterImage';
 import { translate } from '../localization/runtime';
 import { dateTimeAttribute, formatFullDateTime, formatRelativeTime } from '../utils/date';
+import type { ExtractionAttempt, ExtractionResult } from './clipPreviewModel';
 
 interface ClipPreviewContentProps {
   clip: ClipItem;
@@ -40,23 +41,6 @@ interface ClipPreviewContentProps {
   onRunOCR: () => void;
   onRunFileExtraction: () => void;
   onLoadExtractionHistory: (reset: boolean) => void;
-}
-
-export interface ExtractionAttempt extends ExtractionResult {
-  runId: string;
-  runAt: string;
-}
-
-export interface ExtractionResult {
-  extractorRef: string;
-  extractorName: string;
-  engine: string;
-  priority: number;
-  duplicateOf?: string;
-  outcome: 'produced' | 'no_output' | 'failed';
-  text?: string;
-  failure?: { code: string; message: string };
-  updatedAt: string;
 }
 
 function ExtractionCards({
