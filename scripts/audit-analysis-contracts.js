@@ -76,7 +76,6 @@ const releaseChecklist = read('docs/RELEASE_CHECKLIST_1.0.0.md');
 for (const [step, participant, icon] of [
   [1, 'Capture', 'Clipboard'],
   [2, 'Inspect', 'ScanSearch'],
-  [3, 'Extract', 'ScanText'],
 ]) {
   const participantKey = `component.settingsAnalysisPanel.${participant.toLowerCase()}`;
   assert.match(
@@ -86,16 +85,21 @@ for (const [step, participant, icon] of [
   );
   assert.equal(englishCatalog[participantKey], participant);
 }
-assert.match(
-  analysisLifecycle,
-  /searchEnabled && <AnalysisManagerRow[\s\S]{0,100}step=\{4\}[\s\S]{0,80}icon=\{Search\}[\s\S]{0,140}settingsAnalysisPanel\.index/,
-  'Analysis Settings must present Index after Extract when Clip Search is enabled',
-);
 assert.equal(englishCatalog['component.settingsAnalysisPanel.index'], 'Index');
 assert.match(
   analysisLifecycle,
-  /step=\{searchEnabled \? 5 : 4\}[\s\S]{0,80}icon=\{Radar\}[\s\S]{0,140}settingsAnalysisPanel\.classify/,
-  'Classify must follow the optional Index lifecycle stage',
+  /step=\{3\}[\s\S]{0,80}icon=\{Radar\}[\s\S]{0,140}settingsAnalysisPanel\.classify/,
+  'Classify must be the first optional Analysis settings stage',
+);
+assert.match(
+  analysisLifecycle,
+  /step=\{3 \+ Number\(classificationEnabled\)\}[\s\S]{0,80}icon=\{ScanText\}[\s\S]{0,140}settingsAnalysisPanel\.extract/,
+  'Extract must follow Classify when content classification is enabled',
+);
+assert.match(
+  analysisLifecycle,
+  /searchEnabled && <AnalysisManagerRow[\s\S]{0,100}step=\{4 \+ Number\(classificationEnabled\)\}[\s\S]{0,80}icon=\{Search\}/,
+  'Index must follow Extract with contiguous optional-stage numbering',
 );
 assert.match(
   analysisLifecycle,
@@ -111,7 +115,7 @@ assert.match(settingsModal, /activeTab === 'analysis' && \(\s*<SettingsAnalysisP
   'Analysis Settings must remain available when optional participants are disabled');
 assert.doesNotMatch(settingsModal, /showAnalysis=/,
   'Functionality gates must not hide Analysis configuration');
-assert.match(analysisLifecycle, /step=\{3\}[\s\S]{0,220}translate\('component\.settingsAnalysisPanel\.extract'\)/,
+assert.match(analysisLifecycle, /step=\{3 \+ Number\(classificationEnabled\)\}[\s\S]{0,220}translate\('component\.settingsAnalysisPanel\.extract'\)/,
   'Extractor management must remain visible for user-defined recipes');
 assert.match(analysisLifecycle, /\{classificationEnabled && <AnalysisManagerRow[\s\S]{0,220}translate\('component\.settingsAnalysisPanel\.classify'\)/,
   'Classifiers must remain visible for either Content Classification or Types');
@@ -313,6 +317,10 @@ for (const title of ['Capture', 'Inspect', 'Extract', 'Classify', 'Suggest']) {
   assert.match(analysisLifecycle, new RegExp(`translate\\('component\\.settingsAnalysisPanel\\.${title.toLowerCase()}'\\)`),
     `Analysis settings must expose ${title} behind a compact manager row`);
 }
+assert.ok(
+  analysisLifecycle.indexOf("settingsAnalysisPanel.classify") < analysisLifecycle.indexOf("settingsAnalysisPanel.extract"),
+  'Analysis settings must present Classify before Extract',
+);
 assert.match(builtinLifecycleManager, /get_library_items/,
   'Capture, Inspector, and Suggestion managers must consume the shared registry');
 assert.match(builtinLifecycleManager, /participantContract/,
