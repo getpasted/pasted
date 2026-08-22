@@ -2,6 +2,8 @@ use rusqlite::{params, OptionalExtension, Result};
 
 use super::{invalid_extractor_input, DbState};
 
+mod runtime;
+
 fn insert_extractor_authoring_session(
     transaction: &rusqlite::Transaction<'_>,
     extractor_id: i64,
@@ -60,80 +62,7 @@ impl DbState {
     }
 
     pub fn get_content_extractors(&self) -> Result<Vec<crate::content_extraction::Extractor>> {
-        let conn = self.conn.lock();
-        let mut statement = conn.prepare(
-            "SELECT id, stable_ref, name, description, engine, executable_path, model_path,
-                    input_contract, output_contract, enabled, priority, revision, is_builtin,
-                    recipe_json
-             FROM content_extractors WHERE is_deleted = 0 ORDER BY priority, id",
-        )?;
-        let rows = statement.query_map([], |row| {
-            let stable_ref = row.get::<_, String>(1)?;
-            let engine = row.get::<_, String>(4)?;
-            let executable_path = row.get::<_, Option<String>>(5)?;
-            let model_path = row.get::<_, Option<String>>(6)?;
-            let preset = crate::content_extraction::EXTRACTOR_PRESETS
-                .iter()
-                .find(|preset| preset.stable_ref == stable_ref);
-            let recipe = serde_json::from_str::<crate::extractor_recipe::ExtractorRecipe>(
-                &row.get::<_, String>(13)?,
-            )
-            .map_err(|error| {
-                rusqlite::Error::FromSqlConversionFailure(
-                    13,
-                    rusqlite::types::Type::Text,
-                    Box::new(error),
-                )
-            })?;
-            let recipe_hash = recipe.hash().map_err(|error| {
-                rusqlite::Error::FromSqlConversionFailure(
-                    13,
-                    rusqlite::types::Type::Text,
-                    Box::new(std::io::Error::other(error)),
-                )
-            })?;
-            let (availability, runtime) = if engine == crate::content_extraction::RECIPE_ENGINE {
-                (
-                    crate::extractor_recipe::availability(&recipe),
-                    crate::extractor_recipe::runtime_status(&recipe),
-                )
-            } else {
-                (
-                    crate::content_extraction::engine_availability_for(
-                        &engine,
-                        executable_path.as_deref(),
-                        model_path.as_deref(),
-                    ),
-                    crate::content_extraction::runtime_status_for(
-                        &engine,
-                        executable_path.as_deref(),
-                    ),
-                )
-            };
-            Ok(crate::content_extraction::Extractor {
-                id: row.get(0)?,
-                stable_ref,
-                name: row.get(2)?,
-                description: row.get(3)?,
-                engine,
-                executable_path,
-                model_path,
-                input_contract: row.get(7)?,
-                output_contract: row.get(8)?,
-                enabled: row.get(9)?,
-                priority: row.get(10)?,
-                revision: row.get(11)?,
-                is_builtin: row.get(12)?,
-                is_available: availability.is_available,
-                unavailable_reason: availability.unavailable_reason,
-                runtime,
-                recipe,
-                recipe_hash,
-                default_recipe: preset.map(crate::content_extraction::ExtractorPreset::recipe),
-                defaults: preset.map(crate::content_extraction::ExtractorPreset::definition),
-            })
-        })?;
-        rows.collect()
+        runtime::load_content_extractors(self)
     }
 
     pub fn get_content_extractor(

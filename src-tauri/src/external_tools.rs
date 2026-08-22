@@ -4,6 +4,23 @@ use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+const FAILED_VERSION_PROBE_TTL: Duration = Duration::from_secs(30);
+
+struct VersionCacheEntry {
+    value: Option<String>,
+    checked_at: Instant,
+}
+
+fn cached_version(
+    cache: &Mutex<std::collections::HashMap<String, VersionCacheEntry>>,
+    key: &str,
+) -> Option<Option<String>> {
+    let cache = cache.lock().ok()?;
+    let entry = cache.get(key)?;
+    (entry.value.is_some() || entry.checked_at.elapsed() < FAILED_VERSION_PROBE_TTL)
+        .then(|| entry.value.clone())
+}
+
 pub(crate) fn is_executable(path: &Path) -> bool {
     #[cfg(unix)]
     {
@@ -36,45 +53,50 @@ pub(crate) fn probe_version(path: &Path, arguments: &[&str]) -> Option<String> {
         metadata.len(),
         modified,
     );
-    static VERSION_CACHE: OnceLock<Mutex<std::collections::HashMap<String, Option<String>>>> =
+    static VERSION_CACHE: OnceLock<Mutex<std::collections::HashMap<String, VersionCacheEntry>>> =
         OnceLock::new();
     let cache = VERSION_CACHE.get_or_init(|| Mutex::new(std::collections::HashMap::new()));
-    if let Some(version) = cache.lock().ok()?.get(&cache_key).cloned() {
+    if let Some(version) = cached_version(cache, &cache_key) {
         return version;
     }
-    let workspace = PrivateWorkspace::create("version-probe").ok()?;
-    let stdout_path = workspace.join("stdout");
-    let stderr_path = workspace.join("stderr");
-    let stdout = fs::File::create(&stdout_path).ok()?;
-    let stderr = fs::File::create(&stderr_path).ok()?;
-    let mut child = Command::new(path)
-        .args(arguments)
-        .stdin(Stdio::null())
-        .stdout(stdout)
-        .stderr(stderr)
-        .spawn()
-        .ok()?;
-    let status = wait_bounded(&mut child, Duration::from_secs(2)).ok()?;
-    if !status.success() {
-        return None;
-    }
-    for output_path in [&stdout_path, &stderr_path] {
-        if output_path.metadata().ok()?.len() > 16 * 1024 {
-            continue;
+    let version = (|| {
+        let workspace = PrivateWorkspace::create("version-probe").ok()?;
+        let stdout_path = workspace.join("stdout");
+        let stderr_path = workspace.join("stderr");
+        let stdout = fs::File::create(&stdout_path).ok()?;
+        let stderr = fs::File::create(&stderr_path).ok()?;
+        let mut child = Command::new(path)
+            .args(arguments)
+            .stdin(Stdio::null())
+            .stdout(stdout)
+            .stderr(stderr)
+            .spawn()
+            .ok()?;
+        let status = wait_bounded(&mut child, Duration::from_secs(2)).ok()?;
+        if !status.success() {
+            return None;
         }
-        let output = fs::read_to_string(output_path).ok()?;
-        if let Some(line) = output.lines().map(str::trim).find(|line| !line.is_empty()) {
-            let version = Some(line.chars().take(160).collect());
-            if let Ok(mut cache) = cache.lock() {
-                cache.insert(cache_key, version.clone());
+        for output_path in [&stdout_path, &stderr_path] {
+            if output_path.metadata().ok()?.len() > 16 * 1024 {
+                continue;
             }
-            return version;
+            let output = fs::read_to_string(output_path).ok()?;
+            if let Some(line) = output.lines().map(str::trim).find(|line| !line.is_empty()) {
+                return Some(line.chars().take(160).collect());
+            }
         }
-    }
+        None
+    })();
     if let Ok(mut cache) = cache.lock() {
-        cache.insert(cache_key, None);
+        cache.insert(
+            cache_key,
+            VersionCacheEntry {
+                value: version.clone(),
+                checked_at: Instant::now(),
+            },
+        );
     }
-    None
+    version
 }
 
 pub(crate) fn find_executable(name: &str, explicit_paths: &[&str]) -> Option<PathBuf> {
@@ -166,6 +188,23 @@ mod tests {
             path
         };
         assert!(!path.exists());
+    }
+
+    #[test]
+    fn failed_version_probes_are_cached_temporarily() {
+        let cache = Mutex::new(std::collections::HashMap::from([(
+            "failed".into(),
+            VersionCacheEntry {
+                value: None,
+                checked_at: Instant::now(),
+            },
+        )]));
+
+        assert_eq!(cached_version(&cache, "failed"), Some(None));
+
+        cache.lock().unwrap().get_mut("failed").unwrap().checked_at =
+            Instant::now() - FAILED_VERSION_PROBE_TTL - Duration::from_secs(1);
+        assert_eq!(cached_version(&cache, "failed"), None);
     }
 
     #[cfg(unix)]

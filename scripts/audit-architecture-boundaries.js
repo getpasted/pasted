@@ -75,6 +75,7 @@ const backupCommands = read('src-tauri/src/commands/backups.rs');
 const importCommands = read('src-tauri/src/commands/imports.rs');
 const factoryResetCommands = read('src-tauri/src/commands/factory_reset.rs');
 const extractionCommands = read('src-tauri/src/commands/extraction.rs');
+const ocrBackfillCommands = read('src-tauri/src/commands/extraction/ocr_backfill.rs');
 const filePreviewCommands = read('src-tauri/src/commands/file_previews.rs');
 const fileReferenceHealth = read('src-tauri/src/file_reference_health.rs');
 const intelligenceCommands = read('src-tauri/src/commands/intelligence.rs');
@@ -479,7 +480,9 @@ assert.match(extractionCommands, /pub fn extract_ocr_from_clip/,
   'Interactive OCR must remain in its focused extraction adapter');
 assert.match(extractionCommands, /pub async fn extract_text_from_file_clip[\s\S]*spawn_blocking/,
   'File extraction must remain in its focused asynchronous adapter');
-assert.match(extractionCommands, /pub fn start_ocr_backfill/,
+assert.match(extractionCommands, /mod ocr_backfill/,
+  'The extraction adapter must compose focused OCR backfill commands');
+assert.match(ocrBackfillCommands, /pub fn start_ocr_backfill/,
   'OCR backfill control must remain with extraction lifecycle commands');
 assert.doesNotMatch(commands, /pub fn extract_ocr_from_clip|pub async fn extract_text_from_file_clip|pub fn start_ocr_backfill/,
   'The GUI command root must not reclaim extraction lifecycle operations');
@@ -493,6 +496,8 @@ const sizeRatchets = new Map([
   ['src-tauri/src/content_extraction/engine_runtime.rs', 1_213],
   ['src-tauri/src/content_extraction/file_routing.rs', 30],
   ['src-tauri/src/content_extraction/outcome.rs', 20],
+  ['src-tauri/src/commands/extraction/ocr_backfill.rs', 60],
+  ['src-tauri/src/db/extractors/runtime.rs', 122],
   ['src-tauri/src/content_extraction/tests.rs', 458],
   ['src-tauri/src/db/activity.rs', 649],
   ['src-tauri/src/db/analysis_activity.rs', 71],

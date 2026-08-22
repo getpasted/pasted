@@ -42,6 +42,7 @@ export function SettingsAnalysisPanel({
   const [isIndexManagerOpen, setIsIndexManagerOpen] = useState(false);
   const [isClassifierManagerOpen, setIsClassifierManagerOpen] = useState(false);
   const [isSuggestionManagerOpen, setIsSuggestionManagerOpen] = useState(false);
+  const [extractorRevision, setExtractorRevision] = useState(0);
   const {
     confirmation,
     rescanning,
@@ -104,6 +105,7 @@ export function SettingsAnalysisPanel({
     <ContentExtractorManagerDialog
       isOpen={isExtractorManagerOpen}
       onClose={() => setIsExtractorManagerOpen(false)}
+      onChanged={() => setExtractorRevision((revision) => revision + 1)}
       ocrEnabled={ocrEnabled}
       transcriptionsEnabled={transcriptionsEnabled}
       onOpenIntelligence={onOpenIntelligence ? () => {
@@ -124,6 +126,6 @@ export function SettingsAnalysisPanel({
       icon={Lightbulb}
     />
     <ConfirmationDialog request={confirmation} onCancel={() => setConfirmation(null)} />
-    {ocrEnabled && <SettingsOcrPanel />}
+    {ocrEnabled && <SettingsOcrPanel extractorRevision={extractorRevision} />}
   </div>;
 }

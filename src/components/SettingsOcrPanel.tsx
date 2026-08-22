@@ -19,7 +19,7 @@ const EMPTY_OCR_STATUS: OcrBackfillStatus = {
   failedCount: 0,
 };
 
-export function SettingsOcrPanel() {
+export function SettingsOcrPanel({ extractorRevision }: { extractorRevision: number }) {
   const { showToast } = useToast();
   const [status, setStatus] = useState<OcrBackfillStatus>(EMPTY_OCR_STATUS);
   const [extractors, setExtractors] = useState<ContentExtractor[]>([]);
@@ -35,26 +35,33 @@ export function SettingsOcrPanel() {
 
   useEffect(() => {
     let cancelled = false;
-    const poll = () => {
-      Promise.all([
-        invoke<OcrBackfillStatus>('get_ocr_backfill_status'),
-        analysisApi.listExtractors<ContentExtractor>(),
-      ])
-        .then(([next, loadedExtractors]) => {
-          if (!cancelled) {
-            setStatus(next);
-            setExtractors(loadedExtractors);
-          }
-        })
-        .catch(() => { /* The next user action will surface a concrete error. */ });
+    let polling = false;
+    const poll = async () => {
+      if (polling) return;
+      polling = true;
+      try {
+        const next = await invoke<OcrBackfillStatus>('get_ocr_backfill_status');
+        if (!cancelled) {
+          setStatus(next);
+        }
+      } catch {
+        // The next user action will surface a concrete error.
+      } finally {
+        polling = false;
+      }
     };
-    poll();
-    const timer = window.setInterval(poll, 1000);
+    void poll();
+    void analysisApi.listExtractors<ContentExtractor>()
+      .then((loaded) => {
+        if (!cancelled) setExtractors(loaded);
+      })
+      .catch(() => { /* The next user action will surface a concrete error. */ });
+    const timer = window.setInterval(() => void poll(), 1000);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, []);
+  }, [extractorRevision]);
 
   const run = async (operation: () => Promise<unknown>) => {
     try {
