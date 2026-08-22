@@ -71,6 +71,18 @@ assert.match(resizerBody, /pointer-events:\s*auto;/);
 assert.match(resizerBody, /cursor:\s*col-resize;/);
 assert.match(app, /isResizingSidebar \|\| isResizingList \? 'is-resizing-columns'/);
 
+// Clip navigation drop targets retain the same semantic colors as their icons.
+for (const [action, token] of [
+  ['queue', '--queue-accent'],
+  ['pin', '--status-success'],
+  ['protect', '--accent-primary'],
+  ['conceal', '--status-warning'],
+  ['trash', '--status-danger'],
+]) {
+  assert.match(ruleBody(sidebar, `.sidebar-action-drop-${action} {`),
+    new RegExp(`--sidebar-action-drop-color:\\s*var\\(${token}\\);`));
+}
+
 // Stable reordering owns cursor and selection until its hook removes the class.
 const reorderBody = ruleBody(sidebar, 'html.is-stable-reordering,');
 assert.match(reorderBody, /cursor:\s*grabbing;/);
