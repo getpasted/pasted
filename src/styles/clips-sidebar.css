@@ -72,6 +72,10 @@
   --sidebar-action-drop-color: var(--accent-primary);
 }
 
+.sidebar-action-drop-conceal {
+  --sidebar-action-drop-color: var(--status-warning);
+}
+
 .sidebar-action-drop-trash {
   --sidebar-action-drop-color: var(--status-danger);
 }

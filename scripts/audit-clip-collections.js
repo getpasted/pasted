@@ -50,6 +50,10 @@ assert.match(propertyAssociations, /id:\s*'name'[\s\S]{0,100}membership:\s*'name
 assert.match(registry, /association:\s*'name'/, 'Named collection must reference its property association');
 assert.match(clipViews, /getClipPropertyAssociation\(collection\?\.association\)/, 'Property collection filtering must use the shared association contract');
 assert.match(dragHook, /CLIP_PROPERTY_ASSOCIATIONS/, 'Property drop eligibility must use the shared association contract');
+assert.match(registry, /key:\s*'system:queue'[\s\S]{0,300}acceptsClipDrop:\s*true[\s\S]{0,100}dropAction:\s*'queue'/,
+  'Queued must remain a registered text Clip drop destination');
+assert.match(dragHook, /content_type === 'file' \|\| !clip\.text_content[\s\S]{0,40}disabled\.push\('queue'\)/,
+  'Queue drops must fail closed for Clips without a text payload');
 
 for (const field of [
   'acceptsClipDrop',
