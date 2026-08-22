@@ -23,7 +23,7 @@ const safeRasterImage = fs.readFileSync('src/components/SafeRasterImage.tsx', 'u
 const codeqlWorkflow = fs.readFileSync('.github/workflows/codeql.yml', 'utf8');
 const safeRasterConsumers = [
   'src/components/CaptureFeedbackWindow.tsx',
-  'src/components/ClipCard.tsx',
+  'src/components/ClipCardThumbnails.tsx',
   'src/components/ClipPreviewContent.tsx',
   'src/components/QuickHudWindow.tsx',
   'src/components/Sidebar.tsx',

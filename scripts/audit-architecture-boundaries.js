@@ -562,6 +562,14 @@ const sizeRatchets = new Map([
   ['src/hooks/useClipReordering.ts', 100],
   ['src/components/AppDialogLayer.tsx', 210],
   ['src/components/ClipPreview.tsx', 972],
+  ['src/components/ClipCard.tsx', 171],
+  ['src/components/ClipCardActions.tsx', 194],
+  ['src/components/ClipCardContent.tsx', 76],
+  ['src/components/ClipCardHeader.tsx', 143],
+  ['src/components/ClipCardThumbnails.tsx', 175],
+  ['src/components/HighlightedClipText.tsx', 26],
+  ['src/components/clipCardModel.ts', 109],
+  ['src/hooks/useClipCardPointerDrag.ts', 130],
   ['src/components/ClipPreviewFooter.tsx', 118],
   ['src/components/ClipPreviewNotesPanel.tsx', 87],
   ['src/components/Sidebar.tsx', 574],
@@ -597,6 +605,18 @@ for (const controller of ['useClipPreviewAnalysis', 'useClipPreviewNotes', 'useC
 assert.doesNotMatch(clipPreviewShell,
   /get_clip_versions|get_clip_extraction_results|update_clip_note|get_clip_content_matches/,
   'Clip Preview must not reclaim controller-owned persistence and analysis commands');
+
+const clipCardShell = read('src/components/ClipCard.tsx');
+for (const subsystem of ['ClipCardActions', 'ClipCardContent', 'ClipCardHeader', 'useClipCardPointerDrag']) {
+  assert.match(clipCardShell, new RegExp(`${subsystem}`),
+    `ClipCard must compose the ${subsystem} subsystem`);
+}
+assert.doesNotMatch(clipCardShell, /get_clip_image|get_file_clip_previews|addEventListener\('pointermove'/,
+  'ClipCard must not reclaim preview loading or pointer-drag internals');
+assert.doesNotMatch(clipCardShell, /useMinuteTick/,
+  'ClipCard must not rerender its full content and action tree for relative-time updates');
+assert.match(read('src/components/ClipCardHeader.tsx'), /useMinuteTick\(\)/,
+  'Relative-time updates must remain scoped to ClipCard metadata');
 
 const sidebarShell = read('src/components/Sidebar.tsx');
 for (const subsystem of ['CollapsedSidebar', 'SidebarBinsSection', 'SidebarSearchFooter', 'useSidebarHoverState']) {

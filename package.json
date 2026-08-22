@@ -34,7 +34,7 @@
     "test:app-lock": "node --experimental-strip-types scripts/test-app-lock-idle.ts",
     "bench:analysis": "cargo run --release --manifest-path src-tauri/Cargo.toml --example analysis_baseline --",
     "test:ipc": "node scripts/audit-ipc.js && node scripts/audit-app-events.js",
-    "test:architecture": "node scripts/generate-app-event-contracts.js --check && node --experimental-strip-types scripts/test-app-navigation.ts && node --experimental-strip-types scripts/test-clip-selection.ts && node --no-warnings scripts/test-browser-backend.js && node scripts/audit-architecture-boundaries.js",
+    "test:architecture": "node scripts/generate-app-event-contracts.js --check && node --experimental-strip-types scripts/test-app-navigation.ts && node --experimental-strip-types scripts/test-clip-selection.ts && node --experimental-strip-types scripts/test-clip-card-model.ts && node --no-warnings scripts/test-browser-backend.js && node scripts/audit-architecture-boundaries.js",
     "release:macos:local": "bash scripts/release-macos.sh --local",
     "release:macos": "bash scripts/release-macos.sh",
     "release:macos:verify": "bash scripts/verify-macos-release.sh",
