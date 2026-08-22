@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { readRustSourceTree } from './audit-source-trees.js';
 
-const activityView = fs.readFileSync('src/components/ActivityLogView.tsx', 'utf8');
+const activityView = [
+  'src/components/ActivityLogView.tsx',
+  'src/components/ActivityEventBadge.tsx',
+].map((path) => fs.readFileSync(path, 'utf8')).join('\n');
 const activityApi = fs.readFileSync('src/api/activity.ts', 'utf8');
 const englishCatalog = JSON.parse(fs.readFileSync('src/locales/en.json', 'utf8'));
 const rustSources = readRustSourceTree('src-tauri/src');

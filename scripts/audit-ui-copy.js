@@ -3,6 +3,7 @@ import fs from 'node:fs';
 
 const TOOL_COPY_FILES = [
   'src/components/ActivityLogView.tsx',
+  'src/components/ActivityEventBadge.tsx',
   'src/components/AddBlacklistAppModal.tsx',
   'src/components/AnalyticsView.tsx',
   'src/components/CaptureFeedbackWindow.tsx',
