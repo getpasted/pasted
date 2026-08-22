@@ -1,12 +1,16 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { readRustModuleTree } from './audit-source-trees.js';
 import { APP_LOCK_ACTIVITY_EVENTS, createIdleDeadline } from '../src/utils/idleDeadline.ts';
 import { appLockAuthErrorKey, authToggleDisabled } from '../src/utils/appLockPolicy.ts';
 
 const rootSource = fs.readFileSync('src/main.tsx', 'utf8');
 const hudWindowSource = fs.readFileSync('src-tauri/src/hud_window.rs', 'utf8');
 const appLockCommandsSource = fs.readFileSync('src-tauri/src/commands/app_lock.rs', 'utf8');
-const hotkeySource = fs.readFileSync('src-tauri/src/hotkey_manager.rs', 'utf8');
+const hotkeySource = readRustModuleTree(
+  'src-tauri/src/hotkey_manager.rs',
+  'src-tauri/src/hotkey_manager',
+);
 const liveAppSource = fs.readFileSync('src-tauri/src/live_app.rs', 'utf8');
 const nativeRootSource = fs.readFileSync('src-tauri/src/lib.rs', 'utf8');
 

@@ -1,12 +1,16 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { readRustModuleTree } from './audit-source-trees.js';
 
 const config = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'));
 const appSource = fs.readFileSync('src/App.tsx', 'utf8');
 const rootSource = fs.readFileSync('src/main.tsx', 'utf8');
 const monitorSource = fs.readFileSync('src-tauri/src/clipboard_monitor.rs', 'utf8');
 const exclusionsNativeSource = fs.readFileSync('src-tauri/src/app_exclusions.rs', 'utf8');
-const hotkeySource = fs.readFileSync('src-tauri/src/hotkey_manager.rs', 'utf8');
+const hotkeySource = readRustModuleTree(
+  'src-tauri/src/hotkey_manager.rs',
+  'src-tauri/src/hotkey_manager',
+);
 const pasteTargetSource = fs.readFileSync('src-tauri/src/paste_target.rs', 'utf8');
 const settingsSource = fs.readFileSync('src/hooks/useAppSettings.ts', 'utf8');
 const panelSource = fs.readFileSync('src/components/SettingsNotificationsPanel.tsx', 'utf8');

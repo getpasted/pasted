@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { readRustModuleTree } from './audit-source-trees.js';
 
 const read = (path) => fs.readFileSync(path, 'utf8');
 const lineCount = (path) => read(path).trimEnd().split(/\r?\n/).length;
@@ -21,7 +22,10 @@ const contentInspection = read('src-tauri/src/content_inspection.rs');
 const intelligenceConnections = read('src-tauri/src/intelligence_connections.rs');
 const queueActions = read('src-tauri/src/queue_actions.rs');
 const platformCapabilities = read('src-tauri/src/platform_capabilities.rs');
-const hotkeys = read('src-tauri/src/hotkey_manager.rs');
+const hotkeys = readRustModuleTree(
+  'src-tauri/src/hotkey_manager.rs',
+  'src-tauri/src/hotkey_manager',
+);
 const settingsService = read('src-tauri/src/settings_service.rs');
 const activityDatabase = read('src-tauri/src/db/activity.rs');
 const analysisActivityDatabase = read('src-tauri/src/db/analysis_activity.rs');
@@ -359,6 +363,18 @@ assert.doesNotMatch(queueActions, /crate::commands::/,
   'Shared Queue workflows must remain independent of GUI commands');
 assert.doesNotMatch(hotkeys, /(?:crate::)?commands::/,
   'The hotkey adapter must not call the GUI command adapter');
+assert.ok(lineCount('src-tauri/src/hotkey_manager.rs') <= 228,
+  'The hotkey coordinator must stay within its extracted size boundary');
+assert.match(read('src-tauri/src/hotkey_manager/action_dispatch.rs'), /pub fn dispatch/,
+  'Hotkey action execution must remain in its focused subsystem');
+assert.match(read('src-tauri/src/hotkey_manager/registration.rs'), /pub fn register_all/,
+  'Hotkey configuration assembly must remain in its focused subsystem');
+assert.match(read('src-tauri/src/hotkey_manager/native_backend.rs'), /fn register_native/,
+  'Native hotkey registration must remain in its focused backend');
+assert.match(read('src-tauri/src/hotkey_manager/wayland_backend.rs'), /fn prepare_xdg_hotkeys/,
+  'Wayland portal preparation must remain in its focused backend');
+assert.match(read('src-tauri/src/hotkey_manager/x11_backend.rs'), /fn rebuild_x11_shortcuts/,
+  'X11 registration lifecycle must remain in its focused backend');
 for (const sharedCall of [
   'app_lock::lock_enabled',
   'clipboard_actions::execute_transform',
