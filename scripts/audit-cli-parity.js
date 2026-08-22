@@ -29,6 +29,7 @@ const clipPreview = [
   'src/components/clipPreviewModel.ts',
   'src/hooks/useClipPreviewAnalysis.ts',
   'src/hooks/useClipPreviewRevisions.ts',
+  'src/hooks/useClipPreviewTransforms.ts',
 ].map(read).join('\n');
 const clipViews = read('src/hooks/useClipViews.ts');
 const clipsApi = read('src/api/clips.ts');

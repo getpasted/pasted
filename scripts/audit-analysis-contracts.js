@@ -25,6 +25,7 @@ const clipPreview = [
   'src/hooks/useClipPreviewAnalysis.ts',
   'src/hooks/useClipPreviewNotes.ts',
   'src/hooks/useClipPreviewRevisions.ts',
+  'src/hooks/useClipPreviewTransforms.ts',
 ].map(read).join('\n');
 const clipPreviewContent = read('src/components/ClipPreviewContent.tsx');
 const clipCard = [
