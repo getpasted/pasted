@@ -25,7 +25,7 @@
     "test:docs": "node scripts/audit-documentation.js",
     "test:collections": "node --experimental-strip-types scripts/test-clip-search.ts && node scripts/audit-clip-collections.js",
     "test:menus": "node --experimental-strip-types scripts/test-menu-children.ts && node scripts/audit-menu-system.js",
-    "test:cli": "node --experimental-strip-types scripts/test-content-extractor-model.ts && node scripts/audit-cli-parity.js && node scripts/audit-analysis-contracts.js && node scripts/audit-analysis-performance.js",
+    "test:cli": "node --experimental-strip-types scripts/test-content-extractor-model.ts && node --experimental-strip-types scripts/test-classifier-model.ts && node scripts/audit-cli-parity.js && node scripts/audit-analysis-contracts.js && node scripts/audit-analysis-performance.js",
     "test:transformations": "node scripts/audit-transformations.js",
     "test:activity": "node scripts/audit-activity-events.js",
     "test:backup": "node --experimental-strip-types scripts/test-backup-client-state.js && node --experimental-strip-types scripts/test-app-ui-state.ts && node scripts/audit-full-backup.js",

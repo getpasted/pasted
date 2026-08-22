@@ -48,7 +48,11 @@ const extractorManager = [
   'src/components/contentExtractorPolicy.ts',
   'src/hooks/useContentExtractorManager.ts',
 ].map(read).join('\n');
-const classifierManager = read('src/components/SettingsAnalysisPanel.tsx');
+const classifierManager = [
+  'src/hooks/useClassifierManager.ts',
+  'src/components/ClassifierManagerDialog.tsx',
+  'src/components/classifierModel.ts',
+].map(read).join('\n');
 const smartBins = read('src-tauri/src/smart_bins.rs');
 const manualTransforms = read('src-tauri/src/manual_transform_service.rs');
 

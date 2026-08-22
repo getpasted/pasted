@@ -1253,6 +1253,7 @@
   "component.settingsAnalysisPanel.classificationFailed": "Klassifizierung fehlgeschlagen.",
   "component.settingsAnalysisPanel.classifierContentType": "Typ des Klassifikator-Inhalts",
   "component.settingsAnalysisPanel.classifiers": "Klassifikatoren",
+  "component.settingsAnalysisPanel.customClassifier": "Benutzerdefinierter Klassifikator",
   "component.settingsAnalysisPanel.classifierSettings": "Klassifikator-Einstellungen",
   "component.settingsAnalysisPanel.classify": "Einordnen",
   "component.settingsAnalysisPanel.contentType": "Inhalt",

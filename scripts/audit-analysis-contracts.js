@@ -28,7 +28,21 @@ const analytics = read('src/components/AnalyticsView.tsx');
 const clipOrder = read('src/utils/clipOrder.ts');
 const database = readRustModuleTree('src-tauri/src/db.rs', 'src-tauri/src/db');
 const types = read('src/types.ts');
-const analysisSettings = read('src/components/SettingsAnalysisPanel.tsx');
+const analysisSettingsShell = read('src/components/SettingsAnalysisPanel.tsx');
+const analysisLifecycle = read('src/components/AnalysisLifecycleSequence.tsx');
+const analysisMaintenance = read('src/hooks/useAnalysisMaintenance.ts');
+const classifierManagerFiles = [
+  'src/hooks/useClassifierManager.ts',
+  'src/components/ClassifierManagerDialog.tsx',
+  'src/components/classifierModel.ts',
+];
+const classifierManager = classifierManagerFiles.map(read).join('\n');
+const analysisSettings = [
+  analysisSettingsShell,
+  analysisLifecycle,
+  analysisMaintenance,
+  classifierManager,
+].join('\n');
 const settingsModal = read('src/components/SettingsModal.tsx');
 const analysisExecution = read('src-tauri/src/analysis_execution.rs');
 const commands = readRustModuleTree('src-tauri/src/commands.rs', 'src-tauri/src/commands');
@@ -58,30 +72,30 @@ for (const [step, participant, icon] of [
 ]) {
   const participantKey = `component.settingsAnalysisPanel.${participant.toLowerCase()}`;
   assert.match(
-    analysisSettings,
+    analysisLifecycle,
     new RegExp(`step=\\{${step}\\}[\\s\\S]{0,80}icon=\\{${icon}\\}[\\s\\S]{0,120}translate\\('${participantKey.replaceAll('.', '\\.')}\\'\\)`),
     `Analysis Settings must present ${participant} as ordered lifecycle step ${step} with its icon`,
   );
   assert.equal(englishCatalog[participantKey], participant);
 }
 assert.match(
-  analysisSettings,
+  analysisLifecycle,
   /searchEnabled && <AnalysisManagerRow[\s\S]{0,100}step=\{4\}[\s\S]{0,80}icon=\{Search\}[\s\S]{0,140}settingsAnalysisPanel\.index/,
   'Analysis Settings must present Index after Extract when Clip Search is enabled',
 );
 assert.equal(englishCatalog['component.settingsAnalysisPanel.index'], 'Index');
 assert.match(
-  analysisSettings,
+  analysisLifecycle,
   /step=\{searchEnabled \? 5 : 4\}[\s\S]{0,80}icon=\{Radar\}[\s\S]{0,140}settingsAnalysisPanel\.classify/,
   'Classify must follow the optional Index lifecycle stage',
 );
 assert.match(
-  analysisSettings,
-  /step=\{4 \+ Number\(searchEnabled\) \+ Number\(contentClassificationEnabled \|\| typesEnabled\)\}[\s\S]{0,80}icon=\{Lightbulb\}/,
+  analysisLifecycle,
+  /step=\{4 \+ Number\(searchEnabled\) \+ Number\(classificationEnabled\)\}[\s\S]{0,80}icon=\{Lightbulb\}/,
   'Suggest must follow the enabled lifecycle stages',
 );
 assert.match(
-  analysisSettings,
+  analysisLifecycle,
   /translate\('component\.settingsAnalysisPanel\.notAllStepsRunForAllClipsSomeStepsMayBeLong'\)/,
   'Analysis Settings must explain that the ordered passes are conditional',
 );
@@ -89,15 +103,15 @@ assert.match(settingsModal, /activeTab === 'analysis' && \(\s*<SettingsAnalysisP
   'Analysis Settings must remain available when optional participants are disabled');
 assert.doesNotMatch(settingsModal, /showAnalysis=/,
   'Functionality gates must not hide Analysis configuration');
-assert.match(analysisSettings, /step=\{3\}[\s\S]{0,220}translate\('component\.settingsAnalysisPanel\.extract'\)/,
+assert.match(analysisLifecycle, /step=\{3\}[\s\S]{0,220}translate\('component\.settingsAnalysisPanel\.extract'\)/,
   'Extractor management must remain visible for user-defined recipes');
-assert.match(analysisSettings, /\{\(contentClassificationEnabled \|\| typesEnabled\) && <AnalysisManagerRow[\s\S]{0,220}translate\('component\.settingsAnalysisPanel\.classify'\)/,
+assert.match(analysisLifecycle, /\{classificationEnabled && <AnalysisManagerRow[\s\S]{0,220}translate\('component\.settingsAnalysisPanel\.classify'\)/,
   'Classifiers must remain visible for either Content Classification or Types');
 assert.match(settingsModal, /typesEnabled=\{settings\.enableTypes\}/,
   'Analysis Settings must receive the Types feature gate');
 assert.match(settingsModal, /sourcesEnabled=\{settings\.enableSources\}/,
   'Analysis Settings must receive the Sources feature gate');
-assert.match(analysisSettings, /step=\{1\}[\s\S]{0,220}translate\('component\.settingsAnalysisPanel\.capture'\)/,
+assert.match(analysisLifecycle, /step=\{1\}[\s\S]{0,220}translate\('component\.settingsAnalysisPanel\.capture'\)/,
   'Capture must remain visible independently of optional presentation features');
 assert.match(builtinLifecycleManager, /stableRef !== 'capture:source-attribution-v1'/,
   'Disabling Sources must hide Source Attribution without hiding Clip Type');
@@ -131,7 +145,7 @@ assert.match(analytics, /nextMidnight[\s\S]{0,500}setTimeout/,
   'Insights must refresh across the local midnight boundary');
 assert.match(clipOrder, /parseDbDate\(left\.created_at\)[\s\S]{0,300}rightTimestamp - leftTimestamp/,
   'History ordering must compare timestamp instants rather than mixed timestamp strings');
-assert.match(analysisSettings, /\{transformationsEnabled && <AnalysisManagerRow[\s\S]{0,220}translate\('component\.settingsAnalysisPanel\.suggest'\)/,
+assert.match(analysisLifecycle, /\{transformationsEnabled && <AnalysisManagerRow[\s\S]{0,220}translate\('component\.settingsAnalysisPanel\.suggest'\)/,
   'Disabling Transformations must hide Smart Action Suggestions');
 assert.match(analysisExecution, /let run_classifiers = allow_text_participants && options\.include_classifiers;/,
   'Suggestion must not implicitly enable Classifiers');
@@ -161,7 +175,27 @@ assert.match(read('src/components/contentExtractorPolicy.ts'), /export function 
   'Extractor feature visibility policy must remain independent from its React controller');
 assert.match(read('src/components/contentExtractorPolicy.ts'), /export function canSaveExtractorRecipe/,
   'Extractor recipe validation policy must remain independently testable');
-assert.match(analysisSettings, /<ContentExtractorManagerDialog[\s\S]{0,220}ocrEnabled=\{ocrEnabled\}[\s\S]{0,100}transcriptionsEnabled=\{transcriptionsEnabled\}/,
+assert.ok(lineCount('src/components/SettingsAnalysisPanel.tsx') <= 129,
+  'The Analysis settings coordinator must stay within its extracted size boundary');
+assert.ok(lineCount('src/components/ClassifierManagerDialog.tsx') <= 232,
+  'The Classifier manager surface must stay within its extracted size boundary');
+assert.ok(lineCount('src/hooks/useClassifierManager.ts') <= 297,
+  'The Classifier controller must stay within its extracted size boundary');
+assert.ok(lineCount('src/components/AnalysisLifecycleSequence.tsx') <= 113,
+  'The Analysis lifecycle surface must stay within its extracted size boundary');
+assert.ok(lineCount('src/hooks/useAnalysisMaintenance.ts') <= 126,
+  'Analysis maintenance workflows must stay within their extracted size boundary');
+assert.ok(lineCount('src/components/classifierModel.ts') <= 95,
+  'Classifier data and draft policy must stay within its extracted size boundary');
+assert.match(analysisSettingsShell, /<ClassifierManagerDialog/,
+  'Analysis Settings must delegate Classifier management to its focused dialog');
+assert.match(analysisSettingsShell, /useAnalysisMaintenance\(/,
+  'Analysis Settings must delegate reset and rescan workflows to their focused controller');
+assert.doesNotMatch(classifierManager, /String\(error\)/,
+  'Classifier management must preserve structured backend error messages');
+assert.match(classifierManager, /errorMessage\(error\)/,
+  'Classifier management must use the shared structured error presenter');
+assert.match(analysisSettingsShell, /<ContentExtractorManagerDialog[\s\S]{0,220}ocrEnabled=\{ocrEnabled\}[\s\S]{0,100}transcriptionsEnabled=\{transcriptionsEnabled\}/,
   'Analysis Settings must pass both extraction feature gates to Extractor management');
 assert.match(commands, /extract_text_from_file_clip[\s\S]{0,400}active_file_text_extractors_for_features\(transcriptions_enabled\)/,
   'Native file extraction must preserve custom Extractors when Transcriptions is disabled');
@@ -174,12 +208,14 @@ for (const command of [
   'restore_default_content_type_groups',
 ]) {
   assert.match(
-    analysisSettings,
+    analysisMaintenance,
     new RegExp(`invoke(?:<[^>]+>)?\\('${command}'\\)`),
     `The global Analysis restore must include ${command}`,
   );
 }
-assert.match(analysisSettings, /<ActionButton onClick=\{restoreAnalysis\}[\s\S]{0,180}translate\('component\.settingsAnalysisPanel\.reset'\)/,
+assert.match(analysisSettingsShell, /onReset=\{restoreAnalysis\}/,
+  'Analysis Settings must connect the global restore workflow to the lifecycle surface');
+assert.match(analysisLifecycle, /<ActionButton onClick=\{onReset\}[\s\S]{0,180}translate\('component\.settingsAnalysisPanel\.reset'\)/,
   'Analysis Settings must expose one global Reset action');
 
 function commandBlock(command) {
@@ -266,7 +302,7 @@ for (const field of ['ocr_extractor_ref', 'ocr_extractor_name', 'ocr_engine_vers
     `Frontend ClipItem must expose OCR provenance field ${field}`);
 }
 for (const title of ['Capture', 'Inspect', 'Extract', 'Classify', 'Suggest']) {
-  assert.match(analysisSettings, new RegExp(`translate\\('component\\.settingsAnalysisPanel\\.${title.toLowerCase()}'\\)`),
+  assert.match(analysisLifecycle, new RegExp(`translate\\('component\\.settingsAnalysisPanel\\.${title.toLowerCase()}'\\)`),
     `Analysis settings must expose ${title} behind a compact manager row`);
 }
 assert.match(builtinLifecycleManager, /get_library_items/,
@@ -283,7 +319,7 @@ assert.match(builtinLifecycleManager, /translate\('common\.technicalDetails'\)/,
   'Internal participant contracts must remain behind contextual technical details');
 assert.match(builtinLifecycleManager, /captureStableReferenceUsage[\s\S]{0,200}pasted registry list --kind capture --json[\s\S]{0,300}stableReferenceUsage[\s\S]{0,200}get <ref> --json/,
   'Stable references must explain their CLI and API purpose');
-for (const [label, manager] of [['Extractor', extractorManager], ['Classifier', analysisSettings]]) {
+for (const [label, manager] of [['Extractor', extractorManager], ['Classifier', classifierManager]]) {
   assert.equal((manager.match(/<RegistryPanelFooter/g) ?? []).length, 2,
     `${label} management must keep item actions and form actions in their owning panels`);
   assert.match(manager, /<AppDialogFooter[\s\S]*translate\('component\.(?:contentExtractorManagerDialog|settingsAnalysisPanel)\.reset'\)[\s\S]*translate\('common\.close'\)/,
