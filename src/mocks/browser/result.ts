@@ -4,3 +4,5 @@ export type BrowserMockResult =
 
 export const unhandled: BrowserMockResult = { matched: false };
 export const handled = (value: unknown): BrowserMockResult => ({ matched: true, value });
+
+export const unhandledValue = Symbol('unhandled browser command');
