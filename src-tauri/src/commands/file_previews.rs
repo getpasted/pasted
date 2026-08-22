@@ -1,10 +1,17 @@
 use base64::Engine;
-use sha2::{Digest, Sha256};
-use std::io::{Cursor, Read};
+use std::io::Cursor;
 use std::sync::Arc;
 
 use tauri::{AppHandle, Manager, State};
 
+#[path = "file_preview_cache.rs"]
+mod file_preview_cache;
+#[cfg(test)]
+use self::file_preview_cache::looks_like_pdf;
+use self::file_preview_cache::{
+    clip_file_preview_cache_key, flatten_image_on_white, pdf_preview_cache_key, read_bounded_file,
+    read_preview_cache, render_pdf_first_page, write_preview_cache,
+};
 use crate::db::DbState;
 
 #[derive(Debug, serde::Serialize)]
@@ -15,6 +22,8 @@ pub struct FileClipPreview {
     text_content: Option<String>,
     width: Option<u32>,
     height: Option<u32>,
+    availability: crate::file_reference_health::FileReferenceAvailability,
+    cached: bool,
 }
 
 pub(super) fn parse_file_clip_paths(value: &str) -> Vec<String> {
@@ -59,195 +68,6 @@ fn text_file_preview(bytes: &[u8]) -> Option<String> {
     Some(bounded.trim_start_matches('\u{feff}').to_string())
 }
 
-#[cfg_attr(not(any(target_os = "macos", test)), allow(dead_code))]
-fn looks_like_pdf(bytes: &[u8]) -> bool {
-    bytes
-        .windows(5)
-        .take(1_024)
-        .any(|window| window == b"%PDF-")
-}
-
-fn pdf_preview_cache_key(bytes: &[u8]) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(b"pasted-pdf-first-page-v2-white-background\0");
-    hasher.update(bytes);
-    format!("{:x}", hasher.finalize())
-}
-
-fn clip_file_preview_cache_key(content_hash: &str, index: usize) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(b"pasted-file-preview-v1\0");
-    hasher.update(content_hash.as_bytes());
-    hasher.update([0]);
-    hasher.update(index.to_le_bytes());
-    format!("clip-{:x}", hasher.finalize())
-}
-
-fn flatten_image_on_white(image: image::DynamicImage) -> image::DynamicImage {
-    let source = image.to_rgba8();
-    let mut background = image::RgbaImage::from_pixel(
-        source.width(),
-        source.height(),
-        image::Rgba([255, 255, 255, 255]),
-    );
-    image::imageops::overlay(&mut background, &source, 0, 0);
-    image::DynamicImage::ImageRgba8(background)
-}
-
-fn read_pdf_preview_cache(cache_directory: &std::path::Path, key: &str) -> Option<Vec<u8>> {
-    read_bounded_file(
-        &cache_directory.join(format!("{key}.webp")),
-        crate::resource_limits::MAX_FILE_PREVIEW_OUTPUT_BYTES as u64,
-    )
-}
-
-fn prune_pdf_preview_cache(cache_directory: &std::path::Path) {
-    let Ok(entries) = std::fs::read_dir(cache_directory) else {
-        return;
-    };
-    let mut cached = entries
-        .filter_map(Result::ok)
-        .filter_map(|entry| {
-            let path = entry.path();
-            let metadata = std::fs::symlink_metadata(&path).ok()?;
-            if !metadata.is_file() || metadata.file_type().is_symlink() {
-                return None;
-            }
-            let modified = metadata.modified().unwrap_or(std::time::UNIX_EPOCH);
-            Some((path, metadata.len(), modified))
-        })
-        .collect::<Vec<_>>();
-    cached.sort_by_key(|(_, _, modified)| *modified);
-    let mut total_bytes = cached
-        .iter()
-        .fold(0u64, |total, (_, size, _)| total.saturating_add(*size));
-    let mut excess_items = cached
-        .len()
-        .saturating_sub(crate::resource_limits::MAX_FILE_PREVIEW_CACHE_ITEMS);
-    for (path, size, _) in cached {
-        if excess_items == 0 && total_bytes <= crate::resource_limits::MAX_FILE_PREVIEW_CACHE_BYTES
-        {
-            break;
-        }
-        if std::fs::remove_file(path).is_ok() {
-            total_bytes = total_bytes.saturating_sub(size);
-            excess_items = excess_items.saturating_sub(1);
-        }
-    }
-}
-
-fn write_pdf_preview_cache(cache_directory: &std::path::Path, key: &str, bytes: &[u8]) {
-    if bytes.len() > crate::resource_limits::MAX_FILE_PREVIEW_OUTPUT_BYTES
-        || std::fs::create_dir_all(cache_directory).is_err()
-    {
-        return;
-    }
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        if let Ok(metadata) = std::fs::metadata(cache_directory) {
-            let mut permissions = metadata.permissions();
-            permissions.set_mode(0o700);
-            let _ = std::fs::set_permissions(cache_directory, permissions);
-        }
-    }
-    let path = cache_directory.join(format!("{key}.webp"));
-    let written = (|| -> std::io::Result<()> {
-        use std::io::Write;
-        let mut options = std::fs::OpenOptions::new();
-        options.create(true).truncate(true).write(true);
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::OpenOptionsExt;
-            options.mode(0o600);
-        }
-        let mut file = options.open(path)?;
-        file.write_all(bytes)?;
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let mut permissions = file.metadata()?.permissions();
-            permissions.set_mode(0o600);
-            file.set_permissions(permissions)?;
-        }
-        Ok(())
-    })();
-    if written.is_ok() {
-        prune_pdf_preview_cache(cache_directory);
-    }
-}
-
-#[cfg(target_os = "macos")]
-fn render_pdf_first_page(bytes: &[u8]) -> Option<Vec<u8>> {
-    use std::process::{Command, Stdio};
-    use std::time::{Duration, Instant};
-
-    if !looks_like_pdf(bytes) {
-        return None;
-    }
-    let working_directory = std::env::temp_dir().join(format!(
-        "pasted_pdf_preview_{}_{}",
-        std::process::id(),
-        chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
-    ));
-    let input_path = working_directory.join("document.pdf");
-    let output_path = working_directory.join("thumbnail.png");
-    std::fs::create_dir_all(&working_directory).ok()?;
-
-    let rendered = (|| {
-        std::fs::write(&input_path, bytes).ok()?;
-        let mut child = Command::new("/usr/bin/sips")
-            .args(["-s", "format", "png", "-Z", "1600"])
-            .arg(&input_path)
-            .arg("--out")
-            .arg(&output_path)
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .ok()?;
-        let deadline = Instant::now() + Duration::from_secs(5);
-        loop {
-            if let Some(status) = child.try_wait().ok()? {
-                if status.success() {
-                    break;
-                }
-                return None;
-            }
-            if Instant::now() >= deadline {
-                let _ = child.kill();
-                let _ = child.wait();
-                return None;
-            }
-            std::thread::sleep(Duration::from_millis(20));
-        }
-        read_bounded_file(
-            &output_path,
-            crate::resource_limits::MAX_FILE_PREVIEW_OUTPUT_BYTES as u64,
-        )
-    })();
-    let _ = std::fs::remove_dir_all(&working_directory);
-    rendered
-}
-
-#[cfg(not(target_os = "macos"))]
-fn render_pdf_first_page(_bytes: &[u8]) -> Option<Vec<u8>> {
-    None
-}
-
-fn read_bounded_file(path: &std::path::Path, max_bytes: u64) -> Option<Vec<u8>> {
-    let metadata = std::fs::symlink_metadata(path).ok()?;
-    if !metadata.is_file() || metadata.file_type().is_symlink() || metadata.len() > max_bytes {
-        return None;
-    }
-    let file = std::fs::File::open(path).ok()?;
-    let mut bytes = Vec::with_capacity(metadata.len().min(max_bytes) as usize);
-    file.take(max_bytes.saturating_add(1))
-        .read_to_end(&mut bytes)
-        .ok()?;
-    (bytes.len() as u64 <= max_bytes).then_some(bytes)
-}
-
 fn collect_file_clip_previews(
     paths: &[String],
     mode: &str,
@@ -255,6 +75,26 @@ fn collect_file_clip_previews(
     cache_directory: Option<&std::path::Path>,
     only_index: Option<usize>,
     clip_content_hash: Option<&str>,
+) -> Vec<FileClipPreview> {
+    collect_file_clip_previews_with_health(
+        paths,
+        mode,
+        configured_max_bytes,
+        cache_directory,
+        only_index,
+        clip_content_hash,
+        None,
+    )
+}
+
+fn collect_file_clip_previews_with_health(
+    paths: &[String],
+    mode: &str,
+    configured_max_bytes: u64,
+    cache_directory: Option<&std::path::Path>,
+    only_index: Option<usize>,
+    clip_content_hash: Option<&str>,
+    health: Option<&[crate::file_reference_health::FileReferenceHealth]>,
 ) -> Vec<FileClipPreview> {
     if mode == "off" {
         return Vec::new();
@@ -281,7 +121,7 @@ fn collect_file_clip_previews(
             .filter(|_| !is_text_preview_path(path))
             .map(|content_hash| clip_file_preview_cache_key(content_hash, index));
         if let Some(cached) = clip_cache_key.as_deref().and_then(|key| {
-            cache_directory.and_then(|directory| read_pdf_preview_cache(directory, key))
+            cache_directory.and_then(|directory| read_preview_cache(directory, key))
         }) {
             let dimensions = image::load_from_memory(&cached)
                 .ok()
@@ -303,9 +143,21 @@ fn collect_file_clip_previews(
                     text_content: None,
                     width: Some(width),
                     height: Some(height),
+                    availability:
+                        crate::file_reference_health::FileReferenceAvailability::Available,
+                    cached: true,
                 });
                 continue;
             }
+        }
+        if health.is_some_and(|items| {
+            items.iter().any(|item| {
+                item.index == index
+                    && item.availability
+                        != crate::file_reference_health::FileReferenceAvailability::Available
+            })
+        }) {
+            continue;
         }
         let Some(bytes) = read_bounded_file(path, max_bytes) else {
             continue;
@@ -327,13 +179,15 @@ fn collect_file_clip_previews(
                 text_content: Some(text_content),
                 width: None,
                 height: None,
+                availability: crate::file_reference_health::FileReferenceAvailability::Available,
+                cached: false,
             });
             continue;
         }
         let (preview_bytes, pdf_cache_key, was_cached) = if is_pdf_path(path) {
             let key = pdf_preview_cache_key(&bytes);
             if let Some(cached) =
-                cache_directory.and_then(|directory| read_pdf_preview_cache(directory, &key))
+                cache_directory.and_then(|directory| read_preview_cache(directory, &key))
             {
                 (cached, Some(key), true)
             } else {
@@ -388,11 +242,11 @@ fn collect_file_clip_previews(
         }
         if !was_cached {
             if let (Some(directory), Some(key)) = (cache_directory, pdf_cache_key.as_deref()) {
-                write_pdf_preview_cache(directory, key, &encoded);
+                write_preview_cache(directory, key, &encoded);
             }
         }
         if let (Some(directory), Some(key)) = (cache_directory, clip_cache_key.as_deref()) {
-            write_pdf_preview_cache(directory, key, &encoded);
+            write_preview_cache(directory, key, &encoded);
         }
         encoded_total = next_total;
         previews.push(FileClipPreview {
@@ -404,9 +258,41 @@ fn collect_file_clip_previews(
             text_content: None,
             width: Some(width),
             height: Some(height),
+            availability: crate::file_reference_health::FileReferenceAvailability::Available,
+            cached: false,
         });
     }
     previews
+}
+
+fn attach_file_reference_health(
+    paths: &[String],
+    previews: Vec<FileClipPreview>,
+    health: &[crate::file_reference_health::FileReferenceHealth],
+    only_index: Option<usize>,
+) -> Vec<FileClipPreview> {
+    let mut previews = previews
+        .into_iter()
+        .map(|preview| (preview.index, preview))
+        .collect::<std::collections::BTreeMap<_, _>>();
+    health
+        .iter()
+        .filter(|item| only_index.is_none_or(|requested| requested == item.index))
+        .filter(|item| item.index < paths.len())
+        .map(|item| {
+            let mut preview = previews.remove(&item.index).unwrap_or(FileClipPreview {
+                index: item.index,
+                data_url: None,
+                text_content: None,
+                width: None,
+                height: None,
+                availability: item.availability,
+                cached: false,
+            });
+            preview.availability = item.availability;
+            preview
+        })
+        .collect()
 }
 
 pub(crate) fn prefetch_file_clip_previews(
@@ -440,6 +326,7 @@ pub async fn get_file_clip_previews(
     mode: String,
     max_size_mb: u64,
     only_index: Option<usize>,
+    force_recheck: Option<bool>,
     app: AppHandle,
     db: State<'_, Arc<DbState>>,
 ) -> Result<Vec<FileClipPreview>, String> {
@@ -468,14 +355,25 @@ pub async fn get_file_clip_previews(
         if !crate::resource_limits::file_list_within_limit(&paths) {
             return Err("File list exceeds Pasted's safety limit".to_string());
         }
+        let health = crate::file_reference_health::resolve_file_reference_health(
+            &db,
+            clip.id,
+            &paths,
+            force_recheck.unwrap_or(false),
+        )
+        .map_err(|error| error.to_string())?;
         let configured_max_bytes = max_size_mb.saturating_mul(1024 * 1024);
-        Ok(collect_file_clip_previews(
+        let previews = collect_file_clip_previews_with_health(
             &paths,
             &mode,
             configured_max_bytes,
             cache_directory.as_deref(),
             only_index,
             Some(&clip.content_hash),
+            Some(&health),
+        );
+        Ok(attach_file_reference_health(
+            &paths, previews, &health, only_index,
         ))
     })
     .await
@@ -604,19 +502,30 @@ mod tests {
         );
         assert_eq!(initial.len(), 1);
         std::fs::remove_file(&png).unwrap();
-
-        let restored = collect_file_clip_previews(
+        let health = vec![crate::file_reference_health::FileReferenceHealth {
+            index: 0,
+            availability: crate::file_reference_health::FileReferenceAvailability::Missing,
+            checked_at: "2026-08-22T00:00:00Z".into(),
+        }];
+        let restored = collect_file_clip_previews_with_health(
             &paths,
             "safe",
             1024 * 1024,
             Some(&cache),
             None,
             Some("files:ephemeral"),
+            Some(&health),
         );
+        let restored = attach_file_reference_health(&paths, restored, &health, None);
         assert_eq!(restored.len(), 1);
         assert_eq!(restored[0].width, Some(3));
         assert_eq!(restored[0].height, Some(2));
         assert_eq!(restored[0].data_url, initial[0].data_url);
+        assert_eq!(
+            restored[0].availability,
+            crate::file_reference_health::FileReferenceAvailability::Missing
+        );
+        assert!(restored[0].cached);
 
         std::fs::remove_dir_all(root).unwrap();
     }
@@ -692,9 +601,9 @@ mod tests {
         assert_eq!(key, pdf_preview_cache_key(b"%PDF-1.4\nfirst"));
         assert_ne!(key, pdf_preview_cache_key(b"%PDF-1.4\nsecond"));
 
-        write_pdf_preview_cache(&root, &key, b"cached-thumbnail");
+        write_preview_cache(&root, &key, b"cached-thumbnail");
         assert_eq!(
-            read_pdf_preview_cache(&root, &key).as_deref(),
+            read_preview_cache(&root, &key).as_deref(),
             Some(b"cached-thumbnail".as_slice())
         );
         assert_eq!(

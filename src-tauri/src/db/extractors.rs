@@ -2,6 +2,8 @@ use rusqlite::{params, OptionalExtension, Result};
 
 use super::{invalid_extractor_input, DbState};
 
+mod runtime;
+
 fn insert_extractor_authoring_session(
     transaction: &rusqlite::Transaction<'_>,
     extractor_id: i64,
@@ -60,80 +62,7 @@ impl DbState {
     }
 
     pub fn get_content_extractors(&self) -> Result<Vec<crate::content_extraction::Extractor>> {
-        let conn = self.conn.lock();
-        let mut statement = conn.prepare(
-            "SELECT id, stable_ref, name, description, engine, executable_path, model_path,
-                    input_contract, output_contract, enabled, priority, revision, is_builtin,
-                    recipe_json
-             FROM content_extractors WHERE is_deleted = 0 ORDER BY priority, id",
-        )?;
-        let rows = statement.query_map([], |row| {
-            let stable_ref = row.get::<_, String>(1)?;
-            let engine = row.get::<_, String>(4)?;
-            let executable_path = row.get::<_, Option<String>>(5)?;
-            let model_path = row.get::<_, Option<String>>(6)?;
-            let preset = crate::content_extraction::EXTRACTOR_PRESETS
-                .iter()
-                .find(|preset| preset.stable_ref == stable_ref);
-            let recipe = serde_json::from_str::<crate::extractor_recipe::ExtractorRecipe>(
-                &row.get::<_, String>(13)?,
-            )
-            .map_err(|error| {
-                rusqlite::Error::FromSqlConversionFailure(
-                    13,
-                    rusqlite::types::Type::Text,
-                    Box::new(error),
-                )
-            })?;
-            let recipe_hash = recipe.hash().map_err(|error| {
-                rusqlite::Error::FromSqlConversionFailure(
-                    13,
-                    rusqlite::types::Type::Text,
-                    Box::new(std::io::Error::other(error)),
-                )
-            })?;
-            let (availability, runtime) = if engine == crate::content_extraction::RECIPE_ENGINE {
-                (
-                    crate::extractor_recipe::availability(&recipe),
-                    crate::extractor_recipe::runtime_status(&recipe),
-                )
-            } else {
-                (
-                    crate::content_extraction::engine_availability_for(
-                        &engine,
-                        executable_path.as_deref(),
-                        model_path.as_deref(),
-                    ),
-                    crate::content_extraction::runtime_status_for(
-                        &engine,
-                        executable_path.as_deref(),
-                    ),
-                )
-            };
-            Ok(crate::content_extraction::Extractor {
-                id: row.get(0)?,
-                stable_ref,
-                name: row.get(2)?,
-                description: row.get(3)?,
-                engine,
-                executable_path,
-                model_path,
-                input_contract: row.get(7)?,
-                output_contract: row.get(8)?,
-                enabled: row.get(9)?,
-                priority: row.get(10)?,
-                revision: row.get(11)?,
-                is_builtin: row.get(12)?,
-                is_available: availability.is_available,
-                unavailable_reason: availability.unavailable_reason,
-                runtime,
-                recipe,
-                recipe_hash,
-                default_recipe: preset.map(crate::content_extraction::ExtractorPreset::recipe),
-                defaults: preset.map(crate::content_extraction::ExtractorPreset::definition),
-            })
-        })?;
-        rows.collect()
+        runtime::load_content_extractors(self)
     }
 
     pub fn get_content_extractor(
@@ -645,7 +574,33 @@ impl DbState {
         let mut conn = self.conn.lock();
         let transaction = conn.transaction()?;
         for preset in crate::content_extraction::EXTRACTOR_PRESETS {
-            let recipe = preset.recipe();
+            let default_recipe = preset.recipe();
+            let current_recipe = transaction
+                .query_row(
+                    "SELECT recipe_json FROM content_extractors WHERE stable_ref = ?1",
+                    params![preset.stable_ref],
+                    |row| row.get::<_, Option<String>>(0),
+                )
+                .optional()?
+                .flatten()
+                .map(|json| serde_json::from_str(&json))
+                .transpose()
+                .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
+            let recipe = current_recipe
+                .as_ref()
+                .map(|current| {
+                    crate::extractor_recipe::reset_preserving_local_paths(current, &default_recipe)
+                })
+                .unwrap_or(default_recipe);
+            let executable_path = recipe
+                .steps
+                .first()
+                .and_then(|step| step.executable.path.as_deref());
+            let model_path = recipe
+                .resources
+                .iter()
+                .find(|resource| resource.id == "model")
+                .and_then(|resource| resource.path.as_deref());
             let recipe_json = serde_json::to_string(&recipe)
                 .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
             let recipe_hash = recipe.hash().map_err(invalid_extractor_input)?;
@@ -672,8 +627,8 @@ impl DbState {
                     preset.name,
                     preset.description,
                     preset.engine,
-                    preset.executable_path,
-                    preset.model_path,
+                    executable_path,
+                    model_path,
                     preset.input_contract,
                     preset.output_contract,
                     preset.priority,
@@ -763,23 +718,25 @@ impl DbState {
         &self,
     ) -> Result<Option<crate::content_extraction::Extractor>> {
         Ok(self
-            .active_file_text_extractors_for_features(true)?
+            .active_file_text_extractors_for_features(true, true)?
             .into_iter()
             .next())
     }
 
     pub fn active_file_text_extractor_for_features(
         &self,
+        ocr_enabled: bool,
         transcriptions_enabled: bool,
     ) -> Result<Option<crate::content_extraction::Extractor>> {
         Ok(self
-            .active_file_text_extractors_for_features(transcriptions_enabled)?
+            .active_file_text_extractors_for_features(ocr_enabled, transcriptions_enabled)?
             .into_iter()
             .next())
     }
 
     pub fn active_file_text_extractors_for_features(
         &self,
+        ocr_enabled: bool,
         transcriptions_enabled: bool,
     ) -> Result<Vec<crate::content_extraction::Extractor>> {
         Ok(self
@@ -788,6 +745,12 @@ impl DbState {
             .filter(|extractor| {
                 extractor.enabled
                     && extractor.is_available
+                    && (ocr_enabled
+                        || !matches!(
+                            extractor.stable_ref.as_str(),
+                            crate::content_extraction::APPLE_VISION_OCR_REF
+                                | crate::content_extraction::TESSERACT_OCR_REF
+                        ))
                     && (transcriptions_enabled
                         || extractor.stable_ref
                             != crate::content_extraction::WHISPER_TRANSCRIPTION_REF)

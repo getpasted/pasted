@@ -30,6 +30,7 @@ mod external_tools;
 pub mod extraction_execution;
 pub mod extractor_recipe;
 pub mod features;
+pub mod file_reference_health;
 mod filter_engine;
 #[cfg(feature = "gui")]
 mod hotkey_manager;

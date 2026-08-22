@@ -152,7 +152,7 @@ pub fn analyze_files_with_extractors_and_registry(
         },
         policy: AnalysisPolicy::Interactive,
         inspector: false,
-        file_format_inspector: false,
+        file_format_inspector: true,
         extractors: extractor_sources(extractors, registry),
         classifiers,
         suggestion: None,
@@ -447,7 +447,9 @@ mod tests {
     }
 
     struct FixedFileEngine {
+        id: &'static str,
         outcome: ExtractionOutcome,
+        seen_paths: std::sync::Mutex<Vec<Vec<String>>>,
     }
 
     impl crate::content_extraction::ExtractorEngine for FixedEngine {
@@ -469,7 +471,7 @@ mod tests {
 
     impl crate::content_extraction::ExtractorEngine for FixedFileEngine {
         fn id(&self) -> &'static str {
-            "test-file-engine-v1"
+            self.id
         }
 
         fn availability(&self) -> EngineAvailability {
@@ -485,9 +487,10 @@ mod tests {
 
         fn extract_files(
             &self,
-            _paths: &[String],
+            paths: &[String],
             _model_path: Option<&std::path::Path>,
         ) -> ExtractionOutcome {
+            self.seen_paths.lock().unwrap().push(paths.to_vec());
             self.outcome.clone()
         }
     }
@@ -849,9 +852,11 @@ mod tests {
             )
             .unwrap();
         let engine = FixedFileEngine {
+            id: "test-file-engine-v1",
             outcome: ExtractionOutcome::Produced {
                 text: "Recorded discussion about nebulae".into(),
             },
+            seen_paths: std::sync::Mutex::new(Vec::new()),
         };
         let engines: [&dyn crate::content_extraction::ExtractorEngine; 1] = [&engine];
         let registry = ExtractorEngineRegistry::new(&engines);
@@ -883,6 +888,65 @@ mod tests {
         let stored = db.get_clip_searchable_text(clip.id).unwrap().unwrap();
         assert_eq!(stored.extractor_ref, extractor.stable_ref);
         assert_eq!(stored.searchable_text, "Recorded discussion about nebulae");
+    }
+
+    #[test]
+    fn mixed_file_clips_route_each_format_only_to_matching_extractors() {
+        let workspace = crate::external_tools::PrivateWorkspace::create("format-routing").unwrap();
+        let first_pdf = workspace.join("first.pdf");
+        let second_pdf = workspace.join("second.pdf");
+        let audio = workspace.join("recording.wav");
+        std::fs::write(&first_pdf, b"%PDF-1.7\nfirst").unwrap();
+        std::fs::write(&second_pdf, b"%PDF-1.7\nsecond").unwrap();
+        std::fs::write(&audio, b"RIFF\x24\x00\x00\x00WAVEfmt ").unwrap();
+        let pdf_engine = FixedFileEngine {
+            id: "test-pdf-engine-v1",
+            outcome: ExtractionOutcome::Produced {
+                text: "pdf text".into(),
+            },
+            seen_paths: std::sync::Mutex::new(Vec::new()),
+        };
+        let audio_engine = FixedFileEngine {
+            id: "test-audio-engine-v1",
+            outcome: ExtractionOutcome::Produced {
+                text: "audio text".into(),
+            },
+            seen_paths: std::sync::Mutex::new(Vec::new()),
+        };
+        let engines: [&dyn crate::content_extraction::ExtractorEngine; 2] =
+            [&pdf_engine, &audio_engine];
+        let registry = ExtractorEngineRegistry::new(&engines);
+        let mut pdf_extractor = file_extractor();
+        pdf_extractor.stable_ref = "extractor:test-pdf".into();
+        pdf_extractor.engine = "test-pdf-engine-v1".into();
+        pdf_extractor.priority = 10;
+        pdf_extractor.recipe.accepted_file_formats = vec!["pdf".into()];
+        let mut audio_extractor = file_extractor();
+        audio_extractor.stable_ref = "extractor:test-audio".into();
+        audio_extractor.engine = "test-audio-engine-v1".into();
+        audio_extractor.recipe.accepted_file_formats = vec!["wav".into()];
+
+        let paths = vec![
+            first_pdf.to_string_lossy().into_owned(),
+            audio.to_string_lossy().into_owned(),
+            second_pdf.to_string_lossy().into_owned(),
+        ];
+        let result = analyze_files_with_extractors_and_registry(
+            paths.clone(),
+            &[pdf_extractor, audio_extractor],
+            None,
+            &registry,
+        );
+
+        assert_eq!(result.output.as_deref(), Some("pdf text\naudio text"));
+        assert_eq!(
+            pdf_engine.seen_paths.lock().unwrap().as_slice(),
+            [vec![paths[0].clone(), paths[2].clone()]]
+        );
+        assert_eq!(
+            audio_engine.seen_paths.lock().unwrap().as_slice(),
+            [vec![paths[1].clone()]]
+        );
     }
 
     #[test]

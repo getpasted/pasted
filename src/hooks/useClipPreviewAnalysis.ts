@@ -9,11 +9,10 @@ import type {
   ExtractionApplicationResult,
   ExtractionAttempt,
   ExtractionResult,
-  FileClipPreview,
   SmartActionSuggestion,
   StructuralInspection,
 } from '../components/clipPreviewModel';
-import { getCachedFilePreviews, loadFilePreviews } from '../components/clipPreviewModel';
+import { useFileClipPreviews } from './useFileClipPreviews';
 import { soundManager } from '../utils/sound';
 import { safeInvoke as invoke } from '../utils/tauri';
 
@@ -55,8 +54,11 @@ export function useClipPreviewAnalysis({
   const [extractionHistoryHasMore, setExtractionHistoryHasMore] = useState(false);
   const [isExtractionHistoryLoading, setIsExtractionHistoryLoading] = useState(false);
   const [isFileExtractionLoading, setIsFileExtractionLoading] = useState(false);
-  const [filePreviews, setFilePreviews] = useState<FileClipPreview[]>([]);
-  const [isFilePreviewLoading, setIsFilePreviewLoading] = useState(false);
+  const filePreview = useFileClipPreviews({
+    clip,
+    mode: filePreviewMode,
+    maxSizeMb: filePreviewMaxMb,
+  });
   const [isOcrLoading, setIsOcrLoading] = useState(false);
   const [resolvedImage, setResolvedImage] = useState<{ clipId: number; base64: string } | null>(null);
   const fileExtractionRequestIdRef = useRef(0);
@@ -198,29 +200,6 @@ export function useClipPreviewAnalysis({
 
   useEffect(() => {
     let cancelled = false;
-    if (!clip || clip.content_type !== 'file' || filePreviewMode === 'off') {
-      setFilePreviews([]);
-      setIsFilePreviewLoading(false);
-      return () => { cancelled = true; };
-    }
-    const cacheKey = `${clip.id}:${clip.content_hash}:${filePreviewMode}:${filePreviewMaxMb}`;
-    const cached = getCachedFilePreviews(cacheKey);
-    if (cached) {
-      setFilePreviews(cached);
-      setIsFilePreviewLoading(false);
-      return () => { cancelled = true; };
-    }
-    setFilePreviews([]);
-    setIsFilePreviewLoading(true);
-    loadFilePreviews(cacheKey, { clipId: clip.id, mode: filePreviewMode, maxSizeMb: filePreviewMaxMb })
-      .then((items) => { if (!cancelled) setFilePreviews(items); })
-      .catch((error) => { if (!cancelled) console.error('Failed to load file previews:', error); })
-      .finally(() => { if (!cancelled) setIsFilePreviewLoading(false); });
-    return () => { cancelled = true; };
-  }, [clip?.content_hash, clip?.content_type, clip?.id, filePreviewMaxMb, filePreviewMode]);
-
-  useEffect(() => {
-    let cancelled = false;
     let frame = 0;
     setResolvedImage(null);
     if (clip?.content_type === 'image') {
@@ -308,8 +287,9 @@ export function useClipPreviewAnalysis({
     extractionHistoryHasMore,
     isExtractionHistoryLoading,
     isFileExtractionLoading,
-    filePreviews,
-    isFilePreviewLoading,
+    filePreviews: filePreview.filePreviews,
+    isFilePreviewLoading: filePreview.isFilePreviewLoading,
+    recheckFileReference: filePreview.recheckFileReference,
     isOcrLoading,
     resolvedImage,
     loadExtractionHistory,

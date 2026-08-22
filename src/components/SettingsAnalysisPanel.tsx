@@ -124,6 +124,6 @@ export function SettingsAnalysisPanel({
       icon={Lightbulb}
     />
     <ConfirmationDialog request={confirmation} onCancel={() => setConfirmation(null)} />
-    {ocrEnabled && <SettingsOcrPanel />}
+    {ocrEnabled && <SettingsOcrPanel extractorRevision={Number(isExtractorManagerOpen)} />}
   </div>;
 }

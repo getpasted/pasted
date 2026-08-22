@@ -97,7 +97,7 @@ fn extractor_recipe_schema() -> serde_json::Value {
             "recipe": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["definitionVersion", "accepts", "output", "steps", "resources"],
+                "required": ["definitionVersion", "accepts", "acceptedFileFormats", "output", "steps", "resources"],
                 "properties": {
                     "definitionVersion": { "type": "integer", "enum": [1] },
                     "accepts": {
@@ -105,6 +105,12 @@ fn extractor_recipe_schema() -> serde_json::Value {
                         "minItems": 1,
                         "maxItems": 2,
                         "items": { "type": "string", "enum": ["image", "file_references"] }
+                    },
+                    "acceptedFileFormats": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 64,
+                        "items": { "type": "string", "pattern": "^(?:\\*|[a-z0-9]{1,16})$" }
                     },
                     "output": { "type": "string", "enum": ["searchable_text"] },
                     "steps": {
@@ -161,6 +167,7 @@ fn extractor_recipe_prompt(prompt: &str) -> String {
     format!(
         "Design a fast, deterministic, local Extractor recipe for Pasted. Return only JSON matching the supplied schema.\n\
          The Extractor must convert image bytes, file references, or both into searchable text.\n\
+         Set acceptedFileFormats to lowercase format identifiers without dots; use [\"*\"] only when every file format is intentionally supported.\n\
          Use installed command-line tools directly. Never use a shell, pipes, redirection, command substitution, network services, AI at runtime, or implicit installation.\n\
          Each argument is one argv token. Supported placeholders are {{input.path}}, {{input.stagedPath}}, {{request.path}}, {{output.path}}, {{output.base}}, {{step.ID.output}}, and {{resource.ID.path}}.\n\
          Use capture stdout_text for commands that print text, file_text for commands that write text to {{output.path}} or {{output.base}} plus outputExtension, and pasted_json_v1 only for executables implementing Pasted's JSON protocol.\n\

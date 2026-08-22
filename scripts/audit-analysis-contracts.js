@@ -76,7 +76,6 @@ const releaseChecklist = read('docs/RELEASE_CHECKLIST_1.0.0.md');
 for (const [step, participant, icon] of [
   [1, 'Capture', 'Clipboard'],
   [2, 'Inspect', 'ScanSearch'],
-  [3, 'Extract', 'ScanText'],
 ]) {
   const participantKey = `component.settingsAnalysisPanel.${participant.toLowerCase()}`;
   assert.match(
@@ -86,16 +85,21 @@ for (const [step, participant, icon] of [
   );
   assert.equal(englishCatalog[participantKey], participant);
 }
-assert.match(
-  analysisLifecycle,
-  /searchEnabled && <AnalysisManagerRow[\s\S]{0,100}step=\{4\}[\s\S]{0,80}icon=\{Search\}[\s\S]{0,140}settingsAnalysisPanel\.index/,
-  'Analysis Settings must present Index after Extract when Clip Search is enabled',
-);
 assert.equal(englishCatalog['component.settingsAnalysisPanel.index'], 'Index');
 assert.match(
   analysisLifecycle,
-  /step=\{searchEnabled \? 5 : 4\}[\s\S]{0,80}icon=\{Radar\}[\s\S]{0,140}settingsAnalysisPanel\.classify/,
-  'Classify must follow the optional Index lifecycle stage',
+  /step=\{3\}[\s\S]{0,80}icon=\{Radar\}[\s\S]{0,140}settingsAnalysisPanel\.classify/,
+  'Classify must be the first optional Analysis settings stage',
+);
+assert.match(
+  analysisLifecycle,
+  /step=\{3 \+ Number\(classificationEnabled\)\}[\s\S]{0,80}icon=\{ScanText\}[\s\S]{0,140}settingsAnalysisPanel\.extract/,
+  'Extract must follow Classify when content classification is enabled',
+);
+assert.match(
+  analysisLifecycle,
+  /searchEnabled && <AnalysisManagerRow[\s\S]{0,100}step=\{4 \+ Number\(classificationEnabled\)\}[\s\S]{0,80}icon=\{Search\}/,
+  'Index must follow Extract with contiguous optional-stage numbering',
 );
 assert.match(
   analysisLifecycle,
@@ -111,7 +115,7 @@ assert.match(settingsModal, /activeTab === 'analysis' && \(\s*<SettingsAnalysisP
   'Analysis Settings must remain available when optional participants are disabled');
 assert.doesNotMatch(settingsModal, /showAnalysis=/,
   'Functionality gates must not hide Analysis configuration');
-assert.match(analysisLifecycle, /step=\{3\}[\s\S]{0,220}translate\('component\.settingsAnalysisPanel\.extract'\)/,
+assert.match(analysisLifecycle, /step=\{3 \+ Number\(classificationEnabled\)\}[\s\S]{0,220}translate\('component\.settingsAnalysisPanel\.extract'\)/,
   'Extractor management must remain visible for user-defined recipes');
 assert.match(analysisLifecycle, /\{classificationEnabled && <AnalysisManagerRow[\s\S]{0,220}translate\('component\.settingsAnalysisPanel\.classify'\)/,
   'Classifiers must remain visible for either Content Classification or Types');
@@ -167,8 +171,8 @@ assert.match(extractorManager, /value: 'original_text',[\s\S]{0,100}translate\('
   'Extractor settings must explain that Text clips are already searchable');
 assert.match(extractorManager, /value: 'image',[\s\S]{0,100}translate\('component\.contentExtractorManagerDialog\.image'\)/,
   'Extractor settings must present the Image Clip Type instead of its wire contract');
-assert.match(extractorManager, /value: 'file_references',[\s\S]{0,100}translate\('component\.contentExtractorManagerDialog\.files'\)/,
-  'Extractor settings must present the Files Clip Type instead of its wire contract');
+assert.match(extractorManager, /value: 'file_references',[\s\S]{0,100}translate\('component\.contentExtractorManagerDialog\.file'\)/,
+  'Extractor settings must present the singular File Clip Type instead of its wire contract');
 assert.match(extractorManager, /value: 'searchable_text',[\s\S]{0,100}translate\('component\.contentExtractorManagerDialog\.searchableText'\)/,
   'Extractor settings must present the searchable-text output contract readably');
 assert.doesNotMatch(extractorManager, />Pass<|>extract<\/strong>/,
@@ -205,8 +209,8 @@ assert.match(classifierManager, /errorMessage\(error\)/,
   'Classifier management must use the shared structured error presenter');
 assert.match(analysisSettingsShell, /<ContentExtractorManagerDialog[\s\S]{0,220}ocrEnabled=\{ocrEnabled\}[\s\S]{0,100}transcriptionsEnabled=\{transcriptionsEnabled\}/,
   'Analysis Settings must pass both extraction feature gates to Extractor management');
-assert.match(commands, /extract_text_from_file_clip[\s\S]{0,400}active_file_text_extractors_for_features\(transcriptions_enabled\)/,
-  'Native file extraction must preserve custom Extractors when Transcriptions is disabled');
+assert.match(commands, /extract_text_from_file_clip[\s\S]{0,500}active_file_text_extractors_for_features\(ocr_enabled, transcriptions_enabled\)/,
+  'Native file extraction must apply both built-in feature gates without hiding custom Extractors');
 assert.match(clipPreviewContent, /transcriptionsEnabled && <section className="theme-panel overflow-hidden rounded-xl border shadow-lg">/,
   'Clip Preview must hide transcription controls when Transcriptions is disabled');
 for (const command of [
@@ -313,6 +317,10 @@ for (const title of ['Capture', 'Inspect', 'Extract', 'Classify', 'Suggest']) {
   assert.match(analysisLifecycle, new RegExp(`translate\\('component\\.settingsAnalysisPanel\\.${title.toLowerCase()}'\\)`),
     `Analysis settings must expose ${title} behind a compact manager row`);
 }
+assert.ok(
+  analysisLifecycle.indexOf("settingsAnalysisPanel.classify") < analysisLifecycle.indexOf("settingsAnalysisPanel.extract"),
+  'Analysis settings must present Classify before Extract',
+);
 assert.match(builtinLifecycleManager, /get_library_items/,
   'Capture, Inspector, and Suggestion managers must consume the shared registry');
 assert.match(builtinLifecycleManager, /participantContract/,

@@ -74,26 +74,26 @@ export function AnalysisLifecycleSequence({
         description={translate('component.settingsAnalysisPanel.measureStructureAndMediaFacts')}
         onManage={onOpenInspector}
       />
-      <AnalysisManagerRow
+      {classificationEnabled && <AnalysisManagerRow
         step={3}
+        icon={Radar}
+        title={translate('component.settingsAnalysisPanel.classify')}
+        description={translate('component.settingsAnalysisPanel.assignRegisteredContentTypesToAnalyzableText')}
+        onManage={onOpenClassifier}
+      />}
+      <AnalysisManagerRow
+        step={3 + Number(classificationEnabled)}
         icon={ScanText}
         title={translate('component.settingsAnalysisPanel.extract')}
         description={translate('component.settingsAnalysisPanel.createSearchableRepresentations')}
         onManage={onOpenExtractor}
       />
       {searchEnabled && <AnalysisManagerRow
-        step={4}
+        step={4 + Number(classificationEnabled)}
         icon={Search}
         title={translate('component.settingsAnalysisPanel.index')}
         description={translate('component.settingsAnalysisPanel.keepCapturedAndExtractedTextReadyForSearch')}
         onManage={onOpenIndex}
-      />}
-      {classificationEnabled && <AnalysisManagerRow
-        step={searchEnabled ? 5 : 4}
-        icon={Radar}
-        title={translate('component.settingsAnalysisPanel.classify')}
-        description={translate('component.settingsAnalysisPanel.assignRegisteredContentTypesToAnalyzableText')}
-        onManage={onOpenClassifier}
       />}
       {transformationsEnabled && <AnalysisManagerRow
         step={4 + Number(searchEnabled) + Number(classificationEnabled)}

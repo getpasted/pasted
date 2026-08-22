@@ -75,7 +75,9 @@ const backupCommands = read('src-tauri/src/commands/backups.rs');
 const importCommands = read('src-tauri/src/commands/imports.rs');
 const factoryResetCommands = read('src-tauri/src/commands/factory_reset.rs');
 const extractionCommands = read('src-tauri/src/commands/extraction.rs');
+const ocrBackfillCommands = read('src-tauri/src/commands/extraction/ocr_backfill.rs');
 const filePreviewCommands = read('src-tauri/src/commands/file_previews.rs');
+const fileReferenceHealth = read('src-tauri/src/file_reference_health.rs');
 const intelligenceCommands = read('src-tauri/src/commands/intelligence.rs');
 const libraryAccessCommands = read('src-tauri/src/commands/library_access.rs');
 const manualTransformCommands = read('src-tauri/src/commands/manual_transforms.rs');
@@ -440,6 +442,10 @@ assert.match(filePreviewCommands, /pub async fn get_file_clip_previews[\s\S]*spa
   'File preview generation must remain outside async command dispatch');
 assert.match(filePreviewCommands, /read_bounded_file[\s\S]*MAX_FILE_PREVIEW_OUTPUT_BYTES/,
   'File previews must retain shared input and output bounds');
+assert.match(filePreviewCommands, /resolve_file_reference_health/,
+  'File previews must delegate reference checks to the shared health service');
+assert.match(fileReferenceHealth, /clip_file_reference_health[\s\S]*retry_interval/,
+  'File reference failures must use persistent bounded retry state');
 assert.doesNotMatch(commands, /pub fn get_clips|pub fn update_clip_note|pub fn batch_pin_clips/,
   'The GUI command root must not reclaim clip library operations');
 assert.doesNotMatch(commands, /pub async fn get_file_clip_previews|fn collect_file_clip_previews/,
@@ -474,7 +480,9 @@ assert.match(extractionCommands, /pub fn extract_ocr_from_clip/,
   'Interactive OCR must remain in its focused extraction adapter');
 assert.match(extractionCommands, /pub async fn extract_text_from_file_clip[\s\S]*spawn_blocking/,
   'File extraction must remain in its focused asynchronous adapter');
-assert.match(extractionCommands, /pub fn start_ocr_backfill/,
+assert.match(extractionCommands, /mod ocr_backfill/,
+  'The extraction adapter must compose focused OCR backfill commands');
+assert.match(ocrBackfillCommands, /pub fn start_ocr_backfill/,
   'OCR backfill control must remain with extraction lifecycle commands');
 assert.doesNotMatch(commands, /pub fn extract_ocr_from_clip|pub async fn extract_text_from_file_clip|pub fn start_ocr_backfill/,
   'The GUI command root must not reclaim extraction lifecycle operations');
@@ -483,9 +491,19 @@ const sizeRatchets = new Map([
   ['src-tauri/src/db.rs', 210],
   ['src-tauri/src/content_analysis.rs', 186],
   ['src-tauri/src/content_analysis/pipeline.rs', 413],
+  ['src-tauri/src/content_analysis/pipeline/file_extraction.rs', 35],
+  ['src-tauri/src/content_analysis/pipeline/file_inspection.rs', 26],
   ['src-tauri/src/content_analysis/tests.rs', 558],
   ['src-tauri/src/content_extraction.rs', 785],
   ['src-tauri/src/content_extraction/engine_runtime.rs', 1_213],
+  ['src-tauri/src/content_extraction/file_routing.rs', 30],
+  ['src-tauri/src/content_extraction/format_defaults.rs', 34],
+  ['src-tauri/src/content_extraction/preset_tests.rs', 30],
+  ['src-tauri/src/content_extraction/outcome.rs', 20],
+  ['src-tauri/src/commands/extraction/ocr_backfill.rs', 60],
+  ['src-tauri/src/db/extractors/runtime.rs', 122],
+  ['src-tauri/src/db/tests/extractor_recipes.rs', 105],
+  ['src-tauri/src/db/tests/analytics.rs', 105],
   ['src-tauri/src/content_extraction/tests.rs', 458],
   ['src-tauri/src/db/activity.rs', 649],
   ['src-tauri/src/db/analysis_activity.rs', 71],
@@ -538,7 +556,9 @@ const sizeRatchets = new Map([
   ['src-tauri/src/commands/factory_reset.rs', 39],
   ['src-tauri/src/commands/extraction.rs', 187],
   ['src-tauri/src/commands/clips.rs', 261],
-  ['src-tauri/src/commands/file_previews.rs', 714],
+  ['src-tauri/src/commands/file_previews.rs', 623],
+  ['src-tauri/src/commands/file_preview_cache.rs', 191],
+  ['src-tauri/src/file_reference_health.rs', 288],
   ['src-tauri/src/commands/intelligence.rs', 271],
   ['src-tauri/src/commands/library_access.rs', 38],
   ['src-tauri/src/commands/manual_transforms.rs', 164],
@@ -561,9 +581,18 @@ const sizeRatchets = new Map([
   ['src/hooks/useClipDragController.ts', 130],
   ['src/hooks/useClipReordering.ts', 100],
   ['src/components/AppDialogLayer.tsx', 210],
-  ['src/components/ClipPreview.tsx', 419],
+  ['src/components/ClipPreview.tsx', 410],
+  ['src/components/ClipPreviewContent.tsx', 425],
+  ['src/components/ClipPreviewEmptyState.tsx', 15],
+  ['src/components/FileClipPreviewPanel.tsx', 186],
+  ['src/components/FileReferenceFooter.tsx', 48],
   ['src/components/ClipPreviewHeader.tsx', 250],
   ['src/components/ClipPreviewOrganization.tsx', 93],
+  ['src/components/ExtractorAiAuthoringPanel.tsx', 65],
+  ['src/components/extractorFileFormats.ts', 20],
+  ['src/components/ocrStatusModel.ts', 25],
+  ['src/components/menuMultiSelectModel.ts', 30],
+  ['src-tauri/src/extractor_recipe/local_configuration.rs', 35],
   ['src/components/ClipPreviewTransformControls.tsx', 159],
   ['src/components/ClipPreviewWorkspace.tsx', 84],
   ['src/components/SettingsSyncPanel.tsx', 456],
@@ -597,8 +626,11 @@ const sizeRatchets = new Map([
   ['src/components/BinModal.tsx', 571],
   ['src/components/BinModalSmartConditionInputs.tsx', 219],
   ['src/components/binModalModel.ts', 110],
-  ['src/components/clipPreviewModel.ts', 197],
-  ['src/hooks/useClipPreviewAnalysis.ts', 319],
+  ['src/components/clipPreviewModel.ts', 162],
+  ['src/components/fileClipPreviewLoader.ts', 53],
+  ['src/components/fileClipPreviewModel.ts', 9],
+  ['src/hooks/useClipPreviewAnalysis.ts', 299],
+  ['src/hooks/useFileClipPreviews.ts', 60],
   ['src/hooks/useClipPreviewNotes.ts', 129],
   ['src/hooks/useClipPreviewRevisions.ts', 149],
   ['src/hooks/useClipPreviewTransforms.ts', 289],
@@ -607,6 +639,7 @@ const sizeRatchets = new Map([
   ['src/utils/tauri.ts', 10],
   ['src/mocks/browser/runtime.ts', 30],
   ['src/mocks/browser/contentRuntime.ts', 372],
+  ['src/mocks/browser/extractors.ts', 60],
   ['src/mocks/browser/intelligenceRuntime.ts', 243],
   ['src/mocks/browser/libraryRuntime.ts', 568],
   ['src/mocks/browser/systemRuntime.ts', 183],

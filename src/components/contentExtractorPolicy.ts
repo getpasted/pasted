@@ -20,6 +20,8 @@ export function visibleContentExtractors(
 
 export function canSaveExtractorRecipe(recipe: ExtractorRecipe) {
   return recipe.accepts.length > 0
+    && recipe.acceptedFileFormats.length > 0
+    && !(recipe.acceptedFileFormats.length > 1 && recipe.acceptedFileFormats.includes('*'))
     && recipe.steps.length > 0
     && recipe.steps.every((step) => (
       Boolean(step.executable.path || step.executable.discover.length > 0)
@@ -45,4 +47,26 @@ export function extractorDraftIsDirty({
     || JSON.stringify(recipe) !== JSON.stringify(baselineRecipe)
     || hasAuthoredChanges
   );
+}
+
+export function resetExtractorRecipePreservingLocalPaths(
+  current: ExtractorRecipe,
+  defaults: ExtractorRecipe,
+) {
+  return {
+    ...defaults,
+    steps: defaults.steps.map((step) => ({
+      ...step,
+      executable: {
+        ...step.executable,
+        path: current.steps.find((candidate) => candidate.id === step.id)?.executable.path
+          ?? step.executable.path,
+      },
+    })),
+    resources: defaults.resources.map((resource) => ({
+      ...resource,
+      path: current.resources.find((candidate) => candidate.id === resource.id)?.path
+        ?? resource.path,
+    })),
+  };
 }

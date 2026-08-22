@@ -6,7 +6,6 @@ import { soundManager } from '../utils/sound';
 import { ClipRevisionHistory } from './ClipRevisionHistory';
 import { ClipPreviewFooter } from './ClipPreviewFooter';
 import { ClipNoteViewer } from './ClipNoteViewer';
-import { FileText } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { useClipPreviewNotes } from '../hooks/useClipPreviewNotes';
 import { useClipPreviewAnalysis } from '../hooks/useClipPreviewAnalysis';
@@ -22,6 +21,7 @@ import { ClipPreviewHeader } from './ClipPreviewHeader';
 import { ClipPreviewOrganization } from './ClipPreviewOrganization';
 import { ClipPreviewTransformControls } from './ClipPreviewTransformControls';
 import { ClipPreviewWorkspace } from './ClipPreviewWorkspace';
+import { ClipPreviewEmptyState } from './ClipPreviewEmptyState';
 
 interface ClipPreviewProps {
   clip: ClipItem | null;
@@ -173,17 +173,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   }, []);
 
   if (!clip) {
-    return (
-      <div className="clip-preview-empty flex-1 col-preview h-screen flex flex-col items-center justify-center p-8 select-none">
-        <div className="clip-preview-empty-icon theme-surface w-16 h-16 rounded-2xl border flex items-center justify-center mb-4 shadow-xl">
-          <FileText className="w-8 h-8" />
-        </div>
-        <p className="theme-text-main text-sm font-medium">{translate('component.clipPreview.noClipSelected')}</p>
-        <p className="theme-text-muted text-xs mt-1 max-w-xs text-center">
-          {translate('component.clipPreview.selectAnItemFromHistoryOrRightClickToCopyTransformAdd')}
-        </p>
-      </div>
-    );
+    return <ClipPreviewEmptyState />;
   }
 
   const displayText = previewedVersion?.text_content ?? transformedText ?? clip.text_content ?? '';
@@ -341,6 +331,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           onRunOCR: () => void handleRunOCR(),
           onRunFileExtraction: () => void handleRunFileExtraction(),
           onLoadExtractionHistory: (reset) => void loadExtractionHistory(reset),
+          onRecheckFileReference: analysis.recheckFileReference,
         }}
         isManualTransformRunning={isManualTransformRunning}
         isTransforming={isTransforming}

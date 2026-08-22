@@ -6,6 +6,7 @@ export type ExtractorCapture = 'ignore' | 'stdout_text' | 'file_text' | 'pasted_
 export interface ExtractorRecipe {
   definitionVersion: 1;
   accepts: ExtractorInputKind[];
+  acceptedFileFormats: string[];
   output: 'searchable_text';
   steps: Array<{
     id: string;
@@ -89,7 +90,7 @@ export interface ExtractorInput {
 export const EXTRACTOR_INPUT_OPTIONS = [
   { value: 'original_text', get label() { return translate('component.contentExtractorManagerDialog.text'); }, disabled: true },
   { value: 'image', get label() { return translate('component.contentExtractorManagerDialog.image'); }, disabled: false },
-  { value: 'file_references', get label() { return translate('component.contentExtractorManagerDialog.files'); }, disabled: false },
+  { value: 'file_references', get label() { return translate('component.contentExtractorManagerDialog.file'); }, disabled: false },
 ] as const;
 
 export const EXTRACTOR_OUTPUT_OPTIONS = [
@@ -99,6 +100,7 @@ export const EXTRACTOR_OUTPUT_OPTIONS = [
 export const emptyRecipe = (): ExtractorRecipe => ({
   definitionVersion: 1,
   accepts: ['image'],
+  acceptedFileFormats: ['*'],
   output: 'searchable_text',
   steps: [{
     id: 'extract',

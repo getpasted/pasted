@@ -5,6 +5,8 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
+use self::outcome::normalize as normalize_extraction_outcome;
+
 use crate::analysis_contract::{RepresentationContract, RepresentationKind};
 use crate::extractor_recipe::{
     ExtractorCapture, ExtractorCommandStep, ExtractorExecutable, ExtractorInputKind,
@@ -190,6 +192,9 @@ impl<'a> ExtractorEngineRegistry<'a> {
                 },
             };
         }
+        if paths.is_empty() {
+            return ExtractionOutcome::NoOutput;
+        }
         if extractor.engine == RECIPE_ENGINE {
             return normalize_extraction_outcome(crate::extractor_recipe::execute_files(
                 &extractor.recipe,
@@ -229,26 +234,12 @@ impl<'a> ExtractorEngineRegistry<'a> {
     }
 }
 
-fn normalize_extraction_outcome(outcome: ExtractionOutcome) -> ExtractionOutcome {
-    match outcome {
-        ExtractionOutcome::Produced { text } if text.trim().is_empty() => {
-            ExtractionOutcome::NoOutput
-        }
-        ExtractionOutcome::Produced { text }
-            if text.len() > crate::resource_limits::MAX_OCR_TEXT_BYTES =>
-        {
-            ExtractionOutcome::Failed {
-                failure: ExtractionFailure {
-                    code: "output_too_large".into(),
-                    message: "Extracted text exceeds the supported size limit.".into(),
-                },
-            }
-        }
-        outcome => outcome,
-    }
-}
-
 mod engine_runtime;
+pub(crate) mod file_routing;
+mod format_defaults;
+mod outcome;
+#[cfg(test)]
+mod preset_tests;
 pub fn system_engine_registry() -> ExtractorEngineRegistry<'static> {
     engine_runtime::system_engine_registry()
 }
@@ -371,7 +362,7 @@ pub const EXTRACTOR_PRESETS: &[ExtractorPreset] = &[
         input_contract: RepresentationKind::ImageBytes.stable_name(),
         output_contract: RepresentationKind::SearchableText.stable_name(),
         priority: 10,
-        revision: 3,
+        revision: 5,
     },
     ExtractorPreset {
         stable_ref: TESSERACT_OCR_REF,
@@ -383,7 +374,7 @@ pub const EXTRACTOR_PRESETS: &[ExtractorPreset] = &[
         input_contract: RepresentationKind::ImageBytes.stable_name(),
         output_contract: RepresentationKind::SearchableText.stable_name(),
         priority: 20,
-        revision: 2,
+        revision: 4,
     },
     ExtractorPreset {
         stable_ref: WHISPER_TRANSCRIPTION_REF,
@@ -395,7 +386,7 @@ pub const EXTRACTOR_PRESETS: &[ExtractorPreset] = &[
         input_contract: RepresentationKind::FileReferences.stable_name(),
         output_contract: RepresentationKind::SearchableText.stable_name(),
         priority: 30,
-        revision: 3,
+        revision: 4,
     },
 ];
 
@@ -613,6 +604,7 @@ pub fn recipe_for_legacy_definition(input: &ExtractorDefinitionInput) -> Extract
     ExtractorRecipe {
         definition_version: EXTRACTOR_RECIPE_VERSION,
         accepts,
+        accepted_file_formats: vec!["*".into()],
         output: ExtractorOutputKind::SearchableText,
         steps,
         resources,
@@ -658,7 +650,12 @@ impl ExtractorPreset {
             _ => CUSTOM_COMMAND_ENGINE,
         }
         .into();
-        recipe_for_legacy_definition(&definition)
+        let mut recipe = recipe_for_legacy_definition(&definition);
+        if matches!(self.stable_ref, APPLE_VISION_OCR_REF | TESSERACT_OCR_REF) {
+            recipe.accepts.push(ExtractorInputKind::FileReferences);
+        }
+        recipe.accepted_file_formats = format_defaults::for_builtin(self.stable_ref);
+        recipe
     }
 }
 

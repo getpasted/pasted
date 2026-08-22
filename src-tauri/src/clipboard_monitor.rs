@@ -134,6 +134,9 @@ fn resolved_capture_source<'a>(
     active_app: Option<&'a str>,
     inferred_source: Option<&'a str>,
 ) -> Option<&'a str> {
+    if inferred_source == Some("CleanShot X") {
+        return inferred_source;
+    }
     if is_file_manager_source(active_app) {
         active_app
     } else {
@@ -146,11 +149,16 @@ fn composite_image_source(inferred_source: Option<&str>) -> &str {
 }
 
 /// Resolve the common composite clipboard payload where one image file is
-/// accompanied by bitmap bytes. Explicit file-manager copies retain their file
-/// identity; screenshot and otherwise ambiguous producers prefer the bitmap so
-/// previews, image paste, and OCR continue to work.
-fn prefer_bitmap_for_image_file(bitmap_available: bool, source: Option<&str>) -> bool {
-    bitmap_available && !is_file_manager_source(source)
+/// accompanied by bitmap bytes. Ordinary file-manager copies retain their file
+/// identity; high-confidence screenshot and ambiguous producers prefer the bitmap
+/// so previews, image paste, and OCR continue to work.
+fn prefer_bitmap_for_image_file(
+    bitmap_available: bool,
+    active_app: Option<&str>,
+    inferred_source: Option<&str>,
+) -> bool {
+    bitmap_available
+        && (!is_file_manager_source(active_app) || inferred_source == Some("CleanShot X"))
 }
 
 fn is_pasted_source(source: Option<&str>) -> bool {
@@ -236,6 +244,35 @@ fn image_file_rgba_fingerprint(path: &Path) -> Option<String> {
         .ok()?
         .to_rgba8();
     Some(crate::clipboard_fingerprint::image_rgba(image.as_raw()))
+}
+
+fn image_file_clipboard_payload(path: &Path) -> Option<arboard::ImageData<'static>> {
+    use std::io::Read;
+
+    let metadata = std::fs::symlink_metadata(path).ok()?;
+    if !metadata.is_file()
+        || metadata.file_type().is_symlink()
+        || metadata.len() > crate::resource_limits::MAX_FILE_PREVIEW_INPUT_BYTES
+    {
+        return None;
+    }
+    let file = std::fs::File::open(path).ok()?;
+    let mut bytes = Vec::with_capacity(metadata.len() as usize);
+    file.take(crate::resource_limits::MAX_FILE_PREVIEW_INPUT_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .ok()?;
+    if bytes.len() as u64 > crate::resource_limits::MAX_FILE_PREVIEW_INPUT_BYTES {
+        return None;
+    }
+    let image = image::load_from_memory(&bytes).ok()?.to_rgba8();
+    if !crate::resource_limits::image_dimensions_within_limit(image.width(), image.height()) {
+        return None;
+    }
+    Some(arboard::ImageData {
+        width: usize::try_from(image.width()).ok()?,
+        height: usize::try_from(image.height()).ok()?,
+        bytes: std::borrow::Cow::Owned(image.into_raw()),
+    })
 }
 
 pub struct ClipboardMonitorState {
@@ -359,6 +396,12 @@ pub fn start_clipboard_monitor(
                 } else {
                     None
                 };
+            if composite_image.is_none()
+                && inferred_source == Some("CleanShot X")
+                && clipboard_files.len() == 1
+            {
+                composite_image = image_file_clipboard_payload(&clipboard_files[0]);
+            }
             let mut delayed_composite_match = false;
             if composite_image.is_none() && clipboard_files.len() == 1 {
                 let path = &clipboard_files[0];
@@ -397,6 +440,7 @@ pub fn start_clipboard_monitor(
                         || prefer_bitmap_for_image_file(
                             composite_image.is_some(),
                             active_app_opt.as_deref(),
+                            inferred_source,
                         ))
             });
             let capture_source = if prefer_composite_image {
@@ -792,8 +836,9 @@ fn rgba_to_png(width: u32, height: u32, rgba_data: &[u8]) -> Option<Vec<u8>> {
 mod tests {
     use super::{
         already_processed_change, capture_feedback_payload, composite_image_source,
-        image_file_rgba_fingerprint, inferred_screenshot_source, is_pasted_source,
-        prefer_bitmap_for_image_file, resolved_capture_source, CaptureFeedbackKind,
+        image_file_clipboard_payload, image_file_rgba_fingerprint, inferred_screenshot_source,
+        is_pasted_source, prefer_bitmap_for_image_file, resolved_capture_source,
+        CaptureFeedbackKind,
     };
     use std::path::Path;
 
@@ -816,9 +861,17 @@ mod tests {
 
     #[test]
     fn screenshot_composite_payloads_prefer_bitmap_for_ocr() {
-        assert!(prefer_bitmap_for_image_file(true, None));
-        assert!(prefer_bitmap_for_image_file(true, Some("CleanShot X")));
-        assert!(prefer_bitmap_for_image_file(true, Some("System Clipboard")));
+        assert!(prefer_bitmap_for_image_file(true, None, None));
+        assert!(prefer_bitmap_for_image_file(
+            true,
+            Some("CleanShot X"),
+            Some("CleanShot X")
+        ));
+        assert!(prefer_bitmap_for_image_file(
+            true,
+            Some("System Clipboard"),
+            None
+        ));
         assert_eq!(
             inferred_screenshot_source(Path::new("/Users/pasted/Desktop/CleanShot 2026-08-11.png")),
             Some("CleanShot X")
@@ -836,13 +889,35 @@ mod tests {
 
     #[test]
     fn explicit_file_copies_keep_file_identity() {
-        assert!(!prefer_bitmap_for_image_file(true, Some("Finder")));
-        assert!(!prefer_bitmap_for_image_file(true, Some("File Explorer")));
-        assert!(!prefer_bitmap_for_image_file(false, Some("CleanShot X")));
+        assert!(!prefer_bitmap_for_image_file(true, Some("Finder"), None));
+        assert!(!prefer_bitmap_for_image_file(
+            true,
+            Some("File Explorer"),
+            None
+        ));
+        assert!(!prefer_bitmap_for_image_file(
+            false,
+            Some("CleanShot X"),
+            Some("CleanShot X")
+        ));
         assert_eq!(
-            resolved_capture_source(Some("Finder"), Some("CleanShot X")),
+            resolved_capture_source(Some("Finder"), None),
             Some("Finder")
         );
+        assert_eq!(
+            resolved_capture_source(Some("Finder"), Some("CleanShot X")),
+            Some("CleanShot X")
+        );
+    }
+
+    #[test]
+    fn cleanshot_composite_from_finder_keeps_durable_image_identity() {
+        assert!(prefer_bitmap_for_image_file(
+            true,
+            Some("Finder"),
+            Some("CleanShot X")
+        ));
+        assert_eq!(composite_image_source(Some("CleanShot X")), "CleanShot X");
     }
 
     #[test]
@@ -871,6 +946,9 @@ mod tests {
             image_file_rgba_fingerprint(&path),
             Some(crate::clipboard_fingerprint::image_rgba(&rgba))
         );
+        let payload = image_file_clipboard_payload(&path).unwrap();
+        assert_eq!((payload.width, payload.height), (2, 1));
+        assert_eq!(payload.bytes.as_ref(), rgba);
 
         let _ = std::fs::remove_file(path);
     }

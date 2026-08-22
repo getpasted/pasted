@@ -139,6 +139,10 @@ fn extractor_recipes_have_cli_authoring_and_execution_parity() {
     );
     assert_eq!(created["engine"], "recipe-v1");
     assert_eq!(created["recipe"]["accepts"][0], "file_references");
+    assert_eq!(
+        created["recipe"]["acceptedFileFormats"],
+        serde_json::json!(["*"])
+    );
 
     let history = success_json(
         &database,
@@ -888,6 +892,14 @@ fn extractor_lifecycle_and_registry_capabilities_run_end_to_end() {
         serde_json::json!(["tesseract"])
     );
     assert_eq!(tesseract["inputContract"], "image");
+    assert_eq!(
+        tesseract["recipe"]["accepts"],
+        serde_json::json!(["image", "file_references"])
+    );
+    assert_eq!(
+        tesseract["recipe"]["acceptedFileFormats"],
+        serde_json::json!(["bmp", "gif", "jpg", "png", "tif", "webp"])
+    );
     assert_eq!(tesseract["outputContract"], "searchable_text");
     assert!(tesseract["isAvailable"].is_boolean());
     assert_eq!(tesseract["runtime"]["method"], "recipe");
@@ -911,6 +923,10 @@ fn extractor_lifecycle_and_registry_capabilities_run_end_to_end() {
     );
     assert_eq!(whisper["inputContract"], "file_references");
     assert_eq!(whisper["outputContract"], "searchable_text");
+    assert_eq!(
+        whisper["recipe"]["acceptedFileFormats"],
+        serde_json::json!(["aac", "flac", "m4a", "mp3", "ogg", "wav"])
+    );
     assert_eq!(whisper["modelPath"], Value::Null);
     let configured_whisper = success_json(
         &database,
@@ -928,6 +944,23 @@ fn extractor_lifecycle_and_registry_capabilities_run_end_to_end() {
         "/tmp/pasted-cli-missing-whisper-model.bin"
     );
     assert_eq!(configured_whisper["isAvailable"], false);
+    let narrowed_whisper = success_json(
+        &database,
+        &[
+            "extractor",
+            "update",
+            "extractor:whisper-transcription",
+            "--format",
+            "mp3",
+            "--format",
+            "wav",
+            "--json",
+        ],
+    );
+    assert_eq!(
+        narrowed_whisper["recipe"]["acceptedFileFormats"],
+        serde_json::json!(["mp3", "wav"])
+    );
 
     let missing_executable = temporary_path("missing-custom-extractor", "bin");
     let executable = missing_executable.to_str().expect("custom executable path");

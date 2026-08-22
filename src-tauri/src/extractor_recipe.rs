@@ -8,12 +8,16 @@ use std::time::Duration;
 
 use crate::content_extraction::{ExtractionFailure, ExtractionOutcome};
 
+mod local_configuration;
+pub use local_configuration::reset_preserving_local_paths;
+
 pub const EXTRACTOR_RECIPE_VERSION: u32 = 1;
 pub const EXTRACTOR_AUTHORING_VERSION: u32 = 1;
 const MAX_ARGUMENTS: usize = 128;
 const MAX_ARGUMENT_BYTES: usize = 4_096;
 const MAX_STEPS: usize = 16;
 const MAX_RESOURCES: usize = 32;
+const MAX_ACCEPTED_FILE_FORMATS: usize = 64;
 const MAX_TRANSCRIPT_MESSAGES: usize = 256;
 const MAX_TRANSCRIPT_BYTES: usize = 1_048_576;
 
@@ -109,11 +113,17 @@ pub struct ExtractorResource {
 pub struct ExtractorRecipe {
     pub definition_version: u32,
     pub accepts: Vec<ExtractorInputKind>,
+    #[serde(default = "default_accepted_file_formats")]
+    pub accepted_file_formats: Vec<String>,
     pub output: ExtractorOutputKind,
     #[serde(default)]
     pub steps: Vec<ExtractorCommandStep>,
     #[serde(default)]
     pub resources: Vec<ExtractorResource>,
+}
+
+fn default_accepted_file_formats() -> Vec<String> {
+    vec!["*".into()]
 }
 
 impl ExtractorRecipe {
@@ -244,6 +254,38 @@ pub fn validate_recipe(recipe: &ExtractorRecipe) -> Result<(), String> {
     let unique_inputs = recipe.accepts.iter().collect::<HashSet<_>>();
     if unique_inputs.len() != recipe.accepts.len() {
         return Err("Extractor recipe inputs must be unique".into());
+    }
+    if recipe.accepted_file_formats.is_empty()
+        || recipe.accepted_file_formats.len() > MAX_ACCEPTED_FILE_FORMATS
+    {
+        return Err(format!(
+            "Extractor recipes require 1–{MAX_ACCEPTED_FILE_FORMATS} accepted file formats"
+        ));
+    }
+    let mut formats = HashSet::new();
+    for format in &recipe.accepted_file_formats {
+        if format != "*"
+            && (format.is_empty()
+                || format.len() > 16
+                || !format
+                    .chars()
+                    .all(|character| character.is_ascii_lowercase() || character.is_ascii_digit()))
+        {
+            return Err(
+                "Accepted file formats require lowercase letters or numbers without a dot".into(),
+            );
+        }
+        if !formats.insert(format.as_str()) {
+            return Err("Accepted file formats must be unique".into());
+        }
+    }
+    if recipe.accepted_file_formats.len() > 1
+        && recipe
+            .accepted_file_formats
+            .iter()
+            .any(|format| format == "*")
+    {
+        return Err("The any-format selector cannot be combined with specific formats".into());
     }
     if recipe.steps.is_empty() || recipe.steps.len() > MAX_STEPS {
         return Err(format!(
@@ -587,6 +629,8 @@ fn execute_recipe(recipe: &ExtractorRecipe, input: RecipeInput<'_>) -> Extractio
     };
     let mut produced = Vec::new();
     let mut artifacts = HashMap::<(String, usize), PathBuf>::new();
+    let mut failed_inputs = HashSet::new();
+    let mut first_input_failure = None;
     for (step_index, step) in recipe.steps.iter().enumerate() {
         let Some(executable) = resolve_executable(&step.executable) else {
             return failure(
@@ -594,14 +638,12 @@ fn execute_recipe(recipe: &ExtractorRecipe, input: RecipeInput<'_>) -> Extractio
                 format!("{} is not installed.", executable_label(step)),
             );
         };
-        let runs = match step.mode {
-            ExtractorStepMode::Once => vec![input_paths.first().map(PathBuf::as_path)],
-            ExtractorStepMode::EachInput => input_paths
-                .iter()
-                .map(|path| Some(path.as_path()))
-                .collect(),
-        };
+        let runs = step_runs(step, &input_paths);
+        let isolates_input_failures = runs.len() > 1;
         for (run_index, input_path) in runs.into_iter().enumerate() {
+            if isolates_input_failures && failed_inputs.contains(&run_index) {
+                continue;
+            }
             let extension = step
                 .output_extension
                 .as_deref()
@@ -663,10 +705,15 @@ fn execute_recipe(recipe: &ExtractorRecipe, input: RecipeInput<'_>) -> Extractio
                 }
             };
             if !status.success() {
-                return failure(
-                    "engine_failed",
-                    "The Extractor command did not complete successfully.",
-                );
+                if isolates_input_failures {
+                    failed_inputs.insert(run_index);
+                    first_input_failure.get_or_insert_with(|| ExtractionFailure {
+                        code: "engine_failed".into(),
+                        message: "Extractor failed.".into(),
+                    });
+                    continue;
+                }
+                return failure("engine_failed", "Extractor failed.");
             }
             artifacts.insert((step.id.clone(), run_index), artifact_path.clone());
             let captured_path = match step.capture {
@@ -723,7 +770,9 @@ fn execute_recipe(recipe: &ExtractorRecipe, input: RecipeInput<'_>) -> Extractio
         }
     }
     if produced.is_empty() {
-        ExtractionOutcome::NoOutput
+        first_input_failure
+            .map(|failure| ExtractionOutcome::Failed { failure })
+            .unwrap_or(ExtractionOutcome::NoOutput)
     } else {
         let text = produced.join("\n");
         if text.len() > crate::resource_limits::MAX_OCR_TEXT_BYTES {
@@ -734,6 +783,20 @@ fn execute_recipe(recipe: &ExtractorRecipe, input: RecipeInput<'_>) -> Extractio
         } else {
             ExtractionOutcome::Produced { text }
         }
+    }
+}
+
+fn step_runs<'a>(step: &ExtractorCommandStep, input_paths: &'a [PathBuf]) -> Vec<Option<&'a Path>> {
+    let uses_singular_input = step.arguments.iter().any(|argument| {
+        argument.contains("{input.path}") || argument.contains("{input.stagedPath}")
+    });
+    if step.mode == ExtractorStepMode::EachInput || uses_singular_input && input_paths.len() > 1 {
+        input_paths
+            .iter()
+            .map(|path| Some(path.as_path()))
+            .collect()
+    } else {
+        vec![input_paths.first().map(PathBuf::as_path)]
     }
 }
 
@@ -903,6 +966,7 @@ mod tests {
                 ExtractorInputKind::Image,
                 ExtractorInputKind::FileReferences,
             ],
+            accepted_file_formats: vec!["*".into()],
             output: ExtractorOutputKind::SearchableText,
             steps: vec![ExtractorCommandStep {
                 id: "extract".into(),
@@ -919,6 +983,30 @@ mod tests {
             }],
             resources: Vec::new(),
         }
+    }
+
+    #[test]
+    fn legacy_recipes_accept_any_file_format() {
+        let value = serde_json::json!({
+            "definitionVersion": 1,
+            "accepts": ["file_references"],
+            "output": "searchable_text",
+            "steps": recipe().steps,
+            "resources": []
+        });
+        let parsed: ExtractorRecipe = serde_json::from_value(value).unwrap();
+        assert_eq!(parsed.accepted_file_formats, ["*"]);
+    }
+
+    #[test]
+    fn accepted_file_formats_are_bounded_and_unambiguous() {
+        let mut candidate = recipe();
+        candidate.accepted_file_formats = vec!["*".into(), "pdf".into()];
+        assert!(validate_recipe(&candidate).is_err());
+        candidate.accepted_file_formats = vec!["PDF".into()];
+        assert!(validate_recipe(&candidate).is_err());
+        candidate.accepted_file_formats = vec!["pdf".into(), "wav".into()];
+        assert!(validate_recipe(&candidate).is_ok());
     }
 
     #[test]
@@ -979,5 +1067,16 @@ mod tests {
         )
         .unwrap();
         assert_eq!(arguments, ["/private/input-1.wav", "/private/transcript"]);
+    }
+
+    #[test]
+    fn singular_input_placeholders_fan_out_even_for_legacy_once_recipes() {
+        let mut recipe = recipe();
+        recipe.steps[0].mode = ExtractorStepMode::Once;
+        let paths = vec![PathBuf::from("first.pdf"), PathBuf::from("second.pdf")];
+        assert_eq!(step_runs(&recipe.steps[0], &paths).len(), 2);
+
+        recipe.steps[0].arguments = vec!["{request.path}".into()];
+        assert_eq!(step_runs(&recipe.steps[0], &paths).len(), 1);
     }
 }

@@ -822,7 +822,7 @@ impl DbState {
             )",
             [],
         )?;
-
+        crate::file_reference_health::create_file_reference_health_table(&conn)?;
         // High-speed composite indexes
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_clips_pinned_created ON clips (is_pinned, created_at DESC)",

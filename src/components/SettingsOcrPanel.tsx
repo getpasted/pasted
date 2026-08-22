@@ -8,6 +8,7 @@ import { SettingsSubsectionHeader } from './SettingsSubsectionHeader';
 import { useToast } from './ToastProvider';
 import type { ContentExtractor } from './contentExtractorModel';
 import { translate } from '../localization/runtime';
+import { actionableOcrCount, OCR_STATUS_CARD_KEYS, shouldRetryFailedOcr } from './ocrStatusModel';
 
 const EMPTY_OCR_STATUS: OcrBackfillStatus = {
   totalImages: 0,
@@ -19,7 +20,7 @@ const EMPTY_OCR_STATUS: OcrBackfillStatus = {
   failedCount: 0,
 };
 
-export function SettingsOcrPanel() {
+export function SettingsOcrPanel({ extractorRevision }: { extractorRevision: number }) {
   const { showToast } = useToast();
   const [status, setStatus] = useState<OcrBackfillStatus>(EMPTY_OCR_STATUS);
   const [extractors, setExtractors] = useState<ContentExtractor[]>([]);
@@ -35,26 +36,33 @@ export function SettingsOcrPanel() {
 
   useEffect(() => {
     let cancelled = false;
-    const poll = () => {
-      Promise.all([
-        invoke<OcrBackfillStatus>('get_ocr_backfill_status'),
-        analysisApi.listExtractors<ContentExtractor>(),
-      ])
-        .then(([next, loadedExtractors]) => {
-          if (!cancelled) {
-            setStatus(next);
-            setExtractors(loadedExtractors);
-          }
-        })
-        .catch(() => { /* The next user action will surface a concrete error. */ });
+    let polling = false;
+    const poll = async () => {
+      if (polling) return;
+      polling = true;
+      try {
+        const next = await invoke<OcrBackfillStatus>('get_ocr_backfill_status');
+        if (!cancelled) {
+          setStatus(next);
+        }
+      } catch {
+        // The next user action will surface a concrete error.
+      } finally {
+        polling = false;
+      }
     };
-    poll();
-    const timer = window.setInterval(poll, 1000);
+    void poll();
+    void analysisApi.listExtractors<ContentExtractor>()
+      .then((loaded) => {
+        if (!cancelled) setExtractors(loaded);
+      })
+      .catch(() => { /* The next user action will surface a concrete error. */ });
+    const timer = window.setInterval(() => void poll(), 1000);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, []);
+  }, [extractorRevision]);
 
   const run = async (operation: () => Promise<unknown>) => {
     try {
@@ -66,13 +74,17 @@ export function SettingsOcrPanel() {
   };
 
   const busy = status.runningCount > 0 || status.queuedCount > 0;
+  const actionableCount = actionableOcrCount(status);
+  const scan = () => shouldRetryFailedOcr(status)
+    ? invoke('retry_failed_ocr')
+    : invoke('start_ocr_backfill');
   const activeExtractor = extractors.find((extractor) => (
-    extractor.enabled && extractor.isAvailable && extractor.inputContract === 'image'
+    extractor.enabled && extractor.isAvailable && extractor.recipe.accepts.includes('image')
   ));
   const statusText = !activeExtractor
     ? translate('component.settingsOcrPanel.noAvailableImageTextExtractorIsEnabled')
-    : status.eligibleCount > 0
-    ? translate('component.settingsOcrPanel.eligibleImages', { count: status.eligibleCount })
+    : actionableCount > 0
+    ? translate('component.settingsOcrPanel.eligibleImages', { count: actionableCount })
     : translate('component.settingsOcrPanel.allEligibleImagesHaveBeenScanned');
 
   return (
@@ -85,24 +97,13 @@ export function SettingsOcrPanel() {
           description={translate('component.settingsOcrPanel.automaticallyMakesTextInImagesSearchable')}
         />
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-          {[
-            ['Images', status.totalImages],
-            ['Waiting', status.eligibleCount],
-            ['Running', status.runningCount],
-            ['Complete', status.completedCount],
-            ['No text', status.noTextCount],
-            ['Failed', status.failedCount],
-          ].map(([label, value]) => (
+          {OCR_STATUS_CARD_KEYS.map(([label, field]) => (
             <div key={label} className="theme-card-idle border px-2 py-2 text-center">
-              <strong className="theme-title block text-sm tabular-nums">{value}</strong>
-              <span className="theme-text-muted text-[9px]">{label}</span>
+              <strong className="theme-title block text-sm tabular-nums">{status[field]}</strong>
+              <span className="theme-text-muted text-[9px]">{translate(`component.settingsOcrPanel.status.${label}`)}</span>
             </div>
           ))}
         </div>
-        {!busy && status.failedCount > 0 && (
-          <ActionButton onClick={() => void run(() => invoke('retry_failed_ocr'))} className="w-full">{translate('common.retry')}{status.failedCount}{translate('component.settingsOcrPanel.failedScan')}{status.failedCount === 1 ? '' : translate('component.settingsOcrPanel.s')}
-          </ActionButton>
-        )}
       </div>
       <div className="theme-divider flex items-center justify-between gap-3 border-t px-5 py-3">
         <p className="theme-text-muted text-[11px] leading-relaxed">{statusText}</p>
@@ -111,7 +112,7 @@ export function SettingsOcrPanel() {
             <Square className="h-3.5 w-3.5" /> {translate('common.cancel')}
           </ActionButton>
         ) : (
-          <ActionButton variant="primary" disabled={status.eligibleCount === 0 || !activeExtractor} onClick={() => void run(() => invoke('start_ocr_backfill'))}>
+          <ActionButton variant="primary" disabled={actionableCount === 0 || !activeExtractor} onClick={() => void run(scan)}>
             <ScanText className="h-3.5 w-3.5" /> {translate('component.settingsOcrPanel.scan')}
           </ActionButton>
         )}
