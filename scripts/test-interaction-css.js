@@ -13,7 +13,13 @@ const foundation = read('src/styles/foundation.css');
 const utilities = read('src/styles/utilities.css');
 const manualTransformEditor = read('src/components/ManualTransformEditorModal.tsx');
 const reorderHook = read('src/hooks/useStableVerticalReorder.ts');
-const sidebarComponent = read('src/components/Sidebar.tsx');
+const sidebarComponent = [
+  'src/components/Sidebar.tsx',
+  'src/components/CollapsedSidebar.tsx',
+  'src/components/SidebarBinsSection.tsx',
+  'src/components/SidebarSearchFooter.tsx',
+  'src/hooks/useSidebarHoverState.ts',
+].map(read).join('\n');
 const app = read('src/App.tsx');
 const appShell = read('src/hooks/useAppShell.ts');
 const settingsPanelHeader = read('src/components/SettingsPanelHeader.tsx');

@@ -11,7 +11,13 @@ const nativeRoot = read('src-tauri/src/lib.rs');
 const nativeCommands = readRustModuleTree('src-tauri/src/commands.rs', 'src-tauri/src/commands');
 const settingsModal = read('src/components/SettingsModal.tsx');
 const settingsFeaturesPanel = read('src/components/SettingsFeaturesPanel.tsx');
-const sidebar = read('src/components/Sidebar.tsx');
+const sidebar = [
+  'src/components/Sidebar.tsx',
+  'src/components/CollapsedSidebar.tsx',
+  'src/components/SidebarBinsSection.tsx',
+  'src/components/SidebarSearchFooter.tsx',
+  'src/hooks/useSidebarHoverState.ts',
+].map(read).join('\n');
 const nativeMenu = read('src-tauri/src/app_menu.rs');
 const captureFeedbackWindow = read('src/components/CaptureFeedbackWindow.tsx');
 const clipboardMonitor = read('src-tauri/src/clipboard_monitor.rs');
@@ -129,7 +135,7 @@ assert.match(sidebar, /id: 'clipTypes'[\s\S]{0,180}enabled: features\.clipTypes/
   'Clip Types must own their sidebar collection surface');
 assert.match(
   sidebar,
-  /features\.search && <div ref=\{searchMenuRootRef\}/,
+  /features\.search && \([\s\S]{0,80}<SidebarSearchFooter/,
   'Clip Search must own the sidebar search surface',
 );
 assert.match(

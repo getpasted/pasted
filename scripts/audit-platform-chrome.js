@@ -5,7 +5,10 @@ const readJson = (path) => JSON.parse(fs.readFileSync(path, 'utf8'));
 const baseConfig = readJson('src-tauri/tauri.conf.json');
 const macConfig = readJson('src-tauri/tauri.macos.conf.json');
 const mainSource = fs.readFileSync('src/main.tsx', 'utf8');
-const sidebarSource = fs.readFileSync('src/components/Sidebar.tsx', 'utf8');
+const sidebarSource = [
+  'src/components/Sidebar.tsx',
+  'src/components/CollapsedSidebar.tsx',
+].map((path) => fs.readFileSync(path, 'utf8')).join('\n');
 const chromeCss = fs.readFileSync('src/styles/layout-chrome.css', 'utf8');
 const cargoManifest = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
 const rustMainSource = fs.readFileSync('src-tauri/src/main.rs', 'utf8');

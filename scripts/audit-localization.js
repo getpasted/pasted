@@ -142,7 +142,10 @@ if (process.env.LOCALIZATION_VERBOSE === '2') {
 assert.ok(hardCodedCopyCount <= HARD_CODED_COPY_BUDGET,
   `Hardcoded interface-copy debt is ${hardCodedCopyCount}; keep it at or below ${HARD_CODED_COPY_BUDGET} and ratchet the budget downward as strings move into catalogs.`);
 
-const sidebarSource = fs.readFileSync('src/components/Sidebar.tsx', 'utf8');
+const sidebarSource = [
+  'src/components/Sidebar.tsx',
+  'src/components/SidebarSearchFooter.tsx',
+].map((path) => fs.readFileSync(path, 'utf8')).join('\n');
 const activitySource = fs.readFileSync('src/components/ActivityLogView.tsx', 'utf8');
 const clipCardSource = fs.readFileSync('src/components/ClipCard.tsx', 'utf8');
 const settingsBlacklistSource = fs.readFileSync('src/components/SettingsBlacklistPanel.tsx', 'utf8');

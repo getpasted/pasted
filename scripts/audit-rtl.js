@@ -61,6 +61,9 @@ const directionalSources = [
   'src/components/HelpView.tsx',
   'src/components/SettingsAboutPanel.tsx',
   'src/components/Sidebar.tsx',
+  'src/components/CollapsedSidebar.tsx',
+  'src/components/SidebarBinsSection.tsx',
+  'src/components/SidebarSearchFooter.tsx',
   'src/components/WelcomeSetup.tsx',
 ].map((file) => fs.readFileSync(file, 'utf8')).join('\n');
 
