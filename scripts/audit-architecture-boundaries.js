@@ -60,6 +60,7 @@ const appMenuActions = read('src/hooks/useAppMenuActions.ts');
 const clipSelectionController = read('src/hooks/useClipSelectionController.ts');
 const clipListViewport = read('src/hooks/useClipListViewport.ts');
 const rememberedClipListScroll = read('src/hooks/useRememberedClipListScroll.ts');
+const browserRuntime = read('src/mocks/browser/runtime.ts');
 const clipCommands = read('src-tauri/src/commands/clips.rs');
 const clipboardCommands = read('src-tauri/src/commands/clipboard.rs');
 const binCommands = read('src-tauri/src/commands/bins.rs');
@@ -443,6 +444,10 @@ assert.match(factoryResetCommands, /pub fn factory_reset_app/,
   'Factory Reset must remain in its focused lifecycle adapter');
 assert.doesNotMatch(commands, /pub async fn export_backup_file|pub async fn choose_import_file|pub fn factory_reset_app/,
   'The GUI command root must not reclaim portability or reset operations');
+assert.match(browserRuntime, /const handlers: BrowserHandler\[\]/,
+  'Browser IPC must compose focused domain handlers through one dispatcher');
+assert.doesNotMatch(read('src/utils/tauri.ts'), /switch \(cmd\)|case '/,
+  'The native transport facade must not reclaim browser-domain behavior');
 assert.match(sourceApplicationCommands, /pub async fn get_source_icons[\s\S]*spawn_blocking/,
   'Source icon resolution must remain in its focused asynchronous GUI adapter');
 assert.match(sourceApplicationCommands, /pub fn get_installed_applications/,
@@ -534,7 +539,12 @@ const sizeRatchets = new Map([
   ['src/hooks/useClipDragController.ts', 130],
   ['src/hooks/useClipReordering.ts', 100],
   ['src/components/AppDialogLayer.tsx', 210],
-  ['src/utils/tauri.ts', 1_305],
+  ['src/utils/tauri.ts', 10],
+  ['src/mocks/browser/runtime.ts', 30],
+  ['src/mocks/browser/contentRuntime.ts', 372],
+  ['src/mocks/browser/intelligenceRuntime.ts', 243],
+  ['src/mocks/browser/libraryRuntime.ts', 568],
+  ['src/mocks/browser/systemRuntime.ts', 183],
 ]);
 for (const [path, maximum] of sizeRatchets) {
   assert.ok(lineCount(path) <= maximum,

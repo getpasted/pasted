@@ -20,6 +20,22 @@ try {
   assert.equal(operations.filter(({ id }) => id === created.id).length, 1,
     'creating one browser operation must persist exactly one operation');
 
+  const search = await safeInvoke('search_clips', { request: { query: 'Sample', limit: 10, offset: 0 } });
+  assert.equal(search.totalCount, 2,
+    'the dispatcher must route Search into the in-memory library with authoritative totals');
+  assert.ok((await safeInvoke('get_content_extractors')).length >= 3,
+    'the dispatcher must route Extractor reads into the Content runtime');
+
+  const connection = await safeInvoke('create_intelligence_connection', { name: 'Browser AI' });
+  assert.equal((await safeInvoke('get_intelligence_connections')).some(({ id }) => id === connection.id), true,
+    'the dispatcher must preserve Intelligence runtime mutations across calls');
+
+  const originalLocation = await safeInvoke('get_library_location');
+  const moved = await safeInvoke('move_library');
+  assert.notEqual(moved.location.path, originalLocation.path,
+    'the dispatcher must route storage mutations into the System runtime');
+  assert.equal((await safeInvoke('restore_default_library_location')).location.path, originalLocation.path);
+
   const firstPin = await safeInvoke('batch_pin_clips', { ids: [101], pinState: true });
   assert.deepEqual(firstPin, {
     action: 'pin', requestedCount: 1, changedCount: 1, skippedCount: 0, clipIds: [101],

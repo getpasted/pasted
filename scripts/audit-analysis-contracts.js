@@ -1,11 +1,15 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { readRustModuleTree } from './audit-source-trees.js';
 
 const read = (path) => readFileSync(path, 'utf8');
 const englishCatalog = JSON.parse(read('src/locales/en.json'));
 const fixture = (name) => JSON.parse(read(`contracts/analysis/v1/${name}.json`));
-const frontendMock = read('src/utils/tauri.ts');
+const frontendMock = [
+  read('src/utils/tauri.ts'),
+  ...readdirSync('src/mocks/browser').filter((name) => name.endsWith('.ts')).sort()
+    .map((name) => read(`src/mocks/browser/${name}`)),
+].join('\n');
 const cliTests = read('src-tauri/tests/cli_integration.rs');
 const clipPreview = read('src/components/ClipPreview.tsx');
 const clipPreviewContent = read('src/components/ClipPreviewContent.tsx');

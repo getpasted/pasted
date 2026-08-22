@@ -90,7 +90,7 @@ assert.equal(
 );
 assert.match(
   tauriBridge,
-  /default:\s*throw new Error\(`Unsupported browser IPC command:/,
+  /throw new Error\(`Unsupported browser IPC command:/,
   'Unknown browser IPC commands must fail closed instead of silently returning null',
 );
 assert.equal(

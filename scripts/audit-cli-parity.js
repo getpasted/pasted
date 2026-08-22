@@ -29,7 +29,11 @@ const clipboardMonitor = read('src-tauri/src/clipboard_monitor.rs');
 const ocr = read('src-tauri/src/ocr.rs');
 const actions = read('src/hooks/useClipActions.ts');
 const storageSettings = read('src/components/SettingsSyncPanel.tsx');
-const tauriMock = read('src/utils/tauri.ts');
+const tauriMock = [
+  read('src/utils/tauri.ts'),
+  ...fs.readdirSync('src/mocks/browser').filter((name) => name.endsWith('.ts')).sort()
+    .map((name) => read(`src/mocks/browser/${name}`)),
+].join('\n');
 const extractorManager = read('src/components/ContentExtractorManagerDialog.tsx');
 const classifierManager = read('src/components/SettingsAnalysisPanel.tsx');
 const smartBins = read('src-tauri/src/smart_bins.rs');
