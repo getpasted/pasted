@@ -619,7 +619,11 @@ const sizeRatchets = new Map([
   ['src/hooks/useClipCardPointerDrag.ts', 130],
   ['src/components/ClipPreviewFooter.tsx', 118],
   ['src/components/ClipPreviewNotesPanel.tsx', 87],
-  ['src/components/Sidebar.tsx', 574],
+  ['src/components/Sidebar.tsx', 303],
+  ['src/components/SidebarClipSection.tsx', 100],
+  ['src/components/SidebarFacetSections.tsx', 93],
+  ['src/components/SidebarToolsSection.tsx', 48],
+  ['src/components/sidebarNavigationModel.tsx', 82],
   ['src/components/CollapsedSidebar.tsx', 165],
   ['src/components/SidebarBinsSection.tsx', 206],
   ['src/components/SidebarSearchFooter.tsx', 224],
@@ -635,6 +639,7 @@ const sizeRatchets = new Map([
   ['src/hooks/useClipPreviewRevisions.ts', 149],
   ['src/hooks/useClipPreviewTransforms.ts', 289],
   ['src/hooks/useSidebarHoverState.ts', 67],
+  ['src/hooks/useSidebarFacets.ts', 83],
   ['src/hooks/useBinModalForm.ts', 204],
   ['src/utils/tauri.ts', 10],
   ['src/mocks/browser/runtime.ts', 30],
@@ -760,12 +765,27 @@ assert.match(read('src/components/ClipCardHeader.tsx'), /useMinuteTick\(\)/,
   'Relative-time updates must remain scoped to ClipCard metadata');
 
 const sidebarShell = read('src/components/Sidebar.tsx');
-for (const subsystem of ['CollapsedSidebar', 'SidebarBinsSection', 'SidebarSearchFooter', 'useSidebarHoverState']) {
+for (const subsystem of [
+  'CollapsedSidebar',
+  'SidebarBinsSection',
+  'SidebarClipSection',
+  'SidebarFacetSections',
+  'SidebarSearchFooter',
+  'SidebarToolsSection',
+  'useSidebarFacets',
+  'useSidebarHoverState',
+]) {
   assert.match(sidebarShell, new RegExp(`${subsystem}`),
     `Sidebar must compose the ${subsystem} subsystem`);
 }
 assert.doesNotMatch(sidebarShell, /get_clip_extraction_history|SEARCH_HELPERS|data-stable-reorder-id/,
   'Sidebar must not reclaim search or Bin interaction internals');
+assert.doesNotMatch(sidebarShell, /get_source_icons|sourceIconsRef|ContentTypeIcon|SafeRasterImage/,
+  'Sidebar must not reclaim facet loading or presentation internals');
+assert.match(read('src/hooks/useSidebarFacets.ts'), /get_source_icons/,
+  'Sidebar facet data must own asynchronous source-icon loading');
+assert.match(read('src/components/SidebarClipSection.tsx'), /data-clip-drop-action/,
+  'Sidebar clip navigation must preserve its drop-action contract');
 
 const binModalShell = read('src/components/BinModal.tsx');
 assert.match(binModalShell, /useBinModalForm\(/,

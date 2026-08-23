@@ -26,7 +26,7 @@ const safeRasterConsumers = [
   'src/components/ClipCardThumbnails.tsx',
   'src/components/ClipPreviewContent.tsx',
   'src/components/QuickHudWindow.tsx',
-  'src/components/Sidebar.tsx',
+  'src/components/SidebarFacetSections.tsx',
 ].map((path) => fs.readFileSync(path, 'utf8'));
 const security = tauriConfig.app?.security;
 

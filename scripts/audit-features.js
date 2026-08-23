@@ -15,7 +15,12 @@ const sidebar = [
   'src/components/Sidebar.tsx',
   'src/components/CollapsedSidebar.tsx',
   'src/components/SidebarBinsSection.tsx',
+  'src/components/SidebarClipSection.tsx',
+  'src/components/SidebarFacetSections.tsx',
   'src/components/SidebarSearchFooter.tsx',
+  'src/components/SidebarToolsSection.tsx',
+  'src/components/sidebarNavigationModel.tsx',
+  'src/hooks/useSidebarFacets.ts',
   'src/hooks/useSidebarHoverState.ts',
 ].map(read).join('\n');
 const nativeMenu = read('src-tauri/src/app_menu.rs');
@@ -139,11 +144,13 @@ assert.match(
   /settings\.enableNotifications && activeTab === 'notifications'/,
   'The Notifications feature must own its Settings surface',
 );
-assert.match(sidebar, /id: 'clipTypes'[\s\S]{0,180}enabled: features\.clipTypes/,
-  'Clip Types must own their sidebar collection surface');
+assert.match(sidebar, /id: 'clipTypes'/,
+  'Clip Types must retain their sidebar collection surface');
+assert.match(sidebar, /features\[section\.id\] && section\.items\.length > 0/,
+  'Every sidebar facet collection must honor its matching feature gate');
 assert.match(
   sidebar,
-  /features\.search && \([\s\S]{0,80}<SidebarSearchFooter/,
+  /features\.search && \(?[\s\S]{0,80}<SidebarSearchFooter/,
   'Clip Search must own the sidebar search surface',
 );
 assert.match(

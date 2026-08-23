@@ -328,8 +328,8 @@ const navigationSources = [
     pattern: /label: '([^']+)'/g,
   },
   {
-    file: 'src/components/Sidebar.tsx',
-    source: fs.readFileSync('src/components/Sidebar.tsx', 'utf8').match(/const allToolNavItems[\s\S]*?\n  \];/)?.[0] ?? '',
+    file: 'src/components/sidebarNavigationModel.tsx',
+    source: fs.readFileSync('src/components/sidebarNavigationModel.tsx', 'utf8').match(/const allToolNavItems[\s\S]*?\n  \];/)?.[0] ?? '',
     pattern: /label: '([^']+)'/g,
   },
   {
