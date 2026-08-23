@@ -8,7 +8,7 @@ const sidebar = [
 const nativeMenu = fs.readFileSync('src-tauri/src/app_menu.rs', 'utf8');
 const englishCatalog = JSON.parse(fs.readFileSync('src/locales/en.json', 'utf8'));
 const floatingMenus = [
-  'src/components/BinModal.tsx',
+  'src/components/BinModalIdentityFields.tsx',
   'src/components/BinContextMenu.tsx',
   'src/components/ClipWorkflowMenu.tsx',
   'src/components/ContextMenu.tsx',
