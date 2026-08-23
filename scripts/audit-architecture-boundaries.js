@@ -635,6 +635,9 @@ const sizeRatchets = new Map([
   ['src/components/binModalEmoji.ts', 20],
   ['src/components/binModalModel.ts', 110],
   ['src/components/binModalTargets.ts', 109],
+  ['src/components/HelpView.tsx', 385],
+  ['src/components/HelpCliTopic.tsx', 115],
+  ['src/components/helpCliCatalog.ts', 159],
   ['src/components/clipPreviewModel.ts', 162],
   ['src/components/fileClipPreviewLoader.ts', 53],
   ['src/components/fileClipPreviewModel.ts', 9],
@@ -816,6 +819,18 @@ assert.match(read('src/components/BinModalIdentityFields.tsx'), /open_emoji_pick
 assert.match(read('src/components/BinModalIdentityFields.tsx'),
   /ref=\{nativeEmojiTriggerRef\}[\s\S]*desktopPlatform === 'macos' \? nativeEmojiTriggerRef : emojiTriggerRef/,
   'The in-app emoji fallback must anchor to the visible platform-specific trigger');
+
+const helpViewShell = read('src/components/HelpView.tsx');
+assert.match(helpViewShell, /<HelpCliTopic/,
+  'Help must compose the focused CLI topic presentation');
+assert.doesNotMatch(helpViewShell, /pasted classifier create|pasted activity import|pasted bin create/,
+  'Help must not reclaim the CLI command catalog');
+assert.doesNotMatch(helpViewShell, /symlinkInUsrLocalBin|commandReferenceDescription/,
+  'Help must not reclaim CLI installation or command-reference presentation');
+assert.match(read('src/components/HelpCliTopic.tsx'), /helpCliCatalog/,
+  'The Help CLI topic must compose its command catalog');
+assert.match(read('src/components/helpCliCatalog.ts'), /pasted classifier create[\s\S]*pasted activity import/,
+  'The Help CLI catalog must retain analysis and Activity command coverage');
 
 const contentAnalysisFacade = read('src-tauri/src/content_analysis.rs');
 assert.match(contentAnalysisFacade, /mod pipeline;/,
