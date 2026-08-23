@@ -644,6 +644,8 @@ const sizeRatchets = new Map([
   ['src/components/CaptureFeedbackWindow.tsx', 472],
   ['src/components/CaptureFeedbackCard.tsx', 137],
   ['src/components/captureFeedbackModel.ts', 42],
+  ['src/types.ts', 495],
+  ['src/appSettingsTypes.ts', 105],
   ['src/components/clipPreviewModel.ts', 162],
   ['src/components/fileClipPreviewLoader.ts', 53],
   ['src/components/fileClipPreviewModel.ts', 9],
