@@ -627,9 +627,14 @@ const sizeRatchets = new Map([
   ['src/components/CollapsedSidebar.tsx', 165],
   ['src/components/SidebarBinsSection.tsx', 206],
   ['src/components/SidebarSearchFooter.tsx', 224],
-  ['src/components/BinModal.tsx', 571],
+  ['src/components/BinModal.tsx', 130],
+  ['src/components/BinModalBehaviorFields.tsx', 120],
+  ['src/components/BinModalIdentityFields.tsx', 170],
+  ['src/components/BinModalSmartRules.tsx', 184],
   ['src/components/BinModalSmartConditionInputs.tsx', 219],
+  ['src/components/binModalEmoji.ts', 20],
   ['src/components/binModalModel.ts', 110],
+  ['src/components/binModalTargets.ts', 109],
   ['src/components/clipPreviewModel.ts', 162],
   ['src/components/fileClipPreviewLoader.ts', 53],
   ['src/components/fileClipPreviewModel.ts', 9],
@@ -790,10 +795,27 @@ assert.match(read('src/components/SidebarClipSection.tsx'), /data-clip-drop-acti
 const binModalShell = read('src/components/BinModal.tsx');
 assert.match(binModalShell, /useBinModalForm\(/,
   'BinModal must delegate form lifecycle and persistence to its controller');
-assert.match(binModalShell, /SmartConditionTargetSelect[\s\S]*SmartConditionValueInput/,
-  'BinModal must compose the shared smart-condition controls');
+for (const subsystem of [
+  'BinModalBehaviorFields',
+  'BinModalIdentityFields',
+  'BinModalSmartRules',
+  'buildBinModalTargets',
+]) {
+  assert.match(binModalShell, new RegExp(`${subsystem}`),
+    `BinModal must compose the ${subsystem} subsystem`);
+}
 assert.doesNotMatch(binModalShell, /binsApi\.|get_bin_transform_ref|normalizeSmartCondition/,
   'BinModal must not reclaim controller-owned persistence and rule normalization');
+assert.doesNotMatch(binModalShell, /open_emoji_picker|SmartConditionTargetSelect|SmartConditionValueInput/,
+  'BinModal must not reclaim identity or Smart Bin rule-editor internals');
+assert.match(read('src/components/BinModalSmartRules.tsx'),
+  /SmartConditionTargetSelect[\s\S]*SmartConditionValueInput/,
+  'Smart Bin rules must compose the shared condition controls');
+assert.match(read('src/components/BinModalIdentityFields.tsx'), /open_emoji_picker/,
+  'Bin identity fields must retain the native emoji-picker integration');
+assert.match(read('src/components/BinModalIdentityFields.tsx'),
+  /ref=\{nativeEmojiTriggerRef\}[\s\S]*desktopPlatform === 'macos' \? nativeEmojiTriggerRef : emojiTriggerRef/,
+  'The in-app emoji fallback must anchor to the visible platform-specific trigger');
 
 const contentAnalysisFacade = read('src-tauri/src/content_analysis.rs');
 assert.match(contentAnalysisFacade, /mod pipeline;/,
