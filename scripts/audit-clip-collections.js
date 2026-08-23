@@ -24,7 +24,11 @@ const clipCard = [
   'src/components/ClipCardActions.tsx',
   'src/components/clipCardModel.ts',
 ].map(read).join('\n');
-const app = read('src/App.tsx');
+const app = [
+  read('src/App.tsx'),
+  read('src/hooks/useAppController.ts'),
+  read('src/components/AppShellView.tsx'),
+].join('\n');
 const clipListHeader = read('src/components/ClipListHeader.tsx');
 const appNavigation = read('src/utils/appNavigation.ts');
 const dragHook = read('src/hooks/useClipBinDrag.ts');

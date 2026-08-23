@@ -266,7 +266,7 @@ assert.match(cli, /assign_clips_to_bin/, 'CLI Bin assignment must use the shared
 
 assert.match(actions, /clipsApi\.setProtected\(/, 'GUI batch protection must use the centralized Clips client');
 assert.match(clipsApi, /invoke<void>\('batch_protect_clips'/, 'The Clips client must expose one explicit batch-protection mutation');
-assert.match(read('src/App.tsx'), /clipsApi\.restoreAll\(\)/,
+assert.match(read('src/hooks/useAppLibraryActions.ts'), /clipsApi\.restoreAll\(\)/,
   'GUI bulk recovery must use the centralized Clips client');
 assert.match(clipsApi, /invoke<ClipMutationSummary>\('restore_all_trashed_clips'\)/,
   'The Clips client must expose the shared restore-all mutation');

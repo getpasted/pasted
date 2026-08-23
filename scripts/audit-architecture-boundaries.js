@@ -57,7 +57,13 @@ const settingsApi = read('src/api/settings.ts');
 const transformsApi = read('src/api/transforms.ts');
 const localizationRuntime = read('src/localization/runtime.ts');
 const cliRoot = read('src-tauri/src/bin/pasted.rs');
-const appRoot = read('src/App.tsx');
+const appRoot = [
+  'src/App.tsx',
+  'src/hooks/useAppController.ts',
+  'src/hooks/useAppLibraryActions.ts',
+  'src/components/AppShellView.tsx',
+  'src/components/AppDestinationView.tsx',
+].map(read).join('\n');
 const appNavigation = read('src/hooks/useAppNavigation.ts');
 const appShell = read('src/hooks/useAppShell.ts');
 const appMenuActions = read('src/hooks/useAppMenuActions.ts');
@@ -418,6 +424,15 @@ for (const hook of [
 ]) {
   assert.match(appRoot, new RegExp(`${hook}\\(`), `The application root must delegate to ${hook}`);
 }
+const appEntry = read('src/App.tsx');
+assert.match(appEntry, /useAppController\(\)[\s\S]*<AppShellView controller=\{controller\}/,
+  'The application entry must compose the controller and shell view boundaries');
+assert.doesNotMatch(appEntry, /useAppData|useClipActions|<Sidebar|<ClipCard/,
+  'The application entry must not reclaim controller or workspace internals');
+assert.doesNotMatch(read('src/hooks/useAppController.ts'), /<Sidebar|<ClipCard|<SettingsModal/,
+  'The application controller must remain presentation-free');
+assert.match(read('src/components/AppShellView.tsx'), /<AppDestinationView controller=\{controller\} renderClipWorkspace=/,
+  'The application shell must delegate non-Clip destinations to their router');
 assert.doesNotMatch(appRoot, /APP_EVENTS\.|writeAppUiState\(|consumePendingBackupClientState\(/,
   'The application root must not reclaim shell, navigation, or native menu infrastructure');
 assert.match(appNavigation, /writeAppUiState\(/,
@@ -571,7 +586,12 @@ const sizeRatchets = new Map([
   ['src-tauri/src/commands/queue.rs', 160],
   ['src-tauri/src/commands/storage.rs', 170],
   ['src-tauri/src/bin/pasted.rs', 320],
-  ['src/App.tsx', 950],
+  ['src/App.tsx', 16],
+  ['src/hooks/useAppController.ts', 499],
+  ['src/hooks/useAppLibraryActions.ts', 59],
+  ['src/hooks/appControllerModel.ts', 22],
+  ['src/components/AppShellView.tsx', 467],
+  ['src/components/AppDestinationView.tsx', 79],
   ['src/hooks/useAppNavigation.ts', 175],
   ['src/hooks/useAppShell.ts', 130],
   ['src/hooks/useAppMenuActions.ts', 120],

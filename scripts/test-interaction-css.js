@@ -23,7 +23,7 @@ const sidebarComponent = [
   'src/components/SidebarSearchFooter.tsx',
   'src/hooks/useSidebarHoverState.ts',
 ].map(read).join('\n');
-const app = read('src/App.tsx');
+const app = [read('src/App.tsx'), read('src/components/AppShellView.tsx')].join('\n');
 const appShell = read('src/hooks/useAppShell.ts');
 const settingsPanelHeader = read('src/components/SettingsPanelHeader.tsx');
 const connectedMenuAction = read('src/components/ConnectedMenuAction.tsx');
