@@ -40,6 +40,20 @@ export interface ExtractorAuthoringManifest {
   }>;
 }
 
+export interface ExtractorRuntimeStatus {
+  method: string;
+  location: string | null;
+  version: string | null;
+  usesAutomaticDiscovery: boolean;
+  dependencies: Array<{
+    name: string;
+    location: string | null;
+    version: string | null;
+    isAvailable: boolean;
+    unavailableReason: string | null;
+  }>;
+}
+
 export interface ContentExtractor {
   id: number;
   stableRef: string;
@@ -56,19 +70,7 @@ export interface ContentExtractor {
   isBuiltin: boolean;
   isAvailable: boolean;
   unavailableReason: string | null;
-  runtime: {
-    method: string;
-    location: string | null;
-    version: string | null;
-    usesAutomaticDiscovery: boolean;
-    dependencies: Array<{
-      name: string;
-      location: string | null;
-      version: string | null;
-      isAvailable: boolean;
-      unavailableReason: string | null;
-    }>;
-  };
+  runtime: ExtractorRuntimeStatus;
   recipe: ExtractorRecipe;
   recipeHash: string;
   defaultRecipe: ExtractorRecipe | null;

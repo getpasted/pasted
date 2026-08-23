@@ -45,6 +45,7 @@ export function ContentExtractorManagerDialog({
     generating,
     hasIntelligence,
     isDirty,
+    loading,
     openAuthoringHistory,
     recipeCanSave,
     recipeDraft,
@@ -52,6 +53,7 @@ export function ContentExtractorManagerDialog({
     resetDraft,
     restoreAll,
     runtimeConfigurationChanged,
+    runtimeLoadingId,
     save,
     saving,
     selected,
@@ -98,6 +100,7 @@ export function ContentExtractorManagerDialog({
           selected={selected}
           isDirty={isDirty}
           saving={saving}
+          loading={loading}
           onNew={beginNew}
           onSelect={selectExtractor}
           onToggle={toggle}
@@ -162,7 +165,9 @@ export function ContentExtractorManagerDialog({
                 <dt className="theme-text-muted">{translate('common.stableReference')}</dt><dd className="truncate font-mono">{selected?.stableRef ?? translate('component.contentExtractorManagerDialog.assignedWhenSaved')}</dd>
                 <dt className="theme-text-muted">{translate('component.contentExtractorManagerDialog.recipeVersion')}</dt><dd className="font-mono">{recipeDraft.definitionVersion}</dd>
                 <dt className="theme-text-muted">{translate('component.contentExtractorManagerDialog.revision')}</dt><dd>{selected?.revision ?? 1}</dd>
-                <dt className="theme-text-muted">{translate('component.contentExtractorManagerDialog.runtimeVersion')}</dt><dd>{selected?.runtime.version ?? translate('component.contentExtractorManagerDialog.unavailable')}</dd>
+                <dt className="theme-text-muted">{translate('component.contentExtractorManagerDialog.runtimeVersion')}</dt><dd>{runtimeLoadingId === selected?.id
+                  ? translate('component.contentExtractorManagerDialog.loadingRuntime')
+                  : selected?.runtime.version ?? translate('component.contentExtractorManagerDialog.unavailable')}</dd>
               </dl>
               {selected && <AppDialogButton type="button" className="mt-3" onClick={() => void openAuthoringHistory()}>{translate('component.contentExtractorManagerDialog.viewAuthoringHistory')}</AppDialogButton>}
             </details>

@@ -17,6 +17,7 @@ import {
   type ExtractorInput,
   type ExtractorRecipe,
   type ExtractorRecipeProposal,
+  type ExtractorRuntimeStatus,
   type ExtractorTestOutcome,
 } from '../components/contentExtractorModel';
 import {
@@ -39,6 +40,8 @@ export function useContentExtractorManager({
 }) {
   const { showToast } = useToast();
   const [extractors, setExtractors] = useState<ContentExtractor[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [runtimeLoadingId, setRuntimeLoadingId] = useState<number | null>(null);
   const [selectedId, setSelectedId] = useState<number | 'new' | null>(null);
   const [draft, setDraft] = useState<ExtractorInput>(toInput());
   const [recipeDraft, setRecipeDraft] = useState<ExtractorRecipe>(emptyRecipe());
@@ -68,20 +71,42 @@ export function useContentExtractorManager({
   });
 
   const load = async () => {
-    const loaded = await analysisApi.listExtractors<ContentExtractor>();
-    setExtractors(loaded);
-    const visible = visibleContentExtractors(loaded, { ocrEnabled, transcriptionsEnabled });
-    setSelectedId((current) => visible.some(({ id }) => id === current) ? current : visible[0]?.id ?? null);
+    setLoading(true);
+    try {
+      const loaded = await analysisApi.listExtractors<ContentExtractor>();
+      setExtractors(loaded);
+      const visible = visibleContentExtractors(loaded, { ocrEnabled, transcriptionsEnabled });
+      setSelectedId((current) => visible.some(({ id }) => id === current) ? current : visible[0]?.id ?? null);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     if (isOpen) {
-      void load();
+      void load().catch((error) => showToast({ tone: 'error', message: errorMessage(error) }));
       void invoke<IntelligenceConnection[]>('get_intelligence_connections')
         .then(setConnections)
         .catch(() => setConnections([]));
     }
   }, [isOpen, ocrEnabled, transcriptionsEnabled]);
+  useEffect(() => {
+    if (!isOpen || !selected) return undefined;
+    let cancelled = false;
+    setRuntimeLoadingId(selected.id);
+    void analysisApi.extractorRuntime<ExtractorRuntimeStatus>(selected.stableRef)
+      .then((runtime) => {
+        if (cancelled) return;
+        setExtractors((current) => current.map((extractor) => (
+          extractor.id === selected.id ? { ...extractor, runtime } : extractor
+        )));
+      })
+      .catch(() => { /* Availability remains authoritative when version inspection fails. */ })
+      .finally(() => {
+        if (!cancelled) setRuntimeLoadingId(null);
+      });
+    return () => { cancelled = true; };
+  }, [isOpen, selected?.id, selected?.stableRef, selected?.revision]);
   useEffect(() => {
     setSelectedId((current) => visibleExtractors.some(({ id }) => id === current)
       ? current
@@ -421,6 +446,7 @@ export function useContentExtractorManager({
     generating,
     hasIntelligence,
     isDirty,
+    loading,
     openAuthoringHistory,
     recipeCanSave,
     recipeDraft,
@@ -428,6 +454,7 @@ export function useContentExtractorManager({
     resetDraft,
     restoreAll,
     runtimeConfigurationChanged,
+    runtimeLoadingId,
     save,
     saving,
     selected,

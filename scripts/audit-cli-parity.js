@@ -84,6 +84,10 @@ assert.match(extractorManager, /errorMessage\(error\)/,
   'Extractor authoring must present structured backend error messages');
 assert.doesNotMatch(extractorManager, /String\(error\)/,
   'Extractor authoring must not collapse structured backend errors to [object Object]');
+assert.match(commands, /pub async fn get_content_extractor_runtime/,
+  'Detailed Extractor runtime inspection must remain available to the GUI');
+assert.match(cli, /extractor\.runtime\s*=\s*pasted_lib::content_extraction::inspect_extractor_runtime/,
+  'CLI Extractor details must use the same explicit runtime inspection service as the GUI');
 
 const documentedCommands = [
   'pasted copy',

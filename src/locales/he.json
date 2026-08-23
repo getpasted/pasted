@@ -652,6 +652,8 @@
   "component.contentExtractorManagerDialog.engineContractsIdentifyTheRuntimeAdapterAndProtocolVersionAndAreManaged": "חוזים למנוע מגדירים את המאריך והגרסה של הפרוטוקול, והם מנוהלים באופן אוטומטי.",
   "component.contentExtractorManagerDialog.extractorMethod": "שיטת ה-Extractor",
   "component.contentExtractorManagerDialog.extractors": "כלי חילוץ",
+  "component.contentExtractorManagerDialog.loadingExtractors": "כלי החילוץ נטענים…",
+  "component.contentExtractorManagerDialog.loadingRuntime": "בטעינה…",
   "component.contentExtractorManagerDialog.extractorSettings": "הגדרות ה-Extractor",
   "component.contentExtractorManagerDialog.extractsSearchableTextWithALocalCommand": "מחלץ טקסט שניתן לחפש באמצעות פקודה מקומית.",
   "component.contentExtractorManagerDialog.fieldToStandardOutputItRunsLocallyWithA60SecondLimit": "לשדה הפלט הסטנדרטי. הוא רץ באופן מקומי עם מגבלה של 60 שניות.",

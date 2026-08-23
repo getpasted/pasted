@@ -15,6 +15,7 @@ export function ExtractorRegistryPanel({
   selected,
   isDirty,
   saving,
+  loading,
   onNew,
   onSelect,
   onToggle,
@@ -26,6 +27,7 @@ export function ExtractorRegistryPanel({
   selected?: ContentExtractor;
   isDirty: boolean;
   saving: boolean;
+  loading: boolean;
   onNew: () => void;
   onSelect: (id: number) => void;
   onToggle: (extractor: ContentExtractor) => void;
@@ -35,7 +37,12 @@ export function ExtractorRegistryPanel({
   return <section className="theme-surface flex min-h-[260px] flex-col overflow-hidden rounded-xl border @xl:min-h-0">
     <RegistryPanelHeader title={translate('component.contentExtractorManagerDialog.extractors')} actions={<AppDialogButton onClick={onNew} className="h-7 min-h-7 px-2.5"><Plus className="h-3.5 w-3.5" /> {translate('common.new')}</AppDialogButton>} />
     <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
-      {extractors.length === 0 && (
+      {loading && extractors.length === 0 && (
+        <p className="theme-text-muted px-3 py-4 text-center text-[10px]" role="status">
+          {translate('component.contentExtractorManagerDialog.loadingExtractors')}
+        </p>
+      )}
+      {!loading && extractors.length === 0 && (
         <p className="theme-text-muted px-3 py-4 text-center text-[10px]">{translate('component.contentExtractorManagerDialog.noExtractorsAreAvailableForEnabledFunctionality')}</p>
       )}
       {extractors.map((extractor) => {
