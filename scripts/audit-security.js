@@ -25,9 +25,10 @@ const safeRasterConsumers = [
   'src/components/CaptureFeedbackCard.tsx',
   'src/components/ClipCardThumbnails.tsx',
   'src/components/ClipPreviewContent.tsx',
-  'src/components/QuickHudWindow.tsx',
   'src/components/SidebarFacetSections.tsx',
 ].map((path) => fs.readFileSync(path, 'utf8'));
+const quickHud = fs.readFileSync('src/components/QuickHudWindow.tsx', 'utf8');
+const clipCardThumbnails = fs.readFileSync('src/components/ClipCardThumbnails.tsx', 'utf8');
 const security = tauriConfig.app?.security;
 
 assert.match(codeqlWorkflow, /schedule:\s*\n\s*- cron:/, 'CodeQL must retain a scheduled full scan');
@@ -86,6 +87,17 @@ for (const consumer of safeRasterConsumers) {
   assert.match(consumer, /SafeRasterImage/, 'Every dynamic raster surface must use SafeRasterImage');
   assert.doesNotMatch(consumer, /<img\b/, 'Dynamic raster surfaces must not bypass SafeRasterImage');
 }
+assert.match(
+  quickHud,
+  /ClipImageThumbnail/,
+  'The HUD must delegate dynamic raster rendering to the shared safe thumbnail surface',
+);
+assert.match(
+  clipCardThumbnails,
+  /export function ClipImageThumbnail[\s\S]*?<SafeRasterImage/,
+  'The shared image thumbnail surface must retain SafeRasterImage validation',
+);
+assert.doesNotMatch(quickHud, /<img\b/, 'The HUD must not bypass its safe thumbnail surface');
 assert.match(rustSource, /validate_raster_data_url/, 'Native clip and icon boundaries must validate raster data URLs');
 assert.doesNotMatch(frontendSource, /\b(?:eval|Function)\s*\(/, 'Frontend dynamic code execution is forbidden');
 assert.match(clipActions, /htmlToPlainText\(clip\.text_content\)/, 'Plain-text copying must use the shared HTML parser');

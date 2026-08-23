@@ -3,6 +3,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { consumePendingBackupClientState } from '../utils/backupClientState';
 import { dismissStartupSplash } from '../utils/startupSplash';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { isQuickHudRoute } from '../components/quickHudModel';
 
 const TRANSIENT_SCROLL_SURFACE_SELECTOR = [
   '.surface-scroll-region',
@@ -32,7 +33,7 @@ export function useAppShell({
   initialDataLoaded,
 }: UseAppShellOptions) {
   const previousTitlebarDirectionRef = useRef(direction);
-  const [isHudView, setIsHudView] = useState(false);
+  const [isHudView, setIsHudView] = useState(() => isQuickHudRoute(window.location.search));
 
   useEffect(() => {
     void consumePendingBackupClientState()
