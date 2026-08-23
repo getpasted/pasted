@@ -5,6 +5,7 @@ export const analysisApi = {
   analyticsSummary: <T>() => invoke<T>('get_analytics_summary'),
   listClassifiers: <T>() => invoke<T[]>('get_content_classifiers'),
   listExtractors: <T>() => invoke<T[]>('get_content_extractors'),
+  extractorRuntime: <T>(reference: string) => invoke<T>('get_content_extractor_runtime', { reference }),
   listInspectors: <T>() => invoke<T[]>('get_content_inspectors'),
   listContentTypes: <T>(includeArchived = true) => invoke<T[]>('get_content_types', { includeArchived }),
   listContentTypeGroups: <T>(includeArchived = true) => invoke<T[]>('get_content_type_groups', { includeArchived }),

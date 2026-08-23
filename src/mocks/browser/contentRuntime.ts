@@ -57,6 +57,11 @@ export async function invokeContentBrowserMock<T>(
       return mockClassifiers.map((classifier) => ({ ...classifier, patterns: [...classifier.patterns] })) as unknown as T;
     case 'get_content_extractors':
       return mockExtractors.map((extractor) => ({ ...extractor, recipe: structuredClone(extractor.recipe), defaultRecipe: extractor.defaultRecipe ? structuredClone(extractor.defaultRecipe) : null, defaults: extractor.defaults ? { ...extractor.defaults } : null })) as unknown as T;
+    case 'get_content_extractor_runtime': {
+      const extractor = mockExtractors.find((item) => item.stableRef === args?.reference);
+      if (!extractor) throw new Error('Extractor not found.');
+      return structuredClone(extractor.runtime) as unknown as T;
+    }
     case 'choose_extractor_executable':
       return '/mock/bin/custom-extractor' as unknown as T;
     case 'choose_extractor_resource_file':

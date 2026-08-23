@@ -240,6 +240,7 @@ mod format_defaults;
 mod outcome;
 #[cfg(test)]
 mod preset_tests;
+mod runtime_status;
 pub fn system_engine_registry() -> ExtractorEngineRegistry<'static> {
     engine_runtime::system_engine_registry()
 }
@@ -389,22 +390,6 @@ pub const EXTRACTOR_PRESETS: &[ExtractorPreset] = &[
         revision: 4,
     },
 ];
-
-pub fn engine_availability(engine: &str) -> EngineAvailability {
-    system_engine_registry().availability(engine)
-}
-
-pub fn engine_availability_for(
-    engine: &str,
-    executable_path: Option<&str>,
-    model_path: Option<&str>,
-) -> EngineAvailability {
-    system_engine_registry().availability_for(
-        engine,
-        executable_path.map(Path::new),
-        model_path.map(Path::new),
-    )
-}
 
 pub fn validate_extractor_input(input: &ExtractorInput) -> Result<(), String> {
     if input.name.trim().is_empty() || input.name.trim().len() > 80 {
@@ -777,6 +762,10 @@ pub fn merge_shipped_definition(
     }
 }
 
-pub use engine_runtime::{run_bundled_extractor_helper, runtime_status_for};
+pub use engine_runtime::run_bundled_extractor_helper;
+pub use runtime_status::{
+    engine_availability, engine_availability_for, inspect_extractor_runtime, runtime_status_for,
+    runtime_status_summary_for,
+};
 #[cfg(test)]
 mod tests;

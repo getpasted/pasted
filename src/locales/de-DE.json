@@ -649,6 +649,8 @@
   "component.contentExtractorManagerDialog.engineContractsIdentifyTheRuntimeAdapterAndProtocolVersionAndAreManaged": "Engine-Verträge bestimmen den Laufzeitadapter und die Protokollversion und werden automatisch verwaltet.",
   "component.contentExtractorManagerDialog.extractorMethod": "Extraktionsverfahren",
   "component.contentExtractorManagerDialog.extractors": "Extraktoren",
+  "component.contentExtractorManagerDialog.loadingExtractors": "Extraktoren werden geladen…",
+  "component.contentExtractorManagerDialog.loadingRuntime": "Wird geladen…",
   "component.contentExtractorManagerDialog.extractorSettings": "Extractor-Einstellungen",
   "component.contentExtractorManagerDialog.extractsSearchableTextWithALocalCommand": "Extrahiert durchsuchbaren Text mit einem lokalen Befehl.",
   "component.contentExtractorManagerDialog.fieldToStandardOutputItRunsLocallyWithA60SecondLimit": "Feld auf Standard-Ausgabe. Es läuft lokal mit einer 60-Sekunden-Grenze.",

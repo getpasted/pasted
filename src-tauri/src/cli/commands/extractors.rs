@@ -37,7 +37,9 @@ pub(crate) fn run_extractor(args: Vec<String>, db_path: PathBuf, conn: Connectio
                 eprintln!("Usage: pasted extractor get <ref> [--json]");
                 std::process::exit(2);
             });
-            let extractor = db.get_content_extractor(reference)?;
+            let mut extractor = db.get_content_extractor(reference)?;
+            extractor.runtime =
+                pasted_lib::content_extraction::inspect_extractor_runtime(&extractor);
             print_extractor(&extractor, args.iter().any(|argument| argument == "--json"))?;
         }
         "create" | "new" => {

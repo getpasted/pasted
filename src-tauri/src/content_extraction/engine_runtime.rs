@@ -271,7 +271,7 @@ pub(super) fn system_engine_registry() -> ExtractorEngineRegistry<'static> {
     ExtractorEngineRegistry::new(&SYSTEM_ENGINES)
 }
 
-fn configured_or_discovered_executable(
+pub(super) fn configured_or_discovered_executable(
     configured: Option<&Path>,
     discover: impl FnOnce() -> Option<std::path::PathBuf>,
 ) -> Option<std::path::PathBuf> {
@@ -308,105 +308,6 @@ fn whisper_model_availability(model_path: Option<&Path>) -> EngineAvailability {
     EngineAvailability {
         is_available: true,
         unavailable_reason: None,
-    }
-}
-
-fn runtime_dependency(
-    name: &str,
-    path: Option<std::path::PathBuf>,
-    version_arguments: &[&str],
-    unavailable_reason: &str,
-) -> ExtractorRuntimeDependency {
-    let is_available = path.is_some();
-    let version = path
-        .as_deref()
-        .and_then(|path| crate::external_tools::probe_version(path, version_arguments));
-    ExtractorRuntimeDependency {
-        name: name.into(),
-        location: path
-            .as_deref()
-            .map(|path| path.to_string_lossy().into_owned()),
-        version,
-        is_available,
-        unavailable_reason: (!is_available).then(|| unavailable_reason.into()),
-    }
-}
-
-pub fn runtime_status_for(engine: &str, executable_path: Option<&str>) -> ExtractorRuntimeStatus {
-    let configured = executable_path.map(Path::new);
-    match engine {
-        APPLE_VISION_ENGINE => ExtractorRuntimeStatus {
-            method: "system".into(),
-            location: Some("macOS Vision framework".into()),
-            version: apple_vision_runtime_version(),
-            uses_automatic_discovery: false,
-            dependencies: Vec::new(),
-        },
-        TESSERACT_ENGINE => {
-            let path = configured_or_discovered_executable(configured, find_tesseract_executable);
-            let version = path
-                .as_deref()
-                .and_then(|path| crate::external_tools::probe_version(path, &["--version"]));
-            ExtractorRuntimeStatus {
-                method: "command".into(),
-                location: path
-                    .as_deref()
-                    .map(|path| path.to_string_lossy().into_owned()),
-                version,
-                uses_automatic_discovery: configured.is_none(),
-                dependencies: Vec::new(),
-            }
-        }
-        WHISPER_CPP_ENGINE => {
-            let path = configured_or_discovered_executable(configured, find_whisper_cpp_executable);
-            let version = path
-                .as_deref()
-                .and_then(|path| crate::external_tools::probe_version(path, &["--version"]));
-            ExtractorRuntimeStatus {
-                method: "command".into(),
-                location: path
-                    .as_deref()
-                    .map(|path| path.to_string_lossy().into_owned()),
-                version,
-                uses_automatic_discovery: configured.is_none(),
-                dependencies: vec![runtime_dependency(
-                    "FFmpeg",
-                    find_ffmpeg_executable(),
-                    &["-version"],
-                    "FFmpeg is not installed. M4A and AAC audio cannot be prepared.",
-                )],
-            }
-        }
-        CUSTOM_COMMAND_ENGINE => {
-            let path = configured.filter(|path| crate::external_tools::is_executable(path));
-            ExtractorRuntimeStatus {
-                method: "command".into(),
-                location: path.map(|path| path.to_string_lossy().into_owned()),
-                version: path
-                    .and_then(|path| crate::external_tools::probe_version(path, &["--version"])),
-                uses_automatic_discovery: false,
-                dependencies: Vec::new(),
-            }
-        }
-        _ => ExtractorRuntimeStatus {
-            method: "unregistered".into(),
-            location: executable_path.map(str::to_string),
-            version: None,
-            uses_automatic_discovery: false,
-            dependencies: Vec::new(),
-        },
-    }
-}
-
-fn apple_vision_runtime_version() -> Option<String> {
-    #[cfg(target_os = "macos")]
-    {
-        crate::external_tools::probe_version(Path::new("/usr/bin/sw_vers"), &["-productVersion"])
-            .map(|version| format!("macOS {version}"))
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        None
     }
 }
 
@@ -568,7 +469,7 @@ pub(super) fn find_tesseract_executable() -> Option<std::path::PathBuf> {
     crate::external_tools::find_executable(name, explicit)
 }
 
-fn find_whisper_cpp_executable() -> Option<std::path::PathBuf> {
+pub(super) fn find_whisper_cpp_executable() -> Option<std::path::PathBuf> {
     #[cfg(windows)]
     let (name, explicit) = (
         "whisper-cli.exe",

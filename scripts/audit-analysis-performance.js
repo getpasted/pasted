@@ -6,6 +6,8 @@ const reference = JSON.parse(read('docs/baselines/analysis-macos-arm64.json'));
 const harness = read('src-tauri/examples/analysis_baseline.rs');
 const packageJson = JSON.parse(read('package.json'));
 const extractorRuntime = read('src-tauri/src/db/extractors/runtime.rs');
+const extractorRecipeRuntime = read('src-tauri/src/extractor_recipe/runtime_status.rs');
+const extractorRuntimeCommands = read('src-tauri/src/commands/extractors/runtime.rs');
 const extractionCommands = read('src-tauri/src/commands/extraction/ocr_backfill.rs');
 const ocrSettings = read('src/components/SettingsOcrPanel.tsx');
 const externalTools = read('src-tauri/src/external_tools.rs');
@@ -30,15 +32,15 @@ assert.match(packageJson.scripts['bench:analysis'], /cargo run --release[\s\S]*-
 assert.doesNotMatch(packageJson.scripts['test:all'], /bench:analysis/,
   'Wall-clock Analysis benchmarks must remain outside ordinary correctness CI');
 
-const storedExtractorLoad = extractorRuntime.indexOf('let stored = {');
-const runtimeDecoration = extractorRuntime.indexOf('runtime_status(&recipe)');
-assert.ok(storedExtractorLoad >= 0 && runtimeDecoration > storedExtractorLoad,
-  'Extractor persistence must load records before decorating runtime status');
-assert.match(
-  extractorRuntime.slice(storedExtractorLoad, runtimeDecoration),
-  /let stored = rows\.collect::<Result<Vec<_>>>\(\)\?;[\s\S]*drop\(conn\);[\s\S]*};[\s\S]*stored/,
-  'The SQLite connection scope must end before external Extractor runtime probes begin',
-);
+assert.match(extractorRuntime, /runtime_status_summary\(&recipe\)/,
+  'Ordinary Extractor reads must use non-blocking runtime summaries');
+assert.doesNotMatch(extractorRuntime, /probe_version|runtime_status\(&recipe\)/,
+  'Ordinary Extractor reads must never launch external version probes');
+assert.match(extractorRecipeRuntime, /build_runtime_status\(recipe, false\)/,
+  'Extractor runtime summaries must explicitly disable version probes');
+assert.match(extractorRuntimeCommands,
+  /pub async fn get_content_extractor_runtime[\s\S]*spawn_blocking[\s\S]*inspect_extractor_runtime/,
+  'Detailed Extractor runtime inspection must remain an explicit background command');
 assert.match(extractionCommands,
   /pub async fn get_ocr_backfill_status[\s\S]*spawn_blocking/,
   'OCR status database reads must not block the Tauri event loop');

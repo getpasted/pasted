@@ -649,6 +649,8 @@
   "component.contentExtractorManagerDialog.engineContractsIdentifyTheRuntimeAdapterAndProtocolVersionAndAreManaged": "Os contratos do motor identificam o adaptador de tempo de execução e a versão do protocolo e são gerenciados automaticamente.",
   "component.contentExtractorManagerDialog.extractorMethod": "Método do Extractor",
   "component.contentExtractorManagerDialog.extractors": "Extratores",
+  "component.contentExtractorManagerDialog.loadingExtractors": "Carregando Extratores…",
+  "component.contentExtractorManagerDialog.loadingRuntime": "Carregando…",
   "component.contentExtractorManagerDialog.extractorSettings": "Configurações do Extractor",
   "component.contentExtractorManagerDialog.extractsSearchableTextWithALocalCommand": "Extrai texto pesquisável com um comando local.",
   "component.contentExtractorManagerDialog.fieldToStandardOutputItRunsLocallyWithA60SecondLimit": "para a saída padrão. Ele é executado localmente, com um limite de 60 segundos.",

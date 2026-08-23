@@ -5,6 +5,8 @@ use tauri_plugin_dialog::DialogExt;
 
 use crate::db::DbState;
 
+pub(crate) mod runtime;
+
 #[tauri::command]
 pub async fn get_content_extractors(
     db: State<'_, Arc<DbState>>,
@@ -17,6 +19,7 @@ pub async fn get_content_extractors(
     .await
     .map_err(|error| error.to_string())?
 }
+
 #[tauri::command]
 pub async fn choose_extractor_executable(app: AppHandle) -> Result<Option<String>, String> {
     let Some(selected_file) = app

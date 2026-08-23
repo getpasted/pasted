@@ -80,7 +80,7 @@ fn decorate_runtime(stored: StoredExtractor) -> Result<crate::content_extraction
     let (availability, runtime) = if stored.engine == crate::content_extraction::RECIPE_ENGINE {
         (
             crate::extractor_recipe::availability(&recipe),
-            crate::extractor_recipe::runtime_status(&recipe),
+            crate::extractor_recipe::runtime_status_summary(&recipe),
         )
     } else {
         (
@@ -89,7 +89,7 @@ fn decorate_runtime(stored: StoredExtractor) -> Result<crate::content_extraction
                 stored.executable_path.as_deref(),
                 stored.model_path.as_deref(),
             ),
-            crate::content_extraction::runtime_status_for(
+            crate::content_extraction::runtime_status_summary_for(
                 &stored.engine,
                 stored.executable_path.as_deref(),
             ),

@@ -661,6 +661,8 @@
   "component.contentExtractorManagerDialog.engineContractsIdentifyTheRuntimeAdapterAndProtocolVersionAndAreManaged": "تحدد عقود المحركات المزود والمستوى والبروتوكول، ويتم إدارتها تلقائيًا.",
   "component.contentExtractorManagerDialog.extractorMethod": "طريقة المستخلص",
   "component.contentExtractorManagerDialog.extractors": "المستخلصات",
+  "component.contentExtractorManagerDialog.loadingExtractors": "جارٍ تحميل المستخلصات…",
+  "component.contentExtractorManagerDialog.loadingRuntime": "جارٍ التحميل…",
   "component.contentExtractorManagerDialog.extractorSettings": "إعدادات المستخلص",
   "component.contentExtractorManagerDialog.extractsSearchableTextWithALocalCommand": "يستخرج نصًا قابلاً للبحث باستخدام أمر محلي.",
   "component.contentExtractorManagerDialog.fieldToStandardOutputItRunsLocallyWithA60SecondLimit": "إلى الإخراج القياسي. يتم تشغيله محليًا مع حد زمني قدره 60 ثانية.",

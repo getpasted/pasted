@@ -575,6 +575,7 @@ pub fn run() {
             commands::activity::export_activity_csv,
             commands::content_registry::get_content_classifiers,
             commands::extractors::get_content_extractors,
+            commands::extractors::runtime::get_content_extractor_runtime,
             commands::analysis::get_content_inspectors,
             commands::extractors::choose_extractor_executable,
             commands::extractors::choose_extractor_resource_file,

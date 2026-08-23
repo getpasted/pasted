@@ -9,7 +9,9 @@ use std::time::Duration;
 use crate::content_extraction::{ExtractionFailure, ExtractionOutcome};
 
 mod local_configuration;
+mod runtime_status;
 pub use local_configuration::reset_preserving_local_paths;
+pub use runtime_status::{runtime_status, runtime_status_summary};
 
 pub const EXTRACTOR_RECIPE_VERSION: u32 = 1;
 pub const EXTRACTOR_AUTHORING_VERSION: u32 = 1;
@@ -451,81 +453,6 @@ pub fn availability(recipe: &ExtractorRecipe) -> crate::content_extraction::Engi
     crate::content_extraction::EngineAvailability {
         is_available: true,
         unavailable_reason: None,
-    }
-}
-
-pub fn runtime_status(
-    recipe: &ExtractorRecipe,
-) -> crate::content_extraction::ExtractorRuntimeStatus {
-    let primary = recipe.steps.first();
-    let location = primary
-        .and_then(|step| resolve_executable(&step.executable))
-        .map(|path| path.to_string_lossy().into_owned());
-    let version = primary.and_then(|step| {
-        if step.executable.version_arguments.is_empty() {
-            return None;
-        }
-        let path = resolve_executable(&step.executable)?;
-        let arguments = step
-            .executable
-            .version_arguments
-            .iter()
-            .map(String::as_str)
-            .collect::<Vec<_>>();
-        crate::external_tools::probe_version(&path, &arguments)
-    });
-    let mut dependencies = recipe
-        .steps
-        .iter()
-        .skip(1)
-        .map(|step| {
-            let path = resolve_executable(&step.executable);
-            let version = path.as_deref().and_then(|path| {
-                (!step.executable.version_arguments.is_empty()).then(|| {
-                    crate::external_tools::probe_version(
-                        path,
-                        &step
-                            .executable
-                            .version_arguments
-                            .iter()
-                            .map(String::as_str)
-                            .collect::<Vec<_>>(),
-                    )
-                })?
-            });
-            crate::content_extraction::ExtractorRuntimeDependency {
-                name: step.id.clone(),
-                location: path
-                    .as_deref()
-                    .map(|path| path.to_string_lossy().into_owned()),
-                version,
-                is_available: path.is_some(),
-                unavailable_reason: path
-                    .is_none()
-                    .then(|| format!("{} is unavailable.", step.id)),
-            }
-        })
-        .collect::<Vec<_>>();
-    dependencies.extend(recipe.resources.iter().map(|resource| {
-        let available = resource
-            .path
-            .as_deref()
-            .is_some_and(|path| resource_path_is_available(resource, Path::new(path)));
-        crate::content_extraction::ExtractorRuntimeDependency {
-            name: resource.label.clone(),
-            location: resource.path.clone(),
-            version: None,
-            is_available: available || !resource.required,
-            unavailable_reason: (resource.required && !available)
-                .then(|| format!("{} is unavailable.", resource.label)),
-        }
-    }));
-    crate::content_extraction::ExtractorRuntimeStatus {
-        method: "recipe".into(),
-        location,
-        version,
-        uses_automatic_discovery: primary.is_some_and(|step| step.executable.path.is_none()),
-        dependencies,
     }
 }
 
