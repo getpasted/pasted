@@ -25,6 +25,7 @@ const TOOL_COPY_FILES = [
   'src/components/OperationEditorModal.tsx',
   'src/components/OperationsManager.tsx',
   'src/components/ManualTransformEditorModal.tsx',
+  'src/components/ManualTransformStepEditor.tsx',
   'src/components/SettingsAboutPanel.tsx',
   'src/components/SettingsBlacklistPanel.tsx',
   'src/components/SettingsAnalysisPanel.tsx',

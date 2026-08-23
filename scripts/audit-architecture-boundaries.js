@@ -638,6 +638,9 @@ const sizeRatchets = new Map([
   ['src/components/HelpView.tsx', 385],
   ['src/components/HelpCliTopic.tsx', 115],
   ['src/components/helpCliCatalog.ts', 159],
+  ['src/components/ManualTransformEditorModal.tsx', 218],
+  ['src/components/ManualTransformStepEditor.tsx', 168],
+  ['src/components/manualTransformStepModel.ts', 100],
   ['src/components/clipPreviewModel.ts', 162],
   ['src/components/fileClipPreviewLoader.ts', 53],
   ['src/components/fileClipPreviewModel.ts', 9],
@@ -831,6 +834,14 @@ assert.match(read('src/components/HelpCliTopic.tsx'), /helpCliCatalog/,
   'The Help CLI topic must compose its command catalog');
 assert.match(read('src/components/helpCliCatalog.ts'), /pasted classifier create[\s\S]*pasted activity import/,
   'The Help CLI catalog must retain analysis and Activity command coverage');
+
+const manualTransformShell = read('src/components/ManualTransformEditorModal.tsx');
+assert.match(manualTransformShell, /<ManualTransformStepEditor/,
+  'The Manual Transform editor must compose its focused step editor');
+assert.doesNotMatch(manualTransformShell, /OPERATION_CATEGORIES|findPattern:[\s\S]*replacePattern:/,
+  'The Manual Transform shell must not reclaim operation presentation or step serialization');
+assert.match(read('src/components/manualTransformStepModel.ts'), /compileManualTransformStep/,
+  'Manual Transform step serialization must remain a testable domain boundary');
 
 const contentAnalysisFacade = read('src-tauri/src/content_analysis.rs');
 assert.match(contentAnalysisFacade, /mod pipeline;/,

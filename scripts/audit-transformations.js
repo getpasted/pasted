@@ -30,6 +30,7 @@ const cli = readRustModuleTree('src-tauri/src/bin/pasted.rs', 'src-tauri/src/cli
 const transformStorageDecision = read('docs/TRANSFORM_STORAGE_DECISION.md');
 const compactEditorTypography = [
   'src/components/ManualTransformEditorModal.tsx',
+  'src/components/ManualTransformStepEditor.tsx',
   'src/components/OperationEditorModal.tsx',
   'src/components/IntentTransformComposer.tsx',
   'src/components/TransformationLibrary.tsx',

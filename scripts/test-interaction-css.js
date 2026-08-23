@@ -11,7 +11,10 @@ const sidebar = read('src/styles/clips-sidebar.css');
 const theme = read('src/styles/theme-primitives.css');
 const foundation = read('src/styles/foundation.css');
 const utilities = read('src/styles/utilities.css');
-const manualTransformEditor = read('src/components/ManualTransformEditorModal.tsx');
+const manualTransformEditor = [
+  'src/components/ManualTransformEditorModal.tsx',
+  'src/components/ManualTransformStepEditor.tsx',
+].map(read).join('\n');
 const reorderHook = read('src/hooks/useStableVerticalReorder.ts');
 const sidebarComponent = [
   'src/components/Sidebar.tsx',
@@ -46,8 +49,8 @@ assert.doesNotMatch(accessibility, /!important/);
 // of making the entire editor card a pointer-only drag target.
 assert.match(manualTransformEditor, /aria-label=\{translate\('component\.pipelineEditorModal\.moveStepUp'\)\}/);
 assert.match(manualTransformEditor, /aria-label=\{translate\('component\.pipelineEditorModal\.moveStepDown'\)\}/);
-assert.match(manualTransformEditor, /handleMoveStep\(idx, -1\)/);
-assert.match(manualTransformEditor, /handleMoveStep\(idx, 1\)/);
+assert.match(manualTransformEditor, /handleMoveStep\(index, -1\)/);
+assert.match(manualTransformEditor, /handleMoveStep\(index, 1\)/);
 assert.doesNotMatch(manualTransformEditor, /data-stable-reorder-id|onReorderPointerDown|cursor-grab|GripVertical/);
 
 // Settings action clusters wrap before they can collapse headings or
