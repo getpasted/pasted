@@ -4,7 +4,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use crate::db::DbState;
 
 pub(crate) const HUD_WIDTH: f64 = 360.0;
-pub(crate) const HUD_HEIGHT: f64 = 480.0;
+pub(crate) const HUD_HEIGHT: f64 = 448.0;
 
 pub fn hide(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("hud") {
