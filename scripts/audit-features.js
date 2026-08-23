@@ -4,7 +4,7 @@ import { readRustModuleTree } from './audit-source-trees.js';
 
 const read = (path) => fs.readFileSync(path, 'utf8');
 const frontendRegistry = read('src/utils/features.ts');
-const settingsType = read('src/types.ts');
+const settingsType = read('src/appSettingsTypes.ts');
 const settingsHook = read('src/hooks/useAppSettings.ts');
 const nativePolicy = read('src-tauri/src/features.rs');
 const nativeRoot = read('src-tauri/src/lib.rs');
