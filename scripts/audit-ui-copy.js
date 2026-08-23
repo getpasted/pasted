@@ -113,7 +113,11 @@ const helpView = [
   'src/components/HelpView.tsx',
   'src/components/helpCliCatalog.ts',
 ].map((file) => fs.readFileSync(file, 'utf8')).join('\n');
-const app = fs.readFileSync('src/App.tsx', 'utf8');
+const app = [
+  fs.readFileSync('src/App.tsx', 'utf8'),
+  fs.readFileSync('src/components/AppShellView.tsx', 'utf8'),
+  fs.readFileSync('src/components/AppDestinationView.tsx', 'utf8'),
+].join('\n');
 const appNavigation = fs.readFileSync('src/utils/appNavigation.ts', 'utf8');
 const nativeMenu = fs.readFileSync('src-tauri/src/app_menu.rs', 'utf8');
 const englishCatalog = JSON.parse(fs.readFileSync('src/locales/en.json', 'utf8'));

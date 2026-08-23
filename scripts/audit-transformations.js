@@ -19,7 +19,7 @@ const clipPreview = [
   'src/hooks/useClipPreviewTransforms.ts',
 ].map(read).join('\n');
 const sound = read('src/utils/sound.ts');
-const app = read('src/App.tsx');
+const app = [read('src/App.tsx'), read('src/hooks/useAppController.ts')].join('\n');
 const analytics = read('src/components/AnalyticsView.tsx');
 const database = readRustModuleTree('src-tauri/src/db.rs', 'src-tauri/src/db');
 const operationEditor = read('src/components/OperationEditorModal.tsx');

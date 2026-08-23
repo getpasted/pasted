@@ -42,7 +42,10 @@ for (const file of filesUnder('src/styles', '.css')) {
 
 const provider = fs.readFileSync('src/localization/LocalizationProvider.tsx', 'utf8');
 const main = fs.readFileSync('src/main.tsx', 'utf8');
-const app = fs.readFileSync('src/App.tsx', 'utf8');
+const app = [
+  fs.readFileSync('src/App.tsx', 'utf8'),
+  fs.readFileSync('src/components/AppShellView.tsx', 'utf8'),
+].join('\n');
 const appShell = fs.readFileSync('src/hooks/useAppShell.ts', 'utf8');
 const runtime = fs.readFileSync('src/localization/runtime.ts', 'utf8');
 const preview = fs.readFileSync('src/components/ClipPreviewContent.tsx', 'utf8');
