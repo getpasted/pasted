@@ -5,10 +5,11 @@ import { clipsApi } from '../api/clips';
 import { listen } from '@tauri-apps/api/event';
 import { ClipItem, getClipFileSummary } from '../types';
 import { OverflowText } from './OverflowText';
-import { SafeRasterImage } from './SafeRasterImage';
 import { translate } from '../localization/runtime';
 import { SearchErrorNotice } from './SearchErrorNotice';
 import { useFeatures } from '../hooks/useFeatures';
+import { ClipImageThumbnail } from './ClipCardThumbnails';
+import { hudPasteShortcutIndex, hudPrimaryModifierLabel } from './quickHudModel';
 
 export const QuickHudWindow: React.FC = () => {
   const features = useFeatures();
@@ -32,6 +33,7 @@ export const QuickHudWindow: React.FC = () => {
   const fetchRevisionRef = useRef(0);
   const clipsRef = useRef(clips);
   const selectedIndexRef = useRef(selectedIndex);
+  const primaryModifier = hudPrimaryModifierLabel(document.documentElement.dataset.platform);
   clipsRef.current = clips;
   selectedIndexRef.current = selectedIndex;
 
@@ -79,8 +81,9 @@ export const QuickHudWindow: React.FC = () => {
       await invoke('toggle_hud_window');
       return;
     }
-    if (/^[1-9]$/.test(e.key) && !e.metaKey && !e.ctrlKey && !e.altKey) {
-      const idx = parseInt(e.key, 10) - 1;
+    const shortcutIndex = hudPasteShortcutIndex(e);
+    if (shortcutIndex !== null) {
+      const idx = shortcutIndex;
       const clip = clipsRef.current[idx];
       if (clip) {
         e.preventDefault();
@@ -210,7 +213,7 @@ export const QuickHudWindow: React.FC = () => {
           role="listbox"
           aria-label={translate('component.quickHudWindow.recentClips')}
           aria-busy={isPasting}
-          className="custom-scrollbar flex-1 overflow-y-auto p-2 space-y-1.5"
+          className="custom-scrollbar flex-1 overflow-y-auto p-1.5 space-y-1"
         >
           {searchFailed && <SearchErrorNotice onRetry={() => void fetchClipsRef.current()} />}
           {clips.length === 0 && !searchFailed ? (
@@ -221,7 +224,7 @@ export const QuickHudWindow: React.FC = () => {
           ) : (
             clips.map((clip, index) => {
               const isSel = index === selectedIndex;
-              const previewText = clip.content_type === 'image' && clip.image_base64
+              const previewText = clip.content_type === 'image'
                 ? clip.text_content ? translate('component.quickHudWindow.ocrText', { text: clip.text_content }) : translate('component.quickHudWindow.screenshotImage')
                 : clip.content_type === 'file'
                   ? getClipFileSummary(clip)
@@ -234,7 +237,7 @@ export const QuickHudWindow: React.FC = () => {
                   aria-selected={isSel}
                   onPointerDown={() => setSelectedIndex(index)}
                   onClick={() => activateClip(clip)}
-                  className={`quick-hud-row p-2.5 rounded-xl border cursor-pointer flex items-center justify-between space-x-3 ${isSel ? 'is-selected shadow-md' : ''}`}
+                  className={`quick-hud-row px-2 py-1 rounded-lg border cursor-pointer flex items-center justify-between space-x-2 ${isSel ? 'is-selected shadow-md' : ''}`}
                 >
                   <div className="flex items-center space-x-2.5 min-w-0 flex-1">
                     <span
@@ -244,12 +247,13 @@ export const QuickHudWindow: React.FC = () => {
                     </span>
 
                     <div className="min-w-0 flex-1">
-                      {clip.content_type === 'image' && clip.image_base64 ? (
+                      {clip.content_type === 'image' ? (
                         <div className="flex items-center space-x-2">
-                          <SafeRasterImage
-                            source={clip.image_base64}
-                            alt={translate('component.quickHudWindow.clipPreview')}
-                            className="theme-divider h-8 w-12 object-cover rounded border"
+                          <ClipImageThumbnail
+                            clipId={clip.id}
+                            contentHash={clip.content_hash}
+                            maxHeightClass="h-4 w-7"
+                            placeholderHeightClass="h-6 w-9"
                           />
                           <OverflowText text={previewText} className="theme-text-muted text-xs font-mono truncate" />
                         </div>
@@ -280,7 +284,7 @@ export const QuickHudWindow: React.FC = () => {
             </span>
           ) : (
             <>
-              <span>{translate('component.quickHudWindow.value19OrEnterToPaste')}</span>
+              <span>{translate('component.quickHudWindow.value19OrEnterToPaste', { modifier: primaryModifier })}</span>
               <span>{translate('component.quickHudWindow.escToHide')}</span>
             </>
           )}

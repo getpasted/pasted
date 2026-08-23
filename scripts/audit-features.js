@@ -45,6 +45,7 @@ const clipPreview = [
 ].map(read).join('\n');
 const clipNameDialog = read('src/components/ClipNameDialog.tsx');
 const quickHud = read('src/components/QuickHudWindow.tsx');
+const appShell = read('src/hooks/useAppShell.ts');
 const settingsHotkeys = read('src/components/SettingsHotkeysPanel.tsx');
 const cli = readRustModuleTree('src-tauri/src/bin/pasted.rs', 'src-tauri/src/cli');
 const frontendDefinitions = frontendRegistry.match(/export const FEATURE_DEFINITIONS[\s\S]*?\n\] as const;/)?.[0] ?? '';
@@ -167,6 +168,21 @@ assert.match(
   quickHud,
   /features\.search && <div className="relative flex-1">/,
   'Clip Search must own the Quick HUD search field',
+);
+assert.match(
+  appShell,
+  /useState\(\(\) => isQuickHudRoute\(window\.location\.search\)\)/,
+  'The HUD route must be known before the first render so main-window content cannot flash',
+);
+assert.match(
+  quickHud,
+  /hudPasteShortcutIndex\(e\)/,
+  'HUD positional paste must use the tested primary-modifier shortcut contract',
+);
+assert.match(
+  quickHud,
+  /<ClipImageThumbnail[\s\S]{0,160}clipId=\{clip\.id\}/,
+  'Image search results in the HUD must load their safe thumbnail independently',
 );
 assert.match(
   settingsModal,

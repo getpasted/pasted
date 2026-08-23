@@ -20,7 +20,7 @@ const overrides = {
   'component.helpView.commandReferenceDescription': 'レコードや変更内容を返すコマンドでは、表示されている箇所で{flag}を使用できます。無効な機能に関連するコマンドは、動作を暗黙に変えるのではなくエラーになります。',
   'component.helpView.customExtractorProtocolDescription': 'カスタムコマンドは、制限付きの{protocol}プロトコルを通じて画像データやファイル参照を検索可能なテキストに変換できます。',
   'component.helpView.dismissHudShortcutDescription': '{key}を押すと、HUDまたは開いているメニューをすぐに閉じます。',
-  'component.helpView.hudNumberShortcutDescription': 'HUDで{start}から{end}の数字キーを押すと、{start}から{end}番目の項目をすぐに貼り付けます。',
+  'component.helpView.hudNumberShortcutDescription': 'HUDで{modifier}{start}から{modifier}{end}を押すと、{start}から{end}番目の項目をすぐに貼り付けます。',
   'component.helpView.ocrStatusDescription': 'OCRを無効にすると、バックグラウンド処理がキャンセルされ、遅れて届いた結果は破棄されます。完了済みのテキストは保持されます。進行状況は{command}で確認できます。',
   'component.helpView.openHudShortcutDescription': '{shortcut}を押すと、ポインターの近くにコンパクトなクリップボードウィンドウが開きます。矢印キーで移動し、Returnキーで貼り付けます。',
   'component.helpView.permanentDeleteShortcutDescription': '{modifier}キーを押している間、ゴミ箱アイコンが赤い{symbol}ボタンに変わり、ゴミ箱を経由せずに項目を完全に削除できます。',

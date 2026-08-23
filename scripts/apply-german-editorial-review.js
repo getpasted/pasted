@@ -17,7 +17,7 @@ const overrides = {
   'component.deleteTransformationAssetDialog.removesKindFromLibrary': 'Dadurch wird {kind} aus der Bibliothek entfernt. Bereits damit erstellte oder geänderte Clips bleiben unverändert.',
   'component.helpView.classifierRescanDescription': 'Änderungen an einem Klassifikator wirken sich auf neue Textclips aus. {action} wendet die aktuelle Klassifikatorreihenfolge erneut an und kann Inhaltstypen, die Zugehörigkeit zu intelligenten Sammlungen und die Maskierung sensibler Inhalte ändern.',
   'component.helpView.commandReferenceDescription': 'Befehle, die Datensätze oder Änderungsdetails zurückgeben, unterstützen an den angegebenen Stellen {flag}. Deaktivierte Funktionen lehnen die zugehörigen Befehle ab, statt ihr Verhalten stillschweigend zu ändern.',
-  'component.helpView.hudNumberShortcutDescription': 'Drücken Sie im HUD die Zahlen {start} bis {end}, um die Elemente {start} bis {end} sofort einzufügen.',
+  'component.helpView.hudNumberShortcutDescription': 'Drücken Sie im HUD {modifier}{start} bis {modifier}{end}, um die Elemente {start} bis {end} sofort einzufügen.',
   'component.helpView.ocrStatusDescription': 'Durch das Deaktivieren von OCR werden Hintergrundarbeiten abgebrochen und verspätete Ergebnisse verworfen; bereits erstellter Text bleibt erhalten. Fortschritt mit {command} prüfen.',
   'component.helpView.openHudShortcutDescription': 'Drücken Sie {shortcut}, um das kompakte Zwischenablagefenster am Mauszeiger zu öffnen. Mit den Pfeiltasten navigieren und mit Return einfügen.',
   'component.helpView.permanentDeleteShortcutDescription': 'Wenn Sie {modifier} gedrückt halten, wird das Papierkorbsymbol zu einer roten {symbol}-Schaltfläche, mit der Elemente unter Umgehung des Papierkorbs endgültig gelöscht werden.',

@@ -15,7 +15,7 @@ const overrides = {
   'component.helpView.classifierRescanDescription': 'La modification d’un classificateur affecte les nouveaux clips de texte. {action} réapplique explicitement l’ordre actuel des classificateurs et peut modifier les types de contenu, l’appartenance aux collections intelligentes et le masquage du contenu sensible.',
   'component.helpView.commandReferenceDescription': 'Les commandes qui renvoient des enregistrements ou les détails d’une modification prennent en charge {flag} aux endroits indiqués. Les fonctionnalités désactivées refusent les commandes associées au lieu de changer silencieusement de comportement.',
   'component.helpView.dismissHudShortcutDescription': 'Appuyez sur {key} pour fermer immédiatement le HUD ou un menu ouvert.',
-  'component.helpView.hudNumberShortcutDescription': 'Dans le HUD, appuyez sur les chiffres {start} à {end} pour coller immédiatement les éléments {start} à {end}.',
+  'component.helpView.hudNumberShortcutDescription': 'Dans le HUD, appuyez sur {modifier}{start} à {modifier}{end} pour coller immédiatement les éléments {start} à {end}.',
   'component.helpView.ocrStatusDescription': 'La désactivation de l’OCR annule les tâches en arrière-plan et ignore les résultats tardifs tout en conservant le texte déjà produit. Consultez la progression avec {command}.',
   'component.helpView.openHudShortcutDescription': 'Appuyez sur {shortcut} pour ouvrir la fenêtre compacte du presse-papiers près du pointeur. Utilisez les touches fléchées pour naviguer et Retour pour coller.',
   'component.helpView.permanentDeletionDescription': 'La suppression est définitive lorsque vous maintenez Option ou Alt pendant la suppression, videz la corbeille ou désactivez la corbeille.',
