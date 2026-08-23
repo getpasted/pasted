@@ -9,7 +9,11 @@ const sidebar = [
   'src/components/Sidebar.tsx',
   'src/components/CollapsedSidebar.tsx',
   'src/components/SidebarBinsSection.tsx',
+  'src/components/SidebarClipSection.tsx',
+  'src/components/SidebarFacetSections.tsx',
   'src/components/SidebarSearchFooter.tsx',
+  'src/components/sidebarNavigationModel.tsx',
+  'src/hooks/useSidebarFacets.ts',
 ].map(read).join('\n');
 const clipViews = read('src/hooks/useClipViews.ts');
 const clipsApi = read('src/api/clips.ts');
@@ -76,7 +80,7 @@ assert.match(sidebar, /clipFacetRoute\('content_type', value\)/, 'Content Type n
 assert.match(sidebar, /clipFacetRoute\('source', value\)/, 'Source navigation must use stable calculated-collection routes');
 assert.match(read('src/hooks/useClipViews.ts'), /parseClipFacetRoute\(currentTab\)/, 'Type and Source views must share calculated collection filtering');
 assert.match(sidebar, /missingSources[\s\S]*get_source_icons/, 'Source icons must request only newly observed applications');
-assert.match(sidebar, /\[features\.sources, sourceIconSignature\]/, 'Clip count and ordering changes must not retrigger source icon extraction');
+assert.match(sidebar, /\[sourcesEnabled, sourceIconSignature\]/, 'Clip count and ordering changes must not retrigger source icon extraction');
 assert.match(sidebar, /sourceFallbackIcon\(item\.value\)/, 'Unresolvable system sources must retain semantic cross-platform icons');
 assert.match(nativeCommands, /SOURCE_ICON_CACHE/, 'Resolved native application icons must be cached across frontend requests');
 assert.match(nativeCommands, /pub async fn get_source_icons/, 'Native icon extraction must not block synchronous IPC dispatch');

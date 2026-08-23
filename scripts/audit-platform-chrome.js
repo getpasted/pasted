@@ -7,6 +7,7 @@ const macConfig = readJson('src-tauri/tauri.macos.conf.json');
 const mainSource = fs.readFileSync('src/main.tsx', 'utf8');
 const sidebarSource = [
   'src/components/Sidebar.tsx',
+  'src/components/SidebarClipSection.tsx',
   'src/components/CollapsedSidebar.tsx',
 ].map((path) => fs.readFileSync(path, 'utf8')).join('\n');
 const chromeCss = fs.readFileSync('src/styles/layout-chrome.css', 'utf8');
