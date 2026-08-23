@@ -20,14 +20,23 @@ const titlebarSource = fs.readFileSync('src-tauri/src/titlebar.rs', 'utf8');
 const rustLibSource = fs.readFileSync('src-tauri/src/lib.rs', 'utf8');
 const rtlWindowControlsSource = fs.readFileSync('src/components/MacRtlWindowControls.tsx', 'utf8');
 const appLockScreenSource = fs.readFileSync('src/components/AppLockScreen.tsx', 'utf8');
+const hudWindowSource = fs.readFileSync('src-tauri/src/hud_window.rs', 'utf8');
+const hudCommandSource = fs.readFileSync('src-tauri/src/commands/hud.rs', 'utf8');
 
 const windowByLabel = (config, label) => config.app.windows.find((window) => window.label === label);
 const baseMain = windowByLabel(baseConfig, 'main');
 const macMain = windowByLabel(macConfig, 'main');
 const captureFeedback = windowByLabel(baseConfig, 'capture-feedback');
+const baseHud = windowByLabel(baseConfig, 'hud');
+const macHud = windowByLabel(macConfig, 'hud');
 
 assert.ok(baseMain, 'Base configuration must define the main window');
 assert.ok(captureFeedback, 'Base configuration must define the capture feedback window');
+assert.ok(baseHud && macHud, 'Every platform configuration must define the HUD window');
+assert.equal(baseHud.height, 480, 'The HUD must retain enough height to show all nine rows');
+assert.equal(macHud.height, baseHud.height, 'HUD height must remain synchronized across platform configurations');
+assert.match(hudWindowSource, /HUD_HEIGHT: f64 = 480\.0/, 'Native HUD positioning must use the configured height');
+assert.match(hudCommandSource, /hud_window::HUD_HEIGHT/, 'Every HUD positioning path must share the native height constant');
 assert.equal(baseMain.visible, false, 'The main window must remain hidden until its startup surface is ready');
 assert.equal(captureFeedback.focus, false, 'Capture feedback must never steal focus');
 assert.equal(

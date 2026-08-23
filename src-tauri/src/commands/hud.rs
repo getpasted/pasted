@@ -92,8 +92,8 @@ pub fn toggle_hud_window(app: AppHandle) -> Result<(), String> {
                                 let vis_left = vis_frame.origin.x;
                                 let vis_right = vis_frame.origin.x + vis_frame.size.width;
 
-                                let hud_width = 360.0;
-                                let hud_height = 440.0;
+                                let hud_width = crate::hud_window::HUD_WIDTH;
+                                let hud_height = crate::hud_window::HUD_HEIGHT;
 
                                 // Horizontal positioning (centered on cursor) & clamping
                                 let mut target_x = loc.x - (hud_width / 2.0);

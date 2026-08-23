@@ -3,6 +3,9 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use crate::db::DbState;
 
+pub(crate) const HUD_WIDTH: f64 = 360.0;
+pub(crate) const HUD_HEIGHT: f64 = 480.0;
+
 pub fn hide(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("hud") {
         let _ = window.hide();
@@ -116,8 +119,8 @@ pub fn toggle(app: &AppHandle) -> Result<(), String> {
                     let visible_bottom = primary_height - visible.origin.y;
                     let visible_left = visible.origin.x;
                     let visible_right = visible.origin.x + visible.size.width;
-                    let width = 360.0;
-                    let height = 440.0;
+                    let width = HUD_WIDTH;
+                    let height = HUD_HEIGHT;
                     let mut x = cursor.x - (width / 2.0);
                     x = x.clamp(
                         visible_left + 8.0,

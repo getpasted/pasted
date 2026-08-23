@@ -29,7 +29,7 @@
         "title": "Pasted HUD",
         "url": "index.html?view=hud",
         "width": 360,
-        "height": 440,
+        "height": 480,
         "resizable": false,
         "decorations": false,
         "transparent": true,
