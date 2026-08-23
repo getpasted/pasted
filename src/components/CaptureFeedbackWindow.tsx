@@ -1,18 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type WheelEvent } from 'react';
 import { flushSync } from 'react-dom';
-import {
-  AlertTriangle,
-  CheckCircle2,
-  EyeOff,
-  File,
-  Image as ImageIcon,
-  Pin,
-  Shield,
-  ShieldOff,
-  Trash2,
-  Type,
-  X,
-} from 'lucide-react';
 import { emit, listen } from '@tauri-apps/api/event';
 import {
   availableMonitors,
@@ -26,71 +13,22 @@ import {
 } from '@tauri-apps/api/window';
 import type { AppSettings } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
-import { FloatingActionStrip } from './FloatingActionStrip';
-import { SafeRasterImage } from './SafeRasterImage';
-import { translate } from '../localization/runtime';
+import { CaptureFeedbackCard } from './CaptureFeedbackCard';
+import {
+  CAPTURE_FEEDBACK_LAYOUT,
+  MAX_CAPTURE_FEEDBACK_WINDOW_HEIGHT,
+  type CaptureFeedbackClip,
+  type CaptureFeedbackEvent,
+  type CaptureFeedbackItem,
+} from './captureFeedbackModel';
 
-export type CaptureFeedbackKind = 'success' | 'ignored' | 'failure';
+export type { CaptureFeedbackKind } from './captureFeedbackModel';
 
 interface CaptureFeedbackWindowProps {
   settings: AppSettings;
   settingsHydrated: boolean;
 }
 
-interface CaptureFeedbackEvent {
-  kind: CaptureFeedbackKind;
-  clip_id?: number;
-}
-
-interface CaptureFeedbackClip {
-  id: number;
-  contentType: string;
-  previewText: string | null;
-  source: string;
-  isPinned: boolean;
-  isProtected: boolean;
-  isTrashed: boolean;
-}
-
-interface FeedbackItem {
-  id: number;
-  kind: CaptureFeedbackKind;
-  clip: CaptureFeedbackClip | null;
-  image: string | null;
-  entering?: boolean;
-  exiting?: boolean;
-  fading?: boolean;
-  collapsing?: boolean;
-  exitDirection?: -1 | 1;
-}
-
-const FEEDBACK = {
-  success: {
-    get title() { return translate('component.captureFeedbackWindow.savedToHistory'); },
-    get detail() { return translate('component.captureFeedbackWindow.readyOnDemand'); },
-    Icon: CheckCircle2,
-    tone: 'success',
-  },
-  ignored: {
-    get title() { return translate('component.captureFeedbackWindow.captureSkipped'); },
-    get detail() { return translate('component.captureFeedbackWindow.thisClipboardItemWasLeftAlone'); },
-    Icon: EyeOff,
-    tone: 'info',
-  },
-  failure: {
-    get title() { return translate('component.captureFeedbackWindow.captureFailed'); },
-    get detail() { return translate('component.captureFeedbackWindow.thisClipboardItemCouldNotBeSaved'); },
-    Icon: AlertTriangle,
-    tone: 'danger',
-  },
-} as const;
-
-const WINDOW_WIDTH = 340;
-const PREVIEW_HEIGHT = 118;
-const NOTICE_HEIGHT = 72;
-const STACK_GAP = 6;
-const WINDOW_PADDING = 6;
-const MAX_STACK_ITEMS = 4;
 const EXIT_DURATION_MS = 190;
 const ENTER_DURATION_MS = 220;
 const ENTER_PAINT_DELAY_MS = 64;
@@ -99,25 +37,16 @@ const HOVER_POLL_INTERVAL_MS = 60;
 const PREVIEW_FADE_MS = 1_000;
 const SWIPE_DISMISS_THRESHOLD = 54;
 const STACK_COLLAPSE_MS = 160;
-const MAX_WINDOW_HEIGHT = PREVIEW_HEIGHT * MAX_STACK_ITEMS
-  + STACK_GAP * (MAX_STACK_ITEMS - 1)
-  + WINDOW_PADDING * 2;
-
-function contentIcon(contentType: string) {
-  if (contentType === 'image') return ImageIcon;
-  if (contentType === 'file') return File;
-  return Type;
-}
 
 export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFeedbackWindowProps) {
-  const [items, setItems] = useState<FeedbackItem[]>([]);
+  const [items, setItems] = useState<CaptureFeedbackItem[]>([]);
   const timers = useRef(new Map<number, number>());
   const eventSequence = useRef(0);
   const swipeState = useRef(new Map<number, { distance: number; time: number }>());
-  const itemsRef = useRef<FeedbackItem[]>([]);
+  const itemsRef = useRef<CaptureFeedbackItem[]>([]);
   const settingsRef = useRef(settings);
   const hydratedRef = useRef(settingsHydrated);
-  const syncWindowRef = useRef<(nextItems: FeedbackItem[]) => Promise<void>>(async () => undefined);
+  const syncWindowRef = useRef<(nextItems: CaptureFeedbackItem[]) => Promise<void>>(async () => undefined);
 
   useEffect(() => {
     settingsRef.current = settings;
@@ -134,7 +63,7 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
   }, [settings, settingsHydrated]);
 
   const commitItems = (
-    update: (current: FeedbackItem[]) => FeedbackItem[],
+    update: (current: CaptureFeedbackItem[]) => CaptureFeedbackItem[],
     syncWindow = false,
   ) => {
     const next = update(itemsRef.current);
@@ -222,7 +151,7 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
     }, delaySeconds * 1_000));
   };
 
-  const handleSwipe = (id: number, event: React.WheelEvent<HTMLDivElement>) => {
+  const handleSwipe = (id: number, event: WheelEvent<HTMLDivElement>) => {
     if (Math.abs(event.deltaX) <= Math.abs(event.deltaY) * 1.15) return;
     const now = performance.now();
     const previous = swipeState.current.get(id);
@@ -371,7 +300,7 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
       }
     };
 
-    const syncWindow = async (nextItems: FeedbackItem[]) => {
+    const syncWindow = async (nextItems: CaptureFeedbackItem[]) => {
       if (nextItems.length === 0) {
         lastDisplayKey = '';
         clearSyntheticHover();
@@ -384,7 +313,10 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
       try {
         await windowHandle.setFocusable(false);
         if (!nativeWindowVisible) {
-          await windowHandle.setSize(new LogicalSize(WINDOW_WIDTH, MAX_WINDOW_HEIGHT));
+          await windowHandle.setSize(new LogicalSize(
+            CAPTURE_FEEDBACK_LAYOUT.windowWidth,
+            MAX_CAPTURE_FEEDBACK_WINDOW_HEIGHT,
+          ));
         }
         await placeOnPointerDisplay(true);
       } catch (error) {
@@ -429,7 +361,7 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
       }
       if (disposed) return;
 
-      const item: FeedbackItem = {
+      const item: CaptureFeedbackItem = {
         id: itemId,
         kind: event.kind,
         clip,
@@ -438,7 +370,7 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
       };
       const nextItems = commitItems((current) => [item, ...current]
         .sort((left, right) => right.id - left.id)
-        .slice(0, MAX_STACK_ITEMS));
+        .slice(0, CAPTURE_FEEDBACK_LAYOUT.maxStackItems));
 
       await syncWindowRef.current(nextItems);
       // Clear the entrance phase only after its CSS animation has completed.
@@ -460,7 +392,7 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
 
     const register = async () => {
       unlisteners.push(await listen<CaptureFeedbackEvent>('clipboard-capture-feedback', ({ payload }) => {
-        if (payload && payload.kind in FEEDBACK) void positionAndShow(payload);
+        if (payload && ['success', 'ignored', 'failure'].includes(payload.kind)) void positionAndShow(payload);
       }));
     };
 
@@ -479,11 +411,11 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
       unlisteners.splice(0).forEach((unlisten) => unlisten());
     };
   }, []);
-  const updateItem = (id: number, update: (item: FeedbackItem) => FeedbackItem) => {
+  const updateItem = (id: number, update: (item: CaptureFeedbackItem) => CaptureFeedbackItem) => {
     commitItems((current) => current.map((item) => item.id === id ? update(item) : item));
   };
   const notifyLibraryChanged = () => void emit('clip-library-changed');
-  const togglePinned = async (item: FeedbackItem) => {
+  const togglePinned = async (item: CaptureFeedbackItem) => {
     if (!item.clip) return;
     try {
       const isPinned = await invoke<boolean>('toggle_pin_clip', { id: item.clip.id });
@@ -497,7 +429,7 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
       console.error('Could not update pin from capture feedback:', error);
     }
   };
-  const toggleProtected = async (item: FeedbackItem) => {
+  const toggleProtected = async (item: CaptureFeedbackItem) => {
     if (!item.clip) return;
     try {
       const isProtected = await invoke<boolean>('toggle_clip_protected', { clipId: item.clip.id });
@@ -509,7 +441,7 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
       console.error('Could not update protection from capture feedback:', error);
     }
   };
-  const removeClip = async (item: FeedbackItem) => {
+  const removeClip = async (item: CaptureFeedbackItem) => {
     if (!item.clip || item.clip.isProtected) return;
     try {
       if (settings.enableTrash && !item.clip.isTrashed) await invoke('delete_clip', { id: item.clip.id });
@@ -525,76 +457,16 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
 
   return (
     <div className={`capture-feedback-root flex h-screen w-screen gap-1.5 p-1.5 ${bottomStack ? 'is-bottom-stack flex-col-reverse' : 'flex-col'}`}>
-      {items.map((item) => {
-        const feedback = FEEDBACK[item.kind];
-        const Icon = feedback.Icon;
-        const ContentIcon = item.clip ? contentIcon(item.clip.contentType) : Type;
-        return (
-          <div
-            key={item.id}
-            className={`capture-feedback-slot w-full shrink-0 ${item.collapsing ? 'is-collapsing' : ''}`}
-            style={{ '--capture-feedback-card-height': `${item.clip ? PREVIEW_HEIGHT : NOTICE_HEIGHT}px` } as React.CSSProperties}
-          >
-          <div
-            className={`capture-feedback-card flex h-full w-full flex-col rounded-xl border shadow-xl ${item.entering ? 'is-entering' : ''} ${item.exiting ? 'is-exiting' : ''} ${item.fading ? 'is-auto-fading' : ''} ${item.clip ? 'clip-card-idle is-preview relative' : `theme-status-${feedback.tone}`}`}
-            data-feedback-id={item.id}
-            style={{ '--capture-feedback-exit-x': `${(item.exitDirection ?? 1) * 24}px` } as React.CSSProperties}
-            onMouseDown={(event) => event.preventDefault()}
-            onWheel={item.clip ? (event) => handleSwipe(item.id, event) : undefined}
-          >
-            {item.clip ? (
-              <>
-                <div className="flex min-h-0 flex-1 gap-2.5 p-3 pb-10">
-                  <span className="clip-type-icon theme-badge flex h-7 w-7 shrink-0 items-center justify-center rounded border">
-                    <ContentIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-xs font-semibold theme-text-main">{settings.enableSources ? item.clip.source || translate('component.captureFeedbackWindow.capturedClip') : translate('component.captureFeedbackWindow.capturedClip')}</div>
-                    <div className="capture-feedback-preview mt-1.5 min-h-0 overflow-hidden rounded-md">
-                      {item.image ? (
-                        <SafeRasterImage source={item.image} alt={translate('component.captureFeedbackWindow.capturedClipPreview')} className="h-11 w-full object-cover" />
-                      ) : (
-                        <p className="line-clamp-2 w-full break-words px-2 py-1.5 font-mono text-[10px] leading-[1.35]">
-                          {item.clip.previewText || translate('component.captureFeedbackWindow.previewUnavailableForThisClipType')}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <FloatingActionStrip label={translate('component.captureFeedbackWindow.capturedClipActions')}>
-                  {settings.enablePinning && (
-                    <button type="button" className={`floating-action-button ${item.clip.isPinned ? 'is-success pin-icon' : ''}`} onClick={() => void togglePinned(item)} title={item.clip.isPinned ? translate('action.unpin') : translate('action.pin')} aria-label={item.clip.isPinned ? translate('component.captureFeedbackWindow.unpinClip') : translate('component.captureFeedbackWindow.pinClip')}>
-                      <Pin aria-hidden="true" />
-                    </button>
-                  )}
-                  {settings.enableProtection && (
-                    <button type="button" className={`floating-action-button ${item.clip.isProtected ? 'is-accent' : ''}`} onClick={() => void toggleProtected(item)} title={item.clip.isProtected ? translate('action.unprotect') : translate('action.protect')} aria-label={item.clip.isProtected ? translate('component.captureFeedbackWindow.unprotectClip') : translate('component.captureFeedbackWindow.protectClip')}>
-                      {item.clip.isProtected ? <ShieldOff aria-hidden="true" /> : <Shield aria-hidden="true" />}
-                    </button>
-                  )}
-                  <button type="button" className="floating-action-button is-danger" disabled={item.clip.isProtected || item.clip.isTrashed} onClick={() => void removeClip(item)} title={settings.enableTrash ? translate('action.moveToTrash') : translate('common.delete')} aria-label={settings.enableTrash ? translate('component.captureFeedbackWindow.moveClipToTrash') : translate('component.captureFeedbackWindow.deleteClip')}>
-                    <Trash2 aria-hidden="true" />
-                  </button>
-                  <button type="button" className="floating-action-button" onClick={() => dismiss(item.id)} title={translate('common.dismiss')} aria-label={translate('component.captureFeedbackWindow.dismissPreview')}>
-                    <X aria-hidden="true" />
-                  </button>
-                </FloatingActionStrip>
-              </>
-            ) : (
-              <div className="flex items-center gap-3 px-3.5 py-3">
-                <span className="capture-feedback-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border">
-                  <Icon className="h-4 w-4" aria-hidden="true" />
-                </span>
-                <div className="min-w-0">
-                  <div className="text-xs font-bold leading-tight">{feedback.title}</div>
-                  <div className="mt-0.5 truncate text-[10px] font-medium opacity-75">{feedback.detail}</div>
-                </div>
-              </div>
-            )}
-          </div>
-          </div>
-        );
-      })}
+      {items.map((item) => <CaptureFeedbackCard
+        key={item.id}
+        item={item}
+        settings={settings}
+        onSwipe={(event) => handleSwipe(item.id, event)}
+        onTogglePinned={() => void togglePinned(item)}
+        onToggleProtected={() => void toggleProtected(item)}
+        onRemove={() => void removeClip(item)}
+        onDismiss={() => dismiss(item.id)}
+      />)}
     </div>
   );
 }

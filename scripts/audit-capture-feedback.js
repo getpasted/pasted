@@ -16,7 +16,11 @@ const settingsSource = fs.readFileSync('src/hooks/useAppSettings.ts', 'utf8');
 const panelSource = fs.readFileSync('src/components/SettingsNotificationsPanel.tsx', 'utf8');
 const exclusionsSource = fs.readFileSync('src/components/SettingsBlacklistPanel.tsx', 'utf8');
 const panelNoteSource = fs.readFileSync('src/components/SettingsPanelNote.tsx', 'utf8');
-const overlaySource = fs.readFileSync('src/components/CaptureFeedbackWindow.tsx', 'utf8');
+const overlaySource = [
+  'src/components/CaptureFeedbackWindow.tsx',
+  'src/components/CaptureFeedbackCard.tsx',
+  'src/components/captureFeedbackModel.ts',
+].map((path) => fs.readFileSync(path, 'utf8')).join('\n');
 const tabsSource = fs.readFileSync('src/components/SettingsTabs.tsx', 'utf8');
 const capabilitiesSource = fs.readFileSync('src-tauri/capabilities/default.json', 'utf8');
 const englishCatalog = JSON.parse(fs.readFileSync('src/locales/en.json', 'utf8'));
@@ -105,7 +109,7 @@ assert.match(
 );
 assert.match(
   overlaySource,
-  /setSize\(new LogicalSize\(WINDOW_WIDTH, MAX_WINDOW_HEIGHT\)\)/,
+  /setSize\(new LogicalSize\([\s\S]{0,160}MAX_CAPTURE_FEEDBACK_WINDOW_HEIGHT/,
   'Capture feedback must keep stable native bounds while its visible stack changes',
 );
 assert.match(
