@@ -5,7 +5,10 @@ import { readRustModuleTree } from './audit-source-trees.js';
 const read = (path) => fs.readFileSync(path, 'utf8');
 const englishCatalog = JSON.parse(read('src/locales/en.json'));
 const cli = readRustModuleTree('src-tauri/src/bin/pasted.rs', 'src-tauri/src/cli');
-const help = read('src/components/HelpView.tsx');
+const help = [
+  'src/components/HelpView.tsx',
+  'src/components/helpCliCatalog.ts',
+].map(read).join('\n');
 const database = readRustModuleTree('src-tauri/src/db.rs', 'src-tauri/src/db');
 const libraryItems = read('src-tauri/src/library_items.rs');
 const commands = readRustModuleTree('src-tauri/src/commands.rs', 'src-tauri/src/commands');

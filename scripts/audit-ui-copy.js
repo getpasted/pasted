@@ -18,6 +18,8 @@ const TOOL_COPY_FILES = [
   'src/components/DeleteTransformationAssetDialog.tsx',
   'src/components/ExternalHistoryImport.tsx',
   'src/components/HelpView.tsx',
+  'src/components/HelpCliTopic.tsx',
+  'src/components/helpCliCatalog.ts',
   'src/components/IntentTransformComposer.tsx',
   'src/components/OpenSourceLicensesDialog.tsx',
   'src/components/OperationEditorModal.tsx',
@@ -53,7 +55,7 @@ const TOOL_COPY_FILES = [
 
 const ALLOWED_COPY = [
   // Literal packaged-app paths used by CLI installation instructions.
-  ['src/components/HelpView.tsx', '/Applications/Pasted.app/Contents/MacOS/pasted'],
+  ['src/components/helpCliCatalog.ts', '/Applications/Pasted.app/Contents/MacOS/pasted'],
   // About and installation diagnostics intentionally identify the product.
   ['src/components/SettingsAboutPanel.tsx', '`Pasted ${details.appVersion} (${details.buildKind})`'],
 ];
@@ -105,7 +107,10 @@ const settingsImportExport = [
 const settingsTabs = fs.readFileSync('src/components/SettingsTabs.tsx', 'utf8');
 const settingsHotkeys = fs.readFileSync('src/components/SettingsHotkeysPanel.tsx', 'utf8');
 const settingsFeatures = fs.readFileSync('src/components/SettingsFeaturesPanel.tsx', 'utf8');
-const helpView = fs.readFileSync('src/components/HelpView.tsx', 'utf8');
+const helpView = [
+  'src/components/HelpView.tsx',
+  'src/components/helpCliCatalog.ts',
+].map((file) => fs.readFileSync(file, 'utf8')).join('\n');
 const app = fs.readFileSync('src/App.tsx', 'utf8');
 const appNavigation = fs.readFileSync('src/utils/appNavigation.ts', 'utf8');
 const nativeMenu = fs.readFileSync('src-tauri/src/app_menu.rs', 'utf8');

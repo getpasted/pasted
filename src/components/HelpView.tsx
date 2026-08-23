@@ -8,12 +8,9 @@ import {
   Trash2,
   Workflow,
   ChevronRight,
-  Copy,
-  Check,
   Zap,
   Info,
   Command,
-  Download,
   Bell,
   AudioLines,
   Radar,
@@ -27,163 +24,7 @@ import { translate } from '../localization/runtime';
 import type { HelpTopic } from '../utils/appUiState';
 export type { HelpTopic } from '../utils/appUiState';
 
-const CLI_SYMLINK_COMMAND = 'sudo ln -s /Applications/Pasted.app/Contents/MacOS/pasted /usr/local/bin/pasted';
-const CLI_ALIAS_COMMAND = 'alias pasted="/Applications/Pasted.app/Contents/MacOS/pasted"';
-
-const CLI_COMMAND_GROUPS = [
-  {
-    get title() { return translate('component.helpView.history'); },
-    commands: [
-      { usage: 'pasted copy "Hello"', get description() { return translate('component.helpView.saveATextClipOmitTheArgumentToReadStdin'); } },
-      { usage: 'cat server.log | pasted copy', get description() { return translate('component.helpView.pipeBoundedTextIntoClipboardHistory'); } },
-      { usage: 'pasted list [--limit N] [--offset N] [--bin ID | --pinned | --trash] [--json]', get description() { return translate('component.helpView.listABoundedPageFromHistoryTrashABinOrPinnedClips'); } },
-      { usage: 'pasted search [query] [--clip TYPE] [--content TYPE] [--format FORMAT] [--source APP] [--trash] [--limit N] [--offset N] [--json]', get description() { return translate('component.helpView.searchABoundedPageOfHistoryOrTrashWithCollectionFilters'); } },
-      { usage: 'pasted import sources [--json]', get description() { return translate('component.helpView.listSupportedExternalHistorySourcesAndTheirDetectedLocations'); } },
-      { usage: 'pasted import <alfred|pastebot|pasta|paste|copyclip|maccy|flycut> [path] [--json]', get description() { return translate('component.helpView.mergeTextHistoryFromAnotherClipboardManagerSkippingDuplicates'); } },
-      { usage: 'pasted retention [--count N] [--days N] [--trash-count N] [--trash-days N] [--log-count N] [--log-days N] [--revision-count N] [--json]', get description() { return translate('component.helpView.readOrUpdateHistoryTrashActivityAndRevisionRetention'); } },
-      { usage: 'pasted settings list|get|set [arguments] [--json]', get description() { return translate('component.helpView.inspectOrChangePersistedApplicationSettings'); } },
-      { usage: 'pasted recording status|pause|resume [--json]', get description() { return translate('component.helpView.controlClipboardRecordingInTheRunningApp'); } },
-      { usage: 'pasted queue status|start|stop|add|remove|order|paste|paste-all [arguments] [--json]', get description() { return translate('component.helpView.manageAndRunTheLiveCopyQueue'); } },
-      { usage: 'pasted clear --yes [--json]', get description() { return translate('component.helpView.permanentlyRemoveUnpinnedUnprotectedClips'); } },
-    ],
-  },
-  {
-    get title() { return translate('component.helpView.clipActions'); },
-    commands: [
-      { usage: 'pasted clip get <id> [--json]', get description() { return translate('component.helpView.inspectOneClipAndItsMetadata'); } },
-      { usage: 'pasted clip note <id> [--text TEXT | --clear | --stdin] [--json]', get description() { return translate('component.helpView.setOrClearAClipNote'); } },
-      { usage: 'pasted clip revisions <id> [--limit N] [--offset N] [--json]', get description() { return translate('component.helpView.listRetainedClipRevisions'); } },
-      { usage: 'pasted clip restore-revision <id> <revision-id> [--json]', get description() { return translate('component.helpView.restoreAnEarlierClipRevisionAndItsRecordedOrganization'); } },
-      { usage: 'pasted clip provenance <id> [--json]', get description() { return translate('component.helpView.inspectTheTransformThatProducedTheCurrentClipContent'); } },
-      { usage: 'pasted clip copy|paste <id> [--json]', get description() { return translate('component.helpView.copyOrPasteASavedClipThroughTheRunningApp'); } },
-      { usage: 'pasted clip hotkey <id> <hotkey|none> [--json]', get description() { return translate('component.helpView.setOrClearAClipHotkeyAndProtectAssignments'); } },
-      { usage: 'pasted clip pin|unpin <id>... [--json]', get description() { return translate('component.helpView.setPinStateExplicitlyForOneOrMoreClips'); } },
-      { usage: 'pasted clip order-pinned <id>... [--json]', get description() { return translate('component.helpView.replaceTheCompletePinnedClipOrder'); } },
-      { usage: 'pasted clip protect|unprotect <id>... [--json]', get description() { return translate('component.helpView.setProtectionExplicitlyForOneOrMoreClips'); } },
-      { usage: 'pasted clip trash|restore <id>... [--json]', get description() { return translate('component.helpView.moveClipsIntoOrOutOfTrash'); } },
-      { usage: 'pasted clip restore-all [--json]', get description() { return translate('component.helpView.returnEveryTrashedClipToHistory'); } },
-      { usage: 'pasted clip purge <id>... --yes [--json]', get description() { return translate('component.helpView.permanentlyDeleteUnprotectedClips'); } },
-      { usage: 'pasted clip empty-trash --yes [--json]', get description() { return translate('component.helpView.permanentlyDeleteEveryUnprotectedClipInTrash'); } },
-      { usage: 'pasted clip export [path] [--format json|csv]', get description() { return translate('component.helpView.exportClipsCurrentlyInHistoryForExternalAnalysis'); } },
-      { usage: 'pasted clip import <path> [--format json|csv] [--json]', get description() { return translate('component.helpView.preflightAndMergeClipRecordsWhileSkippingDuplicates'); } },
-      { usage: 'pasted clip assign <bin-id|none> <id>... [--json]', get description() { return translate('component.helpView.assignClipsToOneManualBinOrRemoveTheirManualBin'); } },
-    ],
-  },
-  {
-    get title() { return translate('component.helpView.binsAndTransforms'); },
-    commands: [
-      { usage: 'pasted bin list [--json]', get description() { return translate('component.helpView.listBinsCountsAndSavedOrdering'); } },
-      { usage: 'pasted bin get <id> [--json]', get description() { return translate('component.helpView.inspectOneBinAndItsAttachedTransform'); } },
-      { usage: 'pasted bin create --name NAME [options] [--json]', get description() { return translate('component.helpView.createAManualOrSmartBin'); } },
-      { usage: 'pasted bin update <id> [options] [--json]', get description() { return translate('component.helpView.updateABinDefinition'); } },
-      { usage: 'pasted bin duplicate <id> [--name NAME] [--json]', get description() { return translate('component.helpView.duplicateABinAndItsAttachedTransform'); } },
-      { usage: 'pasted bin delete <id> [--disposition keep|trash|move] [--json]', get description() { return translate('component.helpView.deleteABinWithAnExplicitClipDisposition'); } },
-      { usage: 'pasted bin clips <bin-id> [--json]', get description() { return translate('component.helpView.listABinSClipsInPersistentOrder'); } },
-      { usage: 'pasted bin order <bin-id> <clip-id>... [--json]', get description() { return translate('component.helpView.replaceABinSCompleteSavedClipOrder'); } },
-      { usage: 'pasted bin transform <id> <transform-ref|none> [--json]', get description() { return translate('component.helpView.setOrClearABinSDefaultTransform'); } },
-      { usage: 'pasted bin hotkey <id> <hotkey|none> [--json]', get description() { return translate('component.helpView.setOrClearABinHotkey'); } },
-      { usage: 'pasted bin protect <id> <on|off> [--json]', get description() { return translate('component.helpView.setInheritedProtectionForAManualBin'); } },
-      { usage: 'pasted transform list [--json]', get description() { return translate('component.helpView.listSavedAndManuallyBuiltTransforms'); } },
-      { usage: 'pasted transform get <ref> [--json]', get description() { return translate('component.helpView.inspectOneCanonicalTransformDefinition'); } },
-      { usage: 'pasted transform plan [--intent TEXT | --stdin] [--sample TEXT] [--json]', get description() { return translate('component.helpView.draftATransformPlanFromNaturalLanguageIntent'); } },
-      { usage: 'pasted transform test --plan-json JSON [--text TEXT | --stdin] [--json]', get description() { return translate('component.helpView.executeAnUnsavedTransformPlanWithoutChangingAClip'); } },
-      { usage: 'pasted transform create --name NAME (--intent TEXT | --plan-json JSON | --steps-json JSON) [--json]', get description() { return translate('component.helpView.createAnIntentPlannedOrManuallyBuiltTransform'); } },
-      { usage: 'pasted transform update <ref> [options] [--json]', get description() { return translate('component.helpView.updateATransformWithoutChangingItsStableReferenceOrAuthoringForm'); } },
-      { usage: 'pasted transform duplicate <ref> [--name NAME] [--json]', get description() { return translate('component.helpView.duplicateATransformWithANewStableReference'); } },
-      { usage: 'pasted transform delete <ref> [--json]', get description() { return translate('component.helpView.deleteATransformExistingClipRevisionsRemainUnchanged'); } },
-      { usage: 'pasted transform run <ref> [--text TEXT | --clip ID | --stdin] [--apply] [--json]', get description() { return translate('component.helpView.runATransformInPreviewModeOrApplyItToAClip'); } },
-      { usage: 'pasted operation list [--json]', get description() { return translate('component.helpView.inspectBuiltInAndCustomOperations'); } },
-      { usage: 'pasted operation get <ref> [--json]', get description() { return translate('component.helpView.inspectOneOperationDefinition'); } },
-      { usage: 'pasted operation create --name NAME --type TYPE [options] [--json]', get description() { return translate('component.helpView.createAnOperation'); } },
-      { usage: 'pasted operation update <ref> [options] [--json]', get description() { return translate('component.helpView.updateACustomOperation'); } },
-      { usage: 'pasted operation duplicate <ref> [--name NAME] [--json]', get description() { return translate('component.helpView.duplicateAnOperationWithANewStableReference'); } },
-      { usage: 'pasted operation delete <ref> [--json]', get description() { return translate('component.helpView.deleteACustomOperation'); } },
-      { usage: 'pasted operation run <ref> [--text TEXT | --clip ID | --stdin] [--json]', get description() { return translate('component.helpView.runOneOperationThroughTheSharedExecutor'); } },
-      { usage: 'pasted connection list [--json]', get description() { return translate('component.helpView.listConnectedIntelligenceProvidersInPriorityOrder'); } },
-      { usage: 'pasted connection get <id> [--json]', get description() { return translate('component.helpView.inspectOneConnectionDefinition'); } },
-      { usage: 'pasted connection detect [--json]', get description() { return translate('component.helpView.discoverSupportedLocalIntelligenceProviders'); } },
-      { usage: 'pasted connection create --name NAME --provider KIND [options] [--json]', get description() { return translate('component.helpView.createAConnectionUsingCredentialReferencesOnly'); } },
-      { usage: 'pasted connection update <id> [options] [--json]', get description() { return translate('component.helpView.updateOrEnableAConnection'); } },
-      { usage: 'pasted connection delete <id> [--json]', get description() { return translate('component.helpView.deleteAConnectionDefinition'); } },
-      { usage: 'pasted connection order <id>... [--json]', get description() { return translate('component.helpView.replaceConnectionPriorityOrder'); } },
-    ],
-  },
-  {
-    get title() { return translate('component.helpView.contentAnalysis'); },
-    commands: [
-      { usage: 'pasted analyzer run [--text TEXT | --clip ID | --stdin] [--policy POLICY] [--extract] [--json]', get description() { return translate('component.helpView.previewOneVersionedContentFreeSnapshotAcrossTheApplicableAnalysisPasses'); } },
-      { usage: 'pasted registry list [--kind capture|inspector|extractor|classifier|suggestion|operation|transform] [--all] [--json]', get description() { return translate('component.helpView.inspectSharedLifecycleAndInputOutputContractsForProcessingAssets'); } },
-      { usage: 'pasted registry enable|disable --kind extractor|classifier|operation --ref REF [--json]', get description() { return translate('component.helpView.changeTheSharedEnabledStateUsingAStableProcessingAssetReference'); } },
-      { usage: 'pasted inspector list [--json]', get description() { return translate('component.helpView.listInspectorsContractsAndSystemAvailability'); } },
-      { usage: 'pasted inspector get <ref> [--json]', get description() { return translate('component.helpView.inspectOneInspectorDefinition'); } },
-      { usage: 'pasted inspector run [--text TEXT | --clip ID | --stdin] [--apply] [--json]', get description() { return translate('component.helpView.inspectContentFreeStructureAndLiveMediaMetadataOrPersistClipStructure'); } },
-      { usage: 'pasted suggestion list [--json]', get description() { return translate('component.helpView.listSuggestionsAndTheirContracts'); } },
-      { usage: 'pasted suggestion get <ref> [--json]', get description() { return translate('component.helpView.inspectOneSuggestionDefinition'); } },
-      { usage: 'pasted suggestion run [--text TEXT | --clip ID | --stdin] [--json]', get description() { return translate('component.helpView.suggestSavedTransformsWithoutChangingContent'); } },
-      { usage: 'pasted extractor list [--json]', get description() { return translate('component.helpView.listExtractorsContractsAndSystemAvailability'); } },
-      { usage: 'pasted extractor get <ref> [--json]', get description() { return translate('component.helpView.inspectOneExtractorDefinition'); } },
-      { usage: 'pasted extractor create (--recipe FILE | --prompt TEXT) [--format FORMAT]... [options] [--json]', get description() { return translate('component.helpView.createAnExtractor'); } },
-      { usage: 'pasted extractor update <ref> [--format FORMAT]... [options] [--json]', get description() { return translate('component.helpView.updateAnExtractorDefinition'); } },
-      { usage: 'pasted extractor propose --prompt TEXT [--connection ID] [--json]', get description() { return translate('component.helpView.draftAnExtractorRecipeWithAConnectedAi'); } },
-      { usage: 'pasted extractor history <ref> [--json]', get description() { return translate('component.helpView.reviewLocalExtractorAuthoringHistory'); } },
-      { usage: 'pasted extractor duplicate <ref> [--name NAME] [--json]', get description() { return translate('component.helpView.duplicateAnExtractorWithANewStableReference'); } },
-      { usage: 'pasted extractor delete <ref> [--json]', get description() { return translate('component.helpView.deleteAnExtractorShippedDefaultsRemainRecoverable'); } },
-      { usage: 'pasted extractor run <ref> (--clip ID | --file PATH) [--apply] [--json]', get description() { return translate('component.helpView.runAnExtractorInPreviewModeOrApplyItsOutputToA'); } },
-      { usage: 'pasted extractor restore-defaults', get description() { return translate('component.helpView.restoreShippedExtractorSettings'); } },
-      { usage: 'pasted type list [--all] [--json]', get description() { return translate('component.helpView.listRegisteredContentTypesAndTheirDisplayMetadata'); } },
-      { usage: 'pasted type create --id ID --name NAME [--icon ICON] [--group GROUP] [--json]', get description() { return translate('component.helpView.createACustomContentTypeWithAStableId'); } },
-      { usage: 'pasted type update <id> [options] [--json]', get description() { return translate('component.helpView.customizeAContentTypeSNameIconOrGroupWithoutChangingIts'); } },
-      { usage: 'pasted type archive|restore <id>', get description() { return translate('component.helpView.archiveOrRestoreACustomContentTypeWhilePreservingHistoricalClips'); } },
-      { usage: 'pasted type restore-defaults', get description() { return translate('component.helpView.restoreBuiltInContentTypeNamesIconsAndGroups'); } },
-      { usage: 'pasted type group-list [--all] [--json]', get description() { return translate('component.helpView.listRegisteredContentTypeGroups'); } },
-      { usage: 'pasted type group-create --id ID --name NAME [--order NUMBER]', get description() { return translate('component.helpView.createAReusableCustomContentTypeGroup'); } },
-      { usage: 'pasted type group-update <id> [options] [--json]', get description() { return translate('component.helpView.renameOrReorderAContentTypeGroup'); } },
-      { usage: 'pasted type group-archive|group-restore <id>', get description() { return translate('component.helpView.archiveAnEmptyCustomGroupOrRestoreIt'); } },
-      { usage: 'pasted type group-delete <id>', get description() { return translate('component.helpView.permanentlyDeleteAnEmptyCustomGroup'); } },
-      { usage: 'pasted classifier list [--json]', get description() { return translate('component.helpView.listClassifiersInEffectivePriorityOrder'); } },
-      { usage: 'pasted classifier get <ref> [--json]', get description() { return translate('component.helpView.inspectOneClassifierDefinition'); } },
-      { usage: 'pasted classifier create --name NAME --type TYPE --regex REGEX [--json]', get description() { return translate('component.helpView.createAClassifier'); } },
-      { usage: 'pasted classifier update <ref> [options] [--json]', get description() { return translate('component.helpView.updateAClassifierDefinition'); } },
-      { usage: 'pasted classifier duplicate <ref> [--name NAME] [--json]', get description() { return translate('component.helpView.duplicateAClassifierWithANewStableReference'); } },
-      { usage: 'pasted classifier delete <ref> [--json]', get description() { return translate('component.helpView.deleteAClassifierShippedDefaultsRemainRecoverable'); } },
-      { usage: 'pasted classifier run <ref> [--text TEXT | --clip ID | --stdin] [--apply] [--json]', get description() { return translate('component.helpView.runAClassifierInPreviewModeOrApplyItsMatchingContentType'); } },
-      { usage: 'pasted classifier restore-defaults', get description() { return translate('component.helpView.restoreShippedClassifiersWithoutRemovingCustomEntries'); } },
-      { usage: 'pasted classifier rescan --yes [--json]', get description() { return translate('component.helpView.explicitlyReclassifyExistingTextClipsWithTheCurrentEnabledClassifierOrder'); } },
-    ],
-  },
-  {
-    get title() { return translate('component.helpView.maintenance'); },
-    commands: [
-      { usage: 'pasted diagnostics [--json]', get description() { return translate('component.helpView.showInstallationSigningPathsAndRuntimeDetails'); } },
-      { usage: 'pasted insights summary [--json]', get description() { return translate('component.helpView.summarizeClipTypesFileFormatsContentTypesSourcesAndDailyActivity'); } },
-      { usage: 'pasted licenses [--json]', get description() { return translate('component.helpView.showTheBundledOpenSourceComponentInventoryAndLegalNotices'); } },
-      { usage: 'pasted database location [--json]', get description() { return translate('component.helpView.showTheActiveSqliteDatabaseLocation'); } },
-      { usage: 'pasted database protection [--json]', get description() { return translate('component.helpView.inspectVolumeEncryptionForTheActiveDatabase'); } },
-      { usage: 'pasted database move <folder> [--json]', get description() { return translate('component.helpView.moveTheDatabaseSafelyAfterQuitting'); } },
-      { usage: 'pasted database default [--json]', get description() { return translate('component.helpView.returnTheSqliteDatabaseToItsNativeDefaultLocation'); } },
-      { usage: 'pasted transfer export <path.json> [--json]', get description() { return translate('component.helpView.exportHistoryAndOrganizationAsPortableJson'); } },
-      { usage: 'pasted transfer inspect <path.json> [--json]', get description() { return translate('component.helpView.validateAndSummarizePortableJsonWithoutChangingSavedData'); } },
-      { usage: 'pasted transfer import <path.json> [--json]', get description() { return translate('component.helpView.preflightAndMergeHistoryAndOrganizationByStableIdentityAndContentHash'); } },
-      { usage: 'pasted backup create <path.pastedbackup> [--json]', get description() { return translate('component.helpView.createAValidatedSnapshotOfEveryDurableStateStore'); } },
-      { usage: 'pasted backup inspect <path.pastedbackup> [--json]', get description() { return translate('component.helpView.validateAFullBackupAndInspectItsManifestWithoutRestoringIt'); } },
-      { usage: 'pasted backup restore <path.pastedbackup> --yes [--json]', get description() { return translate('component.helpView.replaceTheCurrentStateAfterCreatingACompleteRecoveryBackup'); } },
-      { usage: 'pasted ocr status [--json]', get description() { return translate('component.helpView.inspectOcrBackfillProgress'); } },
-      { usage: 'pasted ocr scan [--clip ID] [--json]', get description() { return translate('component.helpView.processEligibleImagesOrRescanOneImageClip'); } },
-      { usage: 'pasted ocr retry [--json]', get description() { return translate('component.helpView.resetFailedOcrAttemptsAndProcessThemAgain'); } },
-      { usage: 'pasted ocr cancel [--json]', get description() { return translate('component.helpView.cancelOcrWorkInTheRunningApp'); } },
-      { usage: 'pasted reset --yes [--json]', get description() { return translate('component.helpView.resetAllDataAndPreferencesThisIsDestructive'); } },
-    ],
-  },
-  {
-    get title() { return translate('destination.activity'); },
-    commands: [
-      { usage: 'pasted activity list [--limit N|--all] [--offset N] [--category VALUE] [--severity VALUE] [--event NAME] [--json]', get description() { return translate('component.helpView.listOrFilterABoundedPageOfRetainedActivityEntries'); } },
-      { usage: 'pasted activity export [path] [--format json|csv]', get description() { return translate('component.helpView.exportAllRetainedActivityEntriesForReporting'); } },
-      { usage: 'pasted activity import <path> [--format json|csv] [--json]', get description() { return translate('component.helpView.mergeInertActivityRecordsWithoutReplayingTheirActions'); } },
-      { usage: 'pasted activity clear --yes [--json]', get description() { return translate('component.helpView.permanentlyRemoveEveryRetainedActivityEntry'); } },
-    ],
-  },
-] as const;
+import { HelpCliTopic } from './HelpCliTopic';
 
 interface HelpTopicDefinition {
   id: HelpTopic;
@@ -302,108 +143,12 @@ export const HelpView: React.FC<HelpViewProps> = ({ activeTopic, onActiveTopicCh
           )}
 
           {activeTopic === 'cli' && (
-            <div className="space-y-6 animate-in fade-in">
-              <div>
-                <h3 className="theme-title text-lg font-bold flex items-center space-x-2">
-                  <Terminal className="w-5 h-5 theme-status-info-text" />
-                  <span>{translate('component.helpView.terminalCliCommand', { command: 'pasted' })}</span>
-                </h3>
-                <p className="theme-text-muted text-xs mt-1">
-                  {translate('component.helpView.theStandaloneNativeCommandLineToolCanPipeDataIntoClipboardHistory')}
-                </p>
-              </div>
-
-              {/* PATH Installation Box */}
-              <div className="theme-status-info p-4 rounded-xl border space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2 text-xs font-bold">
-                    <Download className="w-4 h-4" />
-                    <span>{translate('component.helpView.installCliToPath')}</span>
-                  </div>
-                  <button
-                    onClick={handleInstallCli}
-                    className="theme-primary-button ui-control-radius flex items-center space-x-1.5 px-3 py-1.5 border text-xs font-bold transition-colors cursor-pointer shadow-sm"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>{translate('component.helpView.value1ClickSymlinkToLocalBin')}</span>
-                  </button>
-                </div>
-
-                <div className="theme-text-main space-y-2 text-xs">
-                  <p className="font-semibold theme-title">{translate('component.helpView.manualPathSetup')}</p>
-                  <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
-                    <div className="theme-code-surface min-w-0 rounded-lg border p-2.5">
-                      <div className="mb-2 flex items-center justify-between gap-2">
-                        <span className="theme-status-success-text text-[10px] font-semibold">{translate('component.helpView.symlinkInUsrLocalBin')}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyCode(CLI_SYMLINK_COMMAND)}
-                          className="theme-icon-button shrink-0 rounded border p-1"
-                          title={translate('component.helpView.copyCommand')}
-                        >
-                          {copiedCmd === CLI_SYMLINK_COMMAND ? <Check className="h-3.5 w-3.5 theme-status-success-text" /> : <Copy className="h-3.5 w-3.5" />}
-                        </button>
-                      </div>
-                      <code className="selectable-text block select-text whitespace-pre-wrap break-all font-mono text-[11px]">{CLI_SYMLINK_COMMAND}</code>
-                    </div>
-
-                    <div className="theme-code-surface min-w-0 rounded-lg border p-2.5">
-                      <div className="mb-2 flex items-center justify-between gap-2">
-                        <span className="theme-status-success-text text-[10px] font-semibold">{translate('component.helpView.shellAlias')}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyCode(CLI_ALIAS_COMMAND)}
-                          className="theme-icon-button shrink-0 rounded border p-1"
-                          title={translate('component.helpView.copyAlias')}
-                        >
-                          {copiedCmd === CLI_ALIAS_COMMAND ? <Check className="h-3.5 w-3.5 theme-status-success-text" /> : <Copy className="h-3.5 w-3.5" />}
-                        </button>
-                      </div>
-                      <code className="selectable-text block select-text whitespace-pre-wrap break-all font-mono text-[11px]">{CLI_ALIAS_COMMAND}</code>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <h4 className="theme-title text-sm font-bold">{translate('component.helpView.commandReference')}</h4>
-                  <p className="theme-text-muted mt-1 text-xs">
-                    {translate('component.helpView.commandReferenceDescription', { flag: '--json' })}</p>
-                </div>
-                <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                  {CLI_COMMAND_GROUPS.map((group) => (
-                    <section key={group.title} className="theme-panel overflow-hidden rounded-xl border">
-                      <h5 className="theme-section-label theme-divider border-b px-4 py-3 text-[11px] font-bold uppercase tracking-[0.12em]">
-                        {group.title}
-                      </h5>
-                      <div className="theme-divide divide-y">
-                        {group.commands.map((command) => (
-                          <div key={command.usage} className="flex items-start gap-3 px-4 py-3">
-                            <div className="min-w-0 flex-1">
-                              <code className="selectable-text theme-status-info-text block select-text break-all font-mono text-[11px] font-semibold">
-                                {command.usage}
-                              </code>
-                              <p className="theme-text-muted mt-1 text-xs leading-relaxed">{command.description}</p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => handleCopyCode(command.usage)}
-                              className="theme-icon-button shrink-0 rounded border p-1.5"
-                              title={translate('component.helpView.copyCommand')}
-                            >
-                              {copiedCmd === command.usage ? <Check className="h-3.5 w-3.5 theme-status-success-text" /> : <Copy className="h-3.5 w-3.5" />}
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <HelpCliTopic
+              copiedCmd={copiedCmd}
+              onCopyCode={handleCopyCode}
+              onInstallCli={handleInstallCli}
+            />
           )}
-
           {activeTopic === 'shortcuts-hud' && (
             <div className="space-y-6 animate-in fade-in">
               <div>

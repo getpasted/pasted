@@ -47,6 +47,7 @@ const productDocs = [
   'README.md',
   ...files.filter((file) => file.startsWith('docs/wiki/')),
   'src/components/HelpView.tsx',
+  'src/components/helpCliCatalog.ts',
 ].map((file) => [file, readFileSync(join(repositoryRoot, file), 'utf8')]);
 
 for (const [file, content] of productDocs) {
