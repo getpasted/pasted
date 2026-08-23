@@ -22,7 +22,7 @@ const plainText = fs.readFileSync('src/utils/plainText.ts', 'utf8');
 const safeRasterImage = fs.readFileSync('src/components/SafeRasterImage.tsx', 'utf8');
 const codeqlWorkflow = fs.readFileSync('.github/workflows/codeql.yml', 'utf8');
 const safeRasterConsumers = [
-  'src/components/CaptureFeedbackWindow.tsx',
+  'src/components/CaptureFeedbackCard.tsx',
   'src/components/ClipCardThumbnails.tsx',
   'src/components/ClipPreviewContent.tsx',
   'src/components/QuickHudWindow.tsx',

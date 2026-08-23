@@ -641,6 +641,9 @@ const sizeRatchets = new Map([
   ['src/components/ManualTransformEditorModal.tsx', 218],
   ['src/components/ManualTransformStepEditor.tsx', 168],
   ['src/components/manualTransformStepModel.ts', 100],
+  ['src/components/CaptureFeedbackWindow.tsx', 472],
+  ['src/components/CaptureFeedbackCard.tsx', 137],
+  ['src/components/captureFeedbackModel.ts', 42],
   ['src/components/clipPreviewModel.ts', 162],
   ['src/components/fileClipPreviewLoader.ts', 53],
   ['src/components/fileClipPreviewModel.ts', 9],
@@ -842,6 +845,12 @@ assert.doesNotMatch(manualTransformShell, /OPERATION_CATEGORIES|findPattern:[\s\
   'The Manual Transform shell must not reclaim operation presentation or step serialization');
 assert.match(read('src/components/manualTransformStepModel.ts'), /compileManualTransformStep/,
   'Manual Transform step serialization must remain a testable domain boundary');
+
+const captureFeedbackShell = read('src/components/CaptureFeedbackWindow.tsx');
+assert.match(captureFeedbackShell, /<CaptureFeedbackCard/,
+  'Capture Feedback must compose its focused card presentation');
+assert.doesNotMatch(captureFeedbackShell, /SafeRasterImage|FloatingActionStrip|capturedClipPreview/,
+  'Capture Feedback window lifecycle must not reclaim card presentation');
 
 const contentAnalysisFacade = read('src-tauri/src/content_analysis.rs');
 assert.match(contentAnalysisFacade, /mod pipeline;/,
