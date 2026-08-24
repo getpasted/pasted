@@ -18,6 +18,7 @@ const linuxThemeSource = fs.readFileSync('src-tauri/src/linux_native_theme.rs', 
 const windowDragSource = fs.readFileSync('src/utils/windowDrag.ts', 'utf8');
 const titlebarSource = fs.readFileSync('src-tauri/src/titlebar.rs', 'utf8');
 const rustLibSource = fs.readFileSync('src-tauri/src/lib.rs', 'utf8');
+const appWindowsSource = fs.readFileSync('src-tauri/src/app_windows.rs', 'utf8');
 const rtlWindowControlsSource = fs.readFileSync('src/components/MacRtlWindowControls.tsx', 'utf8');
 const appLockScreenSource = fs.readFileSync('src/components/AppLockScreen.tsx', 'utf8');
 const hudWindowSource = fs.readFileSync('src-tauri/src/hud_window.rs', 'utf8');
@@ -133,11 +134,11 @@ assert.match(
   /html\[data-window-inactive\] \.mac-window-control \{[\s\S]*?--mac-window-control-fill:\s*var\(--mac-traffic-inactive\);/,
   'Inactive RTL traffic lights should use the neutral macOS fill',
 );
-assert.match(rustLibSource, /WindowEvent::Focused\(true\)/);
-assert.match(rustLibSource, /removeAttribute\('data-window-inactive'\)/);
+assert.match(appWindowsSource, /WindowEvent::Focused\(true\)/);
+assert.match(appWindowsSource, /removeAttribute\('data-window-inactive'\)/);
 assert.match(titlebarSource, /NSWindowDidBecomeKeyNotification/);
 assert.doesNotMatch(titlebarSource, /NSWindowDidResignKeyNotification/);
-assert.match(rustLibSource, /titlebar::install_focus_observers\(&main_win\)/);
+assert.match(appWindowsSource, /titlebar::install_focus_observers\(&main_window\)/);
 assert.match(mainSource, /markWindowActive[\s\S]*removeAttribute\('data-window-inactive'\)/);
 assert.match(mainSource, /addEventListener\('pointerdown', markWindowActive/);
 assert.match(mainSource, /addEventListener\('blur',[\s\S]*setAttribute\('data-window-inactive', ''\)/);
@@ -203,16 +204,16 @@ assert.match(titlebarSource, /setFrame: next display: 1i8 animate: 0i8/);
 assert.match(titlebarSource, /TitlebarDoubleClickAction::Fill => visible/);
 assert.match(rustLibSource, /commands::platform::perform_titlebar_double_click/);
 assert.match(
-  rustLibSource,
+  appWindowsSource,
   /NSVisualEffectState::Active/,
   'macOS vibrancy must not retint the app when the native active-state calculation changes',
 );
-assert.doesNotMatch(rustLibSource, /NSVisualEffectState::FollowsWindowActiveState/);
-assert.match(rustLibSource, /MAIN_PAGE_LOADED/);
-assert.match(rustLibSource, /STARTUP_SETUP_READY/);
+assert.doesNotMatch(appWindowsSource, /NSVisualEffectState::FollowsWindowActiveState/);
+assert.match(appWindowsSource, /MAIN_PAGE_LOADED/);
+assert.match(appWindowsSource, /STARTUP_SETUP_READY/);
 assert.match(rustLibSource, /PageLoadEvent::Finished/);
 assert.match(
-  rustLibSource,
+  appWindowsSource,
   /getElementById\('startup-splash'\).*getAnimations\(\{ subtree: true \}\)/,
   'The first visible startup frame must restart the splash animation instead of exposing native chrome',
 );

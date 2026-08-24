@@ -8,6 +8,12 @@ mod app_exclusions;
 pub mod app_lock;
 #[cfg(feature = "gui")]
 mod app_menu;
+#[cfg(feature = "gui")]
+mod app_runtime;
+#[cfg(feature = "gui")]
+mod app_tray;
+#[cfg(feature = "gui")]
+mod app_windows;
 pub mod application_error;
 pub mod bin_assignment;
 pub mod classification_execution;
@@ -79,204 +85,9 @@ pub mod transformation_intent;
 pub mod transformation_service;
 
 #[cfg(feature = "gui")]
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
+use std::sync::Arc;
 #[cfg(feature = "gui")]
-use tauri::{
-    menu::{Menu, MenuBuilder, MenuItem},
-    tray::{TrayIconBuilder, TrayIconEvent},
-    Emitter, Manager,
-};
-#[cfg(feature = "gui")]
-use tauri_plugin_window_state::{StateFlags, WindowExt};
-
-#[cfg(feature = "gui")]
-static EXIT_REQUESTED: AtomicBool = AtomicBool::new(false);
-#[cfg(feature = "gui")]
-static MAIN_PAGE_LOADED: AtomicBool = AtomicBool::new(false);
-#[cfg(feature = "gui")]
-static STARTUP_SETUP_READY: AtomicBool = AtomicBool::new(false);
-#[cfg(feature = "gui")]
-static MAIN_WINDOW_REVEALED: AtomicBool = AtomicBool::new(false);
-
-#[cfg(feature = "gui")]
-const DEFAULT_TRAY_ICON_STYLE: &str = "clipboard";
-#[cfg(feature = "gui")]
-const COPYCAT_TRAY_ICON_STYLE: &str = "copycat";
-
-#[cfg(feature = "gui")]
-fn load_tray_icon(style: &str) -> Result<tauri::image::Image<'static>, image::ImageError> {
-    let bytes = if style == COPYCAT_TRAY_ICON_STYLE {
-        include_bytes!("../icons/tray-icon-copycat@2x.png").as_slice()
-    } else {
-        include_bytes!("../icons/tray-icon@2x.png").as_slice()
-    };
-    let image = image::load_from_memory(bytes)?.to_rgba8();
-    let (width, height) = image.dimensions();
-    Ok(tauri::image::Image::new_owned(
-        image.into_raw(),
-        width,
-        height,
-    ))
-}
-
-#[cfg(feature = "gui")]
-pub(crate) fn refresh_tray_icon(app: &tauri::AppHandle, style: &str) {
-    #[cfg(target_os = "macos")]
-    if let Some(tray) = app.tray_by_id("main") {
-        match load_tray_icon(style) {
-            Ok(icon) => {
-                if let Err(error) = tray.set_icon_with_as_template(Some(icon), true) {
-                    eprintln!("Could not update the menu bar icon: {error}");
-                }
-            }
-            Err(error) => eprintln!("Could not load the menu bar icon: {error}"),
-        }
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    let _ = (app, style);
-}
-
-#[cfg(feature = "gui")]
-pub(crate) fn request_app_exit(app: &tauri::AppHandle) {
-    if EXIT_REQUESTED.swap(true, Ordering::SeqCst) {
-        return;
-    }
-
-    for window in app.webview_windows().values() {
-        let _ = window.hide();
-    }
-    let db = app.state::<Arc<db::DbState>>();
-    let _ = db.log_activity("app_exit_requested", "Quit Pasted");
-    app.exit(0);
-}
-
-#[cfg(feature = "gui")]
-fn build_tray_menu(
-    app: &tauri::AppHandle,
-    db: &Arc<db::DbState>,
-) -> tauri::Result<Menu<tauri::Wry>> {
-    let t = |key| localization::text(db, key);
-    let show = MenuItem::with_id(app, "show", t("native.tray.show"), true, None::<&str>)?;
-    let hud = MenuItem::with_id(
-        app,
-        "hud_toggle",
-        t("native.tray.toggleHud"),
-        true,
-        None::<&str>,
-    )?;
-    let queue = MenuItem::with_id(
-        app,
-        "seq_toggle",
-        t("native.tray.startQueue"),
-        true,
-        None::<&str>,
-    )?;
-    let quit = MenuItem::with_id(app, "quit", t("native.tray.quit"), true, None::<&str>)?;
-    let mut builder = MenuBuilder::new(app).item(&show);
-    if features::is_enabled(db, features::Feature::Hud) {
-        builder = builder.item(&hud);
-    }
-    if features::is_enabled(db, features::Feature::Queue) {
-        builder = builder.item(&queue);
-    }
-    builder.item(&quit).build()
-}
-
-#[cfg(feature = "gui")]
-pub(crate) fn refresh_tray_menu(app: &tauri::AppHandle, db: &Arc<db::DbState>) {
-    let Some(tray) = app.tray_by_id("main") else {
-        return;
-    };
-    match build_tray_menu(app, db) {
-        Ok(menu) => {
-            if let Err(error) = tray.set_menu(Some(menu)) {
-                eprintln!("Could not refresh the tray menu: {error}");
-            }
-        }
-        Err(error) => eprintln!("Could not rebuild the tray menu: {error}"),
-    }
-}
-
-#[cfg(feature = "gui")]
-fn main_window_state_flags() -> StateFlags {
-    StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED | StateFlags::FULLSCREEN
-}
-
-#[cfg(feature = "gui")]
-fn reveal_main_window_when_ready(app: &tauri::AppHandle) {
-    if !MAIN_PAGE_LOADED.load(Ordering::Acquire)
-        || !STARTUP_SETUP_READY.load(Ordering::Acquire)
-        || MAIN_WINDOW_REVEALED.swap(true, Ordering::AcqRel)
-    {
-        return;
-    }
-
-    let startup_args = std::env::args().collect::<Vec<_>>();
-    if live_app::request_from_args(&startup_args).is_some() {
-        return;
-    }
-    let is_autostart = startup_args
-        .iter()
-        .any(|argument| argument == "--autostart");
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.eval(
-            "document.getElementById('startup-splash')?.getAnimations({ subtree: true }).forEach((animation) => { animation.currentTime = 0; });",
-        );
-        if let Err(error) = window.show() {
-            eprintln!("Could not show the main window during startup: {error}");
-        } else if !is_autostart {
-            if let Err(error) = window.set_focus() {
-                eprintln!("Could not focus the main window during startup: {error}");
-            }
-        }
-    }
-}
-
-#[cfg(all(feature = "gui", target_os = "macos"))]
-fn setup_window_vibrancy(window: &tauri::WebviewWindow) {
-    use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial, NSVisualEffectState};
-    let _ = apply_vibrancy(
-        window,
-        NSVisualEffectMaterial::UnderWindowBackground,
-        Some(NSVisualEffectState::Active),
-        Some(12.0),
-    );
-}
-
-#[cfg(all(feature = "gui", target_os = "macos"))]
-fn trim_webview_memory(app: &tauri::AppHandle) {
-    if let Some(w) = app.get_webview_window("main") {
-        let _ = w.eval("if (window.gc) { window.gc(); }");
-    }
-}
-
-#[cfg(all(feature = "gui", target_os = "macos"))]
-fn setup_overlay_window_transparency(window: &tauri::WebviewWindow) {
-    use objc::runtime::Object;
-    use objc::{msg_send, sel, sel_impl};
-    if let Ok(ns_window_ptr) = window.ns_window() {
-        unsafe {
-            let ns_window = ns_window_ptr as *mut Object;
-            let clear_color: *mut Object = msg_send![objc::class!(NSColor), clearColor];
-            let _: () = msg_send![ns_window, setBackgroundColor: clear_color];
-            let _: () = msg_send![ns_window, setOpaque: false];
-            let _: () = msg_send![ns_window, setHasShadow: false];
-        }
-    }
-    let _ = window.with_webview(|webview| unsafe {
-        let wk_webview = webview.inner() as *mut Object;
-        let no_num: *mut Object = msg_send![objc::class!(NSNumber), numberWithBool: false];
-        let key_str: *mut Object = msg_send![
-            objc::class!(NSString),
-            stringWithUTF8String: c"drawsBackground".as_ptr()
-        ];
-        let _: () = msg_send![wk_webview, setValue: no_num forKey: key_str];
-    });
-}
+use tauri::Manager;
 
 #[cfg(feature = "gui")]
 pub fn run() {
@@ -289,37 +100,12 @@ pub fn run() {
             tauri_plugin_window_state::Builder::default()
                 .with_filter(|label| label == "main")
                 .skip_initial_state("main")
-                .with_state_flags(main_window_state_flags())
+                .with_state_flags(app_windows::main_window_state_flags())
                 .build(),
         )
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
-            if EXIT_REQUESTED.load(Ordering::SeqCst) {
-                return;
-            }
-            if args.iter().any(|argument| argument == "--skip-welcome") {
-                if let Some(db) = app.try_state::<Arc<db::DbState>>() {
-                    let _ = db.save_setting(
-                        external_import::ONBOARDING_SETTING_KEY,
-                        &external_import::ONBOARDING_VERSION.to_string(),
-                    );
-                    let _ = app.emit(
-                        "app-setting-changed",
-                        serde_json::json!({
-                            "key": external_import::ONBOARDING_SETTING_KEY,
-                            "value": external_import::ONBOARDING_VERSION.to_string(),
-                        }),
-                    );
-                }
-            }
-            if let Some(path) = live_app::request_from_args(&args) {
-                live_app::handle_request_file(app, &path, false);
-                return;
-            }
-            if let Some(w) = app.get_webview_window("main") {
-                let _ = w.show();
-                let _ = w.set_focus();
-            }
+            app_runtime::handle_single_instance(app, &args);
         }))
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
@@ -342,222 +128,11 @@ pub fn run() {
             if webview.label() == "main"
                 && payload.event() == tauri::webview::PageLoadEvent::Finished
             {
-                MAIN_PAGE_LOADED.store(true, Ordering::Release);
-                reveal_main_window_when_ready(webview.app_handle());
+                app_windows::mark_main_page_loaded(webview.app_handle());
             }
         })
-        .setup(|app| {
-            let startup_args = std::env::args().collect::<Vec<_>>();
-            let is_autostart = startup_args
-                .iter()
-                .any(|argument| argument == "--autostart");
-            let live_request = live_app::request_from_args(&startup_args);
-
-            #[cfg(target_os = "linux")]
-            if let Err(error) = linux_native_theme::apply_menu_theme(true) {
-                eprintln!("Could not apply the initial native Linux menu theme: {error}");
-            }
-
-            // Restore and configure the native window while it remains hidden.
-            // The page-load hook reveals it only after both native setup and the
-            // startup splash are ready to paint.
-            if let Some(main_win) = app.get_webview_window("main") {
-                let _ = main_win.restore_state(main_window_state_flags());
-                // Window-state restoration dispatches native geometry updates to
-                // the event loop. Read the resulting frame back before revealing
-                // the window so macOS cannot paint the configured default frame
-                // for a moment and then visibly snap to the restored one.
-                let _ = main_win.outer_position();
-                let _ = main_win.outer_size();
-                #[cfg(target_os = "macos")]
-                {
-                    setup_window_vibrancy(&main_win);
-                    titlebar::install_focus_observers(&main_win)?;
-                }
-            }
-
-            // Determine app data path for SQLite DB
-            let app_dir = app
-                .path()
-                .app_data_dir()
-                .unwrap_or_else(|_| std::path::PathBuf::from("./pasted_data"));
-            let db_path = library_storage::resolve_database_path(&app_dir);
-
-            let db_state =
-                Arc::new(db::DbState::new(db_path).expect("Failed to initialize SQLite database"));
-            if std::env::args().any(|argument| argument == "--skip-welcome") {
-                let _ = db_state.save_setting(
-                    external_import::ONBOARDING_SETTING_KEY,
-                    &external_import::ONBOARDING_VERSION.to_string(),
-                );
-            }
-            let seq_state = Arc::new(sequential_paste::SequentialQueueState::persistent(
-                db_state.clone(),
-            ));
-            let paste_target_state = Arc::new(paste_target::PasteTargetState::new());
-            paste_target_state.start_tracking();
-
-            app.manage(db_state.clone());
-            app.manage(Arc::new(app_lock::AppLockState::from_db(&db_state)));
-            app.manage(seq_state.clone());
-            app.manage(paste_target_state);
-
-            if let Some(path) = live_request.as_deref() {
-                if live_app::is_recovery_reset_request(path) {
-                    live_app::handle_request_file(app.handle(), path, true);
-                    app.handle().exit(0);
-                    return Ok(());
-                }
-            }
-
-            let launch_description = if is_autostart {
-                "Opened Pasted at login"
-            } else {
-                "Opened Pasted"
-            };
-            let _ = db_state.log_activity("app_started", launch_description);
-
-            let ocr_service = Arc::new(ocr::spawn_ocr_worker(
-                app.handle().clone(),
-                db_state.clone(),
-            ));
-            app.manage(ocr_service.clone());
-
-            app_menu::install(app.handle(), &db_state)?;
-
-            // Start background clipboard monitor
-            let handle = app.handle().clone();
-            let monitor_handle = clipboard_monitor::start_clipboard_monitor(
-                handle,
-                db_state.clone(),
-                seq_state,
-                ocr_service,
-            );
-            let monitor_state = Arc::new(clipboard_monitor::ClipboardMonitorState {
-                is_manually_paused: monitor_handle.is_manually_paused.clone(),
-                is_auto_paused: monitor_handle.is_auto_paused.clone(),
-            });
-            app.manage(monitor_state);
-
-            if let Some(path) = live_request.as_deref() {
-                live_app::handle_request_file(app.handle(), path, false);
-            }
-
-            #[cfg(target_os = "macos")]
-            {
-                if let Some(hud_win) = app.get_webview_window("hud") {
-                    setup_overlay_window_transparency(&hud_win);
-                }
-                if let Some(feedback_win) = app.get_webview_window("capture-feedback") {
-                    setup_overlay_window_transparency(&feedback_win);
-                }
-            }
-
-            // Register all saved HUD, Manual Transform, Bin, and clip hotkeys.
-            keyboard_layout::start_layout_monitor(app.handle().clone());
-            let _ = commands::register_all_app_shortcuts(app.handle());
-
-            // Create Menu Bar / System Tray Icon
-            let menu = build_tray_menu(app.handle(), &db_state)?;
-
-            #[cfg(target_os = "macos")]
-            let tray_icon_style = db_state
-                .get_setting("menubarIconStyle")?
-                .unwrap_or_else(|| DEFAULT_TRAY_ICON_STYLE.to_string());
-            #[cfg(not(target_os = "macos"))]
-            let tray_icon_style = DEFAULT_TRAY_ICON_STYLE.to_string();
-
-            let tray_icon = match load_tray_icon(&tray_icon_style) {
-                Ok(icon) => icon,
-                Err(error) => app.default_window_icon().cloned().ok_or_else(|| {
-                    std::io::Error::other(format!(
-                        "Could not load the tray icon or default application icon: {error}"
-                    ))
-                })?,
-            };
-
-            let _tray = TrayIconBuilder::with_id("main")
-                .icon(tray_icon)
-                .icon_as_template(true)
-                .menu(&menu)
-                .on_menu_event(|app, event| match event.id.as_ref() {
-                    "show" => {
-                        if let Some(w) = app.get_webview_window("main") {
-                            let _ = w.show();
-                            let _ = w.set_focus();
-                        }
-                    }
-                    "hud_toggle" => {
-                        if app
-                            .try_state::<Arc<app_lock::AppLockState>>()
-                            .is_some_and(|state| state.is_locked())
-                        {
-                            return;
-                        }
-                        let _ = commands::toggle_hud_window(app.clone());
-                    }
-                    "seq_toggle" => {
-                        if app
-                            .try_state::<Arc<app_lock::AppLockState>>()
-                            .is_some_and(|state| state.is_locked())
-                        {
-                            return;
-                        }
-                        let db = app.state::<Arc<db::DbState>>();
-                        if !features::is_enabled(&db, features::Feature::Queue) {
-                            return;
-                        }
-                        let seq = app.state::<Arc<sequential_paste::SequentialQueueState>>();
-                        let is_active = *seq.is_active.lock();
-                        if is_active {
-                            seq.stop_queue();
-                        } else {
-                            seq.start_queue();
-                        }
-                        let status = seq.get_status();
-                        let _ = app.emit("sequential-updated", status);
-                    }
-                    "quit" => {
-                        request_app_exit(app);
-                    }
-                    _ => {}
-                })
-                .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::Click { .. } = event {
-                        let app = tray.app_handle();
-                        if let Some(w) = app.get_webview_window("main") {
-                            if w.is_visible().unwrap_or(false) {
-                                let _ = w.hide();
-                                #[cfg(target_os = "macos")]
-                                trim_webview_memory(app);
-                            } else {
-                                let _ = w.show();
-                                let _ = w.set_focus();
-                            }
-                        }
-                    }
-                })
-                .build(app)?;
-
-            STARTUP_SETUP_READY.store(true, Ordering::Release);
-            reveal_main_window_when_ready(app.handle());
-
-            Ok(())
-        })
-        .on_window_event(|window, event| {
-            if let tauri::WindowEvent::Focused(true) = event {
-                if let Some(webview) = window.app_handle().get_webview_window(window.label()) {
-                    let _ = webview
-                        .eval("document.documentElement.removeAttribute('data-window-inactive');");
-                }
-            }
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                let _ = window.hide();
-                api.prevent_close();
-                #[cfg(target_os = "macos")]
-                trim_webview_memory(window.app_handle());
-            }
-        })
+        .setup(app_runtime::setup)
+        .on_window_event(app_windows::handle_window_event)
         .invoke_handler(tauri::generate_handler![
             commands::clips::get_clips,
             commands::clips::get_capture_feedback_clip,
@@ -757,47 +332,5 @@ pub fn run() {
         ])
         .build(tauri::generate_context!())
         .expect("error while building Pasted application")
-        .run(|app, event| {
-            if matches!(event, tauri::RunEvent::Resumed) {
-                let db = app.state::<Arc<db::DbState>>();
-                let state = app.state::<Arc<app_lock::AppLockState>>();
-                let enabled = db
-                    .get_setting(app_lock::ENABLED_SETTING)
-                    .ok()
-                    .flatten()
-                    .as_deref()
-                    == Some("true");
-                let lock_on_sleep = db
-                    .get_setting(app_lock::LOCK_ON_SLEEP_SETTING)
-                    .ok()
-                    .flatten()
-                    .as_deref()
-                    != Some("false");
-                if features::is_enabled(&db, features::Feature::AppLock) && enabled && lock_on_sleep
-                {
-                    state.lock();
-                    hud_window::hide(app);
-                    let _ = app_menu::install(app, &db);
-                    let status = app_lock::status(&db, &state);
-                    let _ = app.emit("app-lock-changed", status);
-                }
-            }
-        });
-}
-
-#[cfg(all(test, feature = "gui"))]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn main_window_state_excludes_visibility_and_decorations() {
-        let flags = main_window_state_flags();
-
-        assert!(flags.contains(StateFlags::SIZE));
-        assert!(flags.contains(StateFlags::POSITION));
-        assert!(flags.contains(StateFlags::MAXIMIZED));
-        assert!(flags.contains(StateFlags::FULLSCREEN));
-        assert!(!flags.contains(StateFlags::VISIBLE));
-        assert!(!flags.contains(StateFlags::DECORATIONS));
-    }
+        .run(|app, event| app_runtime::handle_run_event(app, &event));
 }

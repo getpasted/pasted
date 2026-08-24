@@ -105,7 +105,7 @@ pub fn play_system_sound(_sound_id: Option<u32>) {}
 
 #[tauri::command]
 pub fn quit_app(app: AppHandle) {
-    crate::request_app_exit(&app);
+    crate::app_runtime::request_app_exit(&app);
 }
 
 const BACKING_URL: &str = "https://back.getpasted.app";

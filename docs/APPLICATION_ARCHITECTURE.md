@@ -38,6 +38,24 @@ Non-English locale catalogs load on demand. The localization snapshot exposes
 catalog readiness, and application startup remains behind the splash until the
 selected catalog, settings, and initial library data are all ready.
 
+## Native application bootstrap
+
+The native crate root is the GUI composition boundary. It configures Tauri
+plugins, preserves the complete command registry for IPC auditing, and delegates
+lifecycle behavior to three focused modules:
+
+- `app_runtime.rs` initializes durable state and background services, handles
+  second-instance activation and explicit exit, and applies resume-time locking;
+- `app_windows.rs` owns restoration, platform presentation, focus and close
+  events, and the atomic page-loaded/setup-ready reveal handshake;
+- `app_tray.rs` owns tray and menu-bar icon loading, localized menu construction,
+  feature-aware refreshes, and tray interactions.
+
+Initialization order is part of the startup contract: configure hidden windows,
+initialize and manage shared services, install native menus and monitoring,
+register shortcuts, install the tray, then mark setup ready. The main window is
+revealed only after both native setup and its webview page load are complete.
+
 ## Compatibility boundaries
 
 “Transform” is the public product concept. “Pipeline” remains only where needed

@@ -158,7 +158,7 @@ pub fn handle_menu_event(app: &AppHandle, event: MenuEvent) {
             }
         }
         MenuDispatch::Quit => {
-            crate::request_app_exit(app);
+            crate::app_runtime::request_app_exit(app);
         }
     }
 }

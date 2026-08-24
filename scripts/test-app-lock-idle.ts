@@ -14,7 +14,7 @@ const hotkeySource = readRustModuleTree(
   'src-tauri/src/hotkey_manager',
 );
 const liveAppSource = fs.readFileSync('src-tauri/src/live_app.rs', 'utf8');
-const nativeRootSource = fs.readFileSync('src-tauri/src/lib.rs', 'utf8');
+const nativeRuntimeSource = fs.readFileSync('src-tauri/src/app_runtime.rs', 'utf8');
 
 assert.match(hudRootSource, /!appLock\.status\.locked/,
   'the HUD webview must never render the app-lock modal');
@@ -34,7 +34,7 @@ assert.match(hotkeySource, /app_lock::lock_enabled[\s\S]*?hud_window::hide\(app\
   'locking from a hotkey must hide the HUD');
 assert.match(liveAppSource, /LiveAppAction::AppLockLock[\s\S]*?hud_window::hide\(app\)/,
   'locking from the CLI live-app path must hide the HUD');
-assert.match(nativeRootSource, /RunEvent::Resumed[\s\S]*?state\.lock\(\);[\s\S]*?hud_window::hide\(app\)/,
+assert.match(nativeRuntimeSource, /RunEvent::Resumed[\s\S]*?state\.lock\(\);[\s\S]*?hud_window::hide\(app\)/,
   'locking after system sleep must hide the HUD');
 
 let now = 0;

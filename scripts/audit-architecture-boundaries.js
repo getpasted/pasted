@@ -9,6 +9,10 @@ const readSourceTree = (directory) => fs.readdirSync(directory, { withFileTypes:
   if (entry.isDirectory()) return readSourceTree(path);
   return /\.(?:ts|tsx)$/.test(entry.name) ? [{ path, source: read(path) }] : [];
 });
+const nativeAppRoot = read('src-tauri/src/lib.rs');
+const nativeAppRuntime = read('src-tauri/src/app_runtime.rs');
+const nativeAppTray = read('src-tauri/src/app_tray.rs');
+const nativeAppWindows = read('src-tauri/src/app_windows.rs');
 const commands = read('src-tauri/src/commands.rs');
 const appLockCommands = read('src-tauri/src/commands/app_lock.rs');
 const analysisCommands = read('src-tauri/src/commands/analysis.rs');
@@ -396,6 +400,24 @@ for (const sharedCall of [
 }
 assert.match(platformCapabilities, /pub fn accessibility_status/,
   'Platform readiness must be exposed independently of GUI commands');
+assert.match(nativeAppRoot, /\.setup\(app_runtime::setup\)/,
+  'The native crate root must delegate runtime initialization');
+assert.match(nativeAppRoot, /\.on_window_event\(app_windows::handle_window_event\)/,
+  'The native crate root must delegate native window lifecycle events');
+assert.match(nativeAppRoot, /app_runtime::handle_single_instance/,
+  'The native crate root must delegate single-instance activation');
+assert.match(nativeAppRoot, /app_windows::mark_main_page_loaded/,
+  'The native crate root must delegate the startup readiness handshake');
+assert.match(nativeAppRoot, /app_runtime::handle_run_event/,
+  'The native crate root must delegate application run events');
+assert.doesNotMatch(nativeAppRoot, /DbState::new|TrayIconBuilder|MAIN_PAGE_LOADED|STARTUP_SETUP_READY/,
+  'The native crate root must not reclaim runtime, tray, or window state ownership');
+assert.match(nativeAppRuntime, /app_windows::configure_initial_windows[\s\S]*app_tray::install[\s\S]*app_windows::mark_startup_setup_ready/,
+  'Runtime initialization must preserve window, service, tray, and ready ordering');
+assert.match(nativeAppTray, /fn build_menu[\s\S]*pub\(crate\) fn install/,
+  'The tray module must own menu construction and installation');
+assert.match(nativeAppWindows, /MAIN_PAGE_LOADED[\s\S]*STARTUP_SETUP_READY[\s\S]*MAIN_WINDOW_REVEALED/,
+  'The window module must own the atomic startup reveal handshake');
 assert.match(settingsService, /Result<SettingsUpdateOutcome, ApplicationError>/,
   'Shared Settings failures must expose stable structured application errors');
 assert.match(settingsApi, /saveMany:[\s\S]*save_app_settings/,
@@ -505,6 +527,10 @@ assert.doesNotMatch(commands, /pub fn extract_ocr_from_clip|pub async fn extract
   'The GUI command root must not reclaim extraction lifecycle operations');
 
 const sizeRatchets = new Map([
+  ['src-tauri/src/lib.rs', 400],
+  ['src-tauri/src/app_runtime.rs', 180],
+  ['src-tauri/src/app_tray.rs', 190],
+  ['src-tauri/src/app_windows.rs', 165],
   ['src-tauri/src/db.rs', 210],
   ['src-tauri/src/content_analysis.rs', 186],
   ['src-tauri/src/content_analysis/pipeline.rs', 413],
