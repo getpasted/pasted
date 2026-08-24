@@ -48,6 +48,10 @@ pub(crate) fn run_registered_migrations(conn: &Connection) -> Result<()> {
             key: "currentTransformationBackfillV1",
             apply: backfill_current_transformation,
         },
+        NamedMigration {
+            key: "analysisTransformCanonicalTimestampsV1",
+            apply: migrate_analysis_transform_timestamps,
+        },
     ];
     run_named_migrations(conn, MIGRATIONS)
 }

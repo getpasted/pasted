@@ -62,14 +62,16 @@ impl DbState {
         for (participant_ref, priority, result_json) in serialized {
             transaction.execute(
                 "INSERT INTO clip_analysis_results
-                    (clip_id, participant_ref, content_hash, input_hash, format_version, result_json)
-                 VALUES (?1, ?2, ?3, ?3, ?4, ?5)",
+                    (clip_id, participant_ref, content_hash, input_hash, format_version,
+                     result_json, updated_at)
+                 VALUES (?1, ?2, ?3, ?3, ?4, ?5, ?6)",
                 params![
                     clip_id,
                     participant_ref,
                     content_hash,
                     crate::analysis_contract::ANALYSIS_CONTRACT_VERSION,
                     result_json,
+                    run_at,
                 ],
             )?;
             transaction.execute(

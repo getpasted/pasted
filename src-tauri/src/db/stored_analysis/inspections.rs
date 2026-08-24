@@ -20,15 +20,17 @@ impl DbState {
         let conn = self.conn.lock();
         let changed = conn.execute(
             "INSERT INTO clip_analysis_results
-                (clip_id, participant_ref, content_hash, input_hash, format_version, result_json)
-             SELECT id, ?1, content_hash, ?2, ?3, ?4 FROM clips
+                (clip_id, participant_ref, content_hash, input_hash, format_version, result_json,
+                 updated_at)
+             SELECT id, ?1, content_hash, ?2, ?3, ?4,
+                    strftime('%Y-%m-%dT%H:%M:%SZ', 'now') FROM clips
              WHERE id = ?5 AND content_hash = ?6 AND COALESCE(is_trashed, 0) = 0
              ON CONFLICT(clip_id, participant_ref) DO UPDATE SET
                 content_hash = excluded.content_hash,
                 input_hash = excluded.input_hash,
                 format_version = excluded.format_version,
                 result_json = excluded.result_json,
-                updated_at = CURRENT_TIMESTAMP",
+                updated_at = excluded.updated_at",
             params![
                 crate::content_inspection::STRUCTURE_INSPECTOR_REF,
                 input_hash,
@@ -84,15 +86,17 @@ impl DbState {
         let conn = self.conn.lock();
         let changed = conn.execute(
             "INSERT INTO clip_analysis_results
-                (clip_id, participant_ref, content_hash, input_hash, format_version, result_json)
-             SELECT id, ?1, content_hash, content_hash, ?2, ?3 FROM clips
+                (clip_id, participant_ref, content_hash, input_hash, format_version, result_json,
+                 updated_at)
+             SELECT id, ?1, content_hash, content_hash, ?2, ?3,
+                    strftime('%Y-%m-%dT%H:%M:%SZ', 'now') FROM clips
              WHERE id = ?4 AND content_hash = ?5 AND COALESCE(is_trashed, 0) = 0
              ON CONFLICT(clip_id, participant_ref) DO UPDATE SET
                 content_hash = excluded.content_hash,
                 input_hash = excluded.input_hash,
                 format_version = excluded.format_version,
                 result_json = excluded.result_json,
-                updated_at = CURRENT_TIMESTAMP",
+                updated_at = excluded.updated_at",
             params![
                 crate::content_inspection::FILE_FORMAT_INSPECTOR_REF,
                 crate::analysis_contract::ANALYSIS_CONTRACT_VERSION,

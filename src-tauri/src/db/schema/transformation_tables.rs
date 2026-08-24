@@ -73,7 +73,7 @@ impl DbState {
                         transform_revision INTEGER NOT NULL,
                         connection_id TEXT REFERENCES intelligence_connections(id) ON DELETE SET NULL,
                         duration_ms INTEGER NOT NULL DEFAULT 0 CHECK (duration_ms >= 0),
-                        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
                     );
                     INSERT INTO clip_transformations_migrated
                         (id, clip_id, transform_id, transform_ref, transform_name, transform_revision,
@@ -139,8 +139,8 @@ impl DbState {
                 shortcut TEXT,
                 authoring_kind TEXT NOT NULL DEFAULT 'intent' CHECK (authoring_kind IN ('intent', 'manual')),
                 revision INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0),
-                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+                updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
             );
 
             CREATE TABLE IF NOT EXISTS clip_transformations (
@@ -152,7 +152,7 @@ impl DbState {
                 transform_revision INTEGER NOT NULL,
                 connection_id TEXT REFERENCES intelligence_connections(id) ON DELETE SET NULL,
                 duration_ms INTEGER NOT NULL DEFAULT 0 CHECK (duration_ms >= 0),
-                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
             );
             CREATE INDEX IF NOT EXISTS idx_clip_transformations_clip
                 ON clip_transformations(clip_id, created_at DESC);
@@ -192,8 +192,8 @@ impl DbState {
                 destination_kind TEXT NOT NULL DEFAULT 'preview' CHECK (
                     destination_kind IN ('preview', 'replace', 'copy', 'paste', 'route')
                 ),
-                started_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                completed_at DATETIME,
+                started_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+                completed_at TEXT,
                 duration_ms INTEGER CHECK (duration_ms IS NULL OR duration_ms >= 0),
                 status TEXT NOT NULL DEFAULT 'queued' CHECK (
                     status IN ('queued', 'running', 'succeeded', 'failed', 'cancelled')

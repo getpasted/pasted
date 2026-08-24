@@ -32,6 +32,10 @@ fn derived_analysis_classification_is_hash_safe_and_non_destructive() {
     let classification = db.get_analysis_classifications(clip.id).unwrap().remove(0);
     assert_eq!(classification.content_type, "email");
     assert_eq!(classification.source_representation, "searchable_text");
+    assert_eq!(
+        crate::db::canonical_utc_timestamp(&classification.updated_at, "Test").unwrap(),
+        classification.updated_at
+    );
     assert_eq!(db.get_clip_by_id(clip.id).unwrap().content_type, "image");
 
     assert!(!db

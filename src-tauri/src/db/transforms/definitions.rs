@@ -132,8 +132,11 @@ impl DbState {
         })?;
         let conn = self.conn.lock();
         conn.execute(
-            "INSERT INTO saved_transforms (name, plan_json, connection_id, authoring_kind)
-             VALUES (?1, ?2, ?3, 'intent')",
+            "INSERT INTO saved_transforms
+                (name, plan_json, connection_id, authoring_kind, created_at, updated_at)
+             VALUES (?1, ?2, ?3, 'intent',
+                     strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
+                     strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
             params![name.trim(), plan_json, connection_id],
         )?;
         let row_id = conn.last_insert_rowid();
@@ -167,7 +170,7 @@ impl DbState {
                  plan_json = ?2,
                  connection_id = ?3,
                  revision = revision + 1,
-                 updated_at = CURRENT_TIMESTAMP
+                 updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
              WHERE id = ?4",
             params![name.trim(), plan_json, connection_id, transform_id],
         )?;

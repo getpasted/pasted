@@ -103,6 +103,8 @@ fn smart_actions_suggestion_has_registry_and_non_mutating_cli_parity() {
         ],
     );
     let transform_ref = transform["stableRef"].as_str().expect("Transform ref");
+    assert!(transform["createdAt"].as_str().unwrap().ends_with('Z'));
+    assert!(transform["updatedAt"].as_str().unwrap().ends_with('Z'));
     let secret_url = "https://example.com/private-token-0123456789?utm_source=test";
     let clip = success_json(&database, &["copy", secret_url, "--json"]);
     let clip_id = clip["id"].as_i64().expect("clip ID").to_string();

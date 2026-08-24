@@ -4,6 +4,13 @@ use crate::db::{tests::setup_test_db, DbState};
 mod fixtures;
 use fixtures::deterministic_plan;
 
+fn assert_canonical_timestamp(value: &str) {
+    assert_eq!(
+        crate::db::canonical_utc_timestamp(value, "Test").unwrap(),
+        value
+    );
+}
+
 fn save_text_clip_id(db: &DbState, source_id: &str) -> i64 {
     db.save_clip("text", Some("hello"), None, None, source_id, "Tests")
         .unwrap()
@@ -16,6 +23,8 @@ fn definition_facade_preserves_intent_and_manual_compatibility() {
     let intent = db
         .create_saved_transform("Uppercase", &deterministic_plan(), None)
         .unwrap();
+    assert_canonical_timestamp(&intent.created_at);
+    assert_canonical_timestamp(&intent.updated_at);
     let intent_definition = db
         .resolve_transform_definition(&intent.stable_ref)
         .unwrap()
@@ -100,6 +109,8 @@ fn execution_owner_preserves_transitions_order_and_limit() {
     assert_eq!(executions.len(), 25);
     assert_eq!(executions[0].id, execution_ids[26]);
     assert_eq!(executions[0].status, "succeeded");
+    assert_canonical_timestamp(&executions[0].started_at);
+    assert_canonical_timestamp(executions[0].completed_at.as_deref().unwrap());
     assert_eq!(executions[1].id, execution_ids[25]);
     assert_eq!(executions[1].status, "cancelled");
     assert_eq!(executions[24].id, execution_ids[2]);
@@ -125,6 +136,7 @@ fn application_owner_preserves_atomic_revision_and_provenance() {
         .unwrap();
     assert_eq!(provenance.transform_ref, transform.stable_ref);
     assert_eq!(provenance.duration_ms, 8);
+    assert_canonical_timestamp(&provenance.created_at);
     assert_eq!(
         db.get_clip_versions(clip_id).unwrap()[0].text_content,
         "hello"

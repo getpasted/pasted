@@ -172,8 +172,11 @@ impl DbState {
         })?;
         conn.execute(
             "INSERT INTO saved_transforms
-                (name, plan_json, connection_id, shortcut, authoring_kind)
-             VALUES (?1, ?2, NULL, ?3, 'manual')",
+                (name, plan_json, connection_id, shortcut, authoring_kind,
+                 created_at, updated_at)
+             VALUES (?1, ?2, NULL, ?3, 'manual',
+                     strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
+                     strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
             params![name.trim(), plan_json, hotkey],
         )?;
         let stable_id: String = conn.query_row(
@@ -211,7 +214,7 @@ impl DbState {
         let changed = conn.execute(
             "UPDATE saved_transforms
              SET name = ?1, plan_json = ?2, shortcut = ?3, revision = revision + 1,
-                 updated_at = CURRENT_TIMESTAMP
+                 updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
              WHERE id = ?4 AND authoring_kind = 'manual'",
             params![name.trim(), plan_json, hotkey, transform_id],
         )?;
@@ -236,7 +239,8 @@ impl DbState {
         let conn = self.conn.lock();
         let changed = conn.execute(
             "UPDATE saved_transforms
-             SET shortcut = ?1, revision = revision + 1, updated_at = CURRENT_TIMESTAMP
+             SET shortcut = ?1, revision = revision + 1,
+                 updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
              WHERE id = ?2 AND authoring_kind = 'manual'",
             params![hotkey, pipeline_id],
         )?;

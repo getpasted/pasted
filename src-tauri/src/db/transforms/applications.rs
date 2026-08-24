@@ -106,8 +106,10 @@ impl DbState {
             tx.query_row("SELECT lower(hex(randomblob(16)))", [], |row| row.get(0))?;
         tx.execute(
             "INSERT INTO clip_transformations
-                (id, clip_id, transform_id, transform_ref, transform_name, transform_revision, connection_id, duration_ms)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                (id, clip_id, transform_id, transform_ref, transform_name, transform_revision,
+                 connection_id, duration_ms, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8,
+                     strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
             params![
                 transformation_id,
                 clip_id,

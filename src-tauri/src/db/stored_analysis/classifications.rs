@@ -52,8 +52,9 @@ impl DbState {
             transaction.execute(
                 "INSERT INTO clip_analysis_classifications
                     (clip_id, content_type, classifier_ref, source_representation, input_hash,
-                     start_offset, end_offset)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                     start_offset, end_offset, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7,
+                         strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
                 params![
                     clip_id,
                     matched.content_type,

@@ -35,7 +35,6 @@ impl DbState {
         finalize_content_registry(&conn)?;
         Self::init_library_items(&conn)?;
         migrate_canonical_timestamps(&conn)?;
-        migrate_analysis_classification_timestamps(&conn)?;
 
         let count: i64 = conn
             .query_row("SELECT COUNT(*) FROM bins", [], |row| row.get(0))
