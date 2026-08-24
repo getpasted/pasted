@@ -8,6 +8,7 @@ import { RegistryPanelHeader } from './RegistryPanelHeader';
 import { translate } from '../localization/runtime';
 import { ExtractorAuthoringHistoryDialog } from './ExtractorAuthoringHistoryDialog';
 import { ExtractorAiAuthoringPanel } from './ExtractorAiAuthoringPanel';
+import { ExtractorAiSetupPanel } from './ExtractorAiSetupPanel';
 import { ExtractorRecipeEditor } from './ExtractorRecipeEditor';
 import { ExtractorRegistryPanel } from './ExtractorRegistryPanel';
 import { useContentExtractorManager } from '../hooks/useContentExtractorManager';
@@ -38,6 +39,7 @@ export function ContentExtractorManagerDialog({
     chooseStepExecutable,
     confirmation,
     defaults,
+    diagnostic,
     differsFromDefaults,
     draft,
     duplicate,
@@ -49,6 +51,8 @@ export function ContentExtractorManagerDialog({
     openAuthoringHistory,
     recipeCanSave,
     recipeDraft,
+    repairRecipe,
+    repairing,
     remove,
     resetDraft,
     restoreAll,
@@ -145,8 +149,18 @@ export function ContentExtractorManagerDialog({
             </label>
             <ExtractorAiAuthoringPanel
               isNew={selectedId === 'new'} prompt={authoringPrompt} generating={generating}
-              hasIntelligence={hasIntelligence} setupGuidance={setupGuidance}
+              hasIntelligence={hasIntelligence}
               onPromptChange={setAuthoringPrompt} onGenerate={() => void generateRecipe()}
+              onOpenIntelligence={onOpenIntelligence}
+            />
+            <ExtractorAiSetupPanel
+              visible={setupGuidance.length > 0 || diagnostic !== null
+                || (selectedId !== 'new' && !runtimeConfigurationChanged && selected?.isAvailable === false)}
+              hasIntelligence={hasIntelligence}
+              repairing={repairing}
+              diagnostic={diagnostic}
+              setupGuidance={setupGuidance}
+              onRepair={() => void repairRecipe()}
               onOpenIntelligence={onOpenIntelligence}
             />
             <ExtractorRecipeEditor

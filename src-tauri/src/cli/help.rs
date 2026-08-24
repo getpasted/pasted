@@ -46,6 +46,8 @@ const HELP_LINES: &[&str] = &[
     "  pasted extractor list --json List content Extractors and availability",
     "  pasted extractor create --recipe FILE [options] Create a local recipe",
     "  pasted extractor propose --prompt TEXT Draft a recipe with AI",
+    "  pasted extractor preflight <ref> Check local recipe dependencies",
+    "  pasted extractor diagnose <ref> Ask AI to revise an unavailable recipe",
     "  pasted extractor history <ref> Review local authoring history",
     "  pasted inspector list --json List content Inspectors",
     "  pasted inspector run [--text TEXT | --clip ID | --stdin] [--apply] [--json]",

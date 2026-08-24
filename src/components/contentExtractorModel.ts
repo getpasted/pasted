@@ -149,6 +149,35 @@ export interface ExtractorRecipeProposal {
   connectionName: string;
 }
 
+export type ExtractorDiagnosticCode =
+  | 'invalid_recipe'
+  | 'executable_not_configured'
+  | 'executable_unavailable'
+  | 'resource_not_configured'
+  | 'resource_unavailable';
+
+export interface ExtractorDiagnosticReport {
+  version: 1;
+  isAvailable: boolean;
+  platform: string;
+  architecture: string;
+  packageManagers: string[];
+  issues: Array<{
+    code: ExtractorDiagnosticCode;
+    subjectId: string;
+    label: string;
+    detail: string;
+  }>;
+}
+
+export interface ExtractorRepairOutcome extends ExtractorRecipeProposal {
+  diagnostic: ExtractorDiagnosticReport;
+  status: 'ready' | 'setup_required';
+  attempts: number;
+  connectionId: string;
+  durationMs: number;
+}
+
 export type ExtractorTestOutcome =
   | { outcome: 'produced'; text: string }
   | { outcome: 'no_output' }

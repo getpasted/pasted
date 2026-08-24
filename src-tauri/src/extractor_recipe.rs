@@ -8,9 +8,13 @@ use std::time::Duration;
 
 use crate::content_extraction::{ExtractionFailure, ExtractionOutcome};
 
+mod diagnostics;
 mod local_configuration;
 mod runtime_status;
-pub use local_configuration::reset_preserving_local_paths;
+pub use diagnostics::{
+    diagnose, ExtractorDiagnosticCode, ExtractorDiagnosticIssue, ExtractorDiagnosticReport,
+};
+pub use local_configuration::{reset_preserving_local_paths, without_local_paths};
 pub use runtime_status::{runtime_status, runtime_status_summary};
 
 pub const EXTRACTOR_RECIPE_VERSION: u32 = 1;

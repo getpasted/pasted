@@ -16,6 +16,7 @@ pub use crate::intelligence_provider::IntelligenceExecutionError;
 mod connections;
 mod execution;
 mod extractor_authoring;
+mod extractor_repair;
 mod planning;
 mod saved_transforms;
 
@@ -23,6 +24,10 @@ pub use execution::{execute_plan, ExecutePlanOutcome, ExecutePlanRequest};
 pub(crate) use execution::{execute_plan_with_cancellation, execute_semantic_operation};
 pub use extractor_authoring::{
     propose_extractor_recipe, ExtractorRecipeProposal, ProposeExtractorRecipeRequest,
+};
+pub use extractor_repair::{
+    repair_extractor_recipe, ExtractorRepairOutcome, ExtractorRepairStatus,
+    RepairExtractorRecipeRequest,
 };
 #[cfg(feature = "gui")]
 pub(crate) use planning::plan_intent_with_cancellation;

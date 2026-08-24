@@ -1,4 +1,5 @@
 import { translate } from '../localization/runtime';
+import { CLI_ANALYSIS_COMMAND_GROUP } from './helpCliAnalysisCatalog';
 
 export const CLI_SYMLINK_COMMAND = 'sudo ln -s /Applications/Pasted.app/Contents/MacOS/pasted /usr/local/bin/pasted';
 export const CLI_ALIAS_COMMAND = 'alias pasted="/Applications/Pasted.app/Contents/MacOS/pasted"';
@@ -81,49 +82,7 @@ export const CLI_COMMAND_GROUPS = [
       { usage: 'pasted connection order <id>... [--json]', get description() { return translate('component.helpView.replaceConnectionPriorityOrder'); } },
     ],
   },
-  {
-    get title() { return translate('component.helpView.contentAnalysis'); },
-    commands: [
-      { usage: 'pasted analyzer run [--text TEXT | --clip ID | --stdin] [--policy POLICY] [--extract] [--json]', get description() { return translate('component.helpView.previewOneVersionedContentFreeSnapshotAcrossTheApplicableAnalysisPasses'); } },
-      { usage: 'pasted registry list [--kind capture|inspector|extractor|classifier|suggestion|operation|transform] [--all] [--json]', get description() { return translate('component.helpView.inspectSharedLifecycleAndInputOutputContractsForProcessingAssets'); } },
-      { usage: 'pasted registry enable|disable --kind extractor|classifier|operation --ref REF [--json]', get description() { return translate('component.helpView.changeTheSharedEnabledStateUsingAStableProcessingAssetReference'); } },
-      { usage: 'pasted inspector list [--json]', get description() { return translate('component.helpView.listInspectorsContractsAndSystemAvailability'); } },
-      { usage: 'pasted inspector get <ref> [--json]', get description() { return translate('component.helpView.inspectOneInspectorDefinition'); } },
-      { usage: 'pasted inspector run [--text TEXT | --clip ID | --stdin] [--apply] [--json]', get description() { return translate('component.helpView.inspectContentFreeStructureAndLiveMediaMetadataOrPersistClipStructure'); } },
-      { usage: 'pasted suggestion list [--json]', get description() { return translate('component.helpView.listSuggestionsAndTheirContracts'); } },
-      { usage: 'pasted suggestion get <ref> [--json]', get description() { return translate('component.helpView.inspectOneSuggestionDefinition'); } },
-      { usage: 'pasted suggestion run [--text TEXT | --clip ID | --stdin] [--json]', get description() { return translate('component.helpView.suggestSavedTransformsWithoutChangingContent'); } },
-      { usage: 'pasted extractor list [--json]', get description() { return translate('component.helpView.listExtractorsContractsAndSystemAvailability'); } },
-      { usage: 'pasted extractor get <ref> [--json]', get description() { return translate('component.helpView.inspectOneExtractorDefinition'); } },
-      { usage: 'pasted extractor create (--recipe FILE | --prompt TEXT) [--format FORMAT]... [options] [--json]', get description() { return translate('component.helpView.createAnExtractor'); } },
-      { usage: 'pasted extractor update <ref> [--format FORMAT]... [options] [--json]', get description() { return translate('component.helpView.updateAnExtractorDefinition'); } },
-      { usage: 'pasted extractor propose --prompt TEXT [--connection ID] [--json]', get description() { return translate('component.helpView.draftAnExtractorRecipeWithAConnectedAi'); } },
-      { usage: 'pasted extractor history <ref> [--json]', get description() { return translate('component.helpView.reviewLocalExtractorAuthoringHistory'); } },
-      { usage: 'pasted extractor duplicate <ref> [--name NAME] [--json]', get description() { return translate('component.helpView.duplicateAnExtractorWithANewStableReference'); } },
-      { usage: 'pasted extractor delete <ref> [--json]', get description() { return translate('component.helpView.deleteAnExtractorShippedDefaultsRemainRecoverable'); } },
-      { usage: 'pasted extractor run <ref> (--clip ID | --file PATH) [--apply] [--json]', get description() { return translate('component.helpView.runAnExtractorInPreviewModeOrApplyItsOutputToA'); } },
-      { usage: 'pasted extractor restore-defaults', get description() { return translate('component.helpView.restoreShippedExtractorSettings'); } },
-      { usage: 'pasted type list [--all] [--json]', get description() { return translate('component.helpView.listRegisteredContentTypesAndTheirDisplayMetadata'); } },
-      { usage: 'pasted type create --id ID --name NAME [--icon ICON] [--group GROUP] [--json]', get description() { return translate('component.helpView.createACustomContentTypeWithAStableId'); } },
-      { usage: 'pasted type update <id> [options] [--json]', get description() { return translate('component.helpView.customizeAContentTypeSNameIconOrGroupWithoutChangingIts'); } },
-      { usage: 'pasted type archive|restore <id>', get description() { return translate('component.helpView.archiveOrRestoreACustomContentTypeWhilePreservingHistoricalClips'); } },
-      { usage: 'pasted type restore-defaults', get description() { return translate('component.helpView.restoreBuiltInContentTypeNamesIconsAndGroups'); } },
-      { usage: 'pasted type group-list [--all] [--json]', get description() { return translate('component.helpView.listRegisteredContentTypeGroups'); } },
-      { usage: 'pasted type group-create --id ID --name NAME [--order NUMBER]', get description() { return translate('component.helpView.createAReusableCustomContentTypeGroup'); } },
-      { usage: 'pasted type group-update <id> [options] [--json]', get description() { return translate('component.helpView.renameOrReorderAContentTypeGroup'); } },
-      { usage: 'pasted type group-archive|group-restore <id>', get description() { return translate('component.helpView.archiveAnEmptyCustomGroupOrRestoreIt'); } },
-      { usage: 'pasted type group-delete <id>', get description() { return translate('component.helpView.permanentlyDeleteAnEmptyCustomGroup'); } },
-      { usage: 'pasted classifier list [--json]', get description() { return translate('component.helpView.listClassifiersInEffectivePriorityOrder'); } },
-      { usage: 'pasted classifier get <ref> [--json]', get description() { return translate('component.helpView.inspectOneClassifierDefinition'); } },
-      { usage: 'pasted classifier create --name NAME --type TYPE --regex REGEX [--json]', get description() { return translate('component.helpView.createAClassifier'); } },
-      { usage: 'pasted classifier update <ref> [options] [--json]', get description() { return translate('component.helpView.updateAClassifierDefinition'); } },
-      { usage: 'pasted classifier duplicate <ref> [--name NAME] [--json]', get description() { return translate('component.helpView.duplicateAClassifierWithANewStableReference'); } },
-      { usage: 'pasted classifier delete <ref> [--json]', get description() { return translate('component.helpView.deleteAClassifierShippedDefaultsRemainRecoverable'); } },
-      { usage: 'pasted classifier run <ref> [--text TEXT | --clip ID | --stdin] [--apply] [--json]', get description() { return translate('component.helpView.runAClassifierInPreviewModeOrApplyItsMatchingContentType'); } },
-      { usage: 'pasted classifier restore-defaults', get description() { return translate('component.helpView.restoreShippedClassifiersWithoutRemovingCustomEntries'); } },
-      { usage: 'pasted classifier rescan --yes [--json]', get description() { return translate('component.helpView.explicitlyReclassifyExistingTextClipsWithTheCurrentEnabledClassifierOrder'); } },
-    ],
-  },
+  CLI_ANALYSIS_COMMAND_GROUP,
   {
     get title() { return translate('component.helpView.maintenance'); },
     commands: [

@@ -8,6 +8,7 @@ const cli = readRustModuleTree('src-tauri/src/bin/pasted.rs', 'src-tauri/src/cli
 const help = [
   'src/components/HelpView.tsx',
   'src/components/helpCliCatalog.ts',
+  'src/components/helpCliAnalysisCatalog.ts',
 ].map(read).join('\n');
 const database = readRustModuleTree('src-tauri/src/db.rs', 'src-tauri/src/db');
 const libraryItems = read('src-tauri/src/library_items.rs');
@@ -60,9 +61,11 @@ const extractorManager = [
   'src/components/ContentExtractorManagerDialog.tsx',
   'src/components/ExtractorRecipeEditor.tsx',
   'src/components/ExtractorRegistryPanel.tsx',
+  'src/components/ExtractorAiSetupPanel.tsx',
   'src/components/contentExtractorModel.ts',
   'src/components/contentExtractorPolicy.ts',
   'src/hooks/useContentExtractorManager.ts',
+  'src/hooks/useExtractorAiAuthoring.ts',
 ].map(read).join('\n');
 const classifierManager = [
   'src/hooks/useClassifierManager.ts',
@@ -221,6 +224,9 @@ const documentedCommands = [
   'pasted extractor get',
   'pasted extractor create',
   'pasted extractor update',
+  'pasted extractor propose',
+  'pasted extractor preflight',
+  'pasted extractor diagnose',
   'pasted extractor duplicate',
   'pasted extractor delete',
   'pasted extractor run',

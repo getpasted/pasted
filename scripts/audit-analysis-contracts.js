@@ -66,10 +66,12 @@ const extractorManagerFiles = [
   'src/hooks/useContentExtractorManager.ts',
   'src/components/ContentExtractorManagerDialog.tsx',
   'src/components/ExtractorAuthoringHistoryDialog.tsx',
+  'src/components/ExtractorAiSetupPanel.tsx',
   'src/components/ExtractorRecipeEditor.tsx',
   'src/components/ExtractorRegistryPanel.tsx',
   'src/components/contentExtractorModel.ts',
   'src/components/contentExtractorPolicy.ts',
+  'src/hooks/useExtractorAiAuthoring.ts',
 ];
 const extractorManager = extractorManagerFiles.map(read).join('\n');
 const contentTypeManager = read('src/components/ContentTypeManagerDialog.tsx');
@@ -191,6 +193,12 @@ assert.ok(lineCount('src/components/ContentExtractorManagerDialog.tsx') <= 215,
   'The Extractor manager coordinator must stay within its extracted size boundary');
 assert.match(read('src/hooks/useContentExtractorManager.ts'), /export function useContentExtractorManager/,
   'Extractor persistence and authoring state must remain in its focused controller');
+assert.match(read('src/hooks/useExtractorAiAuthoring.ts'), /repairExtractorRecipe[\s\S]*diagnose_content_extractor_recipe/,
+  'Extractor AI authoring must preflight and repair through shared services');
+assert.match(read('src-tauri/src/intelligence_executor/extractor_repair.rs'), /MAX_REPAIR_ATTEMPTS:\s*u8\s*=\s*3[\s\S]*crate::extractor_recipe::diagnose/,
+  'Extractor AI repair must stay bounded and recheck recipes locally');
+assert.match(readRustModuleTree('src-tauri/src/cli/commands/extractors.rs', 'src-tauri/src/cli/commands/extractors'), /"diagnose" \| "repair"[\s\S]*intelligence_executor::repair_extractor_recipe/,
+  'GUI and CLI Extractor diagnosis must share the repair service');
 assert.match(read('src/components/ExtractorRecipeEditor.tsx'), /export function ExtractorRecipeEditor/,
   'Advanced Extractor recipe editing must remain in its focused surface');
 assert.match(read('src/components/contentExtractorPolicy.ts'), /export function visibleContentExtractors/,

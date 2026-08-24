@@ -61,6 +61,13 @@ pub async fn choose_extractor_resource_file(
 }
 
 #[tauri::command]
+pub fn diagnose_content_extractor_recipe(
+    recipe: crate::extractor_recipe::ExtractorRecipe,
+) -> crate::extractor_recipe::ExtractorDiagnosticReport {
+    crate::extractor_recipe::diagnose(&recipe)
+}
+
+#[tauri::command]
 pub async fn test_content_extractor_recipe(
     recipe: crate::extractor_recipe::ExtractorRecipe,
     path: String,

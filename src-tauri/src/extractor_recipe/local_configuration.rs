@@ -1,5 +1,16 @@
 use super::ExtractorRecipe;
 
+pub fn without_local_paths(recipe: &ExtractorRecipe) -> ExtractorRecipe {
+    let mut redacted = recipe.clone();
+    for step in &mut redacted.steps {
+        step.executable.path = None;
+    }
+    for resource in &mut redacted.resources {
+        resource.path = None;
+    }
+    redacted
+}
+
 pub fn reset_preserving_local_paths(
     current: &ExtractorRecipe,
     defaults: &ExtractorRecipe,
@@ -27,3 +38,6 @@ pub fn reset_preserving_local_paths(
     }
     reset
 }
+
+#[cfg(test)]
+mod tests;

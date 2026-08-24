@@ -8,7 +8,6 @@ export function ExtractorAiAuthoringPanel({
   prompt,
   generating,
   hasIntelligence,
-  setupGuidance,
   onPromptChange,
   onGenerate,
   onOpenIntelligence,
@@ -17,7 +16,6 @@ export function ExtractorAiAuthoringPanel({
   prompt: string;
   generating: boolean;
   hasIntelligence: boolean;
-  setupGuidance: string[];
   onPromptChange: (prompt: string) => void;
   onGenerate: () => void;
   onOpenIntelligence?: () => void;
@@ -49,11 +47,5 @@ export function ExtractorAiAuthoringPanel({
           <Sparkles className="h-3.5 w-3.5" /> {translate('component.contentExtractorManagerDialog.connectAi')}
         </AppDialogButton>}
     </div>
-    {setupGuidance.length > 0 && <div className="theme-subtle-surface rounded-lg border p-2.5">
-      <span className="theme-text-muted block text-[10px] font-semibold">{translate('component.contentExtractorManagerDialog.setup')}</span>
-      <ul className="mt-1 list-disc space-y-1 ps-4 text-[10px]">
-        {setupGuidance.map((item) => <li key={item}>{item}</li>)}
-      </ul>
-    </div>}
   </div>;
 }
