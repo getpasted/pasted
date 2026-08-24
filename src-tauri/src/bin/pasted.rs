@@ -23,6 +23,9 @@ use pasted_lib::intelligence_executor::{
     ExecutePlanRequest, PlanIntentOutcome, PlanIntentRequest, ProposeExtractorRecipeRequest,
 };
 use pasted_lib::library_storage;
+
+#[path = "../cli/help.rs"]
+mod help;
 use pasted_lib::third_party_licenses;
 use pasted_lib::transformation_intent::{IntentPlanningMode, TransformationPlan};
 use pasted_lib::transformation_service::{
@@ -224,96 +227,7 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
         "search" | "find" => cli_commands::history::run_search(args, db_path, conn)?,
         "clear" => cli_commands::maintenance::run_clear(args, db_path, conn)?,
         "reset" => cli_commands::maintenance::run_reset(args, db_path, conn)?,
-        _ => {
-            println!("Pasted CLI Tool (v{})", env!("CARGO_PKG_VERSION"));
-            println!("Usage:");
-            println!("  pasted copy <text> [--json] Classify and save content, or pipe stdin");
-            println!("  pasted list [--limit N] [--offset N] [--bin ID|--pinned|--named|--trash] [--json]");
-            println!("  pasted search [query] [--clip TYPE] [--content TYPE] [--format FORMAT] [--source APP] [--trash] [--limit N] [--offset N] [--json]");
-            println!("  pasted import sources [--json] List supported external-history sources");
-            println!("  pasted import <source> [path] --json Import history from another clipboard manager");
-            println!("  pasted diagnostics --json Show installation diagnostics");
-            println!("  pasted insights summary --json Show aggregate clipboard insights");
-            println!("  pasted licenses [--json] Show bundled open-source licenses and notices");
-            println!("  pasted retention [--count N|unlimited] [--days N|forever] [--json]");
-            println!("                   [--trash-count N|unlimited] [--trash-days N|forever]");
-            println!("                   [--log-count N|unlimited] [--log-days N|forever]");
-            println!("                   [--revision-count N|unlimited]");
-            println!("  pasted settings list|get|set [arguments] [--json]");
-            println!("  pasted app-lock status|enable|change-passphrase|disable|lock|unlock [--stdin] [--json]");
-            println!("  pasted app-lock idle <never|1m|5m|1h|8h> [--stdin] [--json]");
-            println!("  pasted app-lock lock-on-sleep <on|off> [--stdin] [--json]");
-            println!("  pasted app-lock lock-on-restart <on|off> [--stdin] [--json]");
-            println!("  pasted app-lock capture-while-locked <on|off> [--stdin] [--json]");
-            println!("  pasted app-lock system-auth|apple-watch <on|off> [--stdin] [--json]");
-            println!("  pasted app-lock reset --yes [--json]");
-            println!("  pasted recording status|pause|resume [--json] Control the running app");
-            println!("  pasted queue status|start|stop|add|remove|order|paste|paste-all [--json]");
-            println!("  pasted activity list [--limit N|--all] [--json]");
-            println!("  pasted activity export [path] [--format json|csv]");
-            println!("  pasted activity import <path> [--format json|csv] [--json]");
-            println!("  pasted activity clear --yes [--json]");
-            println!("  pasted transfer export|inspect|import <path.json> [--json]");
-            println!("  pasted backup create <path.pastedbackup> [--json]");
-            println!("  pasted backup inspect <path.pastedbackup> [--json]");
-            println!("  pasted backup restore <path.pastedbackup> --yes [--json]");
-            println!("  pasted clip export [path] [--format json|csv]");
-            println!("  pasted clip import <path> [--format json|csv] [--json]");
-            println!("  pasted analyzer run [--text TEXT | --clip ID | --stdin] [--policy POLICY] [--extract] [--json]");
-            println!("  pasted extractor list --json List content Extractors and availability");
-            println!("  pasted extractor create --recipe FILE [options] Create a local recipe");
-            println!("  pasted extractor propose --prompt TEXT Draft a recipe with AI");
-            println!("  pasted extractor history <ref> Review local authoring history");
-            println!("  pasted inspector list --json List content Inspectors");
-            println!(
-                "  pasted inspector run [--text TEXT | --clip ID | --stdin] [--apply] [--json]"
-            );
-            println!("  pasted suggestion list --json List Suggestion participants");
-            println!("  pasted suggestion run [--text TEXT | --clip ID | --stdin] [--json]");
-            println!("  pasted classifier list --json List editable content classifiers");
-            println!("  pasted type list --json List registered content types");
-            println!(
-                "  pasted registry list [--kind KIND] [--json] List shared processing metadata"
-            );
-            println!("  pasted registry enable|disable --kind KIND --ref REF");
-            println!("  pasted classifier create|update|delete Manage content classifiers");
-            println!("  pasted classifier rescan --yes --json Reclassify existing text clips");
-            println!("  pasted database location --json Show the active SQLite database");
-            println!("  pasted database protection --json Inspect volume encryption");
-            println!(
-                "  pasted database move <folder> --json Move the database (quit Pasted first)"
-            );
-            println!("  pasted database default --json Restore the native default location");
-            println!("  pasted ocr status --json Show OCR background-work status");
-            println!("  pasted ocr scan [--clip ID] [--json] Scan eligible images or one clip");
-            println!("  pasted ocr retry|cancel [--json] Retry failures or cancel the running app");
-            println!("  pasted transform list [--json] List saved and manually built Transforms");
-            println!("  pasted transform test --plan-json JSON [--text TEXT|--stdin] [--json]");
-            println!("  pasted transform get|plan|test|create|update|duplicate|delete Manage either Transform authoring form");
-            println!("  pasted transform run <ref> [--text TEXT | --clip ID | --stdin] [--apply]");
-            println!("  pasted operation list|get|create|update|duplicate|delete|run");
-            println!("  pasted connection list|get|detect|create|update|delete|order");
-            println!("  pasted bin list|get|create|update|duplicate|delete [--json]");
-            println!("  pasted bin clips <id> --json List clips in persistent Bin order");
-            println!("  pasted bin order <id> <clip-id>... Persist a complete Bin order");
-            println!("  pasted bin protect|conceal <id> <on|off> [--json]");
-            println!("  pasted clip get|name <id> [options] [--json]");
-            println!(
-                "  pasted clip copy|paste <id> [--json] Use the running app and system clipboard"
-            );
-            println!("  pasted clip hotkey <id> <hotkey|none> [--json]");
-            println!("  pasted clip pin|unpin <id>... [--json]");
-            println!("  pasted clip order-pinned <id>... [--json]");
-            println!("  pasted clip protect|unprotect|conceal|reveal <id>... [--json]");
-            println!("  pasted clip trash|restore <id>... [--json]");
-            println!("  pasted clip restore-all [--json] Restore every clip from Trash");
-            println!("  pasted clip note|revisions|restore-revision|provenance <id> [options]");
-            println!("  pasted clip purge <id>... --yes | empty-trash --yes");
-            println!("  pasted clip assign <bin-id|none> <id>... [--json] Add to a Bin, or clear all manual Bins");
-            println!("  pasted clip remove-bin <bin-id> <id>... [--json]");
-            println!("  pasted clear             Clear unpinned clipboard history");
-            println!("  pasted reset --yes [--json] Reset all Pasted data and preferences");
-        }
+        _ => help::print(),
     }
 
     Ok(())

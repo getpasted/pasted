@@ -84,6 +84,8 @@ fn extracted_management_adapters_preserve_structured_cli_contracts() {
             "14",
             "--revision-count",
             "5",
+            "--analysis-count",
+            "25",
             "--json",
         ],
     );
@@ -92,6 +94,7 @@ fn extracted_management_adapters_preserve_structured_cli_contracts() {
     assert_eq!(retention["trashMaximumClips"], 10);
     assert_eq!(retention["activityMaximumEntries"], 50);
     assert_eq!(retention["revisionsPerClip"], 5);
+    assert_eq!(retention["analyzationsPerClip"], 25);
 
     success_json(&database, &["copy", "portable adapter clip", "--json"]);
     success_json(

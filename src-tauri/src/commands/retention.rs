@@ -4,6 +4,9 @@ use tauri::State;
 
 use crate::db::DbState;
 
+pub(crate) mod analysis;
+pub(crate) mod revisions;
+
 #[tauri::command]
 pub fn enforce_clip_retention(
     keep_count: i64,
@@ -31,15 +34,6 @@ pub fn enforce_activity_retention(
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
     db.enforce_activity_retention(keep_count, keep_age_days)
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-pub fn enforce_revision_retention(
-    keep_count: i64,
-    db: State<'_, Arc<DbState>>,
-) -> Result<(), String> {
-    db.enforce_revision_retention(keep_count)
         .map_err(|error| error.to_string())
 }
 

@@ -17,6 +17,7 @@ const analysisContract = read('src-tauri/src/analysis_contract.rs');
 const analysisExecution = read('src-tauri/src/analysis_execution.rs');
 const analysisArchitecture = read('docs/ANALYSIS_ARCHITECTURE.md');
 const extractionExecution = read('src-tauri/src/extraction_execution.rs');
+const extractionReuse = read('src-tauri/src/extraction_reuse.rs');
 const classificationExecution = read('src-tauri/src/classification_execution.rs');
 const inspection = read('src-tauri/src/content_inspection.rs');
 const inspectionExecution = read('src-tauri/src/inspection_execution.rs');
@@ -315,7 +316,9 @@ assert.match(analysis, /pub\(crate\) fn analyze\(request: AnalysisRequest/,
   'All participants must enter the scheduler through one typed Analysis request');
 assert.match(analysis, /participants\.retain\([\s\S]*?through\.includes/,
   'Analysis policies must bound participant work before scheduling');
-assert.match(ocr, /AnalysisPolicy::Background/,
+assert.match(ocr, /extraction_reuse::analyze_background_image/,
+  'Background OCR must enter the Analysis reuse policy');
+assert.match(extractionReuse, /AnalysisPolicy::Background/,
   'Background OCR must explicitly use the non-suggesting Analysis policy');
 assert.match(database, /AnalysisPolicy::Rescan/,
   'History rescans must explicitly use the non-suggesting Analysis policy');
@@ -480,7 +483,7 @@ assert.match(extractionExecution, /analysis\s*\.failure\s*\.as_ref\(\)/,
   'Shared Image Analysis persistence must preserve Extractor failure codes');
 assert.match(extractionExecution, /complete_or_reset_ocr_attempt/,
   'Shared Image Analysis persistence must reset claimed work on failure');
-assert.match(ocr, /extraction_execution::analyze_images_with_registry_and_policy/,
+assert.match(extractionReuse, /extraction_execution::analyze_images_with_registry_and_policy/,
   'Background OCR must use the shared Image Analysis execution result');
 assert.match(cli, /extraction_execution::analyze_images_with_registry/,
   'CLI OCR must use the shared Image Analysis execution result');

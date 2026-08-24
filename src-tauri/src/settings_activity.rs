@@ -80,9 +80,11 @@ fn friendly_value(key: &str, value: &str) -> Option<String> {
         "keepClipCount" | "activityLogCapacity" | "trashCapacityCount" if value == "0" => {
             "Unlimited".into()
         }
-        "keepClipCount" | "revisionHistoryLimit" | "activityLogCapacity" | "trashCapacityCount" => {
-            value.to_string()
-        }
+        "keepClipCount"
+        | "revisionHistoryLimit"
+        | "analysisAttemptsPerClip"
+        | "activityLogCapacity"
+        | "trashCapacityCount" => value.to_string(),
         "keepClipAgeDays" | "activityLogAgeDays" | "trashAgeDays" => match value {
             "0" => "Forever".into(),
             "1" => "1 day".into(),
@@ -141,6 +143,7 @@ fn setting_label(key: &str) -> Option<&'static str> {
         "keepClipCount" => Some("History limit"),
         "keepClipAgeDays" => Some("History age limit"),
         "revisionHistoryLimit" => Some("Revision limit"),
+        "analysisAttemptsPerClip" => Some("Analysis attempt limit"),
         "activityLogCapacity" => Some("Activity limit"),
         "activityLogAgeDays" => Some("Activity age limit"),
         "trashCapacityCount" => Some("Trash limit"),

@@ -1,3 +1,4 @@
+pub mod analysis_attempt_policy;
 pub mod analysis_contract;
 pub mod analysis_execution;
 pub mod app_event_names;
@@ -38,6 +39,8 @@ pub mod db;
 pub mod external_import;
 mod external_tools;
 pub mod extraction_execution;
+#[cfg(any(feature = "gui", test))]
+mod extraction_reuse;
 pub mod extractor_recipe;
 pub mod features;
 pub mod file_reference_health;
@@ -209,7 +212,8 @@ pub fn run() {
             commands::retention::enforce_clip_retention,
             commands::retention::enforce_trash_retention,
             commands::retention::enforce_activity_retention,
-            commands::retention::enforce_revision_retention,
+            commands::retention::revisions::enforce_revision_retention,
+            commands::retention::analysis::enforce_analysis_attempt_retention,
             commands::clips::update_clip_note,
             commands::clip_metadata::update_clip_name,
             commands::search_indexes::get_search_index_status,

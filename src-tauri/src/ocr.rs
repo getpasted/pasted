@@ -59,6 +59,7 @@ fn execute_task<Notify>(
     task: OcrTask,
     extractors: &[crate::content_extraction::Extractor],
     registry: &crate::content_extraction::ExtractorEngineRegistry<'_>,
+    manual: bool,
     notify: Notify,
 ) where
     Notify: FnOnce(i64),
@@ -74,12 +75,14 @@ fn execute_task<Notify>(
         crate::features::is_enabled(db_state, crate::features::Feature::ContentClassification)
             .then(|| db_state.get_content_classifiers().ok())
             .flatten();
-    let analysis = crate::extraction_execution::analyze_images_with_registry_and_policy(
+    let analysis = crate::extraction_reuse::analyze_background_image(
+        db_state,
+        task.clip_id,
         task.image_bytes,
         extractors,
         classifiers.as_deref(),
         registry,
-        crate::analysis_contract::AnalysisPolicy::Background,
+        manual,
     );
     if !crate::features::is_enabled(db_state, crate::features::Feature::Ocr) {
         let _ = db_state.reset_ocr_work(Some(task.clip_id), Some(&task.content_hash));
@@ -108,7 +111,12 @@ fn execute_task<Notify>(
 }
 
 #[cfg(feature = "gui")]
-fn perform_task(app: &tauri::AppHandle, db_state: &crate::db::DbState, task: OcrTask) {
+fn perform_task(
+    app: &tauri::AppHandle,
+    db_state: &crate::db::DbState,
+    task: OcrTask,
+    manual: bool,
+) {
     use tauri::Emitter;
     let Ok(extractors) = db_state.active_image_text_extractors_for_features(true) else {
         let _ = db_state.reset_ocr_work(Some(task.clip_id), Some(&task.content_hash));
@@ -119,7 +127,7 @@ fn perform_task(app: &tauri::AppHandle, db_state: &crate::db::DbState, task: Ocr
         return;
     }
     let registry = crate::content_extraction::system_engine_registry();
-    execute_task(db_state, task, &extractors, &registry, |clip_id| {
+    execute_task(db_state, task, &extractors, &registry, manual, |clip_id| {
         let _ = app.emit("clip-added", serde_json::json!({ "id": clip_id }));
         let _ = app.emit(
             "ocr-status-changed",
@@ -164,7 +172,7 @@ pub fn spawn_ocr_worker(
     std::thread::spawn(move || {
         while let Ok(request) = rx.recv() {
             match request {
-                OcrRequest::Clip(task) => perform_task(&app, &db_state, task),
+                OcrRequest::Clip(task) => perform_task(&app, &db_state, task, false),
                 OcrRequest::Backfill => run_backfill_candidates(
                     &db_state,
                     &worker_cancelled,
@@ -214,6 +222,7 @@ pub fn spawn_ocr_worker(
                                 content_hash: candidate.content_hash,
                                 image_bytes,
                             },
+                            true,
                         );
                     },
                 ),
@@ -393,6 +402,7 @@ mod tests {
             },
             std::slice::from_ref(&extractor),
             &registry,
+            false,
             |_| notified.store(true, Ordering::Release),
         );
 
@@ -480,6 +490,7 @@ mod tests {
             },
             std::slice::from_ref(&extractor),
             &registry,
+            false,
             |_| {},
         );
 
@@ -566,6 +577,7 @@ mod tests {
             },
             std::slice::from_ref(&extractor),
             &registry,
+            false,
             |_| {},
         );
 

@@ -32,8 +32,8 @@ fn test_clip_version_history() {
         db.update_clip_text(clip.id, &format!("Revision {index}"))
             .unwrap();
     }
-    assert_eq!(db.get_clip_versions(clip.id).unwrap().len(), 50);
-    assert_eq!(db.get_clip_version_count(clip.id).unwrap(), 50);
+    assert_eq!(db.get_clip_versions(clip.id).unwrap().len(), 10);
+    assert_eq!(db.get_clip_version_count(clip.id).unwrap(), 10);
 
     db.purge_clip_permanently(clip.id).unwrap();
     assert!(db.get_clip_versions(clip.id).unwrap().is_empty());

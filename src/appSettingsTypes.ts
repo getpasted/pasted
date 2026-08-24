@@ -1,4 +1,6 @@
-export interface AppSettings {
+import type { RetentionSettings } from './appSettingsTypes/retention';
+
+export interface AppSettings extends RetentionSettings {
   onboardingVersion: number;
   language: string;
   textSize: number;
@@ -14,19 +16,12 @@ export interface AppSettings {
   maxClipSizeMb: number;
   filePreviewMode: 'off' | 'safe' | 'all';
   filePreviewMaxMb: number;
-  keepClipCount: number;
-  keepClipAgeDays: number;
-  revisionHistoryLimit: number;
   alwaysPastePlainText: boolean;
   rowHeight: 'small' | 'medium' | 'large';
   startupView: 'last_active' | 'clip_history';
   themeMode: 'system' | 'dark' | 'cool' | 'warm' | '2894' | 'sauced' | 'vampire' | 'flux' | '808';
   enableActivityLog: boolean;
-  activityLogCapacity: number;
-  activityLogAgeDays: number;
   enableTrash: boolean;
-  trashCapacityCount: number;
-  trashAgeDays: number;
   enableAnalytics: boolean;
   enableBins: boolean;
   enableClipTypes: boolean;
