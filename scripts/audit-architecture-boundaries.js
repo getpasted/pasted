@@ -578,6 +578,13 @@ const sizeRatchets = new Map([
   ['src-tauri/src/content_extraction/format_defaults.rs', 34],
   ['src-tauri/src/content_extraction/preset_tests.rs', 30],
   ['src-tauri/src/content_extraction/outcome.rs', 20],
+  ['src-tauri/src/intelligence_executor.rs', 60],
+  ['src-tauri/src/intelligence_executor/connections.rs', 85],
+  ['src-tauri/src/intelligence_executor/execution.rs', 325],
+  ['src-tauri/src/intelligence_executor/extractor_authoring.rs', 240],
+  ['src-tauri/src/intelligence_executor/planning.rs', 205],
+  ['src-tauri/src/intelligence_executor/saved_transforms.rs', 175],
+  ['src-tauri/src/intelligence_executor/tests.rs', 455],
   ['src-tauri/src/commands/extraction/ocr_backfill.rs', 60],
   ['src-tauri/src/db/extractors/runtime.rs', 122],
   ['src-tauri/src/db/tests/extractor_recipes.rs', 105],
@@ -969,6 +976,21 @@ assert.match(read('src-tauri/src/content_extraction/engine_runtime/whisper.rs'),
   'Whisper extraction must remain in its focused adapter');
 assert.match(read('src-tauri/src/content_extraction/engine_runtime/custom_command.rs'), /impl ExtractorEngine for CustomCommandEngine/,
   'Custom command extraction must remain in its focused adapter');
+const intelligenceExecutorFacade = read('src-tauri/src/intelligence_executor.rs');
+for (const capability of ['connections', 'execution', 'extractor_authoring', 'planning', 'saved_transforms']) {
+  assert.match(intelligenceExecutorFacade, new RegExp(`mod ${capability};`),
+    `The intelligence executor must compose the ${capability} capability`);
+}
+assert.doesNotMatch(intelligenceExecutorFacade, /fn planning_prompt|fn execute_plan_steps|fn extractor_recipe_schema/,
+  'The intelligence executor facade must not reclaim planning or execution implementation');
+assert.match(read('src-tauri/src/intelligence_executor/extractor_authoring.rs'), /pub fn propose_extractor_recipe/,
+  'Extractor recipe authoring must remain in its focused capability');
+assert.match(read('src-tauri/src/intelligence_executor/planning.rs'), /pub fn plan_intent/,
+  'Transform planning must remain in its focused capability');
+assert.match(read('src-tauri/src/intelligence_executor/execution.rs'), /pub fn execute_plan/,
+  'Transform plan execution must remain in its focused capability');
+assert.match(read('src-tauri/src/intelligence_executor/saved_transforms.rs'), /pub fn execute_saved_transform/,
+  'Saved and Smart Bin Transform execution must remain in its focused capability');
 
 const centralizedCommands = [
   'get_activity_logs', 'clear_activity_logs', 'export_activity_json', 'export_activity_csv',
