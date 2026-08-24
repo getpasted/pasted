@@ -101,6 +101,16 @@ assert.match(
 );
 assert.match(
   desktopBuildWorkflow,
+  /allow-dependencies-licenses:\s*pkg:githubactions\/Swatinem\/rust-cache/,
+  'The CI-only rust-cache license exception must stay scoped to that Action',
+);
+assert.doesNotMatch(
+  desktopBuildWorkflow,
+  /allow-licenses:[^\n]*LGPL/,
+  'LGPL must not enter the general product dependency license allowlist',
+);
+assert.match(
+  desktopBuildWorkflow,
   /validation-scope:[\s\S]*?src-tauri\/\*[\s\S]*?package\.json[\s\S]*?desktop-builds\.yml[\s\S]*?git diff --name-only/,
   'Desktop builds must detect native-impacting changes without trusting a client-supplied label',
 );
