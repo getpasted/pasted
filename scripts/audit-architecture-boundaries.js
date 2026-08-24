@@ -14,6 +14,10 @@ const nativeAppRuntime = read('src-tauri/src/app_runtime.rs');
 const nativeAppTray = read('src-tauri/src/app_tray.rs');
 const nativeAppWindows = read('src-tauri/src/app_windows.rs');
 const clipboardCapturePolicy = read('src-tauri/src/clipboard_capture_policy.rs');
+const clipboardIngestion = readRustModuleTree(
+  'src-tauri/src/clipboard_ingestion/mod.rs',
+  'src-tauri/src/clipboard_ingestion',
+);
 const clipboardMonitor = read('src-tauri/src/clipboard_monitor.rs');
 const commands = read('src-tauri/src/commands.rs');
 const appLockCommands = read('src-tauri/src/commands/app_lock.rs');
@@ -428,6 +432,16 @@ assert.match(clipboardCapturePolicy, /fn resolved_capture_source[\s\S]*fn should
   'Capture policy must own source attribution and composite/recent-image decisions');
 assert.match(clipboardCapturePolicy, /cfg\(target_os = "macos"\)[\s\S]*fn clipboard_change_marker[\s\S]*cfg\(not\(target_os = "macos"\)\)/,
   'Platform pasteboard generation must retain explicit portable gating');
+for (const handler of ['ingest_files', 'ingest_text', 'ingest_image']) {
+  assert.match(clipboardMonitor, new RegExp(handler),
+    `The clipboard monitor must delegate ${handler}`);
+  assert.match(clipboardIngestion, new RegExp(`fn ${handler}`),
+    `Clipboard ingestion must own ${handler}`);
+}
+assert.doesNotMatch(clipboardMonitor, /save_text_clip|save_clip\("(?:file|image)"|rgba_to_encoded_image/,
+  'The clipboard monitor must not reclaim payload persistence or image encoding');
+assert.match(clipboardIngestion, /struct CaptureContext[\s\S]*fn capture_preflight/,
+  'Clipboard payload handlers must share one context and deduplication preflight');
 assert.match(settingsService, /Result<SettingsUpdateOutcome, ApplicationError>/,
   'Shared Settings failures must expose stable structured application errors');
 assert.match(settingsApi, /saveMany:[\s\S]*save_app_settings/,
@@ -542,7 +556,11 @@ const sizeRatchets = new Map([
   ['src-tauri/src/app_tray.rs', 190],
   ['src-tauri/src/app_windows.rs', 165],
   ['src-tauri/src/clipboard_capture_policy.rs', 380],
-  ['src-tauri/src/clipboard_monitor.rs', 680],
+  ['src-tauri/src/clipboard_monitor.rs', 325],
+  ['src-tauri/src/clipboard_ingestion/mod.rs', 175],
+  ['src-tauri/src/clipboard_ingestion/files.rs', 115],
+  ['src-tauri/src/clipboard_ingestion/text.rs', 100],
+  ['src-tauri/src/clipboard_ingestion/image.rs', 145],
   ['src-tauri/src/db.rs', 210],
   ['src-tauri/src/content_analysis.rs', 186],
   ['src-tauri/src/content_analysis/pipeline.rs', 413],

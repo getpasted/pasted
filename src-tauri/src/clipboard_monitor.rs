@@ -1,13 +1,10 @@
 use arboard::Clipboard;
-use base64::Engine;
-use sha2::{Digest, Sha256};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
 
-use crate::app_exclusions::{AppExclusionRule, ExcludedCaptureKind};
 use crate::clipboard_capture_policy::{
     already_processed_change, clipboard_change_marker, composite_image_source,
     configured_capture_bytes, image_file_clipboard_payload, image_file_rgba_fingerprint,
@@ -15,72 +12,9 @@ use crate::clipboard_capture_policy::{
     should_coalesce_recent_image, should_prefer_composite_image, RecentImageCapture,
     FILE_IMAGE_STABILIZATION_ATTEMPTS, FILE_IMAGE_STABILIZATION_INTERVAL,
 };
+use crate::clipboard_ingestion::{ingest_files, ingest_image, ingest_text, CaptureContext};
 use crate::db::DbState;
 use crate::sequential_paste::SequentialQueueState;
-
-#[derive(Clone, Copy, serde::Serialize)]
-#[serde(rename_all = "lowercase")]
-enum CaptureFeedbackKind {
-    Success,
-    Ignored,
-    Failure,
-}
-
-fn capture_feedback_payload(kind: CaptureFeedbackKind, clip_id: Option<i64>) -> serde_json::Value {
-    match clip_id {
-        Some(clip_id) => serde_json::json!({ "kind": kind, "clip_id": clip_id }),
-        None => serde_json::json!({ "kind": kind }),
-    }
-}
-
-fn emit_capture_feedback(
-    app: &AppHandle,
-    db: &DbState,
-    kind: CaptureFeedbackKind,
-    clip_id: Option<i64>,
-) {
-    if !crate::features::is_enabled(db, crate::features::Feature::Notifications) {
-        return;
-    }
-    let _ = app.emit_to(
-        "capture-feedback",
-        "clipboard-capture-feedback",
-        capture_feedback_payload(kind, clip_id),
-    );
-}
-
-fn report_ignored_capture(app: &AppHandle, db: &DbState, reason: &str) {
-    let _ = db.log_activity("clipboard_capture_ignored", reason);
-    let _ = app.emit(
-        "clipboard-clip-ignored",
-        serde_json::json!({ "reason": reason }),
-    );
-    emit_capture_feedback(app, db, CaptureFeedbackKind::Ignored, None);
-}
-
-fn report_failed_capture(app: &AppHandle, db: &DbState) {
-    emit_capture_feedback(app, db, CaptureFeedbackKind::Failure, None);
-}
-
-fn ignore_excluded_capture(
-    app: &AppHandle,
-    db: &DbState,
-    active_app: Option<&str>,
-    rule: Option<&AppExclusionRule>,
-    kind: ExcludedCaptureKind,
-) -> bool {
-    if !rule.is_some_and(|rule| crate::app_exclusions::ignores_capture(rule, kind)) {
-        return false;
-    }
-    if let Some(active_app) = active_app {
-        let _ = app.emit(
-            "blacklist-clip-ignored",
-            serde_json::json!({ "app_name": active_app }),
-        );
-    }
-    emit_capture_feedback(app, db, CaptureFeedbackKind::Ignored, None);
-    true
-}
 
 pub struct ClipboardMonitorState {
     pub is_manually_paused: Arc<AtomicBool>,
@@ -279,109 +213,28 @@ pub fn start_clipboard_monitor(
             // tools retain image/OCR behavior while explicit file-manager copies remain files.
             if !prefer_composite_image && !clipboard_files.is_empty() {
                 last_processed_change_marker = change_marker;
-                let files = &clipboard_files;
-                let paths: Vec<String> = files
+                let paths: Vec<String> = clipboard_files
                     .iter()
                     .map(|path| path.to_string_lossy().into_owned())
                     .collect();
                 let hash = crate::clipboard_fingerprint::file_list(&paths);
-                if hash != last_hash {
-                    last_hash = hash.clone();
-                    if capture_suppressed {
-                        continue;
-                    }
-                    if seq_state.consume_internal_clipboard_write(&hash) {
-                        continue;
-                    }
-                    if coalesce_with_recent_image {
-                        if let Some(recent) = recent_image_capture.as_ref() {
-                            let source = composite_image_source(inferred_source);
-                            if let Ok(Some(updated)) = db_state.reattribute_image_capture(
-                                recent.clip_id,
-                                &recent.content_hash,
-                                source,
-                            ) {
-                                let _ = app.emit("clip-added", updated);
-                            }
-                        }
-                        continue;
-                    }
-                    if !crate::resource_limits::file_list_within_limit(&paths) {
-                        report_ignored_capture(
-                                &app,
-                                &db_state,
-                                &format!(
-                                    "Ignored file list exceeding Pasted's limit of {} paths or {} MB of metadata",
-                                    crate::resource_limits::MAX_FILE_LIST_ITEMS,
-                                    crate::resource_limits::MAX_FILE_LIST_METADATA_BYTES / 1024 / 1024
-                                ),
-                            );
-                        continue;
-                    }
-
-                    if ignore_excluded_capture(
-                        &app,
-                        &db_state,
-                        active_app_opt.as_deref(),
-                        active_exclusion,
-                        ExcludedCaptureKind::Files,
-                    ) {
-                        continue;
-                    }
-
-                    let serialized = match serde_json::to_string(&paths) {
-                        Ok(serialized) => serialized,
-                        Err(error) => {
-                            eprintln!("[Pasted Monitor] Failed to serialize file list: {error}");
-                            report_failed_capture(&app, &db_state);
-                            continue;
-                        }
-                    };
-                    let source = capture_source.unwrap_or("System Clipboard");
-                    match db_state.save_clip("file", Some(&serialized), None, None, &hash, source) {
-                        Ok(clip) => {
-                            let preview_mode = db_state
-                                .get_setting("filePreviewMode")
-                                .ok()
-                                .flatten()
-                                .filter(|mode| matches!(mode.as_str(), "off" | "safe" | "all"))
-                                .unwrap_or_else(|| "safe".to_string());
-                            let preview_max_mb = db_state
-                                .get_setting("filePreviewMaxMb")
-                                .ok()
-                                .flatten()
-                                .and_then(|value| value.parse::<u64>().ok())
-                                .unwrap_or(25)
-                                .clamp(1, 64);
-                            if preview_mode != "off" {
-                                let preview_app = app.clone();
-                                let preview_paths = paths.clone();
-                                let preview_hash = hash.clone();
-                                thread::spawn(move || {
-                                    crate::commands::file_previews::prefetch_file_clip_previews(
-                                        &preview_app,
-                                        &preview_paths,
-                                        &preview_hash,
-                                        &preview_mode,
-                                        preview_max_mb,
-                                    );
-                                });
-                            }
-                            let clip_id = clip.id;
-                            let _ = app.emit("clip-added", clip);
-                            emit_capture_feedback(
-                                &app,
-                                &db_state,
-                                CaptureFeedbackKind::Success,
-                                Some(clip_id),
-                            );
-                        }
-                        Err(error) => {
-                            eprintln!("[Pasted Monitor] Failed to save file clip: {error}");
-                            report_failed_capture(&app, &db_state);
-                        }
-                    }
-                }
+                let context = CaptureContext {
+                    app: &app,
+                    db: &db_state,
+                    queue: &seq_state,
+                    active_app: active_app_opt.as_deref(),
+                    active_exclusion,
+                    source: capture_source.unwrap_or("System Clipboard"),
+                    suppressed: capture_suppressed,
+                };
+                let coalesced_image = coalesce_with_recent_image
+                    .then(|| {
+                        recent_image_capture
+                            .as_ref()
+                            .map(|recent| (recent, composite_image_source(inferred_source)))
+                    })
+                    .flatten();
+                ingest_files(&context, paths, hash, &mut last_hash, coalesced_image);
                 continue;
             }
 
@@ -395,225 +248,52 @@ pub fn start_clipboard_monitor(
                 if !text.is_empty() {
                     last_processed_change_marker = change_marker;
                     let hash = crate::clipboard_fingerprint::text(&text);
-
-                    if hash != last_hash {
-                        last_hash = hash.clone();
-                        if capture_suppressed {
-                            continue;
-                        }
-                        let capture_limit = configured_capture_bytes(&db_state);
-                        if text.len() > capture_limit {
-                            report_ignored_capture(
-                                &app,
-                                &db_state,
-                                &format!(
-                                    "Ignored clipboard text larger than the configured {} MB limit",
-                                    capture_limit / 1024 / 1024
-                                ),
-                            );
-                            continue;
-                        }
-
-                        // Queue paste commands write to the system clipboard so
-                        // the destination app can receive a normal paste. That
-                        // internal write is not a new user copy and must not be
-                        // saved to history, re-queued, or sent through Smart Bin
-                        // automation.
-                        if seq_state.consume_internal_clipboard_write(&text) {
-                            continue;
-                        }
-
-                        if ignore_excluded_capture(
-                            &app,
-                            &db_state,
-                            active_app_opt.as_deref(),
-                            active_exclusion,
-                            ExcludedCaptureKind::Text,
-                        ) {
-                            continue;
-                        }
-
-                        // If sequential mode active, push to queue as well
-                        if crate::features::is_enabled(&db_state, crate::features::Feature::Queue)
-                            && seq_state.capture_item(text.clone())
-                        {
-                            let _ = db_state.log_activity(
-                                "queue_item_recorded",
-                                "Recorded copied text into the Queue",
-                            );
-                            let _ = app.emit("sequential-updated", seq_state.get_status());
-                        }
-
-                        // Save with the best available capture-source attribution.
-                        let source = capture_source.unwrap_or("System Clipboard");
-                        match db_state.save_text_clip(&text, source) {
-                            Ok(clip) => {
-                                let _ = app.emit("clip-added", clip.clone());
-                                emit_capture_feedback(
-                                    &app,
-                                    &db_state,
-                                    CaptureFeedbackKind::Success,
-                                    Some(clip.id),
-                                );
-                                let automation_db = db_state.clone();
-                                let automation_app = app.clone();
-                                let automation_type = clip.content_type.clone();
-                                let automation_content_types = clip.content_types.clone();
-                                let automation_text = text.clone();
-                                let automation_source = source.to_string();
-                                thread::spawn(move || {
-                                    if crate::features::is_enabled(
-                                        &automation_db,
-                                        crate::features::Feature::Bins,
-                                    ) && crate::features::is_enabled(
-                                        &automation_db,
-                                        crate::features::Feature::Transformations,
-                                    ) {
-                                        crate::intelligence_executor::apply_smart_bin_transforms_for_clip(
-                                            &automation_db,
-                                            clip.id,
-                                            &automation_type,
-                                            &automation_content_types,
-                                            &automation_text,
-                                            &automation_source,
-                                        );
-                                    }
-                                    if let Ok(updated) = automation_db.get_clip_by_id(clip.id) {
-                                        let _ = automation_app.emit("clip-added", updated);
-                                    }
-                                });
-                            }
-                            Err(e) => {
-                                eprintln!("[Pasted Monitor] Failed to save clip: {}", e);
-                                report_failed_capture(&app, &db_state);
-                            }
-                        }
-                    }
+                    let context = CaptureContext {
+                        app: &app,
+                        db: &db_state,
+                        queue: &seq_state,
+                        active_app: active_app_opt.as_deref(),
+                        active_exclusion,
+                        source: capture_source.unwrap_or("System Clipboard"),
+                        suppressed: capture_suppressed,
+                    };
+                    ingest_text(
+                        &context,
+                        text,
+                        hash,
+                        &mut last_hash,
+                        configured_capture_bytes(&db_state),
+                    );
                     continue;
                 }
             }
 
             // Attempt to read image
-            if let Some(img) = composite_image.or_else(|| clipboard.get_image().ok()) {
+            if let Some(image) = composite_image.or_else(|| clipboard.get_image().ok()) {
                 last_processed_change_marker = change_marker;
-                let (Ok(width), Ok(height)) = (u32::try_from(img.width), u32::try_from(img.height))
-                else {
-                    report_ignored_capture(
-                        &app,
-                        &db_state,
-                        "Ignored clipboard image with invalid dimensions",
-                    );
-                    continue;
+                let context = CaptureContext {
+                    app: &app,
+                    db: &db_state,
+                    queue: &seq_state,
+                    active_app: active_app_opt.as_deref(),
+                    active_exclusion,
+                    source: capture_source.unwrap_or("System Clipboard"),
+                    suppressed: capture_suppressed,
                 };
-                if !crate::resource_limits::image_dimensions_within_limit(width, height) {
-                    let mut hasher = Sha256::new();
-                    hasher.update(img.bytes.as_ref());
-                    let hash = format!("{:x}", hasher.finalize());
-                    if hash != last_hash {
-                        last_hash = hash;
-                        if capture_suppressed {
-                            continue;
-                        }
-                        report_ignored_capture(
-                            &app,
-                            &db_state,
-                            "Ignored clipboard image larger than 24 megapixels",
-                        );
-                    }
-                    continue;
-                }
-                let raw_bytes = img.bytes.to_vec();
-
-                let hash = crate::clipboard_fingerprint::image_rgba(&raw_bytes);
-
-                if hash != last_hash {
-                    last_hash = hash.clone();
-                    if capture_suppressed {
-                        continue;
-                    }
-                    if seq_state.consume_internal_clipboard_write(&hash) {
-                        continue;
-                    }
-                    if is_pasted_source(active_app_opt.as_deref())
-                        && recent_image_capture
-                            .as_ref()
-                            .is_some_and(RecentImageCapture::is_current)
-                    {
-                        if let Some(recent) = recent_image_capture.as_ref() {
-                            if let Ok(Some(updated)) = db_state.reattribute_image_capture(
-                                recent.clip_id,
-                                &recent.content_hash,
-                                composite_image_source(inferred_source),
-                            ) {
-                                let _ = app.emit("clip-added", updated);
-                            }
-                        }
-                        continue;
-                    }
-
-                    if ignore_excluded_capture(
-                        &app,
-                        &db_state,
-                        active_app_opt.as_deref(),
-                        active_exclusion,
-                        ExcludedCaptureKind::Image,
-                    ) {
-                        continue;
-                    }
-
-                    if let Some(img_bytes) = rgba_to_png(width, height, &raw_bytes) {
-                        let capture_limit = configured_capture_bytes(&db_state)
-                            .min(crate::resource_limits::MAX_ENCODED_IMAGE_BYTES);
-                        if img_bytes.len() > capture_limit {
-                            report_ignored_capture(
-                                &app,
-                                &db_state,
-                                &format!(
-                                    "Ignored clipboard image larger than the configured {} MB limit",
-                                    capture_limit / 1024 / 1024
-                                ),
-                            );
-                            continue;
-                        }
-                        let b64 = format!(
-                            "data:image/webp;base64,{}",
-                            base64::engine::general_purpose::STANDARD.encode(&img_bytes)
-                        );
-
-                        let source = capture_source.unwrap_or("System Clipboard");
-                        match db_state.save_clip("image", None, None, Some(&b64), &hash, source) {
-                            Ok(clip) => {
-                                recent_image_capture = Some(RecentImageCapture::new(
-                                    clip.id,
-                                    clip.content_hash.clone(),
-                                ));
-                                let _ = app.emit("clip-added", clip.clone());
-                                emit_capture_feedback(
-                                    &app,
-                                    &db_state,
-                                    CaptureFeedbackKind::Success,
-                                    Some(clip.id),
-                                );
-                                if crate::features::is_enabled(
-                                    &db_state,
-                                    crate::features::Feature::Ocr,
-                                ) {
-                                    let _ = ocr_service.enqueue(crate::ocr::OcrTask {
-                                        clip_id: clip.id,
-                                        content_hash: clip.content_hash,
-                                        image_bytes: img_bytes,
-                                    });
-                                }
-                            }
-                            Err(e) => {
-                                eprintln!("[Pasted Monitor] Failed to save image clip: {}", e);
-                                report_failed_capture(&app, &db_state);
-                            }
-                        }
-                    } else {
-                        report_failed_capture(&app, &db_state);
-                    }
-                }
+                let reattribute_source = (is_pasted_source(active_app_opt.as_deref())
+                    && recent_image_capture
+                        .as_ref()
+                        .is_some_and(RecentImageCapture::is_current))
+                .then(|| composite_image_source(inferred_source));
+                ingest_image(
+                    &context,
+                    image,
+                    &ocr_service,
+                    &mut last_hash,
+                    &mut recent_image_capture,
+                    reattribute_source,
+                    configured_capture_bytes(&db_state),
+                );
             }
         }
     });
@@ -622,45 +302,5 @@ pub fn start_clipboard_monitor(
         running,
         is_manually_paused,
         is_auto_paused,
-    }
-}
-
-fn rgba_to_png(width: u32, height: u32, rgba_data: &[u8]) -> Option<Vec<u8>> {
-    use image::{ImageBuffer, Rgba};
-    let imgbuf: ImageBuffer<Rgba<u8>, _> =
-        ImageBuffer::from_raw(width, height, rgba_data.to_vec())?;
-    let mut cursor = std::io::Cursor::new(Vec::new());
-    if imgbuf
-        .write_to(&mut cursor, image::ImageFormat::WebP)
-        .is_ok()
-    {
-        return Some(cursor.into_inner());
-    }
-    let mut fallback_cursor = std::io::Cursor::new(Vec::new());
-    imgbuf
-        .write_to(&mut fallback_cursor, image::ImageFormat::Png)
-        .ok()?;
-    Some(fallback_cursor.into_inner())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{capture_feedback_payload, CaptureFeedbackKind};
-
-    #[test]
-    fn capture_feedback_never_contains_clipboard_data() {
-        for (kind, expected) in [
-            (CaptureFeedbackKind::Success, "success"),
-            (CaptureFeedbackKind::Ignored, "ignored"),
-            (CaptureFeedbackKind::Failure, "failure"),
-        ] {
-            let payload = capture_feedback_payload(kind, None);
-            assert_eq!(payload, serde_json::json!({ "kind": expected }));
-            assert_eq!(payload.as_object().map(|object| object.len()), Some(1));
-        }
-        assert_eq!(
-            capture_feedback_payload(CaptureFeedbackKind::Success, Some(42)),
-            serde_json::json!({ "kind": "success", "clip_id": 42 })
-        );
     }
 }
