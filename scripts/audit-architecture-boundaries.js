@@ -10,6 +10,9 @@ const readSourceTree = (directory) => fs.readdirSync(directory, { withFileTypes:
   return /\.(?:ts|tsx)$/.test(entry.name) ? [{ path, source: read(path) }] : [];
 });
 const nativeAppRoot = read('src-tauri/src/lib.rs');
+const applicationArchitecture = read('docs/APPLICATION_ARCHITECTURE.md');
+const analysisArchitecture = read('docs/ANALYSIS_ARCHITECTURE.md');
+const transformationsArchitecture = read('docs/TRANSFORMATIONS.md');
 const nativeAppRuntime = read('src-tauri/src/app_runtime.rs');
 const nativeAppTray = read('src-tauri/src/app_tray.rs');
 const nativeAppWindows = read('src-tauri/src/app_windows.rs');
@@ -117,6 +120,52 @@ const settingsCommands = read('src-tauri/src/commands/settings.rs');
 const appOverlays = read('src/hooks/useAppOverlays.ts');
 const clipDragController = read('src/hooks/useClipDragController.ts');
 const clipReordering = read('src/hooks/useClipReordering.ts');
+
+assert.match(applicationArchitecture, /## Native ownership map/,
+  'Application architecture must document the final native ownership map');
+for (const [root, adapter, applicationService, persistence, platform] of [
+  ['Native crate bootstrap', 'lib.rs', 'app_runtime.rs', 'db::DbState', 'Tauri window'],
+  ['Clipboard monitor', 'clipboard_monitor.rs', 'clipboard_capture_policy.rs', 'db/capture.rs', 'arboard'],
+  ['Extraction runtime', 'content_extraction.rs', 'extraction_execution.rs', 'db/stored_analysis/', 'engine_runtime/'],
+  ['Intelligence executor', 'intelligence_executor.rs', 'intelligence_executor/', 'db/intelligence_connections.rs', 'intelligence_provider.rs'],
+  ['Transformation service', 'transformation_service.rs', 'transformation_service/', 'db/transforms/', 'clipboard_actions.rs'],
+  ['Database schema', 'db/schema.rs', 'db/schema/canonical.rs', 'db/schema/', 'db/lifecycle.rs'],
+  ['Database transfers', 'db/transfers.rs', 'library_validation', 'library_import', 'native file pickers'],
+  ['Database Transforms', 'db/transforms.rs', 'transformation_service.rs', 'applications', 'No platform behavior'],
+  ['Stored Analysis persistence', 'db/stored_analysis.rs', 'Participant execution modules', 'classifications', 'live observations'],
+]) {
+  const row = applicationArchitecture.split(/\r?\n/)
+    .find((line) => line.includes(`| ${root} (`));
+  assert.ok(row, `Application architecture must include the ${root} epic root`);
+  for (const owner of [adapter, applicationService, persistence, platform]) {
+    assert.ok(row.includes(owner), `${root} ownership must identify ${owner}`);
+  }
+}
+assert.match(applicationArchitecture,
+  /`content_extraction\.rs` is the deliberate size exception[\s\S]*cohesive contract and definition module[\s\S]*It is not the engine registry/,
+  'Application architecture must document the cohesive content-extraction exception');
+assert.match(analysisArchitecture,
+  /`db\/stored_analysis\.rs` is a declaration-only facade[\s\S]*`classifications\.rs`[\s\S]*`inspections\.rs`[\s\S]*`extractions\.rs`[\s\S]*`searchable_text\.rs`[\s\S]*`ocr\.rs`/,
+  'Analysis architecture must identify every stored Analysis persistence owner');
+assert.match(transformationsArchitecture,
+  /## Native ownership[\s\S]*`transformation_service\.rs` is the shared application-service facade[\s\S]*`db\/transforms\.rs` is the persistence facade[\s\S]*`applications\.rs`/,
+  'Transformation documentation must distinguish execution from persistence ownership');
+
+const epicBaselineRootLines = new Map([
+  ['src-tauri/src/lib.rs', 803],
+  ['src-tauri/src/clipboard_monitor.rs', 955],
+  ['src-tauri/src/content_extraction.rs', 1114],
+  ['src-tauri/src/intelligence_executor.rs', 1393],
+  ['src-tauri/src/transformation_service.rs', 1166],
+  ['src-tauri/src/db/schema.rs', 2321],
+  ['src-tauri/src/db/transfers.rs', 1446],
+  ['src-tauri/src/db/transforms.rs', 1084],
+  ['src-tauri/src/db/stored_analysis.rs', 818],
+]);
+for (const [path, baseline] of epicBaselineRootLines) {
+  assert.ok(lineCount(path) < baseline,
+    `${path} must remain smaller than its ${baseline}-line native architecture epic baseline`);
+}
 
 assert.doesNotMatch(liveApp, /crate::commands::/,
   'The live-app adapter must not call the GUI command adapter');
@@ -1077,10 +1126,10 @@ assert.match(contentAnalysisFacade, /mod pipeline;/,
   'Content Analysis must keep scheduler participants behind its pipeline module');
 assert.doesNotMatch(contentAnalysisFacade, /fn schedule\(|fn extractor_participant\(/,
   'Content Analysis contracts must not reclaim scheduler implementation');
-const contentExtractionFacade = read('src-tauri/src/content_extraction.rs');
-assert.match(contentExtractionFacade, /mod engine_runtime;/,
+const contentExtractionContracts = read('src-tauri/src/content_extraction.rs');
+assert.match(contentExtractionContracts, /mod engine_runtime;/,
   'Content Extraction must keep operating-system engines behind its runtime module');
-assert.doesNotMatch(contentExtractionFacade, /perform_tesseract_ocr|perform_whisper_cpp_transcription|execute_custom_command/,
+assert.doesNotMatch(contentExtractionContracts, /perform_tesseract_ocr|perform_whisper_cpp_transcription|execute_custom_command/,
   'Content Extraction definitions must not reclaim engine process execution');
 const extractionEngineRuntime = read('src-tauri/src/content_extraction/engine_runtime.rs');
 for (const adapter of ['apple_vision', 'custom_command', 'discovery', 'tesseract', 'whisper']) {

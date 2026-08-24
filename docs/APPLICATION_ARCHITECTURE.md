@@ -84,10 +84,40 @@ Database changes use ordered `NamedMigration` entries. Each entry and its
 schema marker commit in one transaction. Additive column helpers propagate
 SQLite failures and are safe to run repeatedly.
 
-The database integration root delegates cohesive persistence behavior to
-submodules under `src-tauri/src/db`. Clip protection, retention policies, and
-Settings persistence are the first extracted domains. New work in those areas
-belongs in their domain module rather than returning to the integration root.
+## Native ownership map
+
+Native entry points follow one direction: an adapter translates its transport,
+an application service owns product policy and orchestration, persistence owns
+durable state and transactions, and a platform adapter contains operating-system
+or external-runtime behavior. An empty platform cell means the capability is
+portable Rust over SQLite; it does not permit an adapter to absorb product
+behavior.
+
+| Epic root | Adapter | Application service | Persistence | Platform boundary |
+| --- | --- | --- | --- | --- |
+| Native crate bootstrap (`lib.rs`) | `lib.rs` registers Tauri plugins and commands and composes lifecycle callbacks. | `app_runtime.rs` owns initialization order and run events; `app_windows.rs` owns reveal and window lifecycle; `app_tray.rs` owns tray behavior. | `db::DbState` is constructed by `app_runtime.rs`; bootstrap does not implement storage. | Tauri window, tray, menu, single-instance, and run-event APIs stay in the three `app_*` owners. |
+| Clipboard monitor (`clipboard_monitor.rs`) | `clipboard_monitor.rs` polls the system clipboard and coordinates pause and acquisition state. | `clipboard_capture_policy.rs` owns deterministic selection and source policy; `clipboard_ingestion/{text,files,image}.rs` own payload-specific capture workflows. | Ingestion uses the focused `db/capture.rs` and clip owners through `DbState`; the monitor never writes clip rows directly. | `arboard`, active-application lookup, macOS pasteboard change markers, and Tauri capture feedback remain at the monitor/policy edges. |
+| Extraction runtime (`content_extraction.rs`) | GUI `commands/{extraction,extractors}.rs` and CLI `cli/commands/{extractors,analyzer}.rs` translate requests. | `content_analysis.rs` schedules participants and `extraction_execution.rs` translates results; `content_extraction.rs` owns the cohesive extraction contract and definitions. | `db/extractors/` owns definitions and runtime configuration; `db/stored_analysis/{extractions,searchable_text,ocr}.rs` own derived results and lifecycle state. | `content_extraction/engine_runtime/{apple_vision,tesseract,whisper,custom_command,discovery}.rs` own executable discovery and engine execution. |
+| Intelligence executor (`intelligence_executor.rs`) | GUI `commands/intelligence.rs` and CLI connection, Extractor, Suggestion, and Transform adapters map transport. | `intelligence_executor/{connections,planning,execution,extractor_authoring,saved_transforms}.rs` own selection, scheduling, authoring, and execution policy. | `db/intelligence_connections.rs`, `db/extractors/`, and `db/transforms/` own the durable definitions selected or produced by those workflows. | `intelligence_provider.rs` owns provider transport and `intelligence_scheduler.rs` owns bounded provider concurrency. |
+| Transformation service (`transformation_service.rs`) | GUI Transformation and Manual Transform commands, CLI Transforms, hotkeys, clipboard actions, and the live-app bridge supply typed requests. | `transformation_service/{contracts,cancellation,compatibility,operations,orchestration}.rs` own execution semantics; compatibility is an entry-point adapter, not a second engine. | `db/transforms/` owns saved definitions, execution records, clip application, and provenance. | Paste destination activation and clipboard writes remain in `clipboard_actions.rs` and paste platform services, outside Transform execution. |
+| Database schema (`db/schema.rs`) | `DbState` construction is the only activation entry; GUI and CLI do not call migrations directly. | `db/schema/canonical.rs` owns ordered activation and registered migrations own bounded upgrades. | `db/schema/{clips,content_compatibility,content_registry,extractors,organization,library_items,transformation_tables,migrations}.rs` own schema families. | `db/lifecycle.rs` owns SQLite opening and library-path modes; schema modules contain no GUI or native-picker behavior. |
+| Database transfers (`db/transfers.rs`) | GUI Backup/Import commands and CLI `portability.rs` own pickers, files, and output formatting. | Transfer preflight and merge policy live with the transactional use case in `db/transfers/{library_validation,library_import,library_export,clip_transfer}.rs`. | Those same focused owners serialize, validate, and transactionally merge History and Organization data; `db/full_backups.rs` separately owns replacement snapshots. | Async native file pickers remain in GUI commands; filesystem reads and writes remain outside Tauri command-thread execution. |
+| Database Transforms (`db/transforms.rs`) | Transformation adapters call `DbState` through stable domain methods and consume exported contracts from `db.rs`. | `transformation_service.rs` owns execution; `db/transforms/manual.rs` is bounded legacy/manual storage compatibility, not another execution service. | `db/transforms/{definitions,executions,applications,repository,operation_compatibility}.rs` own lifecycle, executions, atomic clip application and provenance, row decoding, and legacy operation fields. | No platform behavior belongs in Transform persistence. |
+| Stored Analysis persistence (`db/stored_analysis.rs`) | Analyzer, Inspector, Extractor, OCR, and rescan adapters consume typed Analysis execution results. | Participant execution modules own result translation; stored Analysis methods only validate current clip identity and commit derived records. | `db/stored_analysis/{classifications,inspections,extractions,searchable_text,ocr}.rs` own their respective durable results and OCR lifecycle state. | Filesystem availability and media metadata remain live observations outside durable stored Analysis. |
+
+`content_extraction.rs` is the deliberate size exception in this epic. It is a
+cohesive contract and definition module: serialized Extractor definitions,
+recipe compatibility, bounded shared types, and the engine trait must remain
+reviewable together. It is not the engine registry and does not own process
+execution. The small registry in `content_extraction/engine_runtime.rs` composes
+the platform engine adapters, while each adapter owns its executable discovery
+or invocation. New engine implementation belongs under `engine_runtime/`, not
+in the contract module.
+
+The database integration root now composes focused persistence owners under
+`src-tauri/src/db`. Schema activation, transfers, Transforms, stored Analysis,
+clip lifecycle, organization, Settings, retention, and lifecycle operations
+belong in their domain modules rather than returning to the integration root.
 
 The GUI command adapter follows the same shape under `src-tauri/src/commands`.
 Activity, App Lock, Queue, retention, and Library Storage commands are registered

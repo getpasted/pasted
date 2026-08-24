@@ -28,6 +28,28 @@ adapters rather than product or persistence terminology.
 The pre-1.0 storage decision and migration boundary are documented in
 [Transform storage decision for 1.0](./TRANSFORM_STORAGE_DECISION.md).
 
+## Native ownership
+
+`transformation_service.rs` is the shared application-service facade used by
+GUI commands, the CLI, hotkeys, clipboard actions, and the live-app bridge. Its
+focused modules own typed contracts, cancellation, orchestration, deterministic
+Operation execution, and bounded compatibility entry points. It decides how a
+Transform runs, but it does not own saved definitions or write provenance.
+
+`db/transforms.rs` is the persistence facade. `definitions.rs` owns saved
+Transform lifecycle, `executions.rs` owns execution records, `applications.rs`
+owns atomic clip mutation and provenance, `repository.rs` owns shared row
+decoding, `operation_compatibility.rs` owns legacy Operation storage fields, and
+`manual.rs` owns bounded manual/legacy persistence compatibility. Persistence
+does not execute Operations, activate paste destinations, or call providers.
+
+Intelligence planning is adjacent but separate:
+`intelligence_executor/{planning,execution,saved_transforms}.rs` produces or
+selects work that the Transformation service executes. Provider transport stays
+in `intelligence_provider.rs`; clipboard writes and target activation stay in
+their platform services. This keeps GUI, CLI, shortcut, and live-app execution
+on one application contract and one provenance ledger.
+
 ## CLI lifecycle contract
 
 `pasted transform` is the scriptable surface for both authoring forms:
