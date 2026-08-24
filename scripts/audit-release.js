@@ -57,13 +57,18 @@ for (const { path, source } of nodeWorkflowEntries) {
 }
 assert.match(
   linuxDockerfile,
-  new RegExp(`^FROM node:${nodeVersion}-bookworm$`, 'm'),
-  'The Linux packaging image must match the shared Node.js LTS major',
+  new RegExp(`^FROM node:${nodeVersion}-bookworm@sha256:[a-f0-9]{64}$`, 'm'),
+  'The Linux packaging image must match the shared Node.js LTS major and pin its digest',
 );
 assert.match(
   dependabotConfig,
   /package-ecosystem:\s*docker[\s\S]*?directory:\s*\/packaging\/linux/,
   'Dependabot must monitor the Linux packaging base image',
+);
+assert.match(
+  dependabotConfig,
+  /package-ecosystem:\s*docker[\s\S]*?dependency-name:\s*node[\s\S]*?version-update:semver-major/,
+  'Dependabot must not replace the reviewed Node.js LTS major automatically',
 );
 
 assert.match(
