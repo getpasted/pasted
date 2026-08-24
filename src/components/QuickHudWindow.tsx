@@ -8,7 +8,7 @@ import { OverflowText } from './OverflowText';
 import { translate } from '../localization/runtime';
 import { SearchErrorNotice } from './SearchErrorNotice';
 import { useFeatures } from '../hooks/useFeatures';
-import { ClipImageThumbnail } from './ClipCardThumbnails';
+import { ClipImageThumbnail } from './ClipImageThumbnail';
 import { hudPasteShortcutIndex, hudPrimaryModifierLabel } from './quickHudModel';
 
 export const QuickHudWindow: React.FC = () => {

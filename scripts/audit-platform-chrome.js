@@ -22,6 +22,13 @@ const rtlWindowControlsSource = fs.readFileSync('src/components/MacRtlWindowCont
 const appLockScreenSource = fs.readFileSync('src/components/AppLockScreen.tsx', 'utf8');
 const hudWindowSource = fs.readFileSync('src-tauri/src/hud_window.rs', 'utf8');
 const hudCommandSource = fs.readFileSync('src-tauri/src/commands/hud.rs', 'utf8');
+const viteSource = fs.readFileSync('vite.config.ts', 'utf8');
+const hudEntrySource = fs.readFileSync('src/hud-main.tsx', 'utf8');
+const feedbackEntrySource = fs.readFileSync('src/capture-feedback-main.tsx', 'utf8');
+const auxiliarySettingsSource = fs.readFileSync('src/hooks/useAuxiliaryAppSettings.ts', 'utf8');
+const auxiliaryReadySource = fs.readFileSync('src/hooks/useAuxiliaryWindowReady.ts', 'utf8');
+const hudHtml = fs.readFileSync('hud.html', 'utf8');
+const feedbackHtml = fs.readFileSync('capture-feedback.html', 'utf8');
 
 const windowByLabel = (config, label) => config.app.windows.find((window) => window.label === label);
 const baseMain = windowByLabel(baseConfig, 'main');
@@ -33,10 +40,37 @@ const macHud = windowByLabel(macConfig, 'hud');
 assert.ok(baseMain, 'Base configuration must define the main window');
 assert.ok(captureFeedback, 'Base configuration must define the capture feedback window');
 assert.ok(baseHud && macHud, 'Every platform configuration must define the HUD window');
+assert.equal(baseHud.url, 'hud.html', 'The HUD must load its dedicated entry point');
+assert.equal(macHud.url, 'hud.html', 'The macOS HUD must load its dedicated entry point');
+assert.equal(captureFeedback.url, 'capture-feedback.html', 'Capture feedback must load its dedicated entry point');
 assert.equal(baseHud.height, 448, 'The HUD must retain a snug layout with all nine rows visible');
 assert.equal(macHud.height, baseHud.height, 'HUD height must remain synchronized across platform configurations');
 assert.match(hudWindowSource, /HUD_HEIGHT: f64 = 448\.0/, 'Native HUD positioning must use the configured height');
 assert.match(hudCommandSource, /hud_window::HUD_HEIGHT/, 'Every HUD positioning path must share the native height constant');
+for (const entry of ['index.html', 'hud.html', 'capture-feedback.html']) {
+  assert.match(viteSource, new RegExp(entry.replace('.', '\\.')),
+    `Vite must retain the ${entry} build entry`);
+}
+for (const [name, html] of [['HUD', hudHtml], ['Capture feedback', feedbackHtml]]) {
+  assert.match(html, /#root \{ visibility: hidden; \}/,
+    `${name} must remain hidden before React finishes initialization`);
+  assert.match(html, /html\[data-window-ready="true"\] #root \{ visibility: visible; \}/,
+    `${name} must reveal atomically without a flash of uninitialized content`);
+}
+for (const entrySource of [hudEntrySource, feedbackEntrySource]) {
+  assert.match(entrySource, /useAuxiliaryAppSettings\(\)/,
+    'Auxiliary entries must not run main-window settings side effects');
+  assert.match(entrySource, /useAuxiliaryWindowReady\(ready\)/,
+    'Auxiliary entries must explicitly coordinate their first paint');
+  assert.doesNotMatch(entrySource, /useAppController|useAppSettings|from ['"]\.\/App['"]/,
+    'Auxiliary entries must remain independent from the main application graph');
+}
+assert.doesNotMatch(auxiliarySettingsSource, /plugin-autostart|enforce_.*retention|set_dock_visibility/,
+  'Auxiliary settings hydration must remain read-only');
+assert.match(auxiliarySettingsSource, /useLayoutEffect/,
+  'Auxiliary theme, text size, and locale must settle before first paint');
+assert.match(auxiliaryReadySource, /requestAnimationFrame/,
+  'Auxiliary content must reveal on a complete animation frame');
 assert.equal(baseMain.visible, false, 'The main window must remain hidden until its startup surface is ready');
 assert.equal(captureFeedback.focus, false, 'Capture feedback must never steal focus');
 assert.equal(

@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { fileURLToPath } from "node:url";
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
@@ -37,13 +38,21 @@ export default defineConfig(async () => ({
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
+      input: {
+        main: fileURLToPath(new URL("index.html", import.meta.url)),
+        hud: fileURLToPath(new URL("hud.html", import.meta.url)),
+        "capture-feedback": fileURLToPath(new URL("capture-feedback.html", import.meta.url)),
+      },
       treeshake: {
         moduleSideEffects: false,
       },
       output: {
-        manualChunks: {
-          "vendor-react": ["react", "react-dom"],
-          "vendor-icons": ["lucide-react"],
+        manualChunks(id) {
+          if (/[\\/]node_modules[\\/](?:react|react-dom|scheduler)[\\/]/.test(id)) {
+            return "vendor-react";
+          }
+          if (id.includes("/node_modules/lucide-react/")) return "vendor-icons";
+          return undefined;
         },
       },
     },

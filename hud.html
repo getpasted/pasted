@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en" class="hud-mode">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pasted HUD</title>
+    <style>
+      html, body, #root { width: 100%; height: 100%; margin: 0; }
+      body { overflow: hidden; background: transparent; }
+      #root { visibility: hidden; }
+      html[data-window-ready="true"] #root { visibility: visible; }
+    </style>
+  </head>
+  <body class="hud-mode">
+    <div id="root" class="hud-mode"></div>
+    <script type="module" src="/src/hud-main.tsx"></script>
+  </body>
+</html>

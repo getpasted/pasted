@@ -22,7 +22,6 @@ interface UseAppNavigationOptions {
   startupView: string;
   settingsHydrated: boolean;
   initialDataLoaded: boolean;
-  isHudView: boolean;
   selectedClipId: number | null;
 }
 
@@ -33,7 +32,6 @@ export function useAppNavigation({
   startupView,
   settingsHydrated,
   initialDataLoaded,
-  isHudView,
   selectedClipId,
 }: UseAppNavigationOptions) {
   const [currentTab, setCurrentTab] = useState(restoredUiState.currentTab);
@@ -99,12 +97,12 @@ export function useAppNavigation({
     }
   }, [bins, currentTab, initialDataLoaded, selectedBinId, settingsHydrated]);
 
-  useAppEvent<string>(APP_EVENTS.navigateTab, navigateToTab, !isHudView);
+  useAppEvent<string>(APP_EVENTS.navigateTab, navigateToTab);
   useAppEvent<number>(APP_EVENTS.navigateBin, (binId) => {
     if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
     setSelectedBinId(binId);
     setCurrentTab('bin');
-  }, !isHudView);
+  });
 
   const enterSearchView = useCallback(() => {
     if (currentTab !== 'search') setCurrentTab('search');
@@ -123,7 +121,7 @@ export function useAppNavigation({
   }, [bins]);
 
   useEffect(() => {
-    if (isHudView || !settingsHydrated || !initialDataLoaded) return;
+    if (!settingsHydrated || !initialDataLoaded) return;
     writeAppUiState({
       version: 2,
       currentTab,
@@ -141,7 +139,6 @@ export function useAppNavigation({
     activeTransformWorkspace,
     currentTab,
     initialDataLoaded,
-    isHudView,
     isSidebarCollapsed,
     selectedBinId,
     selectedClipId,

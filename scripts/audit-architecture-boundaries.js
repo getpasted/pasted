@@ -427,6 +427,8 @@ for (const hook of [
 const appEntry = read('src/App.tsx');
 assert.match(appEntry, /useAppController\(\)[\s\S]*<AppShellView controller=\{controller\}/,
   'The application entry must compose the controller and shell view boundaries');
+assert.doesNotMatch(appEntry, /QuickHudWindow|CaptureFeedbackWindow/,
+  'The main application entry must not reclaim auxiliary windows');
 assert.doesNotMatch(appEntry, /useAppData|useClipActions|<Sidebar|<ClipCard/,
   'The application entry must not reclaim controller or workspace internals');
 assert.doesNotMatch(read('src/hooks/useAppController.ts'), /<Sidebar|<ClipCard|<SettingsModal/,
@@ -587,6 +589,13 @@ const sizeRatchets = new Map([
   ['src-tauri/src/commands/storage.rs', 170],
   ['src-tauri/src/bin/pasted.rs', 320],
   ['src/App.tsx', 16],
+  ['src/hud-main.tsx', 36],
+  ['src/capture-feedback-main.tsx', 36],
+  ['src/hooks/useAuxiliaryWindowReady.ts', 20],
+  ['src/hooks/useAuxiliaryAppSettings.ts', 70],
+  ['src/appSettingsModel.ts', 145],
+  ['src/utils/appTheme.ts', 28],
+  ['src/components/ClipImageThumbnail.tsx', 76],
   ['src/hooks/useAppController.ts', 499],
   ['src/hooks/useAppLibraryActions.ts', 59],
   ['src/hooks/appControllerModel.ts', 22],

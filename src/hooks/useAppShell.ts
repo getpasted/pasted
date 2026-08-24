@@ -1,9 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { useEffect, useRef } from 'react';
 import { consumePendingBackupClientState } from '../utils/backupClientState';
 import { dismissStartupSplash } from '../utils/startupSplash';
 import { safeInvoke as invoke } from '../utils/tauri';
-import { isQuickHudRoute } from '../components/quickHudModel';
 
 const TRANSIENT_SCROLL_SURFACE_SELECTOR = [
   '.surface-scroll-region',
@@ -33,7 +31,6 @@ export function useAppShell({
   initialDataLoaded,
 }: UseAppShellOptions) {
   const previousTitlebarDirectionRef = useRef(direction);
-  const [isHudView, setIsHudView] = useState(() => isQuickHudRoute(window.location.search));
 
   useEffect(() => {
     void consumePendingBackupClientState()
@@ -87,31 +84,11 @@ export function useAppShell({
   }, []);
 
   useEffect(() => {
-    const enableHudMode = () => {
-      setIsHudView(true);
-      document.documentElement.classList.add('hud-mode');
-      document.body.classList.add('hud-mode');
-      document.getElementById('root')?.classList.add('hud-mode');
-    };
-
-    try {
-      const win = getCurrentWindow();
-      if (win.label === 'hud' || window.location.search.includes('view=hud')) enableHudMode();
-    } catch {
-      if (window.location.search.includes('view=hud')) enableHudMode();
-    }
-  }, []);
-
-  useEffect(() => {
     const splash = document.getElementById('startup-splash');
     if (!splash) return;
-    if (isHudView && catalogReady) {
-      splash.remove();
-      return;
-    }
     if (!catalogReady || !settingsHydrated || !initialDataLoaded) return;
     return dismissStartupSplash(splash);
-  }, [catalogReady, initialDataLoaded, isHudView, settingsHydrated]);
+  }, [catalogReady, initialDataLoaded, settingsHydrated]);
 
   useEffect(() => {
     if (!catalogReady || !settingsHydrated || !initialDataLoaded) return undefined;
@@ -122,5 +99,4 @@ export function useAppShell({
     };
   }, [catalogReady, initialDataLoaded, settingsHydrated]);
 
-  return { isHudView };
 }

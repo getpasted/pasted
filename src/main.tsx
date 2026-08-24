@@ -3,8 +3,6 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import { applyDesktopPlatform } from "./utils/platform";
 import { ToastProvider } from "./components/ToastProvider";
-import { CaptureFeedbackWindow } from "./components/CaptureFeedbackWindow";
-import { useAppSettings } from "./hooks/useAppSettings";
 import { ContentTypeProvider } from "./components/ContentTypeProvider";
 import { useAppLock, type AppLockStatus } from "./hooks/useAppLock";
 import { AppLockScreen } from "./components/AppLockScreen";
@@ -33,23 +31,8 @@ window.addEventListener('blur', () => {
 window.addEventListener('focus', markWindowActive);
 window.addEventListener('pointerdown', markWindowActive, { capture: true });
 
-const rootView = new URLSearchParams(window.location.search).get("view");
-if (rootView === "capture-feedback") {
-  document.documentElement.classList.add("capture-feedback-mode");
-  document.body.classList.add("capture-feedback-mode");
-  document.getElementById("root")?.classList.add("capture-feedback-mode");
-  document.getElementById("startup-splash")?.remove();
-}
-
-function CaptureFeedbackRoot() {
-  const { appSettings, settingsHydrated } = useAppSettings();
-  const appLock = useAppLock({ animateUnlock: false });
-  if (!appLock.hydrated || appLock.status.locked) return null;
-  return <CaptureFeedbackWindow settings={appSettings} settingsHydrated={settingsHydrated} />;
-}
-
 function ProtectedAppRoot() {
-  const appLock = useAppLock({ animateUnlock: rootView !== "hud" });
+  const appLock = useAppLock();
   const lastLockedStatus = React.useRef<AppLockStatus | null>(null);
   if (appLock.status.locked) lastLockedStatus.current = appLock.status;
 
@@ -60,10 +43,6 @@ function ProtectedAppRoot() {
     return dismissStartupSplash(splash);
   }, [appLock.hydrated, appLock.status.locked]);
   if (!appLock.hydrated) return null;
-  // The HUD is a transient clipboard surface, not an authentication window.
-  // Native lock transitions also hide it; keeping this guard here prevents a
-  // stale or externally shown HUD webview from ever rendering locked content.
-  if (rootView === "hud" && appLock.status.locked) return null;
   const showLockScreen = appLock.status.locked || appLock.unlockingSuccess;
   const showApp = !appLock.status.locked || appLock.unlockingSuccess;
   const overlayStatus = appLock.status.locked ? appLock.status : lastLockedStatus.current;
@@ -89,11 +68,7 @@ function ProtectedAppRoot() {
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <LocalizationProvider>
-      {rootView === "capture-feedback" ? (
-        <CaptureFeedbackRoot />
-      ) : (
-        <ProtectedAppRoot />
-      )}
+      <ProtectedAppRoot />
     </LocalizationProvider>
   </React.StrictMode>,
 );
