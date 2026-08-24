@@ -19,6 +19,8 @@ pub mod bin_assignment;
 pub mod classification_execution;
 #[cfg(feature = "gui")]
 pub mod clipboard_actions;
+#[cfg(feature = "gui")]
+mod clipboard_capture_policy;
 mod clipboard_fingerprint;
 #[cfg(feature = "gui")]
 mod clipboard_monitor;

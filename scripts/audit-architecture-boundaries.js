@@ -13,6 +13,8 @@ const nativeAppRoot = read('src-tauri/src/lib.rs');
 const nativeAppRuntime = read('src-tauri/src/app_runtime.rs');
 const nativeAppTray = read('src-tauri/src/app_tray.rs');
 const nativeAppWindows = read('src-tauri/src/app_windows.rs');
+const clipboardCapturePolicy = read('src-tauri/src/clipboard_capture_policy.rs');
+const clipboardMonitor = read('src-tauri/src/clipboard_monitor.rs');
 const commands = read('src-tauri/src/commands.rs');
 const appLockCommands = read('src-tauri/src/commands/app_lock.rs');
 const analysisCommands = read('src-tauri/src/commands/analysis.rs');
@@ -418,6 +420,14 @@ assert.match(nativeAppTray, /fn build_menu[\s\S]*pub\(crate\) fn install/,
   'The tray module must own menu construction and installation');
 assert.match(nativeAppWindows, /MAIN_PAGE_LOADED[\s\S]*STARTUP_SETUP_READY[\s\S]*MAIN_WINDOW_REVEALED/,
   'The window module must own the atomic startup reveal handshake');
+assert.match(clipboardMonitor, /use crate::clipboard_capture_policy::/,
+  'The clipboard monitor must delegate deterministic capture policy');
+assert.doesNotMatch(clipboardMonitor, /fn inferred_screenshot_source|fn resolved_capture_source|fn should_coalesce_recent_image/,
+  'The clipboard monitor must not reclaim source attribution or coalescing policy');
+assert.match(clipboardCapturePolicy, /fn resolved_capture_source[\s\S]*fn should_prefer_composite_image[\s\S]*fn should_coalesce_recent_image/,
+  'Capture policy must own source attribution and composite/recent-image decisions');
+assert.match(clipboardCapturePolicy, /cfg\(target_os = "macos"\)[\s\S]*fn clipboard_change_marker[\s\S]*cfg\(not\(target_os = "macos"\)\)/,
+  'Platform pasteboard generation must retain explicit portable gating');
 assert.match(settingsService, /Result<SettingsUpdateOutcome, ApplicationError>/,
   'Shared Settings failures must expose stable structured application errors');
 assert.match(settingsApi, /saveMany:[\s\S]*save_app_settings/,
@@ -531,6 +541,8 @@ const sizeRatchets = new Map([
   ['src-tauri/src/app_runtime.rs', 180],
   ['src-tauri/src/app_tray.rs', 190],
   ['src-tauri/src/app_windows.rs', 165],
+  ['src-tauri/src/clipboard_capture_policy.rs', 380],
+  ['src-tauri/src/clipboard_monitor.rs', 680],
   ['src-tauri/src/db.rs', 210],
   ['src-tauri/src/content_analysis.rs', 186],
   ['src-tauri/src/content_analysis/pipeline.rs', 413],
