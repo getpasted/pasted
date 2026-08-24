@@ -693,6 +693,33 @@ for (const owner of ['analysis', 'lifecycle_policy', 'portability_library', 'reg
 assert.doesNotMatch(cliIntegrationTests, /#\[test\]|fn success_json|fn temporary_path/,
   'The CLI integration module facade must not reclaim shared support or domain contracts');
 
+for (const [facade, owners] of [
+  ['bins_and_transforms', ['bins_and_settings', 'legacy_transforms']],
+  ['capture_and_lifecycle', [
+    'capture_and_origin', 'database_lifecycle', 'payload_and_protection', 'smart_bins',
+  ]],
+  ['history_and_organization_transfer', [
+    'analysis_lifecycle', 'archive_identity', 'transfer_roundtrip', 'validation_and_rollback',
+  ]],
+  ['migrations_and_intelligence', [
+    'classification_runtime', 'contracts_and_smoke', 'intelligence_registry',
+    'legacy_intelligence_migrations',
+  ]],
+  ['search_and_operations', [
+    'clip_lifecycle', 'operations_and_connections', 'search_indexing',
+    'taxonomy_and_ordering',
+  ]],
+  ['transforms_backup_and_protection', ['collections_and_protection', 'transforms']],
+]) {
+  const databaseTestFacade = read(`src-tauri/src/db/tests/${facade}.rs`);
+  for (const owner of owners) {
+    assert.match(databaseTestFacade, new RegExp(`mod ${owner};`),
+      `${facade} tests must compose the focused ${owner} owner`);
+  }
+  assert.doesNotMatch(databaseTestFacade, /#\[test\]|#\[ignore\]|\bfn\s+/,
+    `${facade} must remain a declaration-only test facade`);
+}
+
 const sizeRatchets = new Map([
   ['src-tauri/src/lib.rs', 400],
   ['src-tauri/src/app_runtime.rs', 180],
@@ -808,18 +835,38 @@ const sizeRatchets = new Map([
   ['src-tauri/src/db/transforms/tests/fixtures.rs', 40],
   ['src-tauri/src/db/transforms/types.rs', 225],
   ['src-tauri/src/db/tests/mod.rs', 54],
-  ['src-tauri/src/db/tests/bins_and_transforms.rs', 611],
-  ['src-tauri/src/db/tests/capture_and_lifecycle.rs', 797],
+  ['src-tauri/src/db/tests/bins_and_transforms.rs', 5],
+  ['src-tauri/src/db/tests/bins_and_transforms/bins_and_settings.rs', 115],
+  ['src-tauri/src/db/tests/bins_and_transforms/legacy_transforms.rs', 480],
+  ['src-tauri/src/db/tests/capture_and_lifecycle.rs', 5],
+  ['src-tauri/src/db/tests/capture_and_lifecycle/capture_and_origin.rs', 245],
+  ['src-tauri/src/db/tests/capture_and_lifecycle/database_lifecycle.rs', 235],
+  ['src-tauri/src/db/tests/capture_and_lifecycle/payload_and_protection.rs', 70],
+  ['src-tauri/src/db/tests/capture_and_lifecycle/smart_bins.rs', 230],
   ['src-tauri/src/db/tests/full_backups.rs', 280],
-  ['src-tauri/src/db/tests/migrations_and_intelligence.rs', 1_180],
+  ['src-tauri/src/db/tests/migrations_and_intelligence.rs', 5],
+  ['src-tauri/src/db/tests/migrations_and_intelligence/classification_runtime.rs', 350],
+  ['src-tauri/src/db/tests/migrations_and_intelligence/contracts_and_smoke.rs', 100],
+  ['src-tauri/src/db/tests/migrations_and_intelligence/intelligence_registry.rs', 455],
+  ['src-tauri/src/db/tests/migrations_and_intelligence/legacy_intelligence_migrations.rs', 265],
   ['src-tauri/src/db/tests/portability_boundaries.rs', 50],
   ['src-tauri/src/db/tests/retention_and_activity.rs', 366],
   ['src-tauri/src/db/tests/revisions_and_mutations.rs', 495],
-  ['src-tauri/src/db/tests/search_and_operations.rs', 1_126],
+  ['src-tauri/src/db/tests/search_and_operations.rs', 5],
+  ['src-tauri/src/db/tests/search_and_operations/clip_lifecycle.rs', 265],
+  ['src-tauri/src/db/tests/search_and_operations/operations_and_connections.rs', 370],
+  ['src-tauri/src/db/tests/search_and_operations/search_indexing.rs', 380],
+  ['src-tauri/src/db/tests/search_and_operations/taxonomy_and_ordering.rs', 110],
   ['src-tauri/src/db/tests/clip_transfer.rs', 200],
-  ['src-tauri/src/db/tests/history_and_organization_transfer.rs', 630],
+  ['src-tauri/src/db/tests/history_and_organization_transfer.rs', 5],
+  ['src-tauri/src/db/tests/history_and_organization_transfer/analysis_lifecycle.rs', 65],
+  ['src-tauri/src/db/tests/history_and_organization_transfer/archive_identity.rs', 160],
+  ['src-tauri/src/db/tests/history_and_organization_transfer/transfer_roundtrip.rs', 295],
+  ['src-tauri/src/db/tests/history_and_organization_transfer/validation_and_rollback.rs', 105],
   ['src-tauri/src/db/tests/timestamps.rs', 160],
-  ['src-tauri/src/db/tests/transforms_backup_and_protection.rs', 660],
+  ['src-tauri/src/db/tests/transforms_backup_and_protection.rs', 5],
+  ['src-tauri/src/db/tests/transforms_backup_and_protection/collections_and_protection.rs', 270],
+  ['src-tauri/src/db/tests/transforms_backup_and_protection/transforms.rs', 360],
   ['src-tauri/src/commands.rs', 54],
   ['src-tauri/src/commands/bins.rs', 89],
   ['src-tauri/src/commands/capture.rs', 43],
