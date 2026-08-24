@@ -21,6 +21,10 @@ const clipActions = fs.readFileSync('src/hooks/useClipActions.ts', 'utf8');
 const plainText = fs.readFileSync('src/utils/plainText.ts', 'utf8');
 const safeRasterImage = fs.readFileSync('src/components/SafeRasterImage.tsx', 'utf8');
 const codeqlWorkflow = fs.readFileSync('.github/workflows/codeql.yml', 'utf8');
+const dependabotComplianceWorkflow = fs.readFileSync(
+  '.github/workflows/dependabot-compliance-refresh.yml',
+  'utf8',
+);
 const safeRasterConsumers = [
   'src/components/CaptureFeedbackCard.tsx',
   'src/components/ClipCardThumbnails.tsx',
@@ -49,6 +53,32 @@ assert.match(
   codeqlWorkflow,
   /codeql:\s*\n\s*name: CodeQL[\s\S]*?needs: \[scope, analyze-actions, analyze-javascript, analyze-rust\]/,
   'The CodeQL summary check must aggregate every scoped analyzer',
+);
+
+assert.match(
+  dependabotComplianceWorkflow,
+  /pull_request_target:[\s\S]*?paths:[\s\S]*?package-lock\.json[\s\S]*?src-tauri\/Cargo\.lock/,
+  'Writable Dependabot automation must only trigger for dependency manifests and lockfiles',
+);
+assert.match(
+  dependabotComplianceWorkflow,
+  /pull_request\.user\.login == 'dependabot\[bot\]'[\s\S]*?head\.repo\.full_name == github\.repository/,
+  'Writable dependency automation must be limited to same-repository Dependabot branches',
+);
+assert.match(
+  dependabotComplianceWorkflow,
+  /Restrict the writable workflow to dependency files[\s\S]*?git diff --name-only "\$BASE_SHA" "\$HEAD_SHA"/,
+  'Writable dependency automation must validate the complete pull-request diff before executing',
+);
+assert.match(
+  dependabotComplianceWorkflow,
+  /npm ci --ignore-scripts/,
+  'Writable dependency automation must disable dependency lifecycle scripts',
+);
+assert.match(
+  dependabotComplianceWorkflow,
+  /Reject unexpected generated changes[\s\S]*?THIRD_PARTY_LICENSES\.json\|THIRD_PARTY_NOTICES\.txt\|THIRD_PARTY_SBOM\.spdx\.json/,
+  'Writable dependency automation must limit generated changes to canonical compliance artifacts',
 );
 
 assert.ok(security?.csp, 'Production Tauri CSP must remain enabled');

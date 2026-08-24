@@ -1,0 +1,99 @@
+name: Refresh Dependabot compliance artifacts
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+    paths:
+      - package.json
+      - package-lock.json
+      - src-tauri/Cargo.toml
+      - src-tauri/Cargo.lock
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dependabot-compliance-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    name: Refresh dependency notices and SBOM
+    if: >-
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out the Dependabot branch
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Restrict the writable workflow to dependency files
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          while IFS= read -r changed_file; do
+            case "$changed_file" in
+              package.json|package-lock.json|src-tauri/Cargo.toml|src-tauri/Cargo.lock|THIRD_PARTY_LICENSES.json|THIRD_PARTY_NOTICES.txt|THIRD_PARTY_SBOM.spdx.json)
+                ;;
+              *)
+                echo "Refusing to run with unexpected changed file: $changed_file" >&2
+                exit 1
+                ;;
+            esac
+          done < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Restore cargo-about
+        id: cargo-about-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cargo/bin/cargo-about
+          key: cargo-about-0.9.1-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Install cargo-about
+        if: steps.cargo-about-cache.outputs.cache-hit != 'true'
+        run: cargo install --locked --features cli --version 0.9.1 cargo-about
+
+      - name: Install JavaScript dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Regenerate compliance artifacts
+        run: |
+          node scripts/generate-third-party-licenses.js
+          node scripts/generate-source-sbom.js
+
+      - name: Reject unexpected generated changes
+        run: |
+          while IFS= read -r changed_file; do
+            case "$changed_file" in
+              THIRD_PARTY_LICENSES.json|THIRD_PARTY_NOTICES.txt|THIRD_PARTY_SBOM.spdx.json)
+                ;;
+              *)
+                echo "Generator changed an unexpected file: $changed_file" >&2
+                exit 1
+                ;;
+            esac
+          done < <(git diff --name-only)
+
+      - name: Commit refreshed artifacts
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          if git diff --quiet -- THIRD_PARTY_LICENSES.json THIRD_PARTY_NOTICES.txt THIRD_PARTY_SBOM.spdx.json; then
+            echo "Compliance artifacts are already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add THIRD_PARTY_LICENSES.json THIRD_PARTY_NOTICES.txt THIRD_PARTY_SBOM.spdx.json
+          git commit -m "chore: refresh dependency compliance artifacts"
+          git push origin "HEAD:$HEAD_REF"
