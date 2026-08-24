@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "Pasted-1.0.0-rc.5-distributed-components",
-  "documentNamespace": "https://getpasted.app/sbom/1.0.0-rc.5/f6c8214d7fae21744ef822425443f491e568e498a6ce521722c04a4a401fa0db",
+  "documentNamespace": "https://getpasted.app/sbom/1.0.0-rc.5/a02bb4a9cab658e7ecffd902c0af6abc557f586890246c35c64f4013ef9f3c87",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
@@ -773,6 +773,23 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/cargo-platform@0.1.9"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-0266912bfaae35d1",
+      "name": "cfb",
+      "versionInfo": "0.14.0",
+      "downloadLocation": "https://github.com/mdsteele/rust-cfb",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/cfb@0.14.0"
         }
       ]
     },
@@ -2864,6 +2881,23 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/infer@0.19.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-c5b527d421e9cc0e",
+      "name": "infer",
+      "versionInfo": "0.22.0",
+      "downloadLocation": "https://github.com/bojand/infer",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/infer@0.22.0"
         }
       ]
     },
@@ -6030,6 +6064,23 @@
       ]
     },
     {
+      "SPDXID": "SPDXRef-cargo-9478a8136f3102e2",
+      "name": "web-time",
+      "versionInfo": "1.1.0",
+      "downloadLocation": "https://github.com/daxpedda/web-time",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/web-time@1.1.0"
+        }
+      ]
+    },
+    {
       "SPDXID": "SPDXRef-cargo-9622b0ed012ae325",
       "name": "webkit2gtk",
       "versionInfo": "2.0.2",
@@ -7619,6 +7670,11 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-0266912bfaae35d1"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-0dd04f9fd2c40303"
     },
     {
@@ -8230,6 +8286,11 @@
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-db0e1eed745af5b4"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-c5b527d421e9cc0e"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -9160,6 +9221,11 @@
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-7d928c0dbd87d182"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-9478a8136f3102e2"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
