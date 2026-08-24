@@ -61,7 +61,10 @@ const schemaDatabase = readRustModuleTree('src-tauri/src/db/schema.rs', 'src-tau
 const sourceQueryDatabase = read('src-tauri/src/db/source_queries.rs');
 const storedAnalysisDatabase = read('src-tauri/src/db/stored_analysis.rs');
 const timestampDatabase = read('src-tauri/src/db/timestamps.rs');
-const transferDatabase = read('src-tauri/src/db/transfers.rs');
+const transferDatabase = readRustModuleTree(
+  'src-tauri/src/db/transfers.rs',
+  'src-tauri/src/db/transfers',
+);
 const transformDatabase = read('src-tauri/src/db/transforms.rs');
 const settingsApi = read('src/api/settings.ts');
 const transformsApi = read('src/api/transforms.ts');
@@ -218,6 +221,21 @@ assert.match(transferDatabase, /pub fn import_backup_json/,
   'History and Organization import must remain centralized with transfer preflight');
 assert.doesNotMatch(read('src-tauri/src/db.rs'), /pub fn import_backup_json/,
   'The database integration root must not reclaim transfer persistence');
+const transferFacade = read('src-tauri/src/db/transfers.rs');
+for (const capability of [
+  'clip_transfer', 'library_export', 'library_import', 'library_validation',
+]) {
+  assert.match(transferFacade, new RegExp(`mod ${capability}`),
+    `The transfer facade must compose the ${capability} capability`);
+}
+assert.doesNotMatch(transferFacade, /impl DbState|pub fn|fn preflight_library_archive/,
+  'The transfer facade must not reclaim Clip or History and Organization persistence');
+assert.match(read('src-tauri/src/db/transfers/library_export.rs'), /pub fn export_backup_json/,
+  'History and Organization export must have one focused owner');
+assert.match(read('src-tauri/src/db/transfers/library_validation.rs'), /fn preflight_library_archive/,
+  'History and Organization validation must have one focused owner');
+assert.match(read('src-tauri/src/db/transfers/library_import.rs'), /pub fn import_backup_json/,
+  'History and Organization transactional merge must have one focused owner');
 assert.match(retentionDatabase, /pub fn enforce_history_limit_internal/,
   'History retention enforcement must remain centralized with retention configuration');
 assert.match(retentionDatabase, /pub fn enforce_trash_limit_internal/,
@@ -616,7 +634,7 @@ const sizeRatchets = new Map([
   ['src-tauri/src/commands/extraction/ocr_backfill.rs', 60],
   ['src-tauri/src/db/extractors/runtime.rs', 122],
   ['src-tauri/src/db/tests/extractor_recipes.rs', 105],
-  ['src-tauri/src/db/tests/analytics.rs', 105],
+  ['src-tauri/src/db/tests/analytics.rs', 165],
   ['src-tauri/src/content_extraction/tests.rs', 458],
   ['src-tauri/src/db/activity.rs', 649],
   ['src-tauri/src/db/analysis_activity.rs', 71],
@@ -658,17 +676,25 @@ const sizeRatchets = new Map([
   ['src-tauri/src/db/source_queries.rs', 16],
   ['src-tauri/src/db/stored_analysis.rs', 818],
   ['src-tauri/src/db/timestamps.rs', 131],
-  ['src-tauri/src/db/transfers.rs', 1_446],
+  ['src-tauri/src/db/transfers.rs', 10],
+  ['src-tauri/src/db/transfers/clip_transfer.rs', 395],
+  ['src-tauri/src/db/transfers/library_export.rs', 155],
+  ['src-tauri/src/db/transfers/library_import.rs', 510],
+  ['src-tauri/src/db/transfers/library_validation.rs', 475],
   ['src-tauri/src/db/transforms.rs', 1_084],
   ['src-tauri/src/db/tests/mod.rs', 54],
   ['src-tauri/src/db/tests/bins_and_transforms.rs', 611],
   ['src-tauri/src/db/tests/capture_and_lifecycle.rs', 797],
+  ['src-tauri/src/db/tests/full_backups.rs', 280],
   ['src-tauri/src/db/tests/migrations_and_intelligence.rs', 1_422],
+  ['src-tauri/src/db/tests/portability_boundaries.rs', 50],
   ['src-tauri/src/db/tests/retention_and_activity.rs', 366],
   ['src-tauri/src/db/tests/revisions_and_mutations.rs', 495],
   ['src-tauri/src/db/tests/search_and_operations.rs', 1_126],
-  ['src-tauri/src/db/tests/transfer_and_portability.rs', 1_069],
-  ['src-tauri/src/db/tests/transforms_backup_and_protection.rs', 893],
+  ['src-tauri/src/db/tests/clip_transfer.rs', 200],
+  ['src-tauri/src/db/tests/history_and_organization_transfer.rs', 630],
+  ['src-tauri/src/db/tests/timestamps.rs', 160],
+  ['src-tauri/src/db/tests/transforms_backup_and_protection.rs', 660],
   ['src-tauri/src/commands.rs', 54],
   ['src-tauri/src/commands/bins.rs', 89],
   ['src-tauri/src/commands/capture.rs', 43],

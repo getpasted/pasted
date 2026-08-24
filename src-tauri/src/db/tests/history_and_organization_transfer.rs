@@ -1,6 +1,6 @@
 use super::*;
 #[test]
-fn test_backup_export_import() {
+fn history_and_organization_export_import() {
     let db = setup_test_db();
     let clip = db
         .save_clip(
@@ -191,7 +191,7 @@ fn test_backup_export_import() {
 }
 
 #[test]
-fn legacy_pipeline_backups_import_as_manual_transforms() {
+fn legacy_pipeline_transfers_import_as_manual_transforms() {
     let source = setup_test_db();
     let mut payload =
         serde_json::from_str::<serde_json::Value>(&source.export_backup_json().unwrap()).unwrap();
@@ -232,7 +232,7 @@ fn legacy_pipeline_backups_import_as_manual_transforms() {
 }
 
 #[test]
-fn backup_roundtrip_preserves_bin_clip_order() {
+fn transfer_roundtrip_preserves_bin_clip_order() {
     let source = setup_test_db();
     let first = source
         .save_clip("text", Some("First"), None, None, "backup-order-1", "App")
@@ -270,7 +270,7 @@ fn backup_roundtrip_preserves_bin_clip_order() {
 }
 
 #[test]
-fn test_backup_export_is_not_limited_to_visible_history() {
+fn transfer_export_is_not_limited_to_visible_history() {
     let db = setup_test_db();
     for index in 0..501 {
         db.save_clip(
@@ -445,381 +445,7 @@ fn library_archive_reimport_updates_stable_identities_without_duplicates() {
 }
 
 #[test]
-fn clip_exports_match_their_documented_json_and_csv_contracts() {
-    let db = setup_test_db();
-    let active = db
-        .save_clip(
-            "text",
-            Some("=SUM(A1:A2), \"quoted\""),
-            Some("<b>preserved in JSON</b>"),
-            None,
-            "clip-export-active",
-            "Editor, Inc.",
-        )
-        .unwrap();
-    db.toggle_pin(active.id).unwrap();
-    db.update_clip_name(active.id, Some("Formula 📊")).unwrap();
-    let trashed = db
-        .save_clip(
-            "text",
-            Some("must not be exported"),
-            None,
-            None,
-            "clip-export-trashed",
-            "Tests",
-        )
-        .unwrap();
-    db.delete_clip(trashed.id).unwrap();
-
-    let json = db.export_clips_json().unwrap();
-    let clips: Vec<ClipItem> = serde_json::from_str(&json).unwrap();
-    assert_eq!(clips.len(), 1);
-    assert_eq!(clips[0].content_hash, "clip-export-active");
-    assert_eq!(
-        clips[0].html_content.as_deref(),
-        Some("<b>preserved in JSON</b>")
-    );
-    assert!(clips[0].is_pinned);
-    assert_eq!(clips[0].name.as_deref(), Some("Formula 📊"));
-    assert!(!json.contains("must not be exported"));
-
-    let csv = db.export_clips_csv().unwrap();
-    let mut lines = csv.lines();
-    assert_eq!(
-        lines.next(),
-        Some("id,content_type,source,is_pinned,created_at,name,text_content")
-    );
-    let row = lines.next().unwrap();
-    assert!(row.contains("\"Editor, Inc.\""));
-    assert!(row.contains("\"'=SUM(A1:A2), \"\"quoted\"\"\""));
-    assert!(row.contains(",true,"));
-    assert!(row.contains("\"Formula 📊\""));
-    assert!(lines.next().is_none());
-
-    let json_target = setup_test_db();
-    let json_preview = json_target.inspect_clips_json(&json).unwrap();
-    assert_eq!(json_preview.imported_count, 1);
-    assert!(json_target.get_all_clips_for_backup().unwrap().is_empty());
-    let first_json_import = json_target.import_clips_json(&json).unwrap();
-    assert_eq!(first_json_import.scanned_count, 1);
-    assert_eq!(first_json_import.imported_count, 1);
-    assert_eq!(first_json_import.duplicate_count, 0);
-    let second_json_import = json_target.import_clips_json(&json).unwrap();
-    assert_eq!(second_json_import.imported_count, 0);
-    assert_eq!(second_json_import.duplicate_count, 1);
-    let imported_json_clip = json_target.get_all_clips_for_backup().unwrap().remove(0);
-    assert_eq!(
-        imported_json_clip.html_content.as_deref(),
-        Some("<b>preserved in JSON</b>")
-    );
-    assert!(imported_json_clip.is_pinned);
-    assert_eq!(imported_json_clip.name.as_deref(), Some("Formula 📊"));
-
-    let csv_target = setup_test_db();
-    let csv_preview = csv_target.inspect_clips_csv(&csv).unwrap();
-    assert_eq!(csv_preview.imported_count, 1);
-    assert!(csv_target.get_clips(None, false).unwrap().is_empty());
-    let first_csv_import = csv_target.import_clips_csv(&csv).unwrap();
-    assert_eq!(first_csv_import.imported_count, 1);
-    assert_eq!(first_csv_import.duplicate_count, 0);
-    let second_csv_import = csv_target.import_clips_csv(&csv).unwrap();
-    assert_eq!(second_csv_import.imported_count, 0);
-    assert_eq!(second_csv_import.duplicate_count, 1);
-    let imported_csv_clip = csv_target.get_clips(None, false).unwrap().remove(0);
-    assert_eq!(
-        imported_csv_clip.text_content.as_deref(),
-        Some("=SUM(A1:A2), \"quoted\"")
-    );
-    assert_eq!(imported_csv_clip.source, "Editor, Inc.");
-    assert_eq!(imported_csv_clip.name.as_deref(), Some("Formula 📊"));
-
-    let invalid_target = setup_test_db();
-    let invalid_csv = format!("{csv}\n\"broken\",\"row\"");
-    assert!(invalid_target.import_clips_csv(&invalid_csv).is_err());
-    assert!(invalid_target.get_clips(None, false).unwrap().is_empty());
-}
-
-#[test]
-fn clip_json_import_round_trips_stored_images() {
-    let source = setup_test_db();
-    source
-        .save_clip(
-            "image",
-            Some("recognized text"),
-            None,
-            Some(crate::resource_limits::TEST_PNG_DATA_URL),
-            "clip-image-export-hash",
-            "Screenshot",
-        )
-        .unwrap();
-    let json = source.export_clips_json().unwrap();
-
-    let target = setup_test_db();
-    let report = target.import_clips_json(&json).unwrap();
-    assert_eq!(report.imported_count, 1);
-    let imported = target.get_all_clips_for_backup().unwrap().remove(0);
-    assert_eq!(imported.content_type, "image");
-    assert_eq!(imported.text_content.as_deref(), Some("recognized text"));
-    assert_eq!(
-        imported.image_base64.as_deref(),
-        Some(crate::resource_limits::TEST_PNG_DATA_URL)
-    );
-    assert_eq!(imported.content_hash, "clip-image-export-hash");
-}
-
-#[test]
-fn raster_image_boundaries_reject_active_content_without_mutation() {
-    let malicious = "data:image/png;base64,PHN2ZyBvbmxvYWQ9ImFsZXJ0KDEpIj48L3N2Zz4=";
-    let direct = setup_test_db();
-    assert!(direct
-        .save_clip(
-            "image",
-            None,
-            None,
-            Some(malicious),
-            "malicious-direct-image",
-            "Tests",
-        )
-        .is_err());
-    assert!(direct.get_all_clips_for_backup().unwrap().is_empty());
-
-    let source = setup_test_db();
-    source
-        .save_clip(
-            "image",
-            None,
-            None,
-            Some(crate::resource_limits::TEST_PNG_DATA_URL),
-            "malicious-import-image",
-            "Tests",
-        )
-        .unwrap();
-    let mut payload: serde_json::Value =
-        serde_json::from_str(&source.export_clips_json().unwrap()).unwrap();
-    payload[0]["image_base64"] = malicious.into();
-    let payload = serde_json::to_string(&payload).unwrap();
-    let target = setup_test_db();
-    assert!(target.inspect_clips_json(&payload).is_err());
-    assert!(target.import_clips_json(&payload).is_err());
-    assert!(target.get_all_clips_for_backup().unwrap().is_empty());
-
-    let legacy = source.get_all_clips_for_backup().unwrap().remove(0);
-    source
-        .conn
-        .lock()
-        .execute(
-            "UPDATE clips SET image_base64 = ?1 WHERE id = ?2",
-            params![malicious, legacy.id],
-        )
-        .unwrap();
-    assert_eq!(source.get_clip_image(legacy.id).unwrap(), None);
-    assert_eq!(
-        source
-            .get_all_clips_for_backup()
-            .unwrap()
-            .remove(0)
-            .image_base64
-            .as_deref(),
-        Some(malicious)
-    );
-}
-
-#[test]
-fn insights_summary_is_strictly_read_only() {
-    let db = setup_test_db();
-    let clip = db
-        .save_clip(
-            "text",
-            Some("Read-only insight"),
-            None,
-            None,
-            "insights-read-only",
-            "",
-        )
-        .unwrap();
-    let changes_before = db.conn.lock().total_changes();
-    let before = db.get_clip_by_id(clip.id).unwrap();
-    let summary = db.get_analytics_summary().unwrap();
-    let after = db.get_clip_by_id(clip.id).unwrap();
-
-    assert_eq!(summary.total_clips, 1);
-    assert_eq!(db.conn.lock().total_changes(), changes_before);
-    assert_eq!(after.source, before.source);
-    assert_eq!(after.content_hash, before.content_hash);
-}
-
-#[test]
-fn canonical_timestamps_preserve_instants_and_reject_malformed_imports() {
-    assert_eq!(
-        canonical_utc_timestamp("2026-08-16 23:45:00", "Test").unwrap(),
-        "2026-08-16T23:45:00Z"
-    );
-    assert_eq!(
-        canonical_utc_timestamp("2026-08-16T18:45:00-05:00", "Test").unwrap(),
-        "2026-08-16T23:45:00Z"
-    );
-    assert!(canonical_utc_timestamp("tomorrow sometime", "Test").is_err());
-
-    let source = setup_test_db();
-    source
-        .save_clip(
-            "text",
-            Some("Timestamp import"),
-            None,
-            None,
-            "timestamp-import",
-            "Tests",
-        )
-        .unwrap();
-    let mut payload: serde_json::Value =
-        serde_json::from_str(&source.export_clips_json().unwrap()).unwrap();
-    payload[0]["created_at"] = serde_json::json!("2026-08-16 23:45:00");
-
-    let target = setup_test_db();
-    target
-        .import_clips_json(&serde_json::to_string(&payload).unwrap())
-        .unwrap();
-    assert_eq!(
-        target.get_clips(None, false).unwrap()[0].created_at,
-        "2026-08-16T23:45:00Z"
-    );
-
-    payload[0]["created_at"] = serde_json::json!("not-a-timestamp");
-    let invalid_target = setup_test_db();
-    assert!(invalid_target
-        .inspect_clips_json(&serde_json::to_string(&payload).unwrap())
-        .is_err());
-    assert!(invalid_target.get_clips(None, false).unwrap().is_empty());
-
-    let mut archive: serde_json::Value =
-        serde_json::from_str(&source.export_backup_json().unwrap()).unwrap();
-    archive["bins"][0]["created_at"] = serde_json::json!("2026-08-16T18:45:00-05:00");
-    let mut custom_operation = archive["operations"][0].clone();
-    custom_operation["id"] = serde_json::json!(12345);
-    custom_operation["stable_id"] = serde_json::json!("custom:timezone-test");
-    custom_operation["name"] = serde_json::json!("Timezone Test");
-    custom_operation["created_at"] = serde_json::json!("2026-08-16 23:45:00");
-    archive["operations"]
-        .as_array_mut()
-        .unwrap()
-        .push(custom_operation);
-    let (normalized, _) =
-        DbState::parse_library_archive(&serde_json::to_string(&archive).unwrap()).unwrap();
-    assert_eq!(normalized.bins[0].created_at, "2026-08-16T23:45:00Z");
-    assert_eq!(
-        normalized
-            .operations
-            .iter()
-            .find(|operation| operation.id == 12345)
-            .unwrap()
-            .created_at,
-        "2026-08-16T23:45:00Z"
-    );
-
-    archive["bins"][0]["created_at"] = serde_json::json!("not-a-timestamp");
-    assert!(DbState::parse_library_archive(&serde_json::to_string(&archive).unwrap()).is_err());
-}
-
-#[test]
-fn timestamp_migration_normalizes_legacy_timeline_values() {
-    let db = setup_test_db();
-    let clip = db
-        .save_clip(
-            "text",
-            Some("Legacy time"),
-            None,
-            None,
-            "legacy-time",
-            "Tests",
-        )
-        .unwrap();
-    db.log_activity("app_started", "Tested legacy timestamp")
-        .unwrap();
-    let classified = db.save_text_clip("person@example.com", "Tests").unwrap();
-    let conn = db.conn.lock();
-    conn.execute(
-        "UPDATE clips SET created_at = '2026-08-16 23:45:00' WHERE id = ?1",
-        [clip.id],
-    )
-    .unwrap();
-    conn.execute(
-        "UPDATE activity_logs SET created_at = '2026-08-16 23:46:00'",
-        [],
-    )
-    .unwrap();
-    conn.execute(
-        "UPDATE clip_analysis_classifications
-             SET updated_at = '2026-08-16 23:47:00' WHERE clip_id = ?1",
-        [classified.id],
-    )
-    .unwrap();
-    conn.execute(
-        "DELETE FROM schema_migrations WHERE key = 'canonicalUtcTimestampsV1'",
-        [],
-    )
-    .unwrap();
-
-    migrate_canonical_timestamps(&conn).unwrap();
-    migrate_analysis_classification_timestamps(&conn).unwrap();
-    let clip_timestamp: String = conn
-        .query_row(
-            "SELECT created_at FROM clips WHERE id = ?1",
-            [clip.id],
-            |row| row.get(0),
-        )
-        .unwrap();
-    let activity_timestamp: String = conn
-        .query_row("SELECT created_at FROM activity_logs LIMIT 1", [], |row| {
-            row.get(0)
-        })
-        .unwrap();
-    let classification_timestamp: String = conn
-        .query_row(
-            "SELECT updated_at FROM clip_analysis_classifications WHERE clip_id = ?1",
-            [classified.id],
-            |row| row.get(0),
-        )
-        .unwrap();
-    assert_eq!(clip_timestamp, "2026-08-16T23:45:00Z");
-    assert_eq!(activity_timestamp, "2026-08-16T23:46:00Z");
-    assert_eq!(classification_timestamp, "2026-08-16T23:47:00Z");
-}
-
-#[test]
-fn insights_groups_daily_activity_by_the_requested_local_calendar() {
-    let db = setup_test_db();
-    let clip = db
-        .save_clip(
-            "text",
-            Some("Boundary clip"),
-            None,
-            None,
-            "boundary-clip",
-            "Tests",
-        )
-        .unwrap();
-    db.conn
-        .lock()
-        .execute(
-            "UPDATE clips SET created_at = '2026-08-17T00:15:00Z' WHERE id = ?1",
-            [clip.id],
-        )
-        .unwrap();
-
-    let conn = db.conn.lock();
-    let west =
-        DbState::get_daily_activity_for_calendar(&conn, "2026-08-17T00:30:00Z", "-05:00").unwrap();
-    assert_eq!(west[0].date, "2026-08-16");
-    assert_eq!(west[0].count, 1);
-
-    let east =
-        DbState::get_daily_activity_for_calendar(&conn, "2026-08-17T00:30:00Z", "+05:30").unwrap();
-    assert_eq!(east[0].date, "2026-08-17");
-    assert_eq!(east[0].count, 1);
-}
-
-#[test]
-fn backup_roundtrip_preserves_completed_ocr_lifecycle_state() {
+fn transfer_roundtrip_preserves_completed_ocr_lifecycle_state() {
     let source = setup_test_db();
     let clip = source
         .save_clip(
@@ -873,7 +499,7 @@ fn backup_roundtrip_preserves_completed_ocr_lifecycle_state() {
 }
 
 #[test]
-fn backup_import_rejects_unknown_schema_without_mutating_data() {
+fn transfer_import_rejects_unknown_schema_without_mutating_data() {
     let source = setup_test_db();
     source
         .save_clip(
@@ -900,7 +526,7 @@ fn backup_import_rejects_unknown_schema_without_mutating_data() {
 }
 
 #[test]
-fn backup_import_rolls_back_earlier_writes_when_valid_payload_fails_midway() {
+fn transfer_import_rolls_back_earlier_writes_when_valid_payload_fails_midway() {
     let source = setup_test_db();
     source
         .create_bin("Imported Bin", "Folder", "default", None)
