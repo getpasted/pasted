@@ -69,7 +69,10 @@ const transferDatabase = readRustModuleTree(
   'src-tauri/src/db/transfers.rs',
   'src-tauri/src/db/transfers',
 );
-const transformDatabase = read('src-tauri/src/db/transforms.rs');
+const transformDatabase = readRustModuleTree(
+  'src-tauri/src/db/transforms.rs',
+  'src-tauri/src/db/transforms',
+);
 const settingsApi = read('src/api/settings.ts');
 const transformsApi = read('src/api/transforms.ts');
 const localizationRuntime = read('src/localization/runtime.ts');
@@ -167,6 +170,27 @@ assert.match(transformDatabase, /pub fn apply_transform_output_to_clip/,
   'Atomic Transform application must remain with its provenance ledger');
 assert.doesNotMatch(read('src-tauri/src/db.rs'), /pub fn get_transform_definitions/,
   'The database integration root must not reclaim Transform persistence');
+const transformFacade = read('src-tauri/src/db/transforms.rs');
+for (const capability of [
+  'applications', 'definitions', 'executions', 'manual',
+  'operation_compatibility', 'repository', 'types',
+]) {
+  assert.match(transformFacade, new RegExp(`mod ${capability}`),
+    `The Transform facade must compose the ${capability} capability`);
+}
+assert.doesNotMatch(transformFacade, /impl DbState|SELECT |INSERT |UPDATE |DELETE /,
+  'The Transform facade must not reclaim persistence implementation');
+for (const [path, method, owner] of [
+  ['applications.rs', 'apply_transform_output_to_clip', 'application and provenance'],
+  ['definitions.rs', 'get_transform_definitions', 'definition lifecycle'],
+  ['executions.rs', 'begin_transformation_execution', 'execution lifecycle'],
+  ['manual.rs', 'validate_pipeline_steps', 'manual compatibility'],
+  ['operation_compatibility.rs', 'operation_storage_fields', 'operation compatibility'],
+  ['repository.rs', 'saved_transform_by_id', 'shared row decoding'],
+]) {
+  assert.match(read(`src-tauri/src/db/transforms/${path}`), new RegExp(method),
+    `Transform ${owner} must remain in ${path}`);
+}
 assert.match(contentTypeRegistryDatabase, /pub fn get_content_type_groups/,
   'Content Type Group persistence must remain in its focused registry subsystem');
 assert.match(contentTypeRegistryDatabase, /pub fn set_content_type_archived/,
@@ -699,7 +723,16 @@ const sizeRatchets = new Map([
   ['src-tauri/src/db/transfers/library_export.rs', 155],
   ['src-tauri/src/db/transfers/library_import.rs', 510],
   ['src-tauri/src/db/transfers/library_validation.rs', 475],
-  ['src-tauri/src/db/transforms.rs', 1_084],
+  ['src-tauri/src/db/transforms.rs', 20],
+  ['src-tauri/src/db/transforms/applications.rs', 195],
+  ['src-tauri/src/db/transforms/definitions.rs', 210],
+  ['src-tauri/src/db/transforms/executions.rs', 135],
+  ['src-tauri/src/db/transforms/manual.rs', 300],
+  ['src-tauri/src/db/transforms/operation_compatibility.rs', 105],
+  ['src-tauri/src/db/transforms/repository.rs', 50],
+  ['src-tauri/src/db/transforms/tests.rs', 175],
+  ['src-tauri/src/db/transforms/tests/fixtures.rs', 40],
+  ['src-tauri/src/db/transforms/types.rs', 225],
   ['src-tauri/src/db/tests/mod.rs', 54],
   ['src-tauri/src/db/tests/bins_and_transforms.rs', 611],
   ['src-tauri/src/db/tests/capture_and_lifecycle.rs', 797],
