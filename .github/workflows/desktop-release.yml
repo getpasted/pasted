@@ -18,7 +18,7 @@ jobs:
     name: Verify Rust dependency policy
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
       - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
         with:
           manifest-path: src-tauri/Cargo.toml
@@ -32,8 +32,8 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
         with:
           node-version-file: .node-version
           cache: npm
@@ -68,15 +68,15 @@ jobs:
       APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
         with:
           node-version-file: .node-version
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2.9.2
         with:
           workspaces: src-tauri
       - run: npm ci
@@ -170,7 +170,7 @@ jobs:
           cp "$ARTIFACT_SBOM_PATH" "release-assets/Pasted_${RELEASE_VERSION}_macos.artifact.spdx.json"
           cd release-assets
           shasum -a 256 ./* > SHA256SUMS-macos.txt
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@v7.0.1
         with:
           name: Pasted-release-macOS
           path: release-assets/*
@@ -182,13 +182,13 @@ jobs:
     runs-on: ubuntu-22.04
     environment: release-linux
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
         with:
           node-version-file: .node-version
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2.9.2
         with:
           workspaces: src-tauri
       - name: Install Linux build dependencies
@@ -241,7 +241,7 @@ jobs:
           cp "$ARTIFACT_SBOM_PATH" "release-assets/Pasted_${RELEASE_VERSION}_linux.artifact.spdx.json"
           cd release-assets
           sha256sum ./* > SHA256SUMS-linux.txt
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@v7.0.1
         with:
           name: Pasted-release-Linux
           path: release-assets/*
@@ -252,13 +252,13 @@ jobs:
     needs: [metadata, dependency-policy]
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
         with:
           node-version-file: .node-version
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2.9.2
         with:
           workspaces: src-tauri
       - run: npm ci
@@ -305,7 +305,7 @@ jobs:
           }
           $checksumPath = Join-Path (Resolve-Path release-assets) 'SHA256SUMS-windows-x86_64.txt'
           [IO.File]::WriteAllText($checksumPath, (($checksumLines -join "`n") + "`n"), [Text.UTF8Encoding]::new($false))
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@v7.0.1
         with:
           name: Pasted-release-Windows-experimental
           path: release-assets/*
@@ -320,11 +320,11 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
         with:
           node-version-file: .node-version
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@v8.0.1
         with:
           pattern: Pasted-release-*
           path: release-assets

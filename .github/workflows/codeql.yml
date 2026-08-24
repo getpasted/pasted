@@ -33,7 +33,7 @@ jobs:
       javascript: ${{ steps.scope.outputs.javascript }}
       rust: ${{ steps.scope.outputs.rust }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
       - name: Detect changed language surfaces
@@ -100,11 +100,11 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v7
-      - uses: github/codeql-action/init@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: github/codeql-action/init@v4.37.8
         with:
           languages: actions
-      - uses: github/codeql-action/analyze@v4
+      - uses: github/codeql-action/analyze@v4.37.8
         with:
           category: /language:actions
 
@@ -118,11 +118,11 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v7
-      - uses: github/codeql-action/init@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: github/codeql-action/init@v4.37.8
         with:
           languages: javascript-typescript
-      - uses: github/codeql-action/analyze@v4
+      - uses: github/codeql-action/analyze@v4.37.8
         with:
           category: /language:javascript-typescript
 
@@ -136,12 +136,12 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v7
-      - uses: github/codeql-action/init@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: github/codeql-action/init@v4.37.8
         with:
           languages: rust
           build-mode: none
-      - uses: github/codeql-action/analyze@v4
+      - uses: github/codeql-action/analyze@v4.37.8
         with:
           category: /language:rust
 

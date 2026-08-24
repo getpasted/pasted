@@ -27,12 +27,12 @@ jobs:
       issue_number: ${{ steps.issue.outputs.number }}
       pull_request_url: ${{ steps.publish.outputs.pull_request_url }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v7.0.0
         with:
           node-version-file: .node-version
           cache: npm
@@ -87,7 +87,7 @@ jobs:
 
       - name: Run Codex
         id: codex
-        uses: openai/codex-action@v1
+        uses: openai/codex-action@v1.12
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           permission-profile: ":workspace"
