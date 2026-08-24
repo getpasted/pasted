@@ -11,7 +11,10 @@ const frontendMock = [
   ...readdirSync('src/mocks/browser').filter((name) => name.endsWith('.ts')).sort()
     .map((name) => read(`src/mocks/browser/${name}`)),
 ].join('\n');
-const cliTests = read('src-tauri/tests/cli_integration.rs');
+const cliTests = readRustModuleTree(
+  'src-tauri/tests/cli_integration.rs',
+  'src-tauri/tests/cli_integration',
+);
 const clipPreview = [
   'src/components/ClipPreview.tsx',
   'src/components/ClipPreviewContent.tsx',
