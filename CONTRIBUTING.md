@@ -12,7 +12,7 @@ Security vulnerabilities must follow [SECURITY.md](SECURITY.md), not the public 
 
 You will need:
 
-- Node.js 22 or newer;
+- Node.js 24 LTS or newer;
 - the stable Rust toolchain;
 - platform libraries required by Tauri 2;
 - macOS for Apple Vision OCR and signed macOS packaging.

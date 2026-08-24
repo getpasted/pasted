@@ -93,7 +93,7 @@ open -a Pasted --args --skip-welcome
 
 Prerequisites:
 
-- Node.js 22 or newer
+- Node.js 24 LTS or newer
 - Rust 1.75 or newer
 - macOS for native OCR and signed macOS packaging; optional FFmpeg or MediaInfo supplies cross-platform media inspection, FFmpeg prepares M4A/AAC audio, and whisper.cpp plus a local GGML model supplies local audio transcription
 
