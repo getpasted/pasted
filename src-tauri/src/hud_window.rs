@@ -3,7 +3,9 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use crate::db::DbState;
 
+#[cfg(target_os = "macos")]
 pub(crate) const HUD_WIDTH: f64 = 360.0;
+#[cfg(target_os = "macos")]
 pub(crate) const HUD_HEIGHT: f64 = 448.0;
 
 pub fn hide(app: &AppHandle) {
