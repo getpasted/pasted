@@ -947,6 +947,23 @@ mod tests {
     }
 
     #[test]
+    fn file_format_inspection_finds_pdf_headers_after_leading_bytes() {
+        let workspace =
+            crate::external_tools::PrivateWorkspace::create("embedded-pdf-header-test").unwrap();
+        let path = workspace.join("download.bin");
+        let mut bytes = vec![b' '; 512];
+        bytes.extend_from_slice(b"%PDF-1.7\n");
+        fs::write(&path, bytes).unwrap();
+
+        let result = inspect_file_formats(&[path.to_string_lossy().into_owned()]);
+        assert_eq!(result.inspected_count, 1);
+        assert_eq!(result.unknown_count, 0);
+        assert_eq!(result.formats.len(), 1);
+        assert_eq!(result.formats[0].format, "pdf");
+        assert_eq!(result.formats[0].mime_type, "application/pdf");
+    }
+
+    #[test]
     fn screenshot_sources_are_consistent_across_image_and_file_clips() {
         assert_eq!(
             origin_kind("image", Some("CleanShot X")),
