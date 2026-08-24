@@ -672,6 +672,27 @@ assert.match(ocrBackfillCommands, /pub fn start_ocr_backfill/,
 assert.doesNotMatch(commands, /pub fn extract_ocr_from_clip|pub async fn extract_text_from_file_clip|pub fn start_ocr_backfill/,
   'The GUI command root must not reclaim extraction lifecycle operations');
 
+const contentAnalysisTests = read('src-tauri/src/content_analysis/tests.rs');
+for (const owner of ['fixtures', 'extraction_classification', 'failure_contracts', 'scheduler_policy']) {
+  assert.match(contentAnalysisTests, new RegExp(`mod ${owner};`),
+    `Content Analysis tests must compose the focused ${owner} owner`);
+}
+assert.doesNotMatch(contentAnalysisTests, /#\[test\]|fn analyze_test_|struct .*Engine/,
+  'The Content Analysis test facade must not reclaim fixtures or behavior tests');
+
+const cliIntegrationTestFacade = read('src-tauri/tests/cli_integration.rs');
+assert.match(cliIntegrationTestFacade, /cli_integration\/mod\.rs[\s\S]*mod cli_integration;/,
+  'The CLI integration test target must delegate to its focused module tree');
+assert.doesNotMatch(cliIntegrationTestFacade, /#\[test\]|fn success_json|fn temporary_path/,
+  'The CLI integration test target must not reclaim shared support or domain contracts');
+const cliIntegrationTests = read('src-tauri/tests/cli_integration/mod.rs');
+for (const owner of ['analysis', 'lifecycle_policy', 'portability_library', 'registry_authoring', 'support']) {
+  assert.match(cliIntegrationTests, new RegExp(`mod ${owner};`),
+    `CLI integration tests must compose the focused ${owner} owner`);
+}
+assert.doesNotMatch(cliIntegrationTests, /#\[test\]|fn success_json|fn temporary_path/,
+  'The CLI integration module facade must not reclaim shared support or domain contracts');
+
 const sizeRatchets = new Map([
   ['src-tauri/src/lib.rs', 400],
   ['src-tauri/src/app_runtime.rs', 180],
@@ -688,7 +709,11 @@ const sizeRatchets = new Map([
   ['src-tauri/src/content_analysis/pipeline.rs', 413],
   ['src-tauri/src/content_analysis/pipeline/file_extraction.rs', 35],
   ['src-tauri/src/content_analysis/pipeline/file_inspection.rs', 26],
-  ['src-tauri/src/content_analysis/tests.rs', 558],
+  ['src-tauri/src/content_analysis/tests.rs', 9],
+  ['src-tauri/src/content_analysis/tests/fixtures.rs', 123],
+  ['src-tauri/src/content_analysis/tests/scheduler_policy.rs', 170],
+  ['src-tauri/src/content_analysis/tests/extraction_classification.rs', 165],
+  ['src-tauri/src/content_analysis/tests/failure_contracts.rs', 90],
   ['src-tauri/src/content_extraction.rs', 785],
   ['src-tauri/src/content_extraction/engine_runtime.rs', 70],
   ['src-tauri/src/content_extraction/engine_runtime/apple_vision.rs', 220],
@@ -826,6 +851,13 @@ const sizeRatchets = new Map([
   ['src-tauri/src/commands/queue.rs', 160],
   ['src-tauri/src/commands/storage.rs', 170],
   ['src-tauri/src/bin/pasted.rs', 320],
+  ['src-tauri/tests/cli_integration.rs', 10],
+  ['src-tauri/tests/cli_integration/mod.rs', 10],
+  ['src-tauri/tests/cli_integration/support.rs', 100],
+  ['src-tauri/tests/cli_integration/analysis.rs', 360],
+  ['src-tauri/tests/cli_integration/portability_library.rs', 280],
+  ['src-tauri/tests/cli_integration/lifecycle_policy.rs', 235],
+  ['src-tauri/tests/cli_integration/registry_authoring.rs', 300],
   ['src/App.tsx', 16],
   ['src/hud-main.tsx', 36],
   ['src/capture-feedback-main.tsx', 36],
