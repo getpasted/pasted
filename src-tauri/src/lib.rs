@@ -45,6 +45,7 @@ pub mod extractor_recipe;
 pub mod features;
 pub mod file_reference_health;
 mod filter_engine;
+mod hashing;
 #[cfg(feature = "gui")]
 mod hotkey_manager;
 #[cfg(feature = "gui")]

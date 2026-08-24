@@ -16,7 +16,7 @@ pub(crate) const LAST_TRANSFORM_SETTING: &str = "lastExecutedTransformRef";
 fn content_hash(content: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(content.as_bytes());
-    format!("{:x}", hasher.finalize())
+    crate::hashing::finalize_sha256_hex(hasher)
 }
 
 pub(crate) fn ensure_transform_text_size(value: &str) -> Result<(), ExecutionError> {

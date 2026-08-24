@@ -38,7 +38,7 @@ fn hash_extractor(hasher: &mut Sha256, extractor: &Extractor) {
 fn finish_context(extractor: &Extractor, hasher: Sha256) -> ExtractionAttemptContext {
     ExtractionAttemptContext {
         participant_ref: extractor.stable_ref.clone(),
-        input_fingerprint: format!("{:x}", hasher.finalize()),
+        input_fingerprint: crate::hashing::finalize_sha256_hex(hasher),
     }
 }
 
@@ -97,7 +97,7 @@ pub fn legacy_contexts(
             hash_field(&mut hasher, &observation.engine);
             ExtractionAttemptContext {
                 participant_ref: observation.extractor_ref.clone(),
-                input_fingerprint: format!("{:x}", hasher.finalize()),
+                input_fingerprint: crate::hashing::finalize_sha256_hex(hasher),
             }
         })
         .collect()

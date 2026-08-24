@@ -232,7 +232,7 @@ pub(crate) fn inspection_input_hash(clip: &ClipItem) -> String {
     } else if let Some(text) = clip.text_content.as_deref() {
         hasher.update(text.as_bytes());
     }
-    format!("{:x}", hasher.finalize())
+    crate::hashing::finalize_sha256_hex(hasher)
 }
 
 fn analyze_clip(

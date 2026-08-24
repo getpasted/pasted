@@ -15,7 +15,7 @@ Operating-system frameworks are supplied by the operating system. Linux AppImage
 runtime notices are embedded by the AppImage runtime and must remain intact.
 Windows installer-tool components and their notices are included in this inventory.
 
-Component inventory (438)
+Component inventory (445)
 
 - adler2 2.0.1 [cargo; 0BSD OR MIT OR Apache-2.0] — https://github.com/oyvindln/adler2
 - aho-corasick 1.1.5 [cargo; Unlicense OR MIT] — https://github.com/BurntSushi/aho-corasick
@@ -49,6 +49,7 @@ Component inventory (438)
 - bitflags 2.13.1 [cargo; MIT OR Apache-2.0] — https://github.com/bitflags/bitflags
 - blake2 0.10.6 [cargo; MIT OR Apache-2.0] — https://github.com/RustCrypto/hashes
 - block-buffer 0.10.4 [cargo; MIT OR Apache-2.0] — https://github.com/RustCrypto/utils
+- block-buffer 0.12.1 [cargo; MIT OR Apache-2.0] — https://github.com/RustCrypto/utils
 - block2 0.6.2 [cargo; MIT] — https://github.com/madsmtm/objc2
 - blocking 1.7.0 [cargo; Apache-2.0 OR MIT] — https://github.com/smol-rs/blocking
 - brotli 8.0.4 [cargo; BSD-3-Clause AND MIT] — https://github.com/dropbox/rust-brotli
@@ -68,16 +69,19 @@ Component inventory (438)
 - chrono 0.4.45 [cargo; MIT OR Apache-2.0] — https://github.com/chronotope/chrono
 - clipboard-win 5.4.1 [cargo; BSL-1.0] — https://github.com/DoumanAsh/clipboard-win
 - concurrent-queue 2.5.0 [cargo; Apache-2.0 OR MIT] — https://github.com/smol-rs/concurrent-queue
+- const-oid 0.10.2 [cargo; Apache-2.0 OR MIT] — https://github.com/RustCrypto/formats
 - cookie 0.18.2 [cargo; MIT OR Apache-2.0] — https://github.com/SergioBenitez/cookie-rs
 - core-foundation 0.10.1 [cargo; MIT OR Apache-2.0] — https://github.com/servo/core-foundation-rs
 - core-foundation-sys 0.8.7 [cargo; MIT OR Apache-2.0] — https://github.com/servo/core-foundation-rs
 - core-graphics 0.25.0 [cargo; MIT OR Apache-2.0] — https://github.com/servo/core-foundation-rs
 - core-graphics-types 0.2.0 [cargo; MIT OR Apache-2.0] — https://github.com/servo/core-foundation-rs
 - cpufeatures 0.2.17 [cargo; MIT OR Apache-2.0] — https://github.com/RustCrypto/utils
+- cpufeatures 0.3.0 [cargo; MIT OR Apache-2.0] — https://github.com/RustCrypto/utils
 - crc32fast 1.5.1 [cargo; MIT OR Apache-2.0] — https://github.com/srijs/rust-crc32fast
 - crossbeam-channel 0.5.16 [cargo; MIT OR Apache-2.0] — https://github.com/crossbeam-rs/crossbeam
 - crossbeam-utils 0.8.22 [cargo; MIT OR Apache-2.0] — https://github.com/crossbeam-rs/crossbeam
 - crypto-common 0.1.7 [cargo; MIT OR Apache-2.0] — https://github.com/RustCrypto/traits
+- crypto-common 0.2.2 [cargo; MIT OR Apache-2.0] — https://github.com/RustCrypto/traits
 - cssparser 0.36.0 [cargo; MPL-2.0] — https://github.com/servo/rust-cssparser
 - cssparser-macros 0.6.1 [cargo; MPL-2.0] — https://github.com/servo/rust-cssparser
 - ctor 0.8.0 [cargo; Apache-2.0 OR MIT] — https://github.com/mmastrac/rust-ctor
@@ -90,6 +94,7 @@ Component inventory (438)
 - derive_more 2.1.1 [cargo; MIT] — https://github.com/JelteF/derive_more
 - derive_more-impl 2.1.1 [cargo; MIT] — https://github.com/JelteF/derive_more
 - digest 0.10.7 [cargo; MIT OR Apache-2.0] — https://github.com/RustCrypto/traits
+- digest 0.11.3 [cargo; MIT OR Apache-2.0] — https://github.com/RustCrypto/traits
 - dirs 4.0.0 [cargo; MIT OR Apache-2.0] — https://github.com/soc/dirs-rs
 - dirs 6.0.0 [cargo; MIT OR Apache-2.0] — https://github.com/soc/dirs-rs
 - dirs-sys 0.3.7 [cargo; MIT OR Apache-2.0] — https://github.com/dirs-dev/dirs-sys-rs
@@ -170,6 +175,7 @@ Component inventory (438)
 - hex 0.4.3 [cargo; MIT OR Apache-2.0] — https://github.com/KokaKiwi/rust-hex
 - html5ever 0.38.0 [cargo; MIT OR Apache-2.0] — https://github.com/servo/html5ever
 - http 1.5.0 [cargo; MIT OR Apache-2.0] — https://github.com/hyperium/http
+- hybrid-array 0.4.14 [cargo; MIT OR Apache-2.0] — https://github.com/RustCrypto/hybrid-array
 - iana-time-zone 0.1.65 [cargo; MIT OR Apache-2.0] — https://github.com/strawlab/iana-time-zone
 - ico 0.5.0 [cargo; MIT] — https://github.com/mdsteele/rust-ico
 - icu_collections 2.3.0 [cargo; Unicode-3.0] — https://github.com/unicode-org/icu4x
@@ -292,6 +298,7 @@ Component inventory (438)
 - serialize-to-javascript-impl 0.1.2 [cargo; MIT OR Apache-2.0] — https://github.com/chippers/serialize-to-javascript
 - servo_arc 0.4.3 [cargo; MIT OR Apache-2.0] — https://github.com/servo/stylo
 - sha2 0.10.9 [cargo; MIT OR Apache-2.0] — https://github.com/RustCrypto/hashes
+- sha2 0.11.0 [cargo; MIT OR Apache-2.0] — https://github.com/RustCrypto/hashes
 - signal-hook-registry 1.4.8 [cargo; MIT OR Apache-2.0] — https://github.com/vorner/signal-hook
 - simd-adler32 0.3.10 [cargo; MIT] — https://github.com/mcountryman/simd-adler32
 - siphasher 1.0.3 [cargo; MIT OR Apache-2.0] — https://github.com/jedisct1/rust-siphash
@@ -4244,7 +4251,7 @@ limitations under the License.
 ================================================================================
 Apache License 2.0
 License identifier: Apache-2.0
-Used by: argon2 0.5.3 (cargo), base64ct 1.8.3 (cargo), blake2 0.10.6 (cargo), block-buffer 0.10.4 (cargo), cpufeatures 0.2.17 (cargo), crypto-common 0.1.7 (cargo), digest 0.10.7 (cargo), password-hash 0.5.0 (cargo), sha2 0.10.9 (cargo)
+Used by: argon2 0.5.3 (cargo), base64ct 1.8.3 (cargo), blake2 0.10.6 (cargo), block-buffer 0.10.4 (cargo), block-buffer 0.12.1 (cargo), const-oid 0.10.2 (cargo), cpufeatures 0.2.17 (cargo), cpufeatures 0.3.0 (cargo), crypto-common 0.1.7 (cargo), crypto-common 0.2.2 (cargo), digest 0.10.7 (cargo), digest 0.11.3 (cargo), hybrid-array 0.4.14 (cargo), password-hash 0.5.0 (cargo), sha2 0.10.9 (cargo), sha2 0.11.0 (cargo)
 --------------------------------------------------------------------------------
 Apache License
                         Version 2.0, January 2004

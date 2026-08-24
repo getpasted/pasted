@@ -172,7 +172,7 @@ impl DbState {
                 html_content: None,
                 image_base64: None,
                 image_path: None,
-                content_hash: format!("{:x}", hasher.finalize()),
+                content_hash: crate::hashing::finalize_sha256_hex(hasher),
                 source: row[2].clone(),
                 is_pinned: row[3].parse::<bool>().map_err(|_| {
                     rusqlite::Error::InvalidParameterName(format!(
