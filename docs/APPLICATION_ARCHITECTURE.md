@@ -56,6 +56,19 @@ initialize and manage shared services, install native menus and monitoring,
 register shortcuts, install the tray, then mark setup ready. The main window is
 revealed only after both native setup and its webview page load are complete.
 
+## Clipboard capture
+
+The clipboard monitor owns polling and orchestration, but delegates deterministic
+capture decisions to `clipboard_capture_policy.rs`. That policy owns source
+attribution, screenshot and file-manager distinctions, composite image/file
+selection, bounded image-file inspection, pasteboard change deduplication, and
+recent-image coalescing. Payload persistence and user-facing feedback remain in
+the monitor until their dedicated ingestion boundaries are introduced.
+
+The policy is portable apart from its explicitly gated pasteboard generation
+adapter. Platform clipboard reads stay in the monitor, while policy decisions
+are covered by host-independent fixtures.
+
 ## Compatibility boundaries
 
 “Transform” is the public product concept. “Pipeline” remains only where needed
