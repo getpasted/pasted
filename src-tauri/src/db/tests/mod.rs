@@ -25,6 +25,17 @@ fn search_test_clips(db: &DbState, query: &str) -> Vec<ClipItem> {
     .items
 }
 
+fn save_plain_test_clip(
+    db: &DbState,
+    clip_type: &str,
+    text: &str,
+    hash: &str,
+    source: &str,
+) -> ClipItem {
+    db.save_clip(clip_type, Some(text), None, None, hash, source)
+        .unwrap()
+}
+
 mod analytics;
 mod analytics_boundaries;
 mod bins_and_transforms;
