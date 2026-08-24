@@ -12,6 +12,7 @@ pub(super) mod live_app;
 pub(super) mod maintenance;
 pub(super) mod operations;
 pub(super) mod portability;
+pub(super) mod private_browsing;
 pub(super) mod registry;
 pub(super) mod retention;
 pub(super) mod settings;

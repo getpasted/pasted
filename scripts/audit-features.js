@@ -7,6 +7,7 @@ const frontendRegistry = read('src/utils/features.ts');
 const settingsType = read('src/appSettingsTypes.ts');
 const settingsHook = read('src/hooks/useAppSettings.ts');
 const settingsModel = read('src/appSettingsModel.ts');
+const settingsContract = JSON.parse(read('shared/settings-contract.json'));
 const appTheme = read('src/utils/appTheme.ts');
 const nativePolicy = read('src-tauri/src/features.rs');
 const nativeRoot = read('src-tauri/src/lib.rs');
@@ -124,7 +125,10 @@ assert.deepEqual(
 
 for (const key of frontendKeys) {
   assert.match(settingsType, new RegExp(`\\b${key}\\??:\\s*boolean`), `${key} must be typed in AppSettings`);
-  assert.match(settingsModel, new RegExp(`\\b${key}:\\s*true`), `${key} must default on for existing installations`);
+  assert.equal(settingsContract.settings.find((setting) => setting.key === key)?.default, true,
+    `${key} must default on for existing installations`);
+  assert.match(settingsModel, new RegExp(`\\b${key}:\\s*settingDefault\\('${key}'\\)`),
+    `${key} must read its default from the shared settings contract`);
   assert.match(settingsModel, new RegExp(`(?:['\"]${key}['\"]|saved\\.${key})`), `${key} must hydrate from persisted settings`);
 }
 

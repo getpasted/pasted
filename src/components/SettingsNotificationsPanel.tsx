@@ -1,11 +1,14 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Bell } from 'lucide-react';
 import type { AppSettings } from '../types';
 import { MenuSelect } from './MenuSelect';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
-import { SettingsPanelNote } from './SettingsPanelNote';
 import { SettingsSwitch } from './SettingsSwitch';
 import { translate } from '../localization/runtime';
+import { ConfirmationDialog, type ConfirmationDialogRequest } from './ConfirmationDialog';
+import { SettingsPanelResetNote } from './SettingsPanelResetNote';
+import { SettingsResetChanges } from './SettingsResetChanges';
+import { DISMISS_OPTIONS, notificationResetChanges, POSITION_OPTIONS } from '../notificationSettingsModel';
 
 interface SettingsNotificationsPanelProps {
   settings: AppSettings;
@@ -31,24 +34,23 @@ function SettingRow({ disabled = false, label, description, action }: SettingRow
   );
 }
 
-const POSITION_OPTIONS = [
-  { value: 'top-left', get label() { return translate('component.settingsNotificationsPanel.topLeft'); } },
-  { value: 'top-right', get label() { return translate('component.settingsNotificationsPanel.topRight'); } },
-  { value: 'bottom-left', get label() { return translate('component.settingsNotificationsPanel.bottomLeft'); } },
-  { value: 'bottom-right', get label() { return translate('component.settingsNotificationsPanel.bottomRight'); } },
-];
-
-const DISMISS_OPTIONS = [
-  { value: '3', get label() { return translate('component.settingsNotificationsPanel.value3Seconds'); } },
-  { value: '5', get label() { return translate('component.settingsNotificationsPanel.value5Seconds'); } },
-  { value: '7', get label() { return translate('component.settingsNotificationsPanel.value7Seconds'); } },
-  { value: '10', get label() { return translate('component.settingsNotificationsPanel.value10Seconds'); } },
-  { value: '15', get label() { return translate('component.settingsNotificationsPanel.value15Seconds'); } },
-  { value: '30', get label() { return translate('component.settingsNotificationsPanel.value30Seconds'); } },
-  { value: '0', get label() { return translate('component.settingsNotificationsPanel.never'); } },
-];
-
 export function SettingsNotificationsPanel({ settings, onUpdateSettings }: SettingsNotificationsPanelProps) {
+  const [confirmation, setConfirmation] = useState<ConfirmationDialogRequest | null>(null);
+  const requestReset = () => {
+    const { changes, defaults } = notificationResetChanges(settings);
+    setConfirmation({
+      title: translate('component.settingsNotificationsPanel.resetNotifications'),
+      description: translate('component.settingsResetChanges.description'),
+      details: <SettingsResetChanges changes={changes} />,
+      confirmLabel: translate('common.reset'),
+      confirmDisabled: changes.length === 0,
+      onConfirm: () => {
+        onUpdateSettings(defaults);
+        setConfirmation(null);
+      },
+    });
+  };
+
   return (
     <div className="space-y-5 text-xs">
       <SettingsPanelHeader
@@ -116,9 +118,10 @@ export function SettingsNotificationsPanel({ settings, onUpdateSettings }: Setti
           />}
         />
       </div>
-      <SettingsPanelNote>
+      <SettingsPanelResetNote onReset={requestReset}>
         {translate('component.settingsNotificationsPanel.captureFeedbackStaysOnDeviceAndNeverExposesCopiedTextImagesFile')}
-      </SettingsPanelNote>
+      </SettingsPanelResetNote>
+      <ConfirmationDialog request={confirmation} onCancel={() => setConfirmation(null)} />
     </div>
   );
 }

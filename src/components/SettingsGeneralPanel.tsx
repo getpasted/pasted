@@ -12,6 +12,7 @@ import { SettingsGeneralAppearanceSection } from './SettingsGeneralAppearanceSec
 import { SettingsGeneralLayoutSection } from './SettingsGeneralLayoutSection';
 import { SettingsGeneralRetentionSections } from './SettingsGeneralRetentionSections';
 import { SettingsGeneralHistoryLimits } from './SettingsGeneralHistoryLimits';
+import { SettingsGeneralResetFooter } from './SettingsGeneralResetFooter';
 
 interface SettingsGeneralPanelProps {
   settings: AppSettings;
@@ -87,7 +88,7 @@ export function SettingsGeneralPanel({
   onResetColumnWidths,
 }: SettingsGeneralPanelProps) {
   const { showToast } = useToast();
-  const { t } = useLocalization();
+  const { t, locales } = useLocalization();
   const [isRestoringTrash, setIsRestoringTrash] = useState(false);
   const isAltPressed = useAltKeyPressed();
   const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.userAgent || navigator.platform);
@@ -397,6 +398,8 @@ export function SettingsGeneralPanel({
               onRestoreTrash={() => void restoreAllTrashedClips()}
               onClearHistory={onClearHistory}
             />
+
+            <SettingsGeneralResetFooter settings={settings} locales={locales} onUpdateSettings={onUpdateSettings} onResetColumnWidths={onResetColumnWidths} />
 
           </div>
   );

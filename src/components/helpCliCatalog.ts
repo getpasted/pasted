@@ -14,7 +14,7 @@ export const CLI_COMMAND_GROUPS = [
       { usage: 'pasted import sources [--json]', get description() { return translate('component.helpView.listSupportedExternalHistorySourcesAndTheirDetectedLocations'); } },
       { usage: 'pasted import <alfred|pastebot|pasta|paste|copyclip|maccy|flycut> [path] [--json]', get description() { return translate('component.helpView.mergeTextHistoryFromAnotherClipboardManagerSkippingDuplicates'); } },
       { usage: 'pasted retention [--count N] [--days N] [--trash-count N] [--trash-days N] [--log-count N] [--log-days N] [--revision-count N] [--json]', get description() { return translate('component.helpView.readOrUpdateHistoryTrashActivityAndRevisionRetention'); } },
-      { usage: 'pasted settings list|get|set [arguments] [--json]', get description() { return translate('component.helpView.inspectOrChangePersistedApplicationSettings'); } },
+      { usage: 'pasted settings list|get|set|reset [arguments] [--dry-run] [--json]', get description() { return translate('component.helpView.inspectOrChangePersistedApplicationSettings'); } },
       { usage: 'pasted recording status|pause|resume [--json]', get description() { return translate('component.helpView.controlClipboardRecordingInTheRunningApp'); } },
       { usage: 'pasted queue status|start|stop|add|remove|order|paste|paste-all [arguments] [--json]', get description() { return translate('component.helpView.manageAndRunTheLiveCopyQueue'); } },
       { usage: 'pasted clear --yes [--json]', get description() { return translate('component.helpView.permanentlyRemoveUnpinnedUnprotectedClips'); } },

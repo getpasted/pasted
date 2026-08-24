@@ -53,7 +53,6 @@ fn history_and_settings_commands_have_executable_json_contracts() {
         success_json(&database, &["settings", "get", "language", "--json"],)["value"],
         "en"
     );
-
     let refused = run(&database, &["clear"]);
     assert_eq!(refused.status.code(), Some(2));
     assert!(String::from_utf8_lossy(&refused.stderr).contains("--yes"));

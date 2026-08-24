@@ -12,6 +12,10 @@ Pasted 1.0 is the first direct-download release of the local, privacy-first clip
 - Persistent Copy Queue with target-aware Paste Next and Paste All
 - Reusable deterministic and intelligence-assisted Transforms
 - Configurable feature gates—including a reversible global Hotkeys switch—plus retention, previews, content classification, and appearance
+- Built-in private-browser capture exclusion for Safari, Chrome, Edge, Firefox, DuckDuckGo, and Brave, with an explicit fallback when detection is unavailable
+- Consistent confirmed Reset actions across General, Notifications, Hotkeys, Security, Analysis, App Exclusions, and Intelligence, with exact change previews, protected data, and matching `pasted settings reset <page> --json` commands
+- A shared versioned Settings contract now keeps GUI defaults, CLI validation, scoped resets, sensitive-value visibility, and factory-reset coverage synchronized
+- `pasted settings reset <page> --dry-run --json` previews a page reset without saving changes
 - Bundled `pasted` with shared native data and mutation contracts
 - Signed, notarized, stapled, and Gatekeeper-verified DMG
 - Release-blocking dependency license, advisory, mission-policy, and SPDX SBOM verification

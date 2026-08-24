@@ -71,6 +71,38 @@ const classifierManager = [
 ].map(read).join('\n');
 const smartBins = read('src-tauri/src/smart_bins.rs');
 const manualTransforms = read('src-tauri/src/manual_transform_service.rs');
+const settingsService = read('src-tauri/src/settings_service.rs');
+const settingsContract = JSON.parse(read('shared/settings-contract.json'));
+const resetSettingsSurfaces = [
+  'src/components/SettingsGeneralResetFooter.tsx',
+  'src/components/SettingsNotificationsPanel.tsx',
+  'src/components/SettingsHotkeysPanel.tsx',
+  'src/components/SettingsBlacklistPanel.tsx',
+  'src/components/SettingsSecurityPanel.tsx',
+  'src/components/SettingsAnalysisPanel.tsx',
+  'src/components/IntelligenceConnectionsPanel.tsx',
+  'src/hooks/useGeneralSettingsReset.ts',
+  'src/hooks/useAnalysisReset.ts',
+].map(read).join('\n');
+
+assert.match(cli, /settings reset <page>/,
+  'CLI Settings must expose the shared per-page Reset surface');
+assert.match(cli, /settings reset <page>.*--dry-run/,
+  'CLI Settings must advertise non-mutating Reset previews');
+assert.match(settingsService, /pub fn preview_page_reset/,
+  'CLI Reset previews must use the shared non-mutating Settings service');
+for (const page of ['general', 'notifications', 'hotkeys', 'app-exclusions']) {
+  assert.equal(settingsContract.pages.find(({ id }) => id === page)?.resetStrategy, 'settings',
+    `The shared Settings service must own ${page} defaults`);
+}
+assert.match(settingsService, /settings_contract::reset_defaults\(page\)/,
+  'The shared Settings service must resolve page resets through the versioned contract');
+for (const page of ['security', 'analysis', 'intelligence']) {
+  assert.match(cli, new RegExp(`page == "${page}"`),
+    `CLI Settings Reset must route ${page} through its dedicated domain service`);
+}
+assert.equal((resetSettingsSurfaces.match(/component\.settingsResetChanges\.description/g) ?? []).length, 7,
+  'Every Reset modal with a local request must use the normalized shared subtitle');
 
 assert.match(cli, /pasted search \[query\] \[--clip TYPE\] \[--content TYPE\] \[--format FORMAT\] \[--source APP\]/,
   'CLI search help must expose all four collection axes');

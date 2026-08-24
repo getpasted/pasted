@@ -15,16 +15,7 @@ import { setConfiguredLanguage } from '../localization/runtime';
 import { APP_EVENTS, type AppSettingChangedEvent } from '../utils/appEvents';
 import { settingsApi } from '../api/settings';
 import { applyAppTheme } from '../utils/appTheme';
-
-const DEFAULT_BLACKLIST_APPS: BlacklistApp[] = [
-  { id: '1', name: '1Password', icon: 'Lock', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreHotkeys: false },
-  { id: '2', name: 'Passwords', icon: 'Lock', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreHotkeys: false },
-  { id: '3', name: 'Keychain Access', icon: 'Key', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreHotkeys: false },
-  { id: '4', name: 'Bitwarden', icon: 'Shield', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreHotkeys: false },
-  { id: '5', name: 'Dashlane', icon: 'Shield', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreHotkeys: false },
-  { id: '6', name: 'Enpass', icon: 'Shield', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreHotkeys: false },
-  { id: '7', name: 'KeePassXC', icon: 'Shield', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreHotkeys: false },
-];
+import { defaultAppExclusions, normalizeAppExclusions } from '../appExclusionModel';
 
 const HOTKEY_SETTING_KEYS = new Set([
   'hudHotkey',
@@ -38,33 +29,12 @@ const HOTKEY_SETTING_KEYS = new Set([
   ...Array.from({ length: 9 }, (_, index) => `pasteClip${index + 1}Hotkey`),
 ]);
 
-function normalizeBlacklistApps(value: unknown): BlacklistApp[] {
-  if (!Array.isArray(value)) return DEFAULT_BLACKLIST_APPS;
-  return value.flatMap((entry, index) => {
-    if (typeof entry === 'string' && entry.trim()) {
-      return [{ id: `legacy-${index}`, name: entry, icon: 'Lock', ignoreText: true, ignoreImages: true, ignoreFiles: true, ignoreHotkeys: false }];
-    }
-    if (!entry || typeof entry !== 'object') return [];
-    const rule = entry as Partial<BlacklistApp>;
-    if (typeof rule.name !== 'string' || !rule.name.trim()) return [];
-    return [{
-      id: typeof rule.id === 'string' ? rule.id : `legacy-${index}`,
-      name: rule.name,
-      icon: typeof rule.icon === 'string' ? rule.icon : 'Lock',
-      ignoreText: rule.ignoreText !== false,
-      ignoreImages: rule.ignoreImages !== false,
-      ignoreFiles: rule.ignoreFiles !== false,
-      ignoreHotkeys: rule.ignoreHotkeys === true,
-    }];
-  });
-}
-
 function readCachedBlacklist() {
   try {
     const parsed = JSON.parse(localStorage.getItem('pasted_cache_blacklist_apps') ?? 'null');
-    return normalizeBlacklistApps(parsed);
+    return normalizeAppExclusions(parsed);
   } catch {
-    return DEFAULT_BLACKLIST_APPS;
+    return defaultAppExclusions();
   }
 }
 
@@ -95,7 +65,7 @@ export function useAppSettings() {
         if (saved.blacklistApps && !blacklistChangedRef.current) {
           try {
             const parsed = JSON.parse(saved.blacklistApps);
-            if (Array.isArray(parsed)) setBlacklistApps(normalizeBlacklistApps(parsed));
+            if (Array.isArray(parsed)) setBlacklistApps(normalizeAppExclusions(parsed));
           } catch (error) {
             console.error('Failed to restore blacklist settings:', error);
           }
@@ -300,6 +270,11 @@ export function useAppSettings() {
     setBlacklistApps((current) => current.map((app) => app.id === id ? { ...app, [rule]: !app[rule] } : app));
   }, []);
 
+  const resetBlacklistApps = useCallback(() => {
+    blacklistChangedRef.current = true;
+    setBlacklistApps(defaultAppExclusions());
+  }, []);
+
   return {
     appSettings,
     blacklistApps,
@@ -308,5 +283,6 @@ export function useAppSettings() {
     addBlacklistApp,
     removeBlacklistApp,
     toggleBlacklistRule,
+    resetBlacklistApps,
   };
 }

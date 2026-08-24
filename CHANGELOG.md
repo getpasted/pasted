@@ -21,6 +21,10 @@ Notable user-facing changes to Pasted are recorded here. The project follows sem
 - unified Search and Smart Bins around Clip Type, Content Type, File Format, and Source with explicit operators, validated versioned rules, shared GUI/CLI behavior, and Functionality-aware matching.
 - aligned Reset, Content Type, Insights, and Help navigation language across dialogs, native menus, CLI messages, and architecture documentation.
 - made App Exclusions enforce independent text, image, file, and hotkey rules, with reliable focused-app identity on macOS, Windows, and X11.
+- added a built-in private-browser exclusion for Safari, Chrome, Edge, Firefox, DuckDuckGo, and Brave, with an explicit capture-or-exclude fallback, native accessibility signals, and matching GUI and CLI controls.
+- added consistent confirmed Reset actions to every applicable Settings footer, including General and Intelligence, with exact change previews and scoped defaults that preserve library data, connection details, App Lock credentials, custom Analysis definitions, and assigned item hotkeys; added matching `pasted settings reset <page> --json` commands.
+- centralized persisted setting ownership, defaults, validation, visibility, and reset behavior in a shared versioned contract consumed by the GUI and Rust services, with coverage audits and factory-reset parity tests.
+- added non-mutating `settings reset <page> --dry-run` CLI previews.
 - unified Settings footer guidance, connected registry controls, and selected-menu styling while tightening copy and row layout.
 
 ## 1.0.0-rc.5 — 2026-08-12

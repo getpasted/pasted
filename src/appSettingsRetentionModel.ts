@@ -1,5 +1,7 @@
-export const DEFAULT_REVISION_HISTORY_LIMIT = 10;
-export const DEFAULT_ANALYSIS_ATTEMPTS_PER_CLIP = 10;
+import { settingDefault } from './settingsContract.ts';
+
+export const DEFAULT_REVISION_HISTORY_LIMIT = settingDefault('revisionHistoryLimit');
+export const DEFAULT_ANALYSIS_ATTEMPTS_PER_CLIP = settingDefault('analysisAttemptsPerClip');
 
 export function isAnalysisFunctionalityEnabled(
   settings: { enableOcr: boolean; enableTranscriptions: boolean },

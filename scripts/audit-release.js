@@ -9,7 +9,7 @@ const tauriCliSidecarConfig = readJson('src-tauri/tauri.cli-sidecar.conf.json');
 const cargoToml = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
 const cargoBuildScript = fs.readFileSync('src-tauri/build.rs', 'utf8');
 const installationDiagnostics = fs.readFileSync('src-tauri/src/installation_diagnostics.rs', 'utf8');
-const appSettingsModel = fs.readFileSync('src/appSettingsModel.ts', 'utf8');
+const settingsContract = readJson('shared/settings-contract.json');
 const cargoVersion = cargoToml.match(/^version\s*=\s*"([^"]+)"/m)?.[1];
 const cargoPackageName = cargoToml.match(/^name\s*=\s*"([^"]+)"/m)?.[1];
 const diagnosticsIdentifier = installationDiagnostics.match(/APP_IDENTIFIER:\s*&str\s*=\s*"([^"]+)"/)?.[1];
@@ -279,9 +279,9 @@ for (const [workflowName, workflow] of [
     `The ${workflowName} workflow must preserve branded Finder metadata in CI-built DMGs`,
   );
 }
-assert.match(
-  appSettingsModel,
-  /dockMenubarIcon:\s*'both'/,
+assert.equal(
+  settingsContract.settings.find(({ key }) => key === 'dockMenubarIcon')?.default,
+  'both',
   'Fresh installations must expose the native app menu and Dock/taskbar presence by default',
 );
 assert.match(cargoToml, /default-run\s*=\s*"pasted-app"/, 'Cargo must run the private GUI binary by default');

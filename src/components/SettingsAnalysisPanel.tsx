@@ -1,6 +1,5 @@
 import { Clipboard, Lightbulb, ScanSearch } from 'lucide-react';
 import { useState } from 'react';
-
 import { useAnalysisMaintenance } from '../hooks/useAnalysisMaintenance';
 import { translate } from '../localization/runtime';
 import { AnalysisLifecycleSequence } from './AnalysisLifecycleSequence';
@@ -13,7 +12,7 @@ import { useContentTypes } from './ContentTypeProvider';
 import { SearchIndexManagerDialog } from './SearchIndexManagerDialog';
 import { SettingsOcrPanel } from './SettingsOcrPanel';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
-
+import { SettingsPanelResetNote } from './SettingsPanelResetNote';
 export function SettingsAnalysisPanel({
   contentClassificationEnabled,
   fileFormatsEnabled,
@@ -70,15 +69,16 @@ export function SettingsAnalysisPanel({
       searchEnabled={searchEnabled}
       transformationsEnabled={transformationsEnabled}
       typesEnabled={typesEnabled}
-      restoring={restoring}
       onOpenCapture={() => setIsCaptureManagerOpen(true)}
       onOpenInspector={() => setIsInspectorManagerOpen(true)}
       onOpenExtractor={() => setIsExtractorManagerOpen(true)}
       onOpenIndex={() => setIsIndexManagerOpen(true)}
       onOpenClassifier={() => setIsClassifierManagerOpen(true)}
       onOpenSuggestion={() => setIsSuggestionManagerOpen(true)}
-      onReset={restoreAnalysis}
     />
+    <SettingsPanelResetNote onReset={restoreAnalysis} disabled={restoring}>
+      {translate('component.settingsAnalysisPanel.notAllStepsRunForAllClipsSomeStepsMayBeLong')}
+    </SettingsPanelResetNote>
     <ClassifierManagerDialog
       isOpen={isClassifierManagerOpen}
       onClose={() => setIsClassifierManagerOpen(false)}

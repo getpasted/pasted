@@ -220,7 +220,7 @@ export function ClassifierManagerDialog({
         </AppDialogBody>
         <AppDialogFooter align="between" className="shrink-0">
           <AppDialogButton onClick={restoreDefaults} disabled={saving}>
-            <RotateCcw className="h-3.5 w-3.5" /> {translate('component.settingsAnalysisPanel.reset')}
+            <RotateCcw className="h-3.5 w-3.5" /> {translate('common.resetWithEllipsis')}
           </AppDialogButton>
           <AppDialogButton onClick={requestClose}>{translate('common.close')}</AppDialogButton>
         </AppDialogFooter>

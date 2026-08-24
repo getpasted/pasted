@@ -86,6 +86,17 @@ export function handleAppStateBrowserMock(
     case 'set_app_lock_capture_while_locked':
       appLockStatus = { ...appLockStatus, captureWhileLocked: Boolean(args?.enabled) };
       return handled(lockSnapshot());
+    case 'reset_app_lock_policy':
+      appLockStatus = {
+        ...appLockStatus,
+        systemAuthEnabled: false,
+        appleWatchEnabled: false,
+        idleMinutes: 5,
+        lockOnSleep: true,
+        lockOnRestart: true,
+        captureWhileLocked: true,
+      };
+      return handled(lockSnapshot());
     default:
       return unhandled;
   }

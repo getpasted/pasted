@@ -215,5 +215,6 @@ export function useAppLock({ animateUnlock = true }: { animateUnlock?: boolean }
     setLockOnSleep: (enabled: boolean) => apply(invoke<AppLockStatus>('set_app_lock_lock_on_sleep', { enabled })),
     setLockOnRestart: (enabled: boolean) => apply(invoke<AppLockStatus>('set_app_lock_lock_on_restart', { enabled })),
     setCaptureWhileLocked: (enabled: boolean) => apply(invoke<AppLockStatus>('set_app_lock_capture_while_locked', { enabled })),
+    resetPolicy: () => apply(invoke<AppLockStatus>('reset_app_lock_policy')),
   };
 }

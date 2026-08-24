@@ -38,8 +38,12 @@ impl HotkeyManager {
             return Ok(());
         }
 
-        let get_setting = |key: &str, default_val: &str| -> Option<String> {
-            match settings.get(key) {
+        let get_setting = |key: &str| -> Option<String> {
+            match settings
+                .get(key)
+                .cloned()
+                .or_else(|| crate::settings_contract::default_value(key))
+            {
                 Some(s) => {
                     let trimmed = s.trim().to_string();
                     if trimmed.is_empty() {
@@ -48,13 +52,7 @@ impl HotkeyManager {
                         Some(trimmed)
                     }
                 }
-                None => {
-                    if default_val.trim().is_empty() {
-                        None
-                    } else {
-                        Some(default_val.to_string())
-                    }
-                }
+                None => None,
             }
         };
 
@@ -76,7 +74,7 @@ impl HotkeyManager {
 
         if feature_enabled(Feature::Hud) {
             // HUD hotkey (default Option+Shift+V)
-            let hud_sc = get_setting("hudHotkey", "Alt+Shift+V");
+            let hud_sc = get_setting("hudHotkey");
             add_hotkey(
                 "hud".into(),
                 "Show or hide the HUD".into(),
@@ -86,7 +84,7 @@ impl HotkeyManager {
         }
 
         // Main window hotkey
-        let main_sc = get_setting("openMainWindowHotkey", "");
+        let main_sc = get_setting("openMainWindowHotkey");
         add_hotkey(
             "main-window".into(),
             "Show or hide Pasted".into(),
@@ -98,13 +96,13 @@ impl HotkeyManager {
             add_hotkey(
                 "app-lock".into(),
                 "Lock Pasted".into(),
-                get_setting("lockAppHotkey", "Alt+Shift+L"),
+                get_setting("lockAppHotkey"),
                 AppHotkeyAction::LockApp,
             );
         }
 
         if feature_enabled(Feature::Transformations) {
-            let transformations_sc = get_setting("openTransformationsHotkey", "");
+            let transformations_sc = get_setting("openTransformationsHotkey");
             add_hotkey(
                 "transformations".into(),
                 "Open Transformations".into(),
@@ -115,7 +113,7 @@ impl HotkeyManager {
 
         if feature_enabled(Feature::Queue) {
             // Sequential Stack toggle (default Option+Shift+C)
-            let seq_toggle_sc = get_setting("seqToggleHotkey", "Alt+Shift+C");
+            let seq_toggle_sc = get_setting("seqToggleHotkey");
             add_hotkey(
                 "queue-toggle".into(),
                 "Enable or disable the Queue".into(),
@@ -124,7 +122,7 @@ impl HotkeyManager {
             );
 
             // Sequential Stack pop (default Option+Shift+X)
-            let seq_pop_sc = get_setting("seqPopHotkey", "Alt+Shift+X");
+            let seq_pop_sc = get_setting("seqPopHotkey");
             add_hotkey(
                 "queue-paste-next".into(),
                 "Paste the next Queue item".into(),
@@ -136,7 +134,7 @@ impl HotkeyManager {
         // Recent clip hotkeys
         for i in 1..=9 {
             let key = format!("pasteClip{}Hotkey", i);
-            let sc = get_setting(&key, "");
+            let sc = get_setting(&key);
             add_hotkey(
                 format!("paste-clip-{i}"),
                 format!("Paste clip {i}"),
@@ -156,14 +154,14 @@ impl HotkeyManager {
 
         if feature_enabled(Feature::Transformations) {
             // Last-Transform hotkeys
-            let copy_last_manual_transform_sc = get_setting("copyLastPipelineHotkey", "");
+            let copy_last_manual_transform_sc = get_setting("copyLastPipelineHotkey");
             add_hotkey(
                 "copy-last-transform".into(),
                 "Copy with the last Advanced Transform".into(),
                 copy_last_manual_transform_sc,
                 AppHotkeyAction::CopyWithLastManualTransform,
             );
-            let paste_last_manual_transform_sc = get_setting("pasteLastPipelineHotkey", "");
+            let paste_last_manual_transform_sc = get_setting("pasteLastPipelineHotkey");
             add_hotkey(
                 "paste-last-transform".into(),
                 "Paste with the last Advanced Transform".into(),

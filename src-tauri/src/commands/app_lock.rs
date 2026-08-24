@@ -282,41 +282,19 @@ pub fn set_app_lock_capture_while_locked(
     )
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn unique_test_directory(label: &str) -> std::path::PathBuf {
-        let nonce = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        std::env::temp_dir().join(format!("pasted-{label}-{}-{nonce}", std::process::id()))
-    }
-
-    #[test]
-    fn native_lock_transition_uses_the_shared_app_lock_state() {
-        let root = unique_test_directory("hotkey-app-lock");
-        std::fs::create_dir_all(&root).unwrap();
-        let db = crate::db::DbState::new(root.join("pasted.db")).unwrap();
-        crate::app_lock::configure(&db, "test passphrase").unwrap();
-        let state = crate::app_lock::AppLockState::from_db(&db);
-        state.unlock();
-
-        let status = lock_app_state(&db, &state).unwrap();
-        assert!(status.enabled);
-        assert!(status.locked);
-        assert!(state.is_locked());
-
-        state.unlock();
-        db.save_setting("enableAppLock", "false").unwrap();
-        assert_eq!(
-            lock_app_state(&db, &state).unwrap_err(),
-            "App Lock is disabled in Settings → Functionality"
-        );
-        assert!(!state.is_locked());
-
-        drop(db);
-        std::fs::remove_dir_all(root).unwrap();
-    }
+#[tauri::command]
+pub fn reset_app_lock_policy(
+    app: AppHandle,
+    db: State<'_, Arc<DbState>>,
+    state: State<'_, Arc<crate::app_lock::AppLockState>>,
+) -> Result<crate::app_lock::AppLockStatus, String> {
+    features::require(&db, Feature::AppLock)?;
+    crate::app_lock::reset_policy(&db)?;
+    let _ = db.log_activity("settings_changed", "Reset security preferences");
+    let status = crate::app_lock::status(&db, &state);
+    let _ = app.emit("app-lock-changed", &status);
+    Ok(status)
 }
+
+#[cfg(test)]
+mod tests;

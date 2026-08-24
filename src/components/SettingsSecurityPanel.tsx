@@ -10,6 +10,10 @@ import { SettingsSwitch } from './SettingsSwitch';
 import { translate } from '../localization/runtime';
 import { appLockAuthErrorMessage } from '../utils/appLockAuth';
 import { authToggleDisabled } from '../utils/appLockPolicy';
+import { ConfirmationDialog, type ConfirmationDialogRequest } from './ConfirmationDialog';
+import { SettingsPanelResetNote } from './SettingsPanelResetNote';
+import { appLockResetChanges } from '../appLockResetChanges';
+import { SettingsResetChanges } from './SettingsResetChanges';
 
 const IDLE_OPTIONS = [
   { value: '0', get label() { return translate('component.settingsSecurityPanel.never'); } },
@@ -40,6 +44,7 @@ export function SettingsSecurityPanel() {
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
   const [credentialMode, setCredentialMode] = useState<'configure' | 'disable' | null>(null);
+  const [resetRequest, setResetRequest] = useState<ConfirmationDialogRequest | null>(null);
   const isMac = document.documentElement.dataset.platform === 'macos';
   const systemAuthUnavailable = authToggleDisabled({
     pending: false,
@@ -108,6 +113,29 @@ export function SettingsSecurityPanel() {
     }
   };
 
+  const requestPolicyReset = () => {
+    const changes = appLockResetChanges(appLock.status);
+    setResetRequest({
+      title: translate('component.settingsSecurityPanel.resetSecurityPreferences'),
+      description: translate('component.settingsResetChanges.description'),
+      details: <SettingsResetChanges changes={changes} />,
+      confirmLabel: translate('common.reset'),
+      confirmDisabled: changes.length === 0,
+      onConfirm: async () => {
+        setPending(true);
+        setError('');
+        try {
+          await appLock.resetPolicy();
+          setResetRequest(null);
+        } catch (cause) {
+          setError(message(cause));
+        } finally {
+          setPending(false);
+        }
+      },
+    });
+  };
+
   return (
     <div className="space-y-5 text-xs">
       <SettingsPanelHeader
@@ -158,7 +186,7 @@ export function SettingsSecurityPanel() {
             <SettingsSwitch
               checked={appLock.status.appleWatchEnabled}
               disabled={appleWatchToggleDisabled}
-              label={translate('component.settingsSecurityPanel.unlockUsingAppleWatch2')}
+              label={translate('component.settingsSecurityPanel.unlockUsingAppleWatch')}
               onClick={() => {
                 setPending(true);
                 setError('');
@@ -175,14 +203,14 @@ export function SettingsSecurityPanel() {
               <span className="theme-text-main block font-semibold">{translate('component.settingsSecurityPanel.lockAfterRestart')}</span>
               <p className="theme-text-muted mt-0.5 text-[11px] leading-normal">{translate('component.settingsSecurityPanel.requireAuthenticationAfterClosingAndReopeningTheApp')}</p>
             </div>
-            <SettingsSwitch checked={appLock.status.lockOnRestart} disabled={pending || !appLock.status.enabled} label={translate('component.settingsSecurityPanel.lockAfterRestart2')} onClick={() => void appLock.setLockOnRestart(!appLock.status.lockOnRestart).catch((cause) => setError(message(cause)))} />
+            <SettingsSwitch checked={appLock.status.lockOnRestart} disabled={pending || !appLock.status.enabled} label={translate('component.settingsSecurityPanel.lockAfterRestart')} onClick={() => void appLock.setLockOnRestart(!appLock.status.lockOnRestart).catch((cause) => setError(message(cause)))} />
           </div>
           <div className={`flex items-start justify-between gap-4 ${!appLock.status.enabled ? 'settings-disabled-row' : ''}`}>
             <div className="min-w-0 flex-1">
               <span className="theme-text-main block font-semibold">{translate('component.settingsSecurityPanel.lockWhenTheDeviceSleeps')}</span>
               <p className="theme-text-muted mt-0.5 text-[11px] leading-normal">{translate('component.settingsSecurityPanel.requireAuthenticationAfterTheDeviceWakes')}</p>
             </div>
-            <SettingsSwitch checked={appLock.status.lockOnSleep} disabled={pending || !appLock.status.enabled} label={translate('component.settingsSecurityPanel.lockWhenTheDeviceSleeps2')} onClick={() => void appLock.setLockOnSleep(!appLock.status.lockOnSleep).catch((cause) => setError(message(cause)))} />
+            <SettingsSwitch checked={appLock.status.lockOnSleep} disabled={pending || !appLock.status.enabled} label={translate('component.settingsSecurityPanel.lockWhenTheDeviceSleeps')} onClick={() => void appLock.setLockOnSleep(!appLock.status.lockOnSleep).catch((cause) => setError(message(cause)))} />
           </div>
           <div className={`flex items-center justify-between gap-4 ${!appLock.status.enabled ? 'settings-disabled-row' : ''}`}>
             <span className="theme-text-main font-semibold">{translate('component.settingsSecurityPanel.lockAfterInactivity')}</span>
@@ -195,8 +223,11 @@ export function SettingsSecurityPanel() {
           <span className="theme-text-main block font-semibold">{translate('component.settingsSecurityPanel.captureWhileLocked')}</span>
           <p className="theme-text-muted mt-0.5 text-[11px] leading-normal">{translate('component.settingsSecurityPanel.keepCapturingNewClipsWhileTheInterfaceIsLocked')}</p>
         </div>
-        <SettingsSwitch checked={appLock.status.captureWhileLocked} disabled={pending || !appLock.status.enabled} label={translate('component.settingsSecurityPanel.captureWhileLocked2')} onClick={() => void appLock.setCaptureWhileLocked(!appLock.status.captureWhileLocked).catch((cause) => setError(message(cause)))} />
+        <SettingsSwitch checked={appLock.status.captureWhileLocked} disabled={pending || !appLock.status.enabled} label={translate('component.settingsSecurityPanel.captureWhileLocked')} onClick={() => void appLock.setCaptureWhileLocked(!appLock.status.captureWhileLocked).catch((cause) => setError(message(cause)))} />
       </div>
+      <SettingsPanelResetNote onReset={requestPolicyReset} disabled={pending}>
+        {translate('component.settingsSecurityPanel.resetPreservesAppLockAndItsPassphrase')}
+      </SettingsPanelResetNote>
       <AppDialog
         isOpen={credentialMode !== null}
         onClose={closeCredentials}
@@ -246,6 +277,7 @@ export function SettingsSecurityPanel() {
           </form>
         )}
       </AppDialog>
+      <ConfirmationDialog request={resetRequest} onCancel={() => setResetRequest(null)} />
     </div>
   );
 }

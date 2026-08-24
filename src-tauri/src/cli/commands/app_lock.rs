@@ -236,6 +236,30 @@ pub(crate) fn run(args: &[String], db_path: PathBuf, conn: Connection) -> Result
                 .map_err(cli_input_error)?;
             print_app_lock_toggle(json_key, label, enabled, json)?;
         }
+        "reset-policy" => {
+            drop(conn);
+            let db = DbState::new(db_path)?;
+            require_app_lock_passphrase(&db, args)?;
+            pasted_lib::app_lock::reset_policy(&db).map_err(cli_input_error)?;
+            let _ = db.log_activity("settings_changed", "Reset security preferences");
+            if json {
+                println!(
+                    "{}",
+                    serde_json::json!({
+                        "reset": true,
+                        "credentialsPreserved": true,
+                        "idleMinutes": pasted_lib::app_lock::DEFAULT_IDLE_MINUTES,
+                        "lockOnSleep": true,
+                        "lockOnRestart": true,
+                        "captureWhileLocked": true,
+                        "systemAuthEnabled": false,
+                        "appleWatchEnabled": false
+                    })
+                );
+            } else {
+                println!("Reset app-lock preferences and preserved unlock credentials.");
+            }
+        }
         "reset" => {
             if !args.iter().any(|argument| argument == "--yes") {
                 eprintln!("Resetting app lock removes its passphrase and system-authentication preferences. Re-run with --yes to continue.");
@@ -256,7 +280,7 @@ pub(crate) fn run(args: &[String], db_path: PathBuf, conn: Connection) -> Result
             }
         }
         _ => {
-            eprintln!("Usage: pasted app-lock status|enable|change-passphrase|disable|lock|unlock|idle|lock-on-sleep|lock-on-restart|capture-while-locked|system-auth|apple-watch|reset [--stdin] [--json]");
+            eprintln!("Usage: pasted app-lock status|enable|change-passphrase|disable|lock|unlock|idle|lock-on-sleep|lock-on-restart|capture-while-locked|system-auth|apple-watch|reset-policy|reset [--stdin] [--json]");
             std::process::exit(2);
         }
     }

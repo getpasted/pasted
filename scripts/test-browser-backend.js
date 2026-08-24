@@ -86,6 +86,9 @@ try {
   assert.equal((await safeInvoke('get_all_app_settings')).browserTest, 'preserved');
   assert.equal((await safeInvoke('configure_app_lock')).enabled, true);
   assert.equal((await safeInvoke('set_app_lock_idle_minutes', { minutes: 12 })).idleMinutes, 12);
+  const resetPolicy = await safeInvoke('reset_app_lock_policy');
+  assert.equal(resetPolicy.enabled, true, 'policy reset must preserve App Lock credentials and state');
+  assert.equal(resetPolicy.idleMinutes, 5);
 
   await assert.rejects(() => safeInvoke('definitely_not_a_command'), /Unsupported browser IPC command/);
   console.log('Browser backend regression tests passed.');

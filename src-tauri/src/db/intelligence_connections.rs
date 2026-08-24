@@ -1,9 +1,11 @@
-use std::collections::HashSet;
-
 use rusqlite::{params, Result};
 use serde::{Deserialize, Serialize};
 
 use super::DbState;
+
+mod reset;
+#[cfg(test)]
+mod reset_tests;
 
 pub struct IntelligenceConnectionUpdate<'a> {
     pub id: &'a str,
@@ -196,36 +198,5 @@ impl DbState {
             return Err(rusqlite::Error::QueryReturnedNoRows);
         }
         Ok(())
-    }
-
-    pub fn reorder_intelligence_connections(&self, ids: &[String]) -> Result<()> {
-        let unique = ids.iter().collect::<HashSet<_>>();
-        if unique.len() != ids.len() {
-            return Err(rusqlite::Error::InvalidParameterName(
-                "Connection order contains duplicate IDs".into(),
-            ));
-        }
-        let current = self
-            .get_intelligence_connections()?
-            .into_iter()
-            .map(|connection| connection.id)
-            .collect::<HashSet<_>>();
-        if current != ids.iter().cloned().collect() {
-            return Err(rusqlite::Error::InvalidParameterName(
-                "Connection order must contain every current Connection exactly once".into(),
-            ));
-        }
-        let mut conn = self.conn.lock();
-        let transaction = conn.transaction()?;
-        for (priority, id) in ids.iter().enumerate() {
-            let changed = transaction.execute(
-                "UPDATE intelligence_connections SET priority = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
-                params![priority as i64, id],
-            )?;
-            if changed == 0 {
-                return Err(rusqlite::Error::QueryReturnedNoRows);
-            }
-        }
-        transaction.commit()
     }
 }

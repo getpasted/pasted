@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import { readRustModuleTree } from './audit-source-trees.js';
 
 const config = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'));
+const settingsContract = JSON.parse(fs.readFileSync('shared/settings-contract.json', 'utf8'));
+const settingDefaults = new Map(settingsContract.settings.map(({ key, default: value }) => [key, value]));
 const appSource = fs.readFileSync('src/App.tsx', 'utf8');
 const mainRootSource = fs.readFileSync('src/main.tsx', 'utf8');
 const rootSource = fs.readFileSync('src/capture-feedback-main.tsx', 'utf8');
@@ -11,14 +13,24 @@ const monitorSource = readRustModuleTree(
   'src-tauri/src/clipboard_ingestion',
 );
 const exclusionsNativeSource = fs.readFileSync('src-tauri/src/app_exclusions.rs', 'utf8');
+const privateBrowserNativeSource = fs.readFileSync('src-tauri/src/private_browsing.rs', 'utf8');
 const hotkeySource = readRustModuleTree(
   'src-tauri/src/hotkey_manager.rs',
   'src-tauri/src/hotkey_manager',
 );
-const pasteTargetSource = fs.readFileSync('src-tauri/src/paste_target.rs', 'utf8');
-const settingsSource = fs.readFileSync('src/appSettingsModel.ts', 'utf8');
+const pasteTargetSource = readRustModuleTree(
+  'src-tauri/src/paste_target.rs',
+  'src-tauri/src/paste_target',
+);
+const settingsSource = [
+  'src/appSettingsModel.ts',
+  'src/appSettingsSectionDefaults.ts',
+].map((path) => fs.readFileSync(path, 'utf8')).join('\n');
+const capturePolicySettingsSource = fs.readFileSync('src/appSettingsCapturePolicyModel.ts', 'utf8');
 const panelSource = fs.readFileSync('src/components/SettingsNotificationsPanel.tsx', 'utf8');
 const exclusionsSource = fs.readFileSync('src/components/SettingsBlacklistPanel.tsx', 'utf8');
+const securitySource = fs.readFileSync('src/components/SettingsSecurityPanel.tsx', 'utf8');
+const privateBrowserSource = fs.readFileSync('src/components/PrivateBrowserExclusionSection.tsx', 'utf8');
 const panelNoteSource = fs.readFileSync('src/components/SettingsPanelNote.tsx', 'utf8');
 const overlaySource = [
   'src/components/CaptureFeedbackWindow.tsx',
@@ -61,11 +73,19 @@ for (const permission of [
   );
 }
 
-assert.match(settingsSource, /captureFeedback:\s*true/);
-assert.match(settingsSource, /captureFeedbackIgnored:\s*false/);
-assert.match(settingsSource, /captureFeedbackPreview:\s*false/);
-assert.match(settingsSource, /captureFeedbackPosition:\s*'top-right'/);
-assert.match(settingsSource, /captureFeedbackDismissSeconds:\s*7/);
+assert.equal(settingDefaults.get('captureFeedback'), true);
+assert.equal(settingDefaults.get('captureFeedbackIgnored'), false);
+assert.equal(settingDefaults.get('captureFeedbackPreview'), false);
+assert.equal(settingDefaults.get('captureFeedbackPosition'), 'top-right');
+assert.equal(settingDefaults.get('captureFeedbackDismissSeconds'), 7);
+assert.match(settingsSource, /settingDefault\('captureFeedback'\)/,
+  'Capture feedback defaults must use the shared settings contract');
+assert.equal(settingDefaults.get('excludePrivateBrowserWindows'), false,
+  'Private-browser capture exclusion must remain opt-in');
+assert.equal(settingDefaults.get('privateBrowserUnavailablePolicy'), 'capture',
+  'Inconclusive private-browser detection must continue capture by default');
+assert.match(capturePolicySettingsSource, /settingDefault\('excludePrivateBrowserWindows'\)/,
+  'Private-browser policy defaults must use the shared settings contract');
 assert.match(tabsSource, /id:\s*'notifications'/);
 assert.doesNotMatch(appSource, /CaptureFeedbackWindow/);
 assert.doesNotMatch(mainRootSource, /CaptureFeedbackWindow|CaptureFeedbackRoot/);
@@ -77,9 +97,18 @@ assert.match(rootSource, /useAuxiliaryAppSettings\(\)/,
 const notificationPrivacyKey = 'component.settingsNotificationsPanel.captureFeedbackStaysOnDeviceAndNeverExposesCopiedTextImagesFile';
 assert.match(panelSource, new RegExp(`translate\\('${notificationPrivacyKey.replaceAll('.', '\\.')}\\'\\)`));
 assert.match(englishCatalog[notificationPrivacyKey], /never exposes copied text, images, file names, or paths to system notifications\./);
-assert.match(panelSource, /<SettingsPanelNote>/, 'Notifications must use the shared Settings note well');
-assert.match(exclusionsSource, /<SettingsPanelNote>/, 'App Exclusions must use the shared Settings note well');
-assert.match(panelNoteSource, /theme-surface theme-text-muted rounded-xl border p-4 text-\[11px\] leading-relaxed/,
+assert.match(panelSource, /<SettingsPanelResetNote/, 'Notifications must use the shared resettable Settings note well');
+assert.match(exclusionsSource, /<SettingsPanelResetNote/, 'App Exclusions must use the shared resettable Settings note well');
+assert.match(securitySource, /<SettingsPanelResetNote/, 'Security must use the shared resettable Settings note well');
+for (const [label, source] of [
+  ['Notifications', panelSource],
+  ['App Exclusions', exclusionsSource],
+  ['Security', securitySource],
+]) {
+  assert.match(source, /<SettingsResetChanges/, `${label} Reset must preview its effective changes`);
+}
+assert.match(securitySource, /resetPolicy/, 'Security reset must preserve credential ownership behind App Lock');
+assert.match(panelNoteSource, /theme-surface theme-text-muted[^"]*rounded-xl border p-4 text-\[11px\] leading-relaxed/,
   'Settings note wells must share one semantic surface and layout');
 for (const rule of ['ignoreText', 'ignoreImages', 'ignoreFiles', 'ignoreHotkeys']) {
   assert.match(exclusionsSource, new RegExp(rule), `App Exclusions must expose the ${rule} rule`);
@@ -96,6 +125,18 @@ assert.match(exclusionsNativeSource, /explicit_empty_lists_remain_empty/,
   'Removing every App Exclusion must not silently restore defaults');
 assert.match(exclusionsNativeSource, /older_object_rules_default_files_to_excluded/,
   'Saved rules from before the Files control must preserve their existing capture protection');
+assert.match(monitorSource, /private_browsing::should_exclude/,
+  'Clipboard capture must enforce the shared private-browser policy');
+for (const browser of ['Safari', 'Google Chrome', 'Microsoft Edge', 'Firefox', 'DuckDuckGo', 'Brave Browser']) {
+  assert.match(privateBrowserNativeSource, new RegExp(browser),
+    `Private-browser detection must retain its ${browser} adapter`);
+}
+assert.match(privateBrowserNativeSource, /BrowserWindowState::Unavailable/,
+  'Private-browser detection must preserve an explicit unavailable state');
+assert.match(privateBrowserSource, /SettingsSwitch/,
+  'The built-in private-browser exclusion must remain independently configurable');
+assert.match(privateBrowserSource, /privateBrowserUnavailablePolicy/,
+  'The settings UI must expose the unavailable-detection policy');
 assert.match(pasteTargetSource, /QueryFullProcessImageNameW/,
   'Windows App Exclusions must match the focused executable rather than its changing window title');
 assert.match(pasteTargetSource, /getwindowclassname/,
