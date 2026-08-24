@@ -4,7 +4,7 @@
 
 Requirements:
 
-- Node.js 22 or newer;
+- Node.js 24 LTS or newer;
 - Rust 1.75 or newer;
 - platform packages required by Tauri/WebKitGTK;
 - macOS for Apple Vision OCR and signed macOS packaging.

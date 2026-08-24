@@ -16,6 +16,16 @@ const diagnosticsIdentifier = installationDiagnostics.match(/APP_IDENTIFIER:\s*&
 const rootLockPackage = packageLock.packages?.[''];
 const packageScripts = packageJson.scripts ?? {};
 const gitignore = fs.readFileSync('.gitignore', 'utf8');
+const nodeVersion = fs.readFileSync('.node-version', 'utf8').trim();
+const workflowPaths = fs
+  .readdirSync('.github/workflows')
+  .filter((name) => name.endsWith('.yml') || name.endsWith('.yaml'))
+  .map((name) => `.github/workflows/${name}`);
+const nodeWorkflowEntries = workflowPaths
+  .map((path) => ({ path, source: fs.readFileSync(path, 'utf8') }))
+  .filter(({ source }) => source.includes('actions/setup-node@'));
+const linuxDockerfile = fs.readFileSync('packaging/linux/Dockerfile', 'utf8');
+const dependabotConfig = fs.readFileSync('.github/dependabot.yml', 'utf8');
 const releaseWorkflow = fs.readFileSync('.github/workflows/desktop-release.yml', 'utf8');
 const desktopBuildWorkflow = fs.readFileSync('.github/workflows/desktop-builds.yml', 'utf8');
 const macosPackageJob = desktopBuildWorkflow.match(
@@ -30,6 +40,31 @@ const linuxReleaseScript = fs.readFileSync('scripts/release-linux-appimage.sh', 
 const thirdPartyLicenses = readJson('THIRD_PARTY_LICENSES.json');
 const thirdPartyNotices = fs.readFileSync('THIRD_PARTY_NOTICES.txt', 'utf8');
 const sourceSbom = readJson('THIRD_PARTY_SBOM.spdx.json');
+
+assert.equal(nodeVersion, '24', 'Repository automation must use the current Node.js LTS major');
+assert.ok(nodeWorkflowEntries.length > 0, 'At least one workflow must configure Node.js explicitly');
+for (const { path, source } of nodeWorkflowEntries) {
+  assert.match(
+    source,
+    /node-version-file:\s*\.node-version/,
+    `${path} must read the shared Node.js version file`,
+  );
+  assert.doesNotMatch(
+    source,
+    /node-version:\s*["']?\d+/,
+    `${path} must not maintain an independent Node.js version`,
+  );
+}
+assert.match(
+  linuxDockerfile,
+  new RegExp(`^FROM node:${nodeVersion}-bookworm$`, 'm'),
+  'The Linux packaging image must match the shared Node.js LTS major',
+);
+assert.match(
+  dependabotConfig,
+  /package-ecosystem:\s*docker[\s\S]*?directory:\s*\/packaging\/linux/,
+  'Dependabot must monitor the Linux packaging base image',
+);
 
 assert.match(
   desktopBuildWorkflow,
