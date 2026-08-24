@@ -1,3 +1,4 @@
+#[cfg(target_os = "macos")]
 use std::time::Duration;
 
 #[cfg(any(target_os = "macos", test))]
