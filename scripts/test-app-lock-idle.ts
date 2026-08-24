@@ -5,6 +5,8 @@ import { APP_LOCK_ACTIVITY_EVENTS, createIdleDeadline } from '../src/utils/idleD
 import { appLockAuthErrorKey, authToggleDisabled } from '../src/utils/appLockPolicy.ts';
 
 const rootSource = fs.readFileSync('src/main.tsx', 'utf8');
+const hudRootSource = fs.readFileSync('src/hud-main.tsx', 'utf8');
+const feedbackRootSource = fs.readFileSync('src/capture-feedback-main.tsx', 'utf8');
 const hudWindowSource = fs.readFileSync('src-tauri/src/hud_window.rs', 'utf8');
 const appLockCommandsSource = fs.readFileSync('src-tauri/src/commands/app_lock.rs', 'utf8');
 const hotkeySource = readRustModuleTree(
@@ -14,12 +16,14 @@ const hotkeySource = readRustModuleTree(
 const liveAppSource = fs.readFileSync('src-tauri/src/live_app.rs', 'utf8');
 const nativeRootSource = fs.readFileSync('src-tauri/src/lib.rs', 'utf8');
 
-assert.match(rootSource, /rootView === "hud" && appLock\.status\.locked\) return null/,
+assert.match(hudRootSource, /!appLock\.status\.locked/,
   'the HUD webview must never render the app-lock modal');
-assert.match(rootSource, /useAppLock\(\{ animateUnlock: rootView !== "hud" \}\)/,
+assert.match(hudRootSource, /useAppLock\(\{ animateUnlock: false \}\)/,
   'the HUD must accept unlock state immediately instead of waiting for the main-window animation');
-assert.match(rootSource, /useAppLock\(\{ animateUnlock: false \}\)/,
+assert.match(feedbackRootSource, /useAppLock\(\{ animateUnlock: false \}\)/,
   'capture feedback must not wait for a lock-screen animation that its window never renders');
+assert.doesNotMatch(rootSource, /QuickHudWindow|CaptureFeedbackWindow/,
+  'the main window must not import an auxiliary window across the app-lock boundary');
 assert.match(hudWindowSource, /pub fn require_unlocked[\s\S]*?state\.is_locked\(\)[\s\S]*?hide\(app\)[\s\S]*?Pasted is locked\./,
   'the shared HUD window boundary must reject and hide locked invocations');
 assert.match(hudWindowSource, /pub fn reveal[\s\S]*?app_lock::status[\s\S]*?emit\("app-lock-changed", &lock_status\)[\s\S]*?window\.show\(\)/,

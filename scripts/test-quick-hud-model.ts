@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import {
   hudPasteShortcutIndex,
   hudPrimaryModifierLabel,
-  isQuickHudRoute,
 } from '../src/components/quickHudModel.ts';
 
 const keyEvent = (key: string, overrides: Partial<Parameters<typeof hudPasteShortcutIndex>[0]> = {}) => ({
@@ -14,10 +13,6 @@ const keyEvent = (key: string, overrides: Partial<Parameters<typeof hudPasteShor
   shiftKey: false,
   ...overrides,
 });
-
-assert.equal(isQuickHudRoute('?view=hud'), true);
-assert.equal(isQuickHudRoute('?view=capture-feedback'), false);
-assert.equal(isQuickHudRoute(''), false);
 
 assert.equal(hudPasteShortcutIndex(keyEvent('1', { metaKey: true })), 0);
 assert.equal(hudPasteShortcutIndex(keyEvent('9', { ctrlKey: true })), 8);

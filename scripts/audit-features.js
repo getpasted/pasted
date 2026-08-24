@@ -6,6 +6,8 @@ const read = (path) => fs.readFileSync(path, 'utf8');
 const frontendRegistry = read('src/utils/features.ts');
 const settingsType = read('src/appSettingsTypes.ts');
 const settingsHook = read('src/hooks/useAppSettings.ts');
+const settingsModel = read('src/appSettingsModel.ts');
+const appTheme = read('src/utils/appTheme.ts');
 const nativePolicy = read('src-tauri/src/features.rs');
 const nativeRoot = read('src-tauri/src/lib.rs');
 const nativeCommands = readRustModuleTree('src-tauri/src/commands.rs', 'src-tauri/src/commands');
@@ -45,7 +47,7 @@ const clipPreview = [
 ].map(read).join('\n');
 const clipNameDialog = read('src/components/ClipNameDialog.tsx');
 const quickHud = read('src/components/QuickHudWindow.tsx');
-const appShell = read('src/hooks/useAppShell.ts');
+const hudEntry = read('src/hud-main.tsx');
 const settingsHotkeys = read('src/components/SettingsHotkeysPanel.tsx');
 const cli = readRustModuleTree('src-tauri/src/bin/pasted.rs', 'src-tauri/src/cli');
 const frontendDefinitions = frontendRegistry.match(/export const FEATURE_DEFINITIONS[\s\S]*?\n\] as const;/)?.[0] ?? '';
@@ -119,8 +121,8 @@ assert.deepEqual(
 
 for (const key of frontendKeys) {
   assert.match(settingsType, new RegExp(`\\b${key}\\??:\\s*boolean`), `${key} must be typed in AppSettings`);
-  assert.match(settingsHook, new RegExp(`\\b${key}:\\s*true`), `${key} must default on for existing installations`);
-  assert.match(settingsHook, new RegExp(`(?:['\"]${key}['\"]|saved\\.${key})`), `${key} must hydrate from persisted settings`);
+  assert.match(settingsModel, new RegExp(`\\b${key}:\\s*true`), `${key} must default on for existing installations`);
+  assert.match(settingsModel, new RegExp(`(?:['\"]${key}['\"]|saved\\.${key})`), `${key} must hydrate from persisted settings`);
 }
 
 assert.match(nativeRoot, /pub mod features;/, 'The native policy must be shared with the CLI crate');
@@ -170,9 +172,9 @@ assert.match(
   'Clip Search must own the Quick HUD search field',
 );
 assert.match(
-  appShell,
-  /useState\(\(\) => isQuickHudRoute\(window\.location\.search\)\)/,
-  'The HUD route must be known before the first render so main-window content cannot flash',
+  hudEntry,
+  /<FeatureProvider features=\{features\}><QuickHudWindow/,
+  'The dedicated HUD entry point must retain the shared feature policy',
 );
 assert.match(
   quickHud,
@@ -250,7 +252,7 @@ assert.match(
   'CLI hotkey mutations must honor the Hotkeys feature gate',
 );
 assert.match(
-  settingsHook,
+  appTheme,
   /root\.dataset\.theme = resolvedTheme/,
   'Synchronized appearance settings must update semantic theme tokens',
 );

@@ -6,10 +6,6 @@ export interface HudShortcutEvent {
   shiftKey: boolean;
 }
 
-export function isQuickHudRoute(search: string): boolean {
-  return new URLSearchParams(search).get('view') === 'hud';
-}
-
 export function hudPasteShortcutIndex(event: HudShortcutEvent): number | null {
   const hasPrimaryModifier = event.metaKey !== event.ctrlKey;
   if (!hasPrimaryModifier || event.altKey || event.shiftKey || !/^[1-9]$/.test(event.key)) {

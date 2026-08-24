@@ -7,8 +7,6 @@
     <title>Pasted</title>
     <script>
       (() => {
-        const view = new URLSearchParams(window.location.search).get('view') || 'main';
-        document.documentElement.dataset.pastedView = view;
         try {
           const savedTheme = localStorage.getItem('pasted_cache_theme');
           if (savedTheme) document.documentElement.dataset.startupTheme = savedTheme;
@@ -174,10 +172,6 @@
         line-height: 1.15;
         letter-spacing: -0.025em;
         transform: translateX(-50%);
-      }
-
-      html[data-pasted-view="hud"] #startup-splash {
-        display: none;
       }
 
       @keyframes startup-copycat-draw {

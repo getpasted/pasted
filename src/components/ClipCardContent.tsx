@@ -4,9 +4,9 @@ import type { useFeatures } from '../hooks/useFeatures';
 import { translate } from '../localization/runtime';
 import type { ClipItem } from '../types';
 import { concealedClipMask } from '../utils/concealedClipMask';
-import { ClipFileThumbnail, ClipImageThumbnail } from './ClipCardThumbnails';
+import { ClipFileThumbnail } from './ClipCardThumbnails';
+import { ClipImageThumbnail } from './ClipImageThumbnail';
 import { HighlightedClipText } from './HighlightedClipText';
-
 type ClipCardFeatures = ReturnType<typeof useFeatures>;
 
 export function ClipCardContent({

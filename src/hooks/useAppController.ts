@@ -77,7 +77,7 @@ export function useAppController() {
     emptyTrash: handleEmptyTrash,
   } = useAppData();
 
-  const { isHudView } = useAppShell({
+  useAppShell({
     catalogReady,
     direction,
     settingsHydrated,
@@ -113,7 +113,6 @@ export function useAppController() {
     startupView: appSettings.startupView,
     settingsHydrated,
     initialDataLoaded,
-    isHudView,
     selectedClipId: selectedClip?.id ?? null,
   });
   const deferredSearchQuery = useDeferredValue(searchQuery);
@@ -406,7 +405,7 @@ export function useAppController() {
   });
 
   useAppMenuActions({
-    enabled: !isHudView,
+    enabled: true,
     enabledFeatures,
     selectedClip,
     selectedClipIds,
@@ -439,7 +438,7 @@ export function useAppController() {
 
   const draggedPreviewClip = findDraggedPreviewClip(clipDragPreview, displayedClips, allClips);
   return {
-    shell: { direction, enabledFeatures, isHudView, appSettings, settingsHydrated, initialDataLoaded },
+    shell: { direction, enabledFeatures, appSettings, settingsHydrated, initialDataLoaded },
     settings: { blacklistApps, handleUpdateSettings, handleAddBlacklistApp, handleRemoveBlacklistApp, handleToggleBlacklistRule },
     data: {
       allClips, trashedClips, bins, manualTransforms, seqStatus, totalClipCount, totalTrashCount,

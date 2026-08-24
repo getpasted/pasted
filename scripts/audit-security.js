@@ -28,7 +28,7 @@ const safeRasterConsumers = [
   'src/components/SidebarFacetSections.tsx',
 ].map((path) => fs.readFileSync(path, 'utf8'));
 const quickHud = fs.readFileSync('src/components/QuickHudWindow.tsx', 'utf8');
-const clipCardThumbnails = fs.readFileSync('src/components/ClipCardThumbnails.tsx', 'utf8');
+const clipImageThumbnail = fs.readFileSync('src/components/ClipImageThumbnail.tsx', 'utf8');
 const security = tauriConfig.app?.security;
 
 assert.match(codeqlWorkflow, /schedule:\s*\n\s*- cron:/, 'CodeQL must retain a scheduled full scan');
@@ -93,7 +93,7 @@ assert.match(
   'The HUD must delegate dynamic raster rendering to the shared safe thumbnail surface',
 );
 assert.match(
-  clipCardThumbnails,
+  clipImageThumbnail,
   /export function ClipImageThumbnail[\s\S]*?<SafeRasterImage/,
   'The shared image thumbnail surface must retain SafeRasterImage validation',
 );

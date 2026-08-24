@@ -4,7 +4,8 @@ import { readRustModuleTree } from './audit-source-trees.js';
 
 const config = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'));
 const appSource = fs.readFileSync('src/App.tsx', 'utf8');
-const rootSource = fs.readFileSync('src/main.tsx', 'utf8');
+const mainRootSource = fs.readFileSync('src/main.tsx', 'utf8');
+const rootSource = fs.readFileSync('src/capture-feedback-main.tsx', 'utf8');
 const monitorSource = fs.readFileSync('src-tauri/src/clipboard_monitor.rs', 'utf8');
 const exclusionsNativeSource = fs.readFileSync('src-tauri/src/app_exclusions.rs', 'utf8');
 const hotkeySource = readRustModuleTree(
@@ -12,7 +13,7 @@ const hotkeySource = readRustModuleTree(
   'src-tauri/src/hotkey_manager',
 );
 const pasteTargetSource = fs.readFileSync('src-tauri/src/paste_target.rs', 'utf8');
-const settingsSource = fs.readFileSync('src/hooks/useAppSettings.ts', 'utf8');
+const settingsSource = fs.readFileSync('src/appSettingsModel.ts', 'utf8');
 const panelSource = fs.readFileSync('src/components/SettingsNotificationsPanel.tsx', 'utf8');
 const exclusionsSource = fs.readFileSync('src/components/SettingsBlacklistPanel.tsx', 'utf8');
 const panelNoteSource = fs.readFileSync('src/components/SettingsPanelNote.tsx', 'utf8');
@@ -33,6 +34,7 @@ assert.equal(feedbackWindow.focusable, false, 'Capture feedback must remain non-
 assert.equal(feedbackWindow.decorations, false, 'Capture feedback must remain chrome-free');
 assert.equal(feedbackWindow.transparent, true, 'Capture feedback must preserve its overlay surface');
 assert.equal(feedbackWindow.alwaysOnTop, true, 'Capture feedback must remain visible above the current app');
+assert.equal(feedbackWindow.url, 'capture-feedback.html', 'Capture feedback must load its dedicated entry point');
 assert.match(capabilitiesSource, /"capture-feedback"/, 'Capture feedback must be authorized by Tauri capabilities');
 for (const permission of [
   'allow-current-monitor',
@@ -63,8 +65,12 @@ assert.match(settingsSource, /captureFeedbackPosition:\s*'top-right'/);
 assert.match(settingsSource, /captureFeedbackDismissSeconds:\s*7/);
 assert.match(tabsSource, /id:\s*'notifications'/);
 assert.doesNotMatch(appSource, /CaptureFeedbackWindow/);
-assert.match(rootSource, /rootView === "capture-feedback"/);
+assert.doesNotMatch(mainRootSource, /CaptureFeedbackWindow|CaptureFeedbackRoot/);
 assert.match(rootSource, /<CaptureFeedbackRoot/);
+assert.match(rootSource, /useAuxiliaryWindowReady\(ready\)/,
+  'Capture feedback must remain paint-hidden until its settings, lock, and locale are ready');
+assert.match(rootSource, /useAuxiliaryAppSettings\(\)/,
+  'Capture feedback must use read-only auxiliary settings initialization');
 const notificationPrivacyKey = 'component.settingsNotificationsPanel.captureFeedbackStaysOnDeviceAndNeverExposesCopiedTextImagesFile';
 assert.match(panelSource, new RegExp(`translate\\('${notificationPrivacyKey.replaceAll('.', '\\.')}\\'\\)`));
 assert.match(englishCatalog[notificationPrivacyKey], /never exposes copied text, images, file names, or paths to system notifications\./);

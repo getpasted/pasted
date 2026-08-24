@@ -27,7 +27,7 @@
       {
         "label": "hud",
         "title": "Pasted HUD",
-        "url": "index.html?view=hud",
+        "url": "hud.html",
         "width": 360,
         "height": 448,
         "resizable": false,
@@ -41,7 +41,7 @@
       {
         "label": "capture-feedback",
         "title": "Pasted Capture Feedback",
-        "url": "index.html?view=capture-feedback",
+        "url": "capture-feedback.html",
         "width": 300,
         "height": 72,
         "resizable": false,
