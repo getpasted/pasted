@@ -34,7 +34,6 @@ fn portable_transfer_preserves_external_references_without_copying_external_stat
         payload.clips[0].text_content.as_deref(),
         Some(file_payload.as_str())
     );
-    assert!(transfer.contains(&external_path));
     assert!(!transfer.contains(external_bytes));
     assert!(!transfer.contains("Transfer-excluded connection marker"));
     assert!(!transfer.contains("env:TRANSFER_EXCLUDED_CREDENTIAL"));

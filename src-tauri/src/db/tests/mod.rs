@@ -26,6 +26,7 @@ fn search_test_clips(db: &DbState, query: &str) -> Vec<ClipItem> {
 }
 
 mod analytics;
+mod analytics_boundaries;
 mod bins_and_transforms;
 mod capture_and_lifecycle;
 mod clip_transfer;
