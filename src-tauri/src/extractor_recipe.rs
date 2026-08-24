@@ -133,7 +133,7 @@ impl ExtractorRecipe {
         let bytes = serde_json::to_vec(self).map_err(|error| error.to_string())?;
         let mut hasher = Sha256::new();
         hasher.update(bytes);
-        Ok(format!("{:x}", hasher.finalize()))
+        Ok(crate::hashing::finalize_sha256_hex(hasher))
     }
 
     pub fn accepts(&self, kind: ExtractorInputKind) -> bool {

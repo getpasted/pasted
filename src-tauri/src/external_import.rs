@@ -252,7 +252,7 @@ impl ParsedImport {
         let text_len = text.len();
         self.clips.push(ExternalTextClip {
             text,
-            content_hash: format!("{:x}", hasher.finalize()),
+            content_hash: crate::hashing::finalize_sha256_hex(hasher),
             source: source
                 .filter(|value| !value.trim().is_empty())
                 .map(|value| value.chars().take(256).collect())

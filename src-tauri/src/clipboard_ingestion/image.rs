@@ -22,7 +22,7 @@ pub(crate) fn ingest_image(
     if !crate::resource_limits::image_dimensions_within_limit(width, height) {
         let mut hasher = Sha256::new();
         hasher.update(image.bytes.as_ref());
-        let hash = format!("{:x}", hasher.finalize());
+        let hash = crate::hashing::finalize_sha256_hex(hasher);
         if context.begin_hash(last_hash, &hash) {
             context.report_ignored("Ignored clipboard image larger than 24 megapixels");
         }

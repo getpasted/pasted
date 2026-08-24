@@ -3,7 +3,7 @@ use super::*;
 fn content_hash(content: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(content.as_bytes());
-    format!("{:x}", hasher.finalize())
+    crate::hashing::finalize_sha256_hex(hasher)
 }
 
 pub struct SavedTransformExecutionContext<'a> {

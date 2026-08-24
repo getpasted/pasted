@@ -13,7 +13,7 @@ pub(super) fn pdf_preview_cache_key(bytes: &[u8]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(b"pasted-pdf-first-page-v2-white-background\0");
     hasher.update(bytes);
-    format!("{:x}", hasher.finalize())
+    crate::hashing::finalize_sha256_hex(hasher)
 }
 
 pub(super) fn clip_file_preview_cache_key(content_hash: &str, index: usize) -> String {
@@ -22,7 +22,7 @@ pub(super) fn clip_file_preview_cache_key(content_hash: &str, index: usize) -> S
     hasher.update(content_hash.as_bytes());
     hasher.update([0]);
     hasher.update(index.to_le_bytes());
-    format!("clip-{:x}", hasher.finalize())
+    format!("clip-{}", crate::hashing::finalize_sha256_hex(hasher))
 }
 
 pub(super) fn flatten_image_on_white(image: image::DynamicImage) -> image::DynamicImage {

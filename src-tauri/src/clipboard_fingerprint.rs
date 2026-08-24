@@ -3,7 +3,7 @@ use sha2::{Digest, Sha256};
 pub fn text(value: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(value.as_bytes());
-    format!("{:x}", hasher.finalize())
+    crate::hashing::finalize_sha256_hex(hasher)
 }
 
 #[cfg(feature = "gui")]
@@ -13,14 +13,14 @@ pub fn file_list(paths: &[String]) -> String {
         hasher.update(path.as_bytes());
         hasher.update([0]);
     }
-    format!("files:{:x}", hasher.finalize())
+    format!("files:{}", crate::hashing::finalize_sha256_hex(hasher))
 }
 
 #[cfg(feature = "gui")]
 pub fn image_rgba(bytes: &[u8]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(bytes);
-    format!("{:x}", hasher.finalize())
+    crate::hashing::finalize_sha256_hex(hasher)
 }
 
 #[cfg(test)]

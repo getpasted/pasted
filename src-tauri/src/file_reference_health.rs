@@ -139,7 +139,7 @@ fn reference_hash(path: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(b"pasted-file-reference-v1\0");
     hasher.update(path.as_bytes());
-    format!("{:x}", hasher.finalize())
+    crate::hashing::finalize_sha256_hex(hasher)
 }
 
 fn retry_interval(availability: FileReferenceAvailability) -> Option<Duration> {
