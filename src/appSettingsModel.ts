@@ -1,6 +1,11 @@
 import type { AppSettings } from './types';
 import { isConfiguredLanguage } from './localization/runtime';
 import { clampAppZoom } from './utils/appZoom';
+import {
+  DEFAULT_ANALYSIS_ATTEMPTS_PER_CLIP,
+  DEFAULT_REVISION_HISTORY_LIMIT,
+  storedRetentionNumber,
+} from './appSettingsRetentionModel';
 
 export const DEFAULT_SETTINGS: AppSettings = {
   onboardingVersion: 0,
@@ -20,7 +25,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   filePreviewMaxMb: 25,
   keepClipCount: 1000,
   keepClipAgeDays: 0,
-  revisionHistoryLimit: 50,
+  revisionHistoryLimit: DEFAULT_REVISION_HISTORY_LIMIT,
+  analysisAttemptsPerClip: DEFAULT_ANALYSIS_ATTEMPTS_PER_CLIP,
   alwaysPastePlainText: false,
   rowHeight: 'medium',
   startupView: 'last_active',
@@ -90,7 +96,8 @@ export function parseSavedSettings(saved: Record<string, string>): AppSettings {
   if (saved.filePreviewMaxMb) next.filePreviewMaxMb = Math.max(1, Math.min(64, numberValue('filePreviewMaxMb', next.filePreviewMaxMb)));
   if (saved.keepClipCount !== undefined) next.keepClipCount = Math.max(0, numberValue('keepClipCount', next.keepClipCount));
   if (saved.keepClipAgeDays !== undefined) next.keepClipAgeDays = Math.max(0, numberValue('keepClipAgeDays', next.keepClipAgeDays));
-  if (saved.revisionHistoryLimit !== undefined) next.revisionHistoryLimit = numberValue('revisionHistoryLimit', next.revisionHistoryLimit);
+  if (saved.revisionHistoryLimit !== undefined) next.revisionHistoryLimit = storedRetentionNumber(saved, 'revisionHistoryLimit', next.revisionHistoryLimit);
+  if (saved.analysisAttemptsPerClip !== undefined) next.analysisAttemptsPerClip = storedRetentionNumber(saved, 'analysisAttemptsPerClip', next.analysisAttemptsPerClip);
   if (saved.alwaysPastePlainText !== undefined) next.alwaysPastePlainText = saved.alwaysPastePlainText === 'true';
   if (['small', 'medium', 'large'].includes(saved.rowHeight)) next.rowHeight = saved.rowHeight as AppSettings['rowHeight'];
   if (['last_active', 'clip_history'].includes(saved.startupView)) next.startupView = saved.startupView as AppSettings['startupView'];

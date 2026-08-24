@@ -2,6 +2,7 @@ import type { MockClip } from './models';
 import { mockManualTransforms } from './manualTransforms';
 import { getMockSavedTransforms } from './intelligenceRuntime';
 import { unhandledValue } from './result';
+import { invokeRetentionBrowserMock } from './retentionRuntime';
 
 let mockLibraryLocation = {
   path: '/mock/Pasted/pasted.db',
@@ -15,6 +16,8 @@ export async function invokeSystemBrowserMock<T>(
   args: Record<string, unknown> | undefined,
   mockClips: MockClip[],
 ): Promise<T | typeof unhandledValue> {
+  const retention = await invokeRetentionBrowserMock<T>(cmd);
+  if (retention !== unhandledValue) return retention;
   switch (cmd) {
     case 'get_hotkey_capability_status':
       return {
@@ -125,10 +128,6 @@ export async function invokeSystemBrowserMock<T>(
         isDefault: true,
       };
       return { location: mockLibraryLocation, recoveryPath: '/mock/Custom Pasted Library/pasted.db' } as unknown as T;
-    case 'enforce_activity_retention':
-    case 'enforce_clip_retention':
-    case 'enforce_revision_retention':
-    case 'enforce_trash_retention':
     case 'perform_titlebar_double_click':
     case 'play_system_sound':
     case 'set_dock_visibility':

@@ -1,5 +1,6 @@
 use super::*;
 
+mod analysis_history;
 mod clips;
 mod content_compatibility;
 mod content_registry;

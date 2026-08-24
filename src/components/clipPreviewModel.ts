@@ -87,22 +87,7 @@ export interface ExtractionApplicationResult {
   classificationUpdated: boolean;
 }
 
-export interface ExtractionResult {
-  extractorRef: string;
-  extractorName: string;
-  engine: string;
-  priority: number;
-  duplicateOf?: string;
-  outcome: 'produced' | 'no_output' | 'failed';
-  text?: string;
-  failure?: { code: string; message: string };
-  updatedAt: string;
-}
-
-export interface ExtractionAttempt extends ExtractionResult {
-  runId: string;
-  runAt: string;
-}
+export type { ExtractionAttempt, ExtractionResult } from './clipExtractionModel';
 
 export interface ClipSearchableText {
   clipId: number;

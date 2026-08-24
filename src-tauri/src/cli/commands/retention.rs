@@ -30,6 +30,8 @@ pub(crate) fn run(args: &[String], db_path: PathBuf, conn: Connection) -> Result
         .unwrap_or(setting_i64(&db, "activityLogAgeDays", 0)?);
     let revision_count = parse_retention_argument(args, "--revision-count", "unlimited", 10_000)
         .unwrap_or(setting_i64(&db, "revisionHistoryLimit", 10)?);
+    let analysis_count = parse_retention_argument(args, "--analysis-count", "unlimited", 10_000)
+        .unwrap_or(setting_i64(&db, "analysisAttemptsPerClip", 10)?);
     let history_changed = args
         .iter()
         .any(|argument| argument == "--count" || argument == "--days");
@@ -40,6 +42,7 @@ pub(crate) fn run(args: &[String], db_path: PathBuf, conn: Connection) -> Result
         .iter()
         .any(|argument| argument == "--log-count" || argument == "--log-days");
     let revisions_changed = args.iter().any(|argument| argument == "--revision-count");
+    let analysis_changed = args.iter().any(|argument| argument == "--analysis-count");
     if history_changed {
         db.configure_clip_retention(count, age_days)?;
     }
@@ -51,6 +54,9 @@ pub(crate) fn run(args: &[String], db_path: PathBuf, conn: Connection) -> Result
     }
     if revisions_changed {
         db.enforce_revision_retention(revision_count)?;
+    }
+    if analysis_changed {
+        db.enforce_analysis_attempt_retention(analysis_count)?;
     }
     if args.iter().any(|argument| argument == "--json") {
         println!(
@@ -70,6 +76,8 @@ pub(crate) fn run(args: &[String], db_path: PathBuf, conn: Connection) -> Result
                 "activityMaximumAgeForever": activity_age_days == 0,
                 "revisionsPerClip": revision_count,
                 "revisionsUnlimited": revision_count == 0,
+                "analyzationsPerClip": analysis_count,
+                "analyzationsUnlimited": analysis_count == 0,
             }))
             .map_err(json_error)?
         );
@@ -85,12 +93,13 @@ pub(crate) fn run(args: &[String], db_path: PathBuf, conn: Connection) -> Result
             format!("{age_days} days")
         };
         println!(
-            "History: {count_label}; {age_label}\nTrash: {}; {}\nActivity: {}; {}\nRevisions: {}",
+            "History: {count_label}; {age_label}\nTrash: {}; {}\nActivity: {}; {}\nRevisions: {}\nAnalyzations: {}",
             retention_count_label(trash_count, "clips"),
             retention_age_label(trash_age_days),
             retention_count_label(activity_count, "entries"),
             retention_age_label(activity_age_days),
             retention_count_label(revision_count, "per clip"),
+            retention_count_label(analysis_count, "per clip"),
         );
     }
     Ok(())

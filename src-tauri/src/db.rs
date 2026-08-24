@@ -62,13 +62,11 @@ pub use clip_records::{
 #[cfg(test)]
 use clip_search::parse_clip_search;
 pub use contracts::{
-    AnalysisClassification, AnalyticsSummary, BackupPayload, Bin, BinTransformBinding,
-    ClipImportReport, ClipMutationSummary, ClipSearchableText, ClipTypeStat, ClipVersion,
-    ContentClassificationRescanReport, DailyStat, DbState, FactoryResetReport,
-    FileFormatRescanReport, FileFormatStat, FullBackupInspection, FullBackupReport,
-    FullRestoreReport, LibraryArchiveInspection, OcrBackfillStatus, OcrBackupMetadata,
-    OcrCandidate, OcrExtractorProvenance, SourceStat, StoredExtractionAttempt,
-    StoredExtractionObservation, TypeStat,
+    AnalyticsSummary, BackupPayload, Bin, BinTransformBinding, ClipImportReport,
+    ClipMutationSummary, ClipTypeStat, ClipVersion, ContentClassificationRescanReport, DailyStat,
+    DbState, FactoryResetReport, FileFormatRescanReport, FileFormatStat, FullBackupInspection,
+    FullBackupReport, FullRestoreReport, LibraryArchiveInspection, OcrBackfillStatus,
+    OcrBackupMetadata, OcrCandidate, OcrExtractorProvenance, SourceStat, TypeStat,
 };
 use contracts::{ClipRevisionContext, ClipRevisionOrganization, ClipSaveInput, FullBackupManifest};
 pub use intelligence_connections::{IntelligenceConnection, IntelligenceConnectionUpdate};
@@ -82,6 +80,10 @@ use schema::{
 #[cfg(test)]
 use schema::{migrate_legacy_semantic_clip_types, migrate_pipelines_to_saved_transforms};
 pub use search_indexes::{SearchIndexEntry, SearchIndexStatus};
+pub use stored_analysis::{
+    AnalysisClassification, AnalysisFailureClass, ClipSearchableText, ExtractionAttemptContext,
+    StoredExtractionAttempt, StoredExtractionObservation,
+};
 use timestamps::{
     canonical_utc_timestamp, migrate_analysis_transform_timestamps, migrate_canonical_timestamps,
     normalize_library_archive_timestamps,

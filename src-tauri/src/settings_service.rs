@@ -132,7 +132,9 @@ pub fn validate_setting(key: &str, value: &str) -> Result<(), ApplicationError> 
         "keepClipAgeDays" | "trashAgeDays" | "activityLogAgeDays" => {
             validate_integer(key, value, 0, 36_500)
         }
-        "revisionHistoryLimit" => validate_integer(key, value, 0, 10_000),
+        "revisionHistoryLimit" | "analysisAttemptsPerClip" => {
+            validate_integer(key, value, 0, 10_000)
+        }
         _ => Ok(()),
     }
 }

@@ -11,6 +11,7 @@ import { translate } from '../localization/runtime';
 import { SettingsGeneralAppearanceSection } from './SettingsGeneralAppearanceSection';
 import { SettingsGeneralLayoutSection } from './SettingsGeneralLayoutSection';
 import { SettingsGeneralRetentionSections } from './SettingsGeneralRetentionSections';
+import { SettingsGeneralHistoryLimits } from './SettingsGeneralHistoryLimits';
 
 interface SettingsGeneralPanelProps {
   settings: AppSettings;
@@ -37,10 +38,6 @@ const filePreviewDescriptions: Record<AppSettings['filePreviewMode'], string> = 
   get safe() { return translate('component.settingsGeneralPanel.filePreviewSafeDescription'); },
   get all() { return translate('component.settingsGeneralPanel.filePreviewAllDescription'); },
 };
-
-const revisionLimitOptions = [10, 25, 50, 100]
-  .map((value) => ({ value: String(value), label: translate('component.settingsGeneralPanel.valueRevisions', { value: value }) }))
-  .concat({ value: '0', get label() { return translate('component.settingsGeneralPanel.unlimited'); } });
 
 const historyCountPresets = [
   { value: '0', get label() { return translate('component.settingsGeneralPanel.unlimited'); } },
@@ -382,21 +379,7 @@ export function SettingsGeneralPanel({
                 </div>
               )}
 
-              {settings.enableRevisions && <div className="flex items-start justify-between">
-                <div className="pe-4 flex-1 min-w-0">
-                  <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.revisionsPerClip')}</span>
-                  <p className="text-[11px] theme-text-muted leading-normal mt-0.5">{settings.revisionHistoryLimit === 0
-                    ? translate('component.settingsGeneralPanel.unlimitedRevisionHistoryDescription')
-                    : translate('component.settingsGeneralPanel.keepsCompleteTextSnapshotsForEditsOcrTransformsAndRestores')}</p>
-                </div>
-                <MenuSelect
-                  value={String(settings.revisionHistoryLimit)}
-                  options={revisionLimitOptions}
-                  onChange={(value) => onUpdateSettings({ revisionHistoryLimit: Number(value) })}
-                  label={translate('component.settingsGeneralPanel.revisionsRetainedPerClip')}
-                  className="settings-menu-select"
-                />
-              </div>}
+              <SettingsGeneralHistoryLimits settings={settings} onUpdateSettings={onUpdateSettings} />
 
             </div>
 

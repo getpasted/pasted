@@ -78,6 +78,7 @@ fn full_backup_round_trip_covers_every_durable_table_and_interface_state() {
         }],
     )
     .unwrap();
+    db.enforce_analysis_attempt_retention(25).unwrap();
     db.save_setting("fullBackupSetting", "preserved").unwrap();
     db.log_activity("app_started", "Complete backup test")
         .unwrap();
@@ -201,6 +202,12 @@ fn full_backup_round_trip_covers_every_durable_table_and_interface_state() {
             .unwrap()
             .len(),
         1
+    );
+    assert_eq!(
+        db.get_setting("analysisAttemptsPerClip")
+            .unwrap()
+            .as_deref(),
+        Some("25")
     );
     let restored_extractor = db.get_content_extractor(&extractor.stable_ref).unwrap();
     assert_eq!(restored_extractor.name, "Backup Extractor Marker");

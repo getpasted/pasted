@@ -49,7 +49,7 @@ impl DbState {
         )
         .ok()
         .and_then(|value| value.parse::<i64>().ok())
-        .unwrap_or(50)
+        .unwrap_or(10)
         .max(0)
     }
 

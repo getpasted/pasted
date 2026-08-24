@@ -29,6 +29,10 @@ pub struct ExtractionResult {
     pub participants: Vec<ParticipantRun>,
     #[serde(skip)]
     pub(crate) observations: Vec<crate::content_analysis::ExtractionObservation>,
+    #[serde(skip)]
+    pub(crate) attempt_observations: Vec<crate::content_analysis::ExtractionObservation>,
+    #[serde(skip)]
+    pub(crate) attempt_contexts: Vec<crate::db::ExtractionAttemptContext>,
 }
 
 impl ExtractionResult {
@@ -48,6 +52,7 @@ impl ExtractionResult {
         };
         let produced = outcome == ExtractionResultOutcome::Produced;
         let observations = analysis.context.extraction_observations.clone();
+        let attempt_observations = observations.clone();
         Self {
             metadata: AnalysisMetadata::new(policy),
             target_kind: AnalysisTargetKind::Extractor,
@@ -64,6 +69,8 @@ impl ExtractionResult {
             failure: resolution.failure,
             participants: analysis.runs,
             observations,
+            attempt_observations,
+            attempt_contexts: Vec::new(),
         }
     }
 
@@ -145,6 +152,7 @@ pub fn analyze_files_with_extractors_and_registry(
     classifiers: Option<&[crate::content_classification::Classifier]>,
     registry: &ExtractorEngineRegistry<'_>,
 ) -> ExtractionResult {
+    let attempt_contexts = crate::analysis_attempt_policy::file_contexts(&paths, extractors);
     let report = crate::content_analysis::analyze(crate::content_analysis::AnalysisRequest {
         input: crate::content_analysis::AnalysisInput::Files {
             paths,
@@ -157,11 +165,13 @@ pub fn analyze_files_with_extractors_and_registry(
         classifiers,
         suggestion: None,
     });
-    ExtractionResult::from_report(
+    let mut result = ExtractionResult::from_report(
         selected_extractor(extractors, &report),
         AnalysisPolicy::Interactive,
         report,
-    )
+    );
+    result.attempt_contexts = attempt_contexts;
+    result
 }
 
 fn extractor_sources<'a>(
@@ -213,6 +223,7 @@ pub(crate) fn analyze_images_with_registry_and_policy(
     registry: &ExtractorEngineRegistry<'_>,
     policy: crate::analysis_contract::AnalysisPolicy,
 ) -> ExtractionResult {
+    let attempt_contexts = crate::analysis_attempt_policy::image_contexts(&image_bytes, extractors);
     let report = crate::content_analysis::analyze(crate::content_analysis::AnalysisRequest {
         input: crate::content_analysis::AnalysisInput::Image {
             image_bytes,
@@ -226,7 +237,10 @@ pub(crate) fn analyze_images_with_registry_and_policy(
         classifiers,
         suggestion: None,
     });
-    ExtractionResult::from_report(selected_extractor(extractors, &report), policy, report)
+    let mut result =
+        ExtractionResult::from_report(selected_extractor(extractors, &report), policy, report);
+    result.attempt_contexts = attempt_contexts;
+    result
 }
 
 #[cfg(test)]
@@ -307,7 +321,13 @@ fn persist_image_analysis(
             classification_updated: false,
         });
     }
-    db.record_extraction_observations(clip_id, content_hash, &analysis.observations)?;
+    db.record_extraction_observations_with_context(
+        clip_id,
+        content_hash,
+        &analysis.observations,
+        &analysis.attempt_observations,
+        &analysis.attempt_contexts,
+    )?;
 
     let classification_updated = if classification_enabled && analysis.output.is_some() {
         db.replace_analysis_classifications(
@@ -365,8 +385,13 @@ pub fn apply_file_analysis(
     classification_enabled: bool,
     analysis: ExtractionResult,
 ) -> rusqlite::Result<ExtractionApplicationResult> {
-    let observations_updated =
-        db.record_extraction_observations(clip_id, content_hash, &analysis.observations)?;
+    let observations_updated = db.record_extraction_observations_with_context(
+        clip_id,
+        content_hash,
+        &analysis.observations,
+        &analysis.attempt_observations,
+        &analysis.attempt_contexts,
+    )?;
     if analysis.outcome != ExtractionResultOutcome::Produced {
         return Ok(ExtractionApplicationResult::preview(analysis));
     }
@@ -585,6 +610,8 @@ mod tests {
             failure: None,
             participants: Vec::new(),
             observations: Vec::new(),
+            attempt_observations: Vec::new(),
+            attempt_contexts: Vec::new(),
         }
     }
 
@@ -727,6 +754,8 @@ mod tests {
                 },
             ],
             observations: Vec::new(),
+            attempt_observations: Vec::new(),
+            attempt_contexts: Vec::new(),
         });
         let expected = serde_json::from_str::<serde_json::Value>(include_str!(
             "../../contracts/analysis/v1/extractor-interactive-unavailable.json"

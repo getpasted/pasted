@@ -3,7 +3,12 @@ import { disable, enable } from '@tauri-apps/plugin-autostart';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import type { AppSettings, BlacklistApp } from '../types';
-import { DEFAULT_SETTINGS, parseSavedSettings, readCachedTheme } from '../appSettingsModel';
+import {
+  DEFAULT_SETTINGS,
+  parseSavedSettings,
+  readCachedTheme,
+} from '../appSettingsModel';
+import { isAnalysisFunctionalityEnabled } from '../appSettingsRetentionModel';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { FEATURE_SETTING_KEYS } from '../utils/features';
 import { setConfiguredLanguage } from '../localization/runtime';
@@ -183,6 +188,12 @@ export function useAppSettings() {
   useEffect(() => {
     if (settingsHydrated && appSettings.enableRevisions) invoke('enforce_revision_retention', { keepCount: appSettings.revisionHistoryLimit }).catch(console.error);
   }, [appSettings.enableRevisions, appSettings.revisionHistoryLimit, settingsHydrated]);
+
+  useEffect(() => {
+    if (settingsHydrated && isAnalysisFunctionalityEnabled(appSettings)) {
+      invoke('enforce_analysis_attempt_retention', { keepCount: appSettings.analysisAttemptsPerClip }).catch(console.error);
+    }
+  }, [appSettings.analysisAttemptsPerClip, appSettings.enableOcr, appSettings.enableTranscriptions, settingsHydrated]);
 
   useEffect(() => {
     if (settingsHydrated && appSettings.enableTrash) {
