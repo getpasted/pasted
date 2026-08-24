@@ -631,6 +631,7 @@
   "component.contentExtractorManagerDialog.assignedWhenSaved": "保存時に割り当てられます",
   "component.contentExtractorManagerDialog.automaticDiscovery": "自動検出",
   "component.contentExtractorManagerDialog.aiCanReviseThisRecipeAndProvideSetupStepsForThisSystem": "AI がこのレシピを修正し、このシステム向けのセットアップ手順を提案して、ローカルで再確認できます。",
+  "component.contentExtractorManagerDialog.aiCouldNotProducePreciseSetupSteps": "AI は正確なセットアップ手順を生成できませんでした。もう一度診断するか、依頼内容を修正してください。",
   "component.contentExtractorManagerDialog.available": "利用可能",
   "component.contentExtractorManagerDialog.builtInExtractorsRestored": "組み込みの抽出ツールを復元しました。",
   "component.contentExtractorManagerDialog.choose": "選択…",

@@ -8,6 +8,7 @@ import type {
   ExtractorRecipe,
   ExtractorRecipeProposal,
   ExtractorRepairOutcome,
+  ExtractorRepairStatus,
 } from '../components/contentExtractorModel';
 import { useToast } from '../components/ToastProvider';
 import { errorMessage } from '../utils/errors';
@@ -36,6 +37,7 @@ export function useExtractorAiAuthoring({
   const [generating, setGenerating] = useState(false);
   const [repairing, setRepairing] = useState(false);
   const [diagnostic, setDiagnostic] = useState<ExtractorDiagnosticReport | null>(null);
+  const [repairStatus, setRepairStatus] = useState<ExtractorRepairStatus | null>(null);
 
   const applyProposal = (proposal: ExtractorRecipeProposal | ExtractorRepairOutcome) => {
     setDraft((current) => ({
@@ -51,7 +53,10 @@ export function useExtractorAiAuthoring({
     setRecipe(proposal.recipe);
     setAuthoring(proposal.authoring);
     setSetupGuidance(proposal.setupGuidance);
-    if ('diagnostic' in proposal) setDiagnostic(proposal.diagnostic);
+    if ('diagnostic' in proposal) {
+      setDiagnostic(proposal.diagnostic);
+      setRepairStatus(proposal.status);
+    }
   };
 
   const repair = async (
@@ -99,7 +104,8 @@ export function useExtractorAiAuthoring({
     setAuthoring(null);
     setSetupGuidance([]);
     setDiagnostic(null);
+    setRepairStatus(null);
   };
 
-  return { clear, diagnostic, generate, generating, repair, repairing };
+  return { clear, diagnostic, generate, generating, repair, repairing, repairStatus };
 }

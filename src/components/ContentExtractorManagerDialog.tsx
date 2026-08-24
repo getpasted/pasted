@@ -53,6 +53,7 @@ export function ContentExtractorManagerDialog({
     recipeDraft,
     repairRecipe,
     repairing,
+    aiSetup,
     remove,
     resetDraft,
     restoreAll,
@@ -154,10 +155,10 @@ export function ContentExtractorManagerDialog({
               onOpenIntelligence={onOpenIntelligence}
             />
             <ExtractorAiSetupPanel
-              visible={setupGuidance.length > 0 || diagnostic !== null
-                || (selectedId !== 'new' && !runtimeConfigurationChanged && selected?.isAvailable === false)}
+              visible={aiSetup.visible}
               hasIntelligence={hasIntelligence}
               repairing={repairing}
+              guidanceIncomplete={aiSetup.guidanceIncomplete}
               diagnostic={diagnostic}
               setupGuidance={setupGuidance}
               onRepair={() => void repairRecipe()}

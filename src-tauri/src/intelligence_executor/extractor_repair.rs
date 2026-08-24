@@ -1,5 +1,10 @@
 use super::*;
 
+mod prompt;
+mod setup_guidance;
+
+use prompt::repair_prompt;
+
 const DEFAULT_REPAIR_ATTEMPTS: u8 = 3;
 const MAX_REPAIR_ATTEMPTS: u8 = 3;
 
@@ -22,6 +27,7 @@ pub struct RepairExtractorRecipeRequest {
 pub enum ExtractorRepairStatus {
     Ready,
     SetupRequired,
+    GuidanceIncomplete,
 }
 
 impl ExtractorRepairStatus {
@@ -29,6 +35,7 @@ impl ExtractorRepairStatus {
         match self {
             Self::Ready => "ready",
             Self::SetupRequired => "setup_required",
+            Self::GuidanceIncomplete => "guidance_incomplete",
         }
     }
 }
@@ -63,6 +70,7 @@ pub fn repair_extractor_recipe(
     let mut recipe = request.recipe;
     let mut diagnostic = crate::extractor_recipe::diagnose(&recipe);
     let mut setup_guidance = Vec::new();
+    let mut guidance_issues = Vec::new();
     let mut messages = vec![authoring_message(
         crate::extractor_recipe::ExtractorAuthoringRole::User,
         request
@@ -89,7 +97,6 @@ pub fn repair_extractor_recipe(
             Some(diagnostic_value),
         ));
         let prior_recipe = recipe.clone();
-        let prior_diagnostic = diagnostic.clone();
         let proposal = super::propose_extractor_recipe(
             db,
             super::ProposeExtractorRecipeRequest {
@@ -98,6 +105,8 @@ pub fn repair_extractor_recipe(
                     &description,
                     &recipe,
                     &diagnostic,
+                    &setup_guidance,
+                    &guidance_issues,
                     request.prompt.as_deref(),
                 )?,
                 connection_id: request.connection_id.clone(),
@@ -118,7 +127,8 @@ pub fn repair_extractor_recipe(
             crate::extractor_recipe::reset_preserving_local_paths(&prior_recipe, &proposal.recipe);
         setup_guidance = proposal.setup_guidance;
         diagnostic = crate::extractor_recipe::diagnose(&recipe);
-        if recipe == prior_recipe || diagnostic == prior_diagnostic {
+        guidance_issues = setup_guidance::precision_issues(&recipe, &diagnostic, &setup_guidance);
+        if diagnostic.is_available || guidance_issues.is_empty() {
             break;
         }
     }
@@ -127,7 +137,11 @@ pub fn repair_extractor_recipe(
         name,
         description,
         recipe,
-        setup_guidance,
+        setup_guidance: if guidance_issues.is_empty() {
+            setup_guidance
+        } else {
+            Vec::new()
+        },
         authoring: crate::extractor_recipe::ExtractorAuthoringManifest {
             manifest_version: crate::extractor_recipe::EXTRACTOR_AUTHORING_VERSION,
             source: crate::extractor_recipe::ExtractorAuthoringSource::Ai,
@@ -138,8 +152,10 @@ pub fn repair_extractor_recipe(
         },
         status: if diagnostic.is_available {
             ExtractorRepairStatus::Ready
-        } else {
+        } else if guidance_issues.is_empty() {
             ExtractorRepairStatus::SetupRequired
+        } else {
+            ExtractorRepairStatus::GuidanceIncomplete
         },
         diagnostic,
         attempts,
@@ -147,30 +163,6 @@ pub fn repair_extractor_recipe(
         connection_name,
         duration_ms,
     })
-}
-
-fn repair_prompt(
-    name: &str,
-    description: &str,
-    recipe: &crate::extractor_recipe::ExtractorRecipe,
-    diagnostic: &crate::extractor_recipe::ExtractorDiagnosticReport,
-    user_prompt: Option<&str>,
-) -> Result<String, IntelligenceExecutionError> {
-    let recipe = serde_json::to_string(&crate::extractor_recipe::without_local_paths(recipe))
-        .map_err(|error| {
-            IntelligenceExecutionError::new("recipe_serialization_failed", error.to_string())
-        })?;
-    let diagnostic = serde_json::to_string(diagnostic).map_err(|error| {
-        IntelligenceExecutionError::new("diagnostic_serialization_failed", error.to_string())
-    })?;
-    Ok(format!(
-        "Repair an existing local Pasted Extractor for the reported host. Prefer tools already discoverable on that host. If installation, model download, credentials, or file selection is required, preserve null local paths and provide exact OS-specific steps in setupGuidance. Never invent a path or claim setup succeeded. Do not add shell operators, network access at extraction time, or implicit installation. Return the complete revised recipe.\nUser request: {}\nName: {}\nDescription: {}\nCurrent recipe: {}\nStructured preflight: {}",
-        user_prompt.unwrap_or("Make this Extractor available."),
-        name,
-        description,
-        recipe,
-        diagnostic,
-    ))
 }
 
 #[cfg(test)]

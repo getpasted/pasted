@@ -631,6 +631,7 @@
   "component.contentExtractorManagerDialog.assignedWhenSaved": "Assigned when saved",
   "component.contentExtractorManagerDialog.automaticDiscovery": "Automatic discovery",
   "component.contentExtractorManagerDialog.aiCanReviseThisRecipeAndProvideSetupStepsForThisSystem": "AI can revise this recipe, suggest setup steps for this system, and recheck it locally.",
+  "component.contentExtractorManagerDialog.aiCouldNotProducePreciseSetupSteps": "AI could not produce precise setup steps. Diagnose again or revise the request.",
   "component.contentExtractorManagerDialog.available": "Available",
   "component.contentExtractorManagerDialog.builtInExtractorsRestored": "Built-in Extractors restored.",
   "component.contentExtractorManagerDialog.choose": "Choose…",

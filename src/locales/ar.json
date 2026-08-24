@@ -643,6 +643,7 @@
   "component.contentExtractorManagerDialog.assignedWhenSaved": "يتم تعيينه عند الحفظ",
   "component.contentExtractorManagerDialog.automaticDiscovery": "الاكتشاف التلقائي",
   "component.contentExtractorManagerDialog.aiCanReviseThisRecipeAndProvideSetupStepsForThisSystem": "يمكن للذكاء الاصطناعي مراجعة هذه الوصفة واقتراح خطوات إعداد لهذا النظام ثم إعادة التحقق منها محليًا.",
+  "component.contentExtractorManagerDialog.aiCouldNotProducePreciseSetupSteps": "تعذّر على الذكاء الاصطناعي إنشاء خطوات إعداد دقيقة. أعد التشخيص أو راجع الطلب.",
   "component.contentExtractorManagerDialog.available": "متاح",
   "component.contentExtractorManagerDialog.builtInExtractorsRestored": "تم استعادة المستخلصات المدمجة.",
   "component.contentExtractorManagerDialog.choose": "اختر…",

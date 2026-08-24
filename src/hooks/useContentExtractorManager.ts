@@ -153,6 +153,11 @@ export function useContentExtractorManager({
   );
   const runtimeConfigurationChanged = selected !== undefined
     && JSON.stringify(recipeDraft) !== JSON.stringify(selected.recipe);
+  const aiSetup = {
+    visible: setupGuidance.length > 0 || aiAuthoring.diagnostic !== null
+      || (selectedId !== 'new' && !runtimeConfigurationChanged && selected?.isAvailable === false),
+    guidanceIncomplete: aiAuthoring.repairStatus === 'guidance_incomplete',
+  };
   const unavailableReason = selected?.unavailableReason ?? 'The configured engine is unavailable.';
   const shortUnavailableReason = unavailableReason.match(/^.*?\.(?:\s|$)/)?.[0].trim()
     ?? unavailableReason;
@@ -407,6 +412,7 @@ export function useContentExtractorManager({
   };
 
   return {
+    aiSetup,
     authoringHistory,
     authoringPrompt,
     availabilityLabel,

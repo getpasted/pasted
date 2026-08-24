@@ -634,6 +634,7 @@
   "component.contentExtractorManagerDialog.assignedWhenSaved": "מוצב בעת שמירה",
   "component.contentExtractorManagerDialog.automaticDiscovery": "גילוי אוטומטי",
   "component.contentExtractorManagerDialog.aiCanReviseThisRecipeAndProvideSetupStepsForThisSystem": "בינה מלאכותית יכולה לעדכן את המתכון, להציע שלבי הגדרה למערכת זו ולבדוק אותו שוב באופן מקומי.",
+  "component.contentExtractorManagerDialog.aiCouldNotProducePreciseSetupSteps": "ה-AI לא הצליח ליצור שלבי הגדרה מדויקים. יש לאבחן שוב או לעדכן את הבקשה.",
   "component.contentExtractorManagerDialog.available": "זמין",
   "component.contentExtractorManagerDialog.builtInExtractorsRestored": "מחיצי ה-Extractors המובנים שוחזרים.",
   "component.contentExtractorManagerDialog.choose": "בחר…",

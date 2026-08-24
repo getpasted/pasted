@@ -631,6 +631,7 @@
   "component.contentExtractorManagerDialog.assignedWhenSaved": "Zugewiesen, wenn gespeichert",
   "component.contentExtractorManagerDialog.automaticDiscovery": "Automatische Entdeckung",
   "component.contentExtractorManagerDialog.aiCanReviseThisRecipeAndProvideSetupStepsForThisSystem": "Die KI kann dieses Rezept überarbeiten, Einrichtungsschritte für dieses System vorschlagen und es lokal erneut prüfen.",
+  "component.contentExtractorManagerDialog.aiCouldNotProducePreciseSetupSteps": "Die KI konnte keine genauen Einrichtungsschritte erstellen. Erneut diagnostizieren oder die Anfrage überarbeiten.",
   "component.contentExtractorManagerDialog.available": "Verfügbar",
   "component.contentExtractorManagerDialog.builtInExtractorsRestored": "Eingebaute Extraktoren wiederhergestellt.",
   "component.contentExtractorManagerDialog.choose": "Wählen Sie…",

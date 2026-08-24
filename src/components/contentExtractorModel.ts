@@ -170,9 +170,11 @@ export interface ExtractorDiagnosticReport {
   }>;
 }
 
+export type ExtractorRepairStatus = 'ready' | 'setup_required' | 'guidance_incomplete';
+
 export interface ExtractorRepairOutcome extends ExtractorRecipeProposal {
   diagnostic: ExtractorDiagnosticReport;
-  status: 'ready' | 'setup_required';
+  status: ExtractorRepairStatus;
   attempts: number;
   connectionId: string;
   durationMs: number;

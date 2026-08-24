@@ -18,6 +18,7 @@ export function ExtractorAiSetupPanel({
   visible,
   hasIntelligence,
   repairing,
+  guidanceIncomplete,
   diagnostic,
   setupGuidance,
   onRepair,
@@ -26,6 +27,7 @@ export function ExtractorAiSetupPanel({
   visible: boolean;
   hasIntelligence: boolean;
   repairing: boolean;
+  guidanceIncomplete: boolean;
   diagnostic: ExtractorDiagnosticReport | null;
   setupGuidance: string[];
   onRepair: () => void;
@@ -52,6 +54,9 @@ export function ExtractorAiSetupPanel({
     {!ready && setupGuidance.length > 0 && <ol className="list-decimal space-y-1 ps-5 text-[10px]">
       {setupGuidance.map((item) => <li key={item} dir="auto">{item}</li>)}
     </ol>}
+    {!ready && diagnostic && guidanceIncomplete && <p className="text-[10px] font-semibold">
+      {translate('component.contentExtractorManagerDialog.aiCouldNotProducePreciseSetupSteps')}
+    </p>}
     {!ready && <div className="flex justify-end">
       {hasIntelligence
         ? <AppDialogButton onClick={onRepair} disabled={repairing}>

@@ -631,6 +631,7 @@
   "component.contentExtractorManagerDialog.assignedWhenSaved": "Atribuído quando salvo",
   "component.contentExtractorManagerDialog.automaticDiscovery": "Descoberta automática",
   "component.contentExtractorManagerDialog.aiCanReviseThisRecipeAndProvideSetupStepsForThisSystem": "A IA pode revisar esta receita, sugerir etapas de configuração para este sistema e verificá-la novamente no dispositivo.",
+  "component.contentExtractorManagerDialog.aiCouldNotProducePreciseSetupSteps": "A IA não conseguiu gerar etapas de configuração precisas. Diagnostique novamente ou revise a solicitação.",
   "component.contentExtractorManagerDialog.available": "Disponível",
   "component.contentExtractorManagerDialog.builtInExtractorsRestored": "Extratores integrados restaurados.",
   "component.contentExtractorManagerDialog.choose": "Escolher…",
