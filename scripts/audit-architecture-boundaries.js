@@ -59,7 +59,11 @@ const operationDatabase = read('src-tauri/src/db/operations.rs');
 const retentionDatabase = read('src-tauri/src/db/retention.rs');
 const schemaDatabase = readRustModuleTree('src-tauri/src/db/schema.rs', 'src-tauri/src/db/schema');
 const sourceQueryDatabase = read('src-tauri/src/db/source_queries.rs');
-const storedAnalysisDatabase = read('src-tauri/src/db/stored_analysis.rs');
+const storedAnalysisFacade = read('src-tauri/src/db/stored_analysis.rs');
+const storedAnalysisDatabase = readRustModuleTree(
+  'src-tauri/src/db/stored_analysis.rs',
+  'src-tauri/src/db/stored_analysis',
+);
 const timestampDatabase = read('src-tauri/src/db/timestamps.rs');
 const transferDatabase = readRustModuleTree(
   'src-tauri/src/db/transfers.rs',
@@ -189,6 +193,12 @@ assert.match(storedAnalysisDatabase, /pub fn replace_clip_searchable_text/,
   'Searchable extraction results must remain centralized with stored analysis');
 assert.match(storedAnalysisDatabase, /pub fn record_extraction_observations/,
   'Extractor observation history must remain centralized with stored analysis');
+for (const owner of ['ocr', 'classifications', 'searchable_text', 'inspections', 'extractions']) {
+  assert.match(storedAnalysisFacade, new RegExp(`mod ${owner};`),
+    `Stored Analysis must delegate ${owner} persistence to its focused owner`);
+}
+assert.doesNotMatch(storedAnalysisFacade, /pub fn|impl DbState/,
+  'The Stored Analysis facade must remain a declaration-only integration surface');
 assert.doesNotMatch(read('src-tauri/src/db.rs'), /pub fn get_ocr_backfill_status/,
   'The database integration root must not reclaim stored analysis persistence');
 assert.match(binDatabase, /pub fn get_bins/,
@@ -675,7 +685,14 @@ const sizeRatchets = new Map([
   ['src-tauri/src/db/schema/migrations/settings.rs', 55],
   ['src-tauri/src/db/schema/migrations/transforms.rs', 415],
   ['src-tauri/src/db/source_queries.rs', 16],
-  ['src-tauri/src/db/stored_analysis.rs', 818],
+  ['src-tauri/src/db/stored_analysis.rs', 15],
+  ['src-tauri/src/db/stored_analysis/classifications.rs', 130],
+  ['src-tauri/src/db/stored_analysis/classifications/tests.rs', 75],
+  ['src-tauri/src/db/stored_analysis/extractions.rs', 190],
+  ['src-tauri/src/db/stored_analysis/extractions/tests.rs', 165],
+  ['src-tauri/src/db/stored_analysis/inspections.rs', 150],
+  ['src-tauri/src/db/stored_analysis/ocr.rs', 340],
+  ['src-tauri/src/db/stored_analysis/searchable_text.rs', 115],
   ['src-tauri/src/db/timestamps.rs', 131],
   ['src-tauri/src/db/transfers.rs', 10],
   ['src-tauri/src/db/transfers/clip_transfer.rs', 395],
@@ -687,7 +704,7 @@ const sizeRatchets = new Map([
   ['src-tauri/src/db/tests/bins_and_transforms.rs', 611],
   ['src-tauri/src/db/tests/capture_and_lifecycle.rs', 797],
   ['src-tauri/src/db/tests/full_backups.rs', 280],
-  ['src-tauri/src/db/tests/migrations_and_intelligence.rs', 1_422],
+  ['src-tauri/src/db/tests/migrations_and_intelligence.rs', 1_180],
   ['src-tauri/src/db/tests/portability_boundaries.rs', 50],
   ['src-tauri/src/db/tests/retention_and_activity.rs', 366],
   ['src-tauri/src/db/tests/revisions_and_mutations.rs', 495],
