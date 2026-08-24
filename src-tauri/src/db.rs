@@ -80,10 +80,7 @@ use schema::{
     retire_structural_content_type_entries, table_exists,
 };
 #[cfg(test)]
-use schema::{
-    migrate_legacy_semantic_clip_types, migrate_pipelines_to_saved_transforms,
-    run_named_migrations, NamedMigration,
-};
+use schema::{migrate_legacy_semantic_clip_types, migrate_pipelines_to_saved_transforms};
 pub use search_indexes::{SearchIndexEntry, SearchIndexStatus};
 use timestamps::{
     canonical_utc_timestamp, migrate_analysis_classification_timestamps,

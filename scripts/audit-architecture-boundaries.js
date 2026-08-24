@@ -57,7 +57,7 @@ const lifecycleDatabase = read('src-tauri/src/db/lifecycle.rs');
 const maintenanceDatabase = read('src-tauri/src/db/maintenance.rs');
 const operationDatabase = read('src-tauri/src/db/operations.rs');
 const retentionDatabase = read('src-tauri/src/db/retention.rs');
-const schemaDatabase = read('src-tauri/src/db/schema.rs');
+const schemaDatabase = readRustModuleTree('src-tauri/src/db/schema.rs', 'src-tauri/src/db/schema');
 const sourceQueryDatabase = read('src-tauri/src/db/source_queries.rs');
 const storedAnalysisDatabase = read('src-tauri/src/db/stored_analysis.rs');
 const timestampDatabase = read('src-tauri/src/db/timestamps.rs');
@@ -224,7 +224,7 @@ assert.match(retentionDatabase, /pub fn enforce_trash_limit_internal/,
   'Trash retention enforcement must remain centralized with retention configuration');
 assert.doesNotMatch(read('src-tauri/src/db.rs'), /pub fn enforce_history_limit_internal/,
   'The database integration root must not reclaim retention enforcement');
-assert.match(schemaDatabase, /pub\(super\) fn init_tables/,
+assert.match(schemaDatabase, /pub\(in crate::db\) fn init_tables/,
   'Database schema activation must remain in its focused schema subsystem');
 assert.match(schemaDatabase, /fn migrate_legacy_container_schema/,
   'Legacy database migrations must remain centralized with schema activation');
@@ -232,6 +232,27 @@ assert.match(schemaDatabase, /fn run_named_migrations/,
   'Atomic named migrations must remain centralized with schema activation');
 assert.doesNotMatch(read('src-tauri/src/db.rs'), /fn init_tables|struct NamedMigration|fn migrate_legacy_container_schema/,
   'The database integration root must not reclaim schema activation or migrations');
+const schemaFacade = read('src-tauri/src/db/schema.rs');
+for (const capability of ['canonical', 'helpers', 'library_items', 'migrations', 'registry', 'transformation_tables']) {
+  assert.match(schemaFacade, new RegExp(`mod ${capability}`),
+    `The schema facade must compose the ${capability} capability`);
+}
+assert.doesNotMatch(schemaFacade, /CREATE TABLE|fn init_tables|fn run_named_migrations/,
+  'The schema facade must not reclaim schema definitions or migration execution');
+const canonicalSchema = read('src-tauri/src/db/schema/canonical.rs');
+for (const phase of [
+  'initialize_clip_schema', 'initialize_organization_schema', 'init_transformation_tables',
+  'initialize_content_registry', 'initialize_extractor_registry', 'finalize_content_registry',
+]) {
+  assert.match(canonicalSchema, new RegExp(`${phase}\\(&conn\\)`),
+    `Canonical schema activation must retain the ordered ${phase} phase`);
+}
+const migrationRegistry = read('src-tauri/src/db/schema/registry.rs');
+assert.match(migrationRegistry, /const MIGRATIONS: &\[NamedMigration\]/,
+  'Named migration registration must have one ordered declarative owner');
+for (const key of ['appExclusionHotkeysV1', 'transformTerminologyV1', 'currentTransformationBackfillV1']) {
+  assert.match(migrationRegistry, new RegExp(key), `Named migration ${key} must remain registered`);
+}
 assert.match(lifecycleDatabase, /pub fn open_pasted_database/,
   'Shared database opening policy must remain in the database lifecycle subsystem');
 assert.match(lifecycleDatabase, /pub fn relocate_database/,
@@ -617,7 +638,23 @@ const sizeRatchets = new Map([
   ['src-tauri/src/db/maintenance.rs', 80],
   ['src-tauri/src/db/operations.rs', 377],
   ['src-tauri/src/db/retention.rs', 293],
-  ['src-tauri/src/db/schema.rs', 2_321],
+  ['src-tauri/src/db/schema.rs', 35],
+  ['src-tauri/src/db/schema/canonical.rs', 60],
+  ['src-tauri/src/db/schema/canonical/clips.rs', 280],
+  ['src-tauri/src/db/schema/canonical/content_compatibility.rs', 70],
+  ['src-tauri/src/db/schema/canonical/content_registry.rs', 205],
+  ['src-tauri/src/db/schema/canonical/extractors.rs', 265],
+  ['src-tauri/src/db/schema/canonical/organization.rs', 175],
+  ['src-tauri/src/db/schema/helpers.rs', 65],
+  ['src-tauri/src/db/schema/helpers/tests.rs', 30],
+  ['src-tauri/src/db/schema/library_items.rs', 300],
+  ['src-tauri/src/db/schema/registry.rs', 65],
+  ['src-tauri/src/db/schema/registry/tests.rs', 50],
+  ['src-tauri/src/db/schema/transformation_tables.rs', 340],
+  ['src-tauri/src/db/schema/migrations/analysis.rs', 220],
+  ['src-tauri/src/db/schema/migrations/core.rs', 85],
+  ['src-tauri/src/db/schema/migrations/settings.rs', 55],
+  ['src-tauri/src/db/schema/migrations/transforms.rs', 415],
   ['src-tauri/src/db/source_queries.rs', 16],
   ['src-tauri/src/db/stored_analysis.rs', 818],
   ['src-tauri/src/db/timestamps.rs', 131],
