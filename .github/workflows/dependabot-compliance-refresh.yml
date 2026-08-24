@@ -54,7 +54,7 @@ jobs:
 
       - name: Restore cargo-about
         id: cargo-about-cache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.cargo/bin/cargo-about
           key: cargo-about-0.9.1-${{ runner.os }}-${{ runner.arch }}
