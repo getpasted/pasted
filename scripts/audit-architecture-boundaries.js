@@ -68,6 +68,7 @@ const storedAnalysisDatabase = readRustModuleTree(
   'src-tauri/src/db/stored_analysis',
 );
 const timestampDatabase = read('src-tauri/src/db/timestamps.rs');
+const timestampMigrations = read('src-tauri/src/db/timestamps/migrations.rs');
 const transferDatabase = readRustModuleTree(
   'src-tauri/src/db/transfers.rs',
   'src-tauri/src/db/transfers',
@@ -386,8 +387,26 @@ assert.doesNotMatch(read('src-tauri/src/db.rs'), /pub struct ClipItem|fn clip_it
   'The database integration root must not reclaim clip records or hydration');
 assert.match(timestampDatabase, /fn canonical_utc_timestamp/,
   'Canonical UTC normalization must remain in the timestamp policy subsystem');
-assert.match(timestampDatabase, /fn migrate_canonical_timestamps/,
+assert.match(timestampMigrations, /fn migrate_canonical_timestamps/,
   'Legacy UTC migration must remain centralized with timestamp policy');
+assert.match(timestampMigrations, /fn migrate_analysis_transform_timestamps/,
+  'Analysis and Transform UTC migration must remain centralized with timestamp policy');
+assert.match(read('src-tauri/src/db/schema/registry.rs'),
+  /analysisTransformCanonicalTimestampsV1/,
+  'Analysis and Transform UTC normalization must remain a named migration');
+for (const path of [
+  'src-tauri/src/db/stored_analysis/classifications.rs',
+  'src-tauri/src/db/stored_analysis/extractions.rs',
+  'src-tauri/src/db/stored_analysis/inspections.rs',
+  'src-tauri/src/db/stored_analysis/searchable_text.rs',
+  'src-tauri/src/db/transforms/applications.rs',
+  'src-tauri/src/db/transforms/definitions.rs',
+  'src-tauri/src/db/transforms/executions.rs',
+  'src-tauri/src/db/transforms/manual.rs',
+]) {
+  assert.doesNotMatch(read(path), /CURRENT_TIMESTAMP/,
+    `${path} must write canonical UTC timestamps explicitly`);
+}
 assert.match(timestampDatabase, /fn normalize_library_archive_timestamps/,
   'Transfer timestamp normalization must remain centralized with timestamp policy');
 assert.doesNotMatch(read('src-tauri/src/db.rs'), /fn canonical_utc_timestamp|fn migrate_canonical_timestamps|fn normalize_library_archive_timestamps/,
@@ -818,7 +837,10 @@ const sizeRatchets = new Map([
   ['src-tauri/src/db/stored_analysis/inspections.rs', 150],
   ['src-tauri/src/db/stored_analysis/ocr.rs', 340],
   ['src-tauri/src/db/stored_analysis/searchable_text.rs', 115],
-  ['src-tauri/src/db/timestamps.rs', 131],
+  ['src-tauri/src/db/timestamps.rs', 65],
+  ['src-tauri/src/db/timestamps/migrations.rs', 155],
+  ['src-tauri/src/db/timestamps/migrations/tests.rs', 140],
+  ['src-tauri/src/db/timestamps/migrations/tests/registry.rs', 85],
   ['src-tauri/src/db/transfers.rs', 10],
   ['src-tauri/src/db/transfers/clip_transfer.rs', 395],
   ['src-tauri/src/db/transfers/library_export.rs', 155],

@@ -83,8 +83,8 @@ use schema::{
 use schema::{migrate_legacy_semantic_clip_types, migrate_pipelines_to_saved_transforms};
 pub use search_indexes::{SearchIndexEntry, SearchIndexStatus};
 use timestamps::{
-    canonical_utc_timestamp, migrate_analysis_classification_timestamps,
-    migrate_canonical_timestamps, normalize_library_archive_timestamps,
+    canonical_utc_timestamp, migrate_analysis_transform_timestamps, migrate_canonical_timestamps,
+    normalize_library_archive_timestamps,
 };
 pub use transforms::{
     ClipTransformationProvenance, Pipeline, PipelineStep, PipelineStepInput, SavedTransform,

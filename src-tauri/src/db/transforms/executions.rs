@@ -12,8 +12,9 @@ impl DbState {
         conn.execute(
             "INSERT INTO transformation_executions
                 (target_kind, target_ref, target_revision, source_clip_id,
-                 trigger_kind, destination_kind, input_hash)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                 trigger_kind, destination_kind, input_hash, started_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7,
+                     strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
             params![
                 request.target_kind,
                 request.target_ref,
@@ -47,7 +48,7 @@ impl DbState {
         conn.execute(
             "UPDATE transformation_executions
              SET duration_ms = ?1, status = ?2, output_hash = ?3, error_summary = ?4,
-                 completed_at = CURRENT_TIMESTAMP
+                 completed_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
              WHERE id = ?5",
             params![
                 duration_ms,
@@ -69,7 +70,8 @@ impl DbState {
         conn.execute(
             "UPDATE transformation_executions
              SET duration_ms = ?1, status = 'cancelled', output_hash = NULL,
-                 error_summary = NULL, completed_at = CURRENT_TIMESTAMP
+                 error_summary = NULL,
+                 completed_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
              WHERE id = ?2",
             params![duration_ms, execution_id],
         )?;

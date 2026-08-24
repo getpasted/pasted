@@ -39,15 +39,17 @@ impl DbState {
         if let Some(searchable_text) = searchable_text {
             transaction.execute(
                 "INSERT INTO clip_searchable_text
-                    (clip_id, extractor_ref, extractor_name, engine, input_hash, searchable_text)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+                    (clip_id, extractor_ref, extractor_name, engine, input_hash, searchable_text,
+                     updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6,
+                         strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
                  ON CONFLICT(clip_id) DO UPDATE SET
                     extractor_ref = excluded.extractor_ref,
                     extractor_name = excluded.extractor_name,
                     engine = excluded.engine,
                     input_hash = excluded.input_hash,
                     searchable_text = excluded.searchable_text,
-                    updated_at = CURRENT_TIMESTAMP",
+                    updated_at = excluded.updated_at",
                 params![
                     clip_id,
                     extractor.stable_ref,

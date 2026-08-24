@@ -145,6 +145,13 @@ fn full_backup_round_trip_covers_every_durable_table_and_interface_state() {
         .unwrap();
     assert!(external_state_notice.contains("paths to original files"));
     assert!(external_state_notice.contains("credential stores"));
+    backup_connection
+        .execute_batch(
+            "UPDATE clip_analysis_classifications SET updated_at = '2026-08-16 23:45:00';
+             DELETE FROM schema_migrations
+             WHERE key = 'analysisTransformCanonicalTimestampsV1';",
+        )
+        .unwrap();
     drop(backup_connection);
 
     db.save_setting("fullBackupSetting", "mutated").unwrap();
@@ -173,10 +180,9 @@ fn full_backup_round_trip_covers_every_durable_table_and_interface_state() {
     assert!(restored_clip.is_protected);
     assert!(db.get_bin(protected_bin.id).unwrap().protect_clips);
     assert!(!db.get_clip_versions(clip.id).unwrap().is_empty());
-    assert_eq!(
-        db.get_analysis_classifications(clip.id).unwrap()[0].content_type,
-        "prose"
-    );
+    let restored_classification = db.get_analysis_classifications(clip.id).unwrap().remove(0);
+    assert_eq!(restored_classification.content_type, "prose");
+    assert_eq!(restored_classification.updated_at, "2026-08-16T23:45:00Z");
     assert!(db
         .get_activity_logs(None, None)
         .unwrap()

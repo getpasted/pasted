@@ -1,5 +1,12 @@
 use crate::db::tests::setup_test_db;
 
+fn assert_canonical_timestamp(value: &str) {
+    assert_eq!(
+        crate::db::canonical_utc_timestamp(value, "Test").unwrap(),
+        value
+    );
+}
+
 #[test]
 fn extractor_observations_round_trip_per_clip_in_priority_order() {
     let db = setup_test_db();
@@ -39,6 +46,9 @@ fn extractor_observations_round_trip_per_clip_in_priority_order() {
         .unwrap());
     let stored = db.get_extraction_observations(clip.id).unwrap();
     assert_eq!(stored.len(), 2);
+    for observation in &stored {
+        assert_canonical_timestamp(&observation.updated_at);
+    }
     assert_eq!(stored[0].observation.extractor_ref, "extractor:first");
     assert_eq!(stored[1].observation.extractor_ref, "extractor:second");
     assert!(matches!(
@@ -64,6 +74,7 @@ fn extractor_observations_round_trip_per_clip_in_priority_order() {
         .unwrap());
     let history = db.get_extraction_history(clip.id, 101, 0).unwrap();
     assert_eq!(history.len(), 3);
+    assert_canonical_timestamp(&history[0].run_at);
     assert_eq!(history[0].observation.extractor_ref, "extractor:first");
     assert_ne!(history[0].run_id, history[1].run_id);
 }
@@ -89,6 +100,8 @@ fn permanent_clip_deletion_cascades_all_stored_analysis_records() {
         Some("searchable marker"),
     )
     .unwrap();
+    let searchable = db.get_clip_searchable_text(clip.id).unwrap().unwrap();
+    assert_canonical_timestamp(&searchable.updated_at);
     db.replace_analysis_classifications(
         clip.id,
         &clip.content_hash,
