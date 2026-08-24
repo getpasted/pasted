@@ -6,7 +6,10 @@ const read = (path) => fs.readFileSync(path, 'utf8');
 const englishCatalog = JSON.parse(read('src/locales/en.json'));
 const manualTransformEditor = read('src/components/ManualTransformEditorModal.tsx');
 const commands = readRustModuleTree('src-tauri/src/commands.rs', 'src-tauri/src/commands');
-const service = read('src-tauri/src/transformation_service.rs');
+const service = readRustModuleTree(
+  'src-tauri/src/transformation_service.rs',
+  'src-tauri/src/transformation_service',
+);
 const suggestion = read('src-tauri/src/content_suggestions.rs');
 const suggestionExecution = read('src-tauri/src/suggestion_execution.rs');
 const clipPreview = [
