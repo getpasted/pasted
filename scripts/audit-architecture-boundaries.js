@@ -585,6 +585,13 @@ const sizeRatchets = new Map([
   ['src-tauri/src/intelligence_executor/planning.rs', 205],
   ['src-tauri/src/intelligence_executor/saved_transforms.rs', 175],
   ['src-tauri/src/intelligence_executor/tests.rs', 455],
+  ['src-tauri/src/transformation_service.rs', 30],
+  ['src-tauri/src/transformation_service/cancellation.rs', 85],
+  ['src-tauri/src/transformation_service/compatibility.rs', 115],
+  ['src-tauri/src/transformation_service/contracts.rs', 155],
+  ['src-tauri/src/transformation_service/operations.rs', 180],
+  ['src-tauri/src/transformation_service/orchestration.rs', 300],
+  ['src-tauri/src/transformation_service/tests.rs', 450],
   ['src-tauri/src/commands/extraction/ocr_backfill.rs', 60],
   ['src-tauri/src/db/extractors/runtime.rs', 122],
   ['src-tauri/src/db/tests/extractor_recipes.rs', 105],
@@ -991,6 +998,21 @@ assert.match(read('src-tauri/src/intelligence_executor/execution.rs'), /pub fn e
   'Transform plan execution must remain in its focused capability');
 assert.match(read('src-tauri/src/intelligence_executor/saved_transforms.rs'), /pub fn execute_saved_transform/,
   'Saved and Smart Bin Transform execution must remain in its focused capability');
+const transformationServiceFacade = read('src-tauri/src/transformation_service.rs');
+for (const capability of ['cancellation', 'compatibility', 'contracts', 'operations', 'orchestration']) {
+  assert.match(transformationServiceFacade, new RegExp(`mod ${capability};`),
+    `The Transformation service must compose the ${capability} capability`);
+}
+assert.doesNotMatch(transformationServiceFacade, /fn execute_custom_operation|fn execute_direct_operation|static EXECUTION_CANCELLATIONS/,
+  'The Transformation service facade must not reclaim cancellation or execution implementation');
+assert.match(read('src-tauri/src/transformation_service/cancellation.rs'), /pub struct CancellationRegistration/,
+  'Transformation cancellation registration must remain in its focused capability');
+assert.match(read('src-tauri/src/transformation_service/operations.rs'), /fn execute_custom_operation/,
+  'Custom Operation execution must remain in the shared Operation capability');
+assert.match(read('src-tauri/src/transformation_service/orchestration.rs'), /pub fn execute_with_cancellation/,
+  'Transform execution orchestration must remain in its focused capability');
+assert.match(read('src-tauri/src/transformation_service/compatibility.rs'), /pub fn execute_shortcut_manual_transform/,
+  'Shortcut and last-Transform entry points must remain compatibility adapters');
 
 const centralizedCommands = [
   'get_activity_logs', 'clear_activity_logs', 'export_activity_json', 'export_activity_csv',
