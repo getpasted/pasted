@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Keyboard, MonitorCog, RotateCcw, ShieldCheck, TriangleAlert } from 'lucide-react';
+import { Keyboard, MonitorCog, ShieldCheck, TriangleAlert } from 'lucide-react';
 import type { AppSettings, Bin, ManualTransform } from '../types';
 import { transformsApi } from '../api/transforms';
 import { binsApi } from '../api/bins';
@@ -11,6 +11,10 @@ import { useToast } from './ToastProvider';
 import { ActionButton } from './AppDialogLayout';
 import { listen } from '@tauri-apps/api/event';
 import { translate } from '../localization/runtime';
+import { ConfirmationDialog, type ConfirmationDialogRequest } from './ConfirmationDialog';
+import { SettingsPanelResetNote } from './SettingsPanelResetNote';
+import { actionHotkeys, DEFAULT_HOTKEYS, hotkeyResetChanges, type HotkeySetting } from '../hotkeySettingsModel';
+import { SettingsResetChanges } from './SettingsResetChanges';
 
 interface SettingsHotkeysPanelProps {
   settings: AppSettings;
@@ -34,56 +38,6 @@ type HotkeyCapabilityStatus = {
 };
 type ClipHotkeyAssignment = { clipId: number; hotkey: string };
 let cachedHotkeyStatus: HotkeyCapabilityStatus | null = null;
-type HotkeySetting = keyof Pick<
-  AppSettings,
-  | 'seqToggleHotkey'
-  | 'seqPopHotkey'
-  | 'copyLastPipelineHotkey'
-  | 'pasteLastPipelineHotkey'
-  | 'openTransformationsHotkey'
-  | 'openMainWindowHotkey'
-  | 'lockAppHotkey'
-  | 'pasteClip1Hotkey'
-  | 'pasteClip2Hotkey'
-  | 'pasteClip3Hotkey'
-  | 'pasteClip4Hotkey'
-  | 'pasteClip5Hotkey'
-  | 'pasteClip6Hotkey'
-  | 'pasteClip7Hotkey'
-  | 'pasteClip8Hotkey'
-  | 'pasteClip9Hotkey'
->;
-
-const defaultHotkeys: Partial<AppSettings> = {
-  hudHotkey: 'Alt+Shift+V',
-  seqToggleHotkey: 'Alt+Shift+C',
-  seqPopHotkey: 'Alt+Shift+X',
-  copyLastPipelineHotkey: '',
-  pasteLastPipelineHotkey: '',
-  openTransformationsHotkey: '',
-  openMainWindowHotkey: '',
-  lockAppHotkey: 'Alt+Shift+L',
-  pasteClip1Hotkey: '',
-  pasteClip2Hotkey: '',
-  pasteClip3Hotkey: '',
-  pasteClip4Hotkey: '',
-  pasteClip5Hotkey: '',
-  pasteClip6Hotkey: '',
-  pasteClip7Hotkey: '',
-  pasteClip8Hotkey: '',
-  pasteClip9Hotkey: '',
-};
-
-const actionHotkeys: Array<{ label: string; key: HotkeySetting; fallback?: string; feature?: 'queue' | 'transformations' | 'appLock' }> = [
-  { get label() { return translate('component.settingsHotkeysPanel.toggleMainWindow'); }, key: 'openMainWindowHotkey' },
-  { get label() { return translate('component.settingsHotkeysPanel.lockApp'); }, key: 'lockAppHotkey', fallback: 'Alt+Shift+L', feature: 'appLock' },
-  { get label() { return translate('component.settingsHotkeysPanel.enableOrDisableQueue'); }, key: 'seqToggleHotkey', fallback: 'Alt+Shift+C', feature: 'queue' },
-  { get label() { return translate('component.settingsHotkeysPanel.pasteNextItemFromQueue'); }, key: 'seqPopHotkey', fallback: 'Alt+Shift+X', feature: 'queue' },
-  { get label() { return translate('component.settingsHotkeysPanel.copyWithLastAdvancedTransform'); }, key: 'copyLastPipelineHotkey', feature: 'transformations' },
-  { get label() { return translate('component.settingsHotkeysPanel.pasteWithLastAdvancedTransform'); }, key: 'pasteLastPipelineHotkey', feature: 'transformations' },
-  { get label() { return translate('component.settingsHotkeysPanel.openTransformations'); }, key: 'openTransformationsHotkey', feature: 'transformations' },
-];
-
 function HotkeyRow({ label, value, onChange }: { label: string; value: string | null; onChange: (value: string | null) => void }) {
   return (
     <div className="theme-divider flex items-center justify-between gap-3 border-b p-2.5 last:border-b-0">
@@ -104,6 +58,7 @@ export function SettingsHotkeysPanel({
   const { showToast } = useToast();
   const [hotkeyStatus, setHotkeyStatus] = useState<HotkeyCapabilityStatus | null>(cachedHotkeyStatus);
   const [clipHotkeys, setClipHotkeys] = useState<ClipHotkeyAssignment[]>([]);
+  const [confirmation, setConfirmation] = useState<ConfirmationDialogRequest | null>(null);
   const permissionRefreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refreshHotkeyStatus = async () => {
@@ -167,11 +122,11 @@ export function SettingsHotkeysPanel({
 
   const restoreDefaults = async () => {
     const previousValues = Object.fromEntries(
-      Object.keys(defaultHotkeys).map((key) => [key, settings[key as keyof AppSettings] ?? '']),
+      Object.keys(DEFAULT_HOTKEYS).map((key) => [key, settings[key as keyof AppSettings] ?? '']),
     ) as Partial<AppSettings>;
-    onUpdateSettings(defaultHotkeys);
+    onUpdateSettings(DEFAULT_HOTKEYS);
     try {
-      await invoke('register_app_setting_hotkeys', { values: defaultHotkeys });
+      await invoke('register_app_setting_hotkeys', { values: DEFAULT_HOTKEYS });
       await refreshHotkeyStatus();
       showToast({ tone: 'success', get message() { return translate('component.settingsHotkeysPanel.defaultHotkeysRestored'); } });
     } catch (error) {
@@ -179,6 +134,21 @@ export function SettingsHotkeysPanel({
       console.error('Failed to restore default hotkeys:', error);
       showToast({ tone: 'error', get message() { return translate('component.settingsHotkeysPanel.someDefaultHotkeysCouldNotBeRegistered'); } });
     }
+  };
+
+  const requestReset = () => {
+    const changes = hotkeyResetChanges(settings);
+    setConfirmation({
+      title: translate('component.settingsHotkeysPanel.resetHotkeys'),
+      description: translate('component.settingsResetChanges.description'),
+      details: <SettingsResetChanges changes={changes} />,
+      confirmLabel: translate('common.reset'),
+      confirmDisabled: changes.length === 0,
+      onConfirm: async () => {
+        setConfirmation(null);
+        await restoreDefaults();
+      },
+    });
   };
 
   const requestAccessibilityPermission = async () => {
@@ -243,12 +213,6 @@ export function SettingsHotkeysPanel({
         icon={Keyboard}
         title={translate('component.settingsHotkeysPanel.hotkeys')}
         description={translate('component.settingsHotkeysPanel.globalHotkeysBinActionsAndTransformTriggers')}
-        actions={(
-          <ActionButton onClick={() => void restoreDefaults()}>
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>{translate('common.reset')}</span>
-          </ActionButton>
-        )}
       />
 
       <div className="theme-surface p-3.5 rounded-xl border space-y-2.5">
@@ -381,6 +345,10 @@ export function SettingsHotkeysPanel({
           })}
         </div>
       </section>
+      <SettingsPanelResetNote onReset={requestReset}>
+        {translate('component.settingsHotkeysPanel.resetHotkeysNote')}
+      </SettingsPanelResetNote>
+      <ConfirmationDialog request={confirmation} onCancel={() => setConfirmation(null)} />
     </div>
   );
 }

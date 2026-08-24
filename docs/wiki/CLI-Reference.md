@@ -30,7 +30,7 @@ pasted retention [--count <number|unlimited>] [--days <number|forever>]
                  [--trash-count <number|unlimited>] [--trash-days <number|forever>]
                  [--log-count <number|unlimited>] [--log-days <number|forever>]
                  [--revision-count <number|unlimited>] [--json]
-pasted settings list|get|set [arguments] [--json]
+pasted settings list|get|set|reset [arguments] [--dry-run] [--json]
 pasted app-lock status|enable|change-passphrase|disable|lock|unlock [--stdin] [--json]
 pasted app-lock idle <never|1m|5m|1h|8h> [--stdin] [--json]
 pasted app-lock lock-on-sleep <on|off> [--stdin] [--json]
@@ -43,6 +43,8 @@ pasted recording status|pause|resume [--json]
 pasted queue status|start|stop|add|remove|order|paste|paste-all [arguments] [--json]
 pasted clear --yes [--json]
 ```
+
+`settings reset <page>` uses the same scoped defaults as the corresponding Settings footer. Supported pages are `general`, `notifications`, `hotkeys`, `app-exclusions`, `security`, `analysis`, and `intelligence`. Add `--dry-run` to inspect the effective changes without saving them. Security accepts `--stdin` when an actual reset requires App Lock authentication. Structured output reports the reset scope, whether it was a dry run, and the effective setting changes.
 
 `pasted search` uses the same query grammar, fuzzy case-insensitive collection-axis filters, Functionality gates, chronological ordering, and extracted-text index as Search in the app and Quick HUD. It is unavailable when Clip Search is disabled under Functionality; background indexing continues. `--clip`, `--content`, `--format`, and `--source` combine with helpers in the query. `--limit` accepts 1–500 items per page. `--json` returns `{ "schemaVersion": 1, "items", "totalCount", "limit", "offset" }`; each item keeps the stable snake-case Clip fields, and extracted OCR or transcript text is not returned. Offset pages reflect the current library, so restart at offset 0 after mutating clips between requests.
 

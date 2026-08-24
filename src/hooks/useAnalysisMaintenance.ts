@@ -6,7 +6,7 @@ import { useToast } from '../components/ToastProvider';
 import { useLocalization } from '../localization/LocalizationProvider';
 import { translate } from '../localization/runtime';
 import { errorMessage } from '../utils/errors';
-import { safeInvoke as invoke } from '../utils/tauri';
+import { useAnalysisReset } from './useAnalysisReset';
 
 interface AnalysisRescanReport {
   scannedCount: number;
@@ -29,7 +29,6 @@ export function useAnalysisMaintenance({
 }) {
   const { showToast } = useToast();
   const { locale } = useLocalization();
-  const [restoring, setRestoring] = useState(false);
   const [rescanning, setRescanning] = useState(false);
   const [confirmation, setConfirmation] = useState<ConfirmationDialogRequest | null>(null);
 
@@ -43,30 +42,10 @@ export function useAnalysisMaintenance({
     });
   };
 
-  const restoreAnalysisConfirmed = async () => {
-    setRestoring(true);
-    try {
-      await Promise.all([
-        invoke('restore_default_content_classifiers'),
-        invoke('restore_default_content_extractors'),
-        invoke('restore_default_content_types'),
-        invoke('restore_default_content_type_groups'),
-      ]);
-      await Promise.all([refreshContentTypes(), refreshGroups()]);
-      showToast({ tone: 'success', get message() { return translate('component.settingsAnalysisPanel.shippedAnalysisDefaultsRestoredCustomDefinitionsWerePreserved'); } });
-    } catch (error) {
-      showToast({ tone: 'error', message: errorMessage(error) });
-    } finally {
-      setRestoring(false);
-    }
-  };
-
-  const restoreAnalysis = () => requestConfirmation({
-    get title() { return translate('component.settingsAnalysisPanel.resetShippedAnalysisDefinitions'); },
-    get description() { return translate('component.settingsAnalysisPanel.shippedExtractorsClassifiersContentTypesAndContentTypeGroupsReturnToTheir'); },
-    details: translate('component.settingsAnalysisPanel.customDefinitionsRemainUnchanged'),
-    confirmLabel: translate('common.reset'),
-    onConfirm: restoreAnalysisConfirmed,
+  const { restoring, restoreAnalysis } = useAnalysisReset({
+    refreshContentTypes,
+    refreshGroups,
+    requestConfirmation,
   });
 
   const rescanHistoryConfirmed = async () => {

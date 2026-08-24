@@ -45,6 +45,7 @@ const TOOL_COPY_FILES = [
   'src/components/SettingsModal.tsx',
   'src/components/SettingsNotificationsPanel.tsx',
   'src/components/SettingsResetPanel.tsx',
+  'src/components/SettingsSecurityPanel.tsx',
   'src/components/SettingsSyncPanel.tsx',
   'src/components/SettingsSyncLibrarySection.tsx',
   'src/components/SettingsSyncExportSection.tsx',
@@ -107,7 +108,10 @@ const settingsImportExport = [
   'src/components/SettingsSyncImportSection.tsx',
 ].map((file) => fs.readFileSync(file, 'utf8')).join('\n');
 const settingsTabs = fs.readFileSync('src/components/SettingsTabs.tsx', 'utf8');
-const settingsHotkeys = fs.readFileSync('src/components/SettingsHotkeysPanel.tsx', 'utf8');
+const settingsHotkeys = [
+  'src/components/SettingsHotkeysPanel.tsx',
+  'src/hotkeySettingsModel.ts',
+].map((file) => fs.readFileSync(file, 'utf8')).join('\n');
 const settingsFeatures = fs.readFileSync('src/components/SettingsFeaturesPanel.tsx', 'utf8');
 const helpView = [
   'src/components/HelpView.tsx',
@@ -154,7 +158,12 @@ for (const file of canonicalAnalysisCopyFiles) {
     assert.ok(!source.includes(stale), `${file} must not use stale Analysis wording: ${stale}`);
   }
 }
-assert.match(settingsHotkeys, /translate\('common\.reset'\)/, 'Hotkeys must use the shared Reset label');
+assert.match(settingsHotkeys, /<SettingsPanelResetNote[^>]*onReset=\{requestReset\}/,
+  'Hotkeys must use the shared resettable Settings note well');
+assert.match(settingsHotkeys, /hotkeyResetChanges[\s\S]*<SettingsResetChanges/,
+  'Hotkeys Reset must preview only effective shortcut changes');
+assert.doesNotMatch(settingsHotkeys, /<SettingsPanelHeader[\s\S]{0,300}actions=/,
+  'Hotkeys must keep Reset in the shared footer instead of the panel header');
 const hotkeySectionKeys = [
   'component.settingsHotkeysPanel.actions',
   'component.settingsHotkeysPanel.customBinHotkeys',
@@ -201,7 +210,7 @@ for (const [file, labels] of Object.entries({
   'src/components/SettingsWelcomePanel.tsx': ['Open Copycat Welcome…'],
   'src/components/SettingsAboutPanel.tsx': ['Open Source Licenses…'],
   'src/components/SettingsAnalysisPanel.tsx': ['Rescan Clips…'],
-  'src/components/AnalysisLifecycleSequence.tsx': ['Manage {title}…', 'Reset…'],
+  'src/components/AnalysisLifecycleSequence.tsx': ['Manage {title}…'],
   'src/components/ClassifierManagerDialog.tsx': ['Delete…', 'Manage Content Types', 'Manage…', 'Reset…'],
   'src/components/ContentExtractorManagerDialog.tsx': ['Reset…'],
   'src/components/ExtractorRecipeEditor.tsx': ['Choose…'],
@@ -400,6 +409,12 @@ assert.deepEqual(
   [],
   `Structural UI labels must not end with colons; reserve them for inline key–value metadata:\n${structuralColonViolations.join('\n')}`,
 );
+const localizedSettingsColonViolations = Object.entries(englishCatalog)
+  .filter(([key, value]) => key.startsWith('component.settings') && typeof value === 'string' && value.endsWith(':'));
+assert.deepEqual(localizedSettingsColonViolations, [],
+  'Localized structural Settings labels must not end with colons');
+assert.equal(englishCatalog['component.settingsSecurityPanel.unlockUsingMethod'], 'Unlock using {method}',
+  'Settings labels must preserve sentence-case capitalization');
 
 const descriptionPunctuationViolations = [];
 const literalDescriptionPattern = /description=(?:"([^"]+)"|'([^']+)')/g;

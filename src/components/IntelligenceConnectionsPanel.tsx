@@ -9,6 +9,10 @@ import { SettingsPanelHeader } from './SettingsPanelHeader';
 import { OverflowText } from './OverflowText';
 import { ActionButton } from './AppDialogLayout';
 import { translate } from '../localization/runtime';
+import { ConfirmationDialog, type ConfirmationDialogRequest } from './ConfirmationDialog';
+import { SettingsPanelResetNote } from './SettingsPanelResetNote';
+import { SettingsResetChanges } from './SettingsResetChanges';
+import { intelligenceResetChanges } from '../intelligenceResetChanges';
 
 let cachedConnections: IntelligenceConnection[] | null = null;
 let cachedDetectedConnections: DetectedIntelligenceConnection[] | null = null;
@@ -22,6 +26,7 @@ export function IntelligenceConnectionsPanel() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(cachedConnections === null);
   const [hasDetectionResult, setHasDetectionResult] = useState(cachedDetectedConnections !== null);
+  const [confirmation, setConfirmation] = useState<ConfirmationDialogRequest | null>(null);
   const connectionListRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -109,6 +114,23 @@ export function IntelligenceConnectionsPanel() {
   const deleteConnection = async (id: string) => {
     await invoke('delete_intelligence_connection', { id });
     refresh();
+  };
+
+  const requestReset = () => {
+    const changes = intelligenceResetChanges(connections, detectedConnections);
+    setConfirmation({
+      title: translate('component.intelligenceConnectionsPanel.resetIntelligence'),
+      description: translate('component.settingsResetChanges.description'),
+      details: <SettingsResetChanges changes={changes} />,
+      confirmLabel: translate('common.reset'),
+      confirmDisabled: changes.length === 0,
+      onConfirm: async () => {
+        const reset = await invoke<IntelligenceConnection[]>('reset_intelligence_connections');
+        cachedConnections = reset;
+        setConnections(reset);
+        setConfirmation(null);
+      },
+    });
   };
 
   return (
@@ -215,6 +237,11 @@ export function IntelligenceConnectionsPanel() {
       </div>
 
       {error && <div className="theme-status-danger border rounded-xl px-3 py-2 text-xs">{error}</div>}
+
+      <SettingsPanelResetNote onReset={requestReset} disabled={isLoading}>
+        {translate('component.intelligenceConnectionsPanel.resetIntelligenceNote')}
+      </SettingsPanelResetNote>
+      <ConfirmationDialog request={confirmation} onCancel={() => setConfirmation(null)} />
 
       {isAddConnectionOpen && (
         <ConnectionModal

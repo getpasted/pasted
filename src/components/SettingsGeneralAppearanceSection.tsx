@@ -4,7 +4,6 @@ import { translate } from '../localization/runtime';
 import type { AppSettings } from '../types';
 import { MenuSelect } from './MenuSelect';
 import { SettingsSubsectionHeader } from './SettingsSubsectionHeader';
-
 const appearanceModes = [
   { value: 'system', get label() { return translate('common.system'); }, Icon: Laptop },
   { value: 'dark', get label() { return translate('component.settingsGeneralPanel.dark'); }, Icon: Moon },

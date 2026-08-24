@@ -190,6 +190,9 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
         "app-lock" => cli_commands::app_lock::run(&args, db_path, conn)?,
         "retention" => cli_commands::retention::run(&args, db_path, conn)?,
         "settings" | "setting" => cli_commands::settings::run(&args, db_path, conn)?,
+        "private-browsing" | "private-browser" => {
+            cli_commands::private_browsing::run(&args, db_path, conn)?
+        }
         "recording" | "capture" => cli_commands::live_app::run_recording(&args)?,
         "queue" => cli_commands::live_app::run_queue(&args)?,
         "activity" => cli_commands::activity::run(&args, db_path, conn)?,

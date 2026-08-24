@@ -41,7 +41,10 @@ const database = readRustModuleTree('src-tauri/src/db.rs', 'src-tauri/src/db');
 const types = [read('src/types.ts'), read('src/appSettingsTypes.ts')].join('\n');
 const analysisSettingsShell = read('src/components/SettingsAnalysisPanel.tsx');
 const analysisLifecycle = read('src/components/AnalysisLifecycleSequence.tsx');
-const analysisMaintenance = read('src/hooks/useAnalysisMaintenance.ts');
+const analysisMaintenance = [
+  read('src/hooks/useAnalysisMaintenance.ts'),
+  read('src/hooks/useAnalysisReset.ts'),
+].join('\n');
 const classifierManagerFiles = [
   'src/hooks/useClassifierManager.ts',
   'src/components/ClassifierManagerDialog.tsx',
@@ -110,10 +113,14 @@ assert.match(
   'Suggest must follow the enabled lifecycle stages',
 );
 assert.match(
-  analysisLifecycle,
+  analysisSettingsShell,
   /translate\('component\.settingsAnalysisPanel\.notAllStepsRunForAllClipsSomeStepsMayBeLong'\)/,
   'Analysis Settings must explain that the ordered passes are conditional',
 );
+assert.match(analysisSettingsShell, /<SettingsPanelResetNote[^>]*onReset=\{restoreAnalysis\}/,
+  'Analysis reset must use the shared page-footer action');
+assert.match(analysisMaintenance, /analysisResetChanges[\s\S]*SettingsResetChanges/,
+  'Analysis Reset must preview modified shipped definitions before restoring them');
 assert.match(settingsModal, /activeTab === 'analysis' && \(\s*<SettingsAnalysisPanel/,
   'Analysis Settings must remain available when optional participants are disabled');
 assert.doesNotMatch(settingsModal, /showAnalysis=/,
@@ -200,6 +207,8 @@ assert.ok(lineCount('src/components/AnalysisLifecycleSequence.tsx') <= 113,
   'The Analysis lifecycle surface must stay within its extracted size boundary');
 assert.ok(lineCount('src/hooks/useAnalysisMaintenance.ts') <= 126,
   'Analysis maintenance workflows must stay within their extracted size boundary');
+assert.ok(lineCount('src/hooks/useAnalysisReset.ts') <= 65,
+  'Analysis reset preview and execution must stay within their extracted size boundary');
 assert.ok(lineCount('src/components/classifierModel.ts') <= 95,
   'Classifier data and draft policy must stay within its extracted size boundary');
 assert.match(analysisSettingsShell, /<ClassifierManagerDialog/,
@@ -228,10 +237,10 @@ for (const command of [
     `The global Analysis restore must include ${command}`,
   );
 }
-assert.match(analysisSettingsShell, /onReset=\{restoreAnalysis\}/,
-  'Analysis Settings must connect the global restore workflow to the lifecycle surface');
-assert.match(analysisLifecycle, /<ActionButton onClick=\{onReset\}[\s\S]{0,180}translate\('component\.settingsAnalysisPanel\.reset'\)/,
-  'Analysis Settings must expose one global Reset action');
+assert.match(analysisSettingsShell, /<SettingsPanelResetNote[^>]*onReset=\{restoreAnalysis\}/,
+  'Analysis Settings must expose one global Reset action in its page footer');
+assert.doesNotMatch(analysisLifecycle, /onReset|RotateCcw/,
+  'The Analysis lifecycle diagram must remain independent from page-level reset behavior');
 
 function commandBlock(command) {
   const start = frontendMock.indexOf(`case '${command}':`);
@@ -341,7 +350,7 @@ assert.match(builtinLifecycleManager, /captureStableReferenceUsage[\s\S]{0,200}p
 for (const [label, manager] of [['Extractor', extractorManager], ['Classifier', classifierManager]]) {
   assert.equal((manager.match(/<RegistryPanelFooter/g) ?? []).length, 2,
     `${label} management must keep item actions and form actions in their owning panels`);
-  assert.match(manager, /<AppDialogFooter[\s\S]*translate\('component\.(?:contentExtractorManagerDialog|settingsAnalysisPanel)\.reset'\)[\s\S]*translate\('common\.close'\)/,
+  assert.match(manager, /<AppDialogFooter[\s\S]*translate\('(?:component\.contentExtractorManagerDialog\.reset|common\.resetWithEllipsis)'\)[\s\S]*translate\('common\.close'\)/,
     `${label} management must keep scoped restore and close actions in the modal footer`);
   assert.match(manager, /discardDraftThen[\s\S]*ConfirmationDialog/,
     `${label} management must protect edited drafts with the shared confirmation UI`);

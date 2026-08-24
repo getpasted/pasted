@@ -1,5 +1,9 @@
 mod analysis;
+mod app_lock_policy;
 mod lifecycle_policy;
 mod portability_library;
+mod private_browsing;
 mod registry_authoring;
+mod settings_page_reset;
+mod settings_reset_dry_run;
 mod support;

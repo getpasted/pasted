@@ -1,4 +1,4 @@
-import { Clipboard, Lightbulb, Radar, RotateCcw, ScanSearch, ScanText, Search, type LucideIcon } from 'lucide-react';
+import { Clipboard, Lightbulb, Radar, ScanSearch, ScanText, Search, type LucideIcon } from 'lucide-react';
 
 import { translate } from '../localization/runtime';
 import { ActionButton } from './AppDialogLayout';
@@ -34,27 +34,23 @@ export function AnalysisLifecycleSequence({
   contentClassificationEnabled,
   searchEnabled,
   transformationsEnabled,
-  restoring,
   onOpenCapture,
   onOpenInspector,
   onOpenExtractor,
   onOpenIndex,
   onOpenClassifier,
   onOpenSuggestion,
-  onReset,
   typesEnabled,
 }: {
   contentClassificationEnabled: boolean;
   searchEnabled: boolean;
   transformationsEnabled: boolean;
-  restoring: boolean;
   onOpenCapture: () => void;
   onOpenInspector: () => void;
   onOpenExtractor: () => void;
   onOpenIndex: () => void;
   onOpenClassifier: () => void;
   onOpenSuggestion: () => void;
-  onReset: () => void;
   typesEnabled: boolean;
 }) {
   const classificationEnabled = contentClassificationEnabled || typesEnabled;
@@ -102,12 +98,6 @@ export function AnalysisLifecycleSequence({
         description={translate('component.settingsAnalysisPanel.suggestActionsFromAnalysisSignals')}
         onManage={onOpenSuggestion}
       />}
-    </div>
-    <div className="theme-divider flex items-center justify-between gap-3 border-t px-3 py-2">
-      <ActionButton onClick={onReset} disabled={restoring}>
-        <RotateCcw className="h-3.5 w-3.5" /> {restoring ? translate('component.settingsAnalysisPanel.resetting') : translate('component.settingsAnalysisPanel.reset')}
-      </ActionButton>
-      <p className="theme-text-muted text-end text-[10px]">{translate('component.settingsAnalysisPanel.notAllStepsRunForAllClipsSomeStepsMayBeLong')}</p>
     </div>
   </section>;
 }

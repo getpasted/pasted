@@ -1,18 +1,9 @@
 import type { MockClip } from './models';
+import type { IntelligenceConnection, IntelligenceProviderKind } from '../../types';
 import { unhandledValue } from './result';
+import { detectedIntelligenceConnections } from './intelligenceDetectedConnections';
 
-let mockIntelligenceConnections: Array<{
-  id: string;
-  name: string;
-  providerKind: string;
-  endpoint: string | null;
-  model: string | null;
-  credentialRef: string | null;
-  enabled: boolean;
-  priority: number;
-  createdAt: string;
-  updatedAt: string;
-}> = [];
+let mockIntelligenceConnections: IntelligenceConnection[] = [];
 
 let mockSavedTransforms: Array<Record<string, unknown>> = [];
 let mockClipTransformations = new Map<number, Record<string, unknown>>();
@@ -48,12 +39,7 @@ export async function invokeIntelligenceBrowserMock<T>(
         .sort((left, right) => left.priority - right.priority)
         .map((connection) => ({ ...connection })) as unknown as T;
     case 'detect_intelligence_connections': {
-      const detected = [
-        { adapterId: 'codex_cli', name: 'Codex CLI', providerKind: 'cli', executablePath: '/opt/homebrew/bin/codex', defaultEndpoint: null, version: 'codex-cli', capabilities: ['structured_output', 'json_events', 'local_models'], executionSupported: true },
-        { adapterId: 'claude_cli', name: 'Claude CLI', providerKind: 'cli', executablePath: '/opt/homebrew/bin/claude', defaultEndpoint: null, version: 'claude', capabilities: ['non_interactive', 'structured_output'], executionSupported: false },
-        { adapterId: 'ollama', name: 'Ollama', providerKind: 'ollama', executablePath: '/opt/homebrew/bin/ollama', defaultEndpoint: 'http://127.0.0.1:11434', version: 'ollama', capabilities: ['local', 'openai_compatible'], executionSupported: false },
-        { adapterId: 'antigravity_ide', name: 'Antigravity IDE', providerKind: 'cli', executablePath: '/Applications/Antigravity IDE.app/Contents/Resources/app/bin/antigravity-ide', defaultEndpoint: null, version: 'Antigravity IDE', capabilities: ['interactive_chat', 'mcp_client'], executionSupported: false },
-      ];
+      const detected = detectedIntelligenceConnections;
       for (const candidate of detected) {
         const endpoint = candidate.providerKind === 'cli' ? candidate.executablePath : candidate.defaultEndpoint;
         if (mockIntelligenceConnections.some((connection) => connection.providerKind === candidate.providerKind && connection.endpoint === endpoint)) continue;
@@ -78,7 +64,7 @@ export async function invokeIntelligenceBrowserMock<T>(
       const connection = {
         id: `mock-connection-${Date.now()}`,
         name: String(args?.name || 'AI Connection'),
-        providerKind: String(args?.providerKind || 'ollama'),
+        providerKind: String(args?.providerKind || 'ollama') as IntelligenceProviderKind,
         endpoint: typeof args?.endpoint === 'string' ? args.endpoint : null,
         model: typeof args?.model === 'string' ? args.model : null,
         credentialRef: typeof args?.credentialRef === 'string' ? args.credentialRef : null,
@@ -94,7 +80,7 @@ export async function invokeIntelligenceBrowserMock<T>(
       const connection = mockIntelligenceConnections.find((item) => item.id === args?.id);
       if (connection) {
         connection.name = String(args?.name || connection.name);
-        connection.providerKind = String(args?.providerKind || connection.providerKind);
+        connection.providerKind = String(args?.providerKind || connection.providerKind) as IntelligenceProviderKind;
         connection.endpoint = typeof args?.endpoint === 'string' ? args.endpoint : null;
         connection.model = typeof args?.model === 'string' ? args.model : null;
         connection.credentialRef = typeof args?.credentialRef === 'string' ? args.credentialRef : null;
@@ -114,6 +100,18 @@ export async function invokeIntelligenceBrowserMock<T>(
       });
       return null as unknown as T;
     }
+    case 'reset_intelligence_connections':
+      {
+        const detectedPriority = new Map(detectedIntelligenceConnections.map((candidate, priority) => [
+          `${candidate.providerKind}\0${candidate.providerKind === 'cli' ? candidate.executablePath : candidate.defaultEndpoint}`,
+          priority,
+        ]));
+      mockIntelligenceConnections = mockIntelligenceConnections
+        .sort((left, right) => (detectedPriority.get(`${left.providerKind}\0${left.endpoint}`) ?? detectedPriority.size + left.priority)
+          - (detectedPriority.get(`${right.providerKind}\0${right.endpoint}`) ?? detectedPriority.size + right.priority))
+        .map((connection, priority) => ({ ...connection, enabled: false, priority }));
+      return mockIntelligenceConnections.map((connection) => ({ ...connection })) as unknown as T;
+      }
     case 'execute_transformation': {
       const request = args?.request as { input?: string; target?: { kind?: string; transformRef?: string; operationRef?: string } } | undefined;
       const input = request?.input || '';

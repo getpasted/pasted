@@ -24,6 +24,7 @@ interface SettingsModalProps {
   onAddBlacklistApp: (appName: string) => void;
   onRemoveBlacklistApp: (appId: string) => void;
   onToggleBlacklistRule: (appId: string, rule: 'ignoreText' | 'ignoreImages' | 'ignoreFiles' | 'ignoreHotkeys') => void;
+  onResetBlacklistApps: () => void;
   manualTransforms?: ManualTransform[];
   onRefreshManualTransforms?: () => void;
   bins?: Bin[];
@@ -46,6 +47,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onAddBlacklistApp,
   onRemoveBlacklistApp,
   onToggleBlacklistRule,
+  onResetBlacklistApps,
   manualTransforms = [],
   onRefreshManualTransforms,
   bins = [],
@@ -152,6 +154,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             onAddApp={onAddBlacklistApp}
             onRemoveApp={onRemoveBlacklistApp}
             onToggleRule={onToggleBlacklistRule}
+            onResetApps={onResetBlacklistApps}
+            settings={settings}
+            onUpdateSettings={onUpdateSettings}
           />
         )}
 

@@ -40,7 +40,6 @@ export function AppDestinationView({
   } = navigation;
   const { resetColumnWidths } = layout;
   const { handleSidebarNavigate, handleRestoreAllTrashedClips } = handlers;
-
   if (currentTab === 'transformations') {
     return <TransformationsView
       manualTransforms={manualTransforms}
@@ -63,6 +62,7 @@ export function AppDestinationView({
     onAddBlacklistApp={handleAddBlacklistApp}
     onRemoveBlacklistApp={handleRemoveBlacklistApp}
     onToggleBlacklistRule={handleToggleBlacklistRule}
+    onResetBlacklistApps={settings.handleResetBlacklistApps}
     onRefreshManualTransforms={fetchManualTransforms}
     bins={bins}
     onRefreshBins={fetchBins}

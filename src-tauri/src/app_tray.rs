@@ -7,7 +7,6 @@ use tauri::{
 
 use crate::db::DbState;
 
-const DEFAULT_TRAY_ICON_STYLE: &str = "clipboard";
 const COPYCAT_TRAY_ICON_STYLE: &str = "copycat";
 
 fn load_tray_icon(style: &str) -> Result<tauri::image::Image<'static>, image::ImageError> {
@@ -92,9 +91,11 @@ pub(crate) fn install(
     #[cfg(target_os = "macos")]
     let tray_icon_style = db
         .get_setting("menubarIconStyle")?
-        .unwrap_or_else(|| DEFAULT_TRAY_ICON_STYLE.to_string());
+        .or_else(|| crate::settings_contract::default_value("menubarIconStyle"))
+        .expect("menu bar icon style must have a contract default");
     #[cfg(not(target_os = "macos"))]
-    let tray_icon_style = DEFAULT_TRAY_ICON_STYLE.to_string();
+    let tray_icon_style = crate::settings_contract::default_value("menubarIconStyle")
+        .expect("menu bar icon style must have a contract default");
 
     let tray_icon = match load_tray_icon(&tray_icon_style) {
         Ok(icon) => icon,

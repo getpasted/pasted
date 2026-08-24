@@ -74,13 +74,20 @@ pub fn start_clipboard_monitor(
         while running_clone.load(Ordering::Relaxed) {
             thread::sleep(Duration::from_millis(300));
 
-            let active_app_opt = crate::paste_target::active_application_name();
+            let inspect_private_mode = crate::private_browsing::is_enabled(&db_state);
+            let active_context =
+                crate::paste_target::active_application_context(inspect_private_mode);
+            let active_app_opt = active_context.as_ref().map(|context| context.name.clone());
             let exclusion_rules = crate::app_exclusions::load_rules(&db_state);
             let active_exclusion = active_app_opt.as_deref().and_then(|active_app| {
                 crate::app_exclusions::matching_rule(&exclusion_rules, active_app)
             });
+            let private_browser_excluded = active_context
+                .as_ref()
+                .is_some_and(|context| crate::private_browsing::should_exclude(&db_state, context));
             let fully_excluded_app = active_app_opt.as_ref().filter(|_| {
-                active_exclusion.is_some_and(crate::app_exclusions::ignores_all_capture)
+                private_browser_excluded
+                    || active_exclusion.is_some_and(crate::app_exclusions::ignores_all_capture)
             });
 
             // Only a rule that excludes every capture kind presents as a full recording pause.

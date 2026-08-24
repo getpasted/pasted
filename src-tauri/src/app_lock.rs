@@ -10,6 +10,11 @@ use std::time::{Duration, Instant};
 
 use crate::db::DbState;
 
+mod platform_auth;
+pub use platform_auth::{
+    platform_auth_available, platform_auth_label, platform_authenticate, SystemAuthMethod,
+};
+
 pub const ENABLED_SETTING: &str = "appLockEnabled";
 pub const VERIFIER_SETTING: &str = "appLockVerifier";
 pub const LEGACY_BIOMETRIC_SETTING: &str = "appLockBiometricEnabled";
@@ -19,32 +24,14 @@ pub const IDLE_MINUTES_SETTING: &str = "appLockIdleMinutes";
 pub const LOCK_ON_SLEEP_SETTING: &str = "appLockOnSleep";
 pub const LOCK_ON_RESTART_SETTING: &str = "appLockOnRestart";
 pub const CAPTURE_WHILE_LOCKED_SETTING: &str = "appLockCaptureWhileLocked";
-#[cfg(any(target_os = "macos", test))]
-const AUTH_FAILED_ERROR: &str = "app_lock_auth_failed";
-#[cfg(any(target_os = "macos", test))]
-const AUTH_WATCH_FAILED_ERROR: &str = "app_lock_auth_watch_failed";
-#[cfg(any(target_os = "macos", test))]
-const AUTH_WATCH_UNAVAILABLE_ERROR: &str = "app_lock_auth_watch_unavailable";
-#[cfg(target_os = "macos")]
-const AUTH_TIMEOUT_ERROR: &str = "app_lock_auth_timeout";
+pub const DEFAULT_IDLE_MINUTES: u32 = 5;
 
 pub fn is_private_setting(key: &str) -> bool {
-    key == VERIFIER_SETTING
+    crate::settings_contract::is_private(key)
 }
 
 pub fn is_managed_setting(key: &str) -> bool {
-    matches!(
-        key,
-        ENABLED_SETTING
-            | VERIFIER_SETTING
-            | LEGACY_BIOMETRIC_SETTING
-            | SYSTEM_AUTH_SETTING
-            | APPLE_WATCH_SETTING
-            | IDLE_MINUTES_SETTING
-            | LOCK_ON_SLEEP_SETTING
-            | LOCK_ON_RESTART_SETTING
-            | CAPTURE_WHILE_LOCKED_SETTING
-    )
+    crate::settings_contract::is_managed(key)
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -158,32 +145,23 @@ pub fn status(db: &DbState, state: &AppLockState) -> AppLockStatus {
             .flatten()
             .and_then(|value| value.parse().ok())
             .filter(|value| matches!(value, 0 | 1 | 5 | 60 | 480))
-            .unwrap_or(5),
-        lock_on_sleep: db
-            .get_setting(LOCK_ON_SLEEP_SETTING)
-            .ok()
-            .flatten()
-            .as_deref()
-            != Some("false"),
+            .or_else(|| {
+                crate::settings_contract::default_u64(IDLE_MINUTES_SETTING)
+                    .map(|value| value as u32)
+            })
+            .unwrap_or(DEFAULT_IDLE_MINUTES),
+        lock_on_sleep: setting_bool(db, LOCK_ON_SLEEP_SETTING),
         lock_on_restart: lock_on_restart(db),
         capture_while_locked: capture_while_locked(db),
     }
 }
 
 pub fn lock_on_restart(db: &DbState) -> bool {
-    db.get_setting(LOCK_ON_RESTART_SETTING)
-        .ok()
-        .flatten()
-        .as_deref()
-        != Some("false")
+    setting_bool(db, LOCK_ON_RESTART_SETTING)
 }
 
 pub fn capture_while_locked(db: &DbState) -> bool {
-    db.get_setting(CAPTURE_WHILE_LOCKED_SETTING)
-        .ok()
-        .flatten()
-        .as_deref()
-        != Some("false")
+    setting_bool(db, CAPTURE_WHILE_LOCKED_SETTING)
 }
 
 pub fn capture_allowed(db: &DbState, state: &AppLockState) -> bool {
@@ -282,6 +260,13 @@ pub fn set_idle_minutes(db: &DbState, minutes: u32) -> Result<(), String> {
     Ok(())
 }
 
+pub fn reset_policy(db: &DbState) -> Result<(), String> {
+    db.save_settings(&crate::settings_contract::dedicated_reset_defaults(
+        "security",
+    ))
+    .map_err(|error| error.to_string())
+}
+
 pub fn verify(db: &DbState, passphrase: &str) -> Result<bool, String> {
     let Some(encoded) = db
         .get_setting(VERIFIER_SETTING)
@@ -308,7 +293,12 @@ pub fn validate_passphrase(passphrase: &str) -> Result<(), String> {
 }
 
 fn setting_bool(db: &DbState, key: &str) -> bool {
-    db.get_setting(key).ok().flatten().as_deref() == Some("true")
+    db.get_setting(key)
+        .ok()
+        .flatten()
+        .map(|value| value == "true")
+        .or_else(|| crate::settings_contract::default_bool(key))
+        .unwrap_or(false)
 }
 
 fn setting_bool_with_legacy(db: &DbState, key: &str) -> bool {
@@ -316,203 +306,6 @@ fn setting_bool_with_legacy(db: &DbState, key: &str) -> bool {
         Some(value) => value == "true",
         None => setting_bool(db, LEGACY_BIOMETRIC_SETTING),
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SystemAuthMethod {
-    Primary,
-    AppleWatch,
-}
-
-#[cfg(any(target_os = "macos", test))]
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct NativeAuthError {
-    domain: String,
-    code: i64,
-}
-
-#[cfg(any(target_os = "macos", test))]
-fn classify_native_auth_result(
-    method: SystemAuthMethod,
-    success: bool,
-    error: Option<NativeAuthError>,
-) -> Result<bool, String> {
-    if success {
-        return Ok(true);
-    }
-    let Some(error) = error else {
-        return Err(AUTH_FAILED_ERROR.to_string());
-    };
-    let is_local_auth = error.domain == "com.apple.LocalAuthentication";
-    if is_local_auth && matches!(error.code, -2 | -3 | -4 | -9) {
-        return Ok(false);
-    }
-    if method == SystemAuthMethod::AppleWatch && is_local_auth && matches!(error.code, -11 | -1000)
-    {
-        return Err(AUTH_WATCH_UNAVAILABLE_ERROR.to_string());
-    }
-    if method == SystemAuthMethod::AppleWatch && is_local_auth && error.code == -1 {
-        return Err(AUTH_WATCH_FAILED_ERROR.to_string());
-    }
-    Err(AUTH_FAILED_ERROR.to_string())
-}
-
-#[cfg(target_os = "macos")]
-pub fn platform_auth_label() -> &'static str {
-    "Touch ID"
-}
-
-#[cfg(target_os = "windows")]
-pub fn platform_auth_label() -> &'static str {
-    "Windows Hello"
-}
-
-#[cfg(target_os = "linux")]
-pub fn platform_auth_label() -> &'static str {
-    "System authentication"
-}
-
-#[cfg(target_os = "macos")]
-pub fn platform_auth_available(method: SystemAuthMethod) -> bool {
-    macos_auth(method, false).unwrap_or(false)
-}
-
-#[cfg(target_os = "windows")]
-pub fn platform_auth_available(method: SystemAuthMethod) -> bool {
-    if !matches!(method, SystemAuthMethod::Primary) {
-        return false;
-    }
-    use windows::Security::Credentials::UI::{
-        UserConsentVerifier, UserConsentVerifierAvailability,
-    };
-    UserConsentVerifier::CheckAvailabilityAsync()
-        .and_then(|operation| operation.join())
-        .is_ok_and(|availability| availability == UserConsentVerifierAvailability::Available)
-}
-
-#[cfg(target_os = "linux")]
-pub fn platform_auth_available(_method: SystemAuthMethod) -> bool {
-    false
-}
-
-#[cfg(target_os = "macos")]
-pub fn platform_authenticate(
-    method: SystemAuthMethod,
-    _window_handle: Option<isize>,
-) -> Result<bool, String> {
-    macos_auth(method, true)
-}
-
-#[cfg(target_os = "windows")]
-pub fn platform_authenticate(
-    method: SystemAuthMethod,
-    window_handle: Option<isize>,
-) -> Result<bool, String> {
-    if !matches!(method, SystemAuthMethod::Primary) {
-        return Err("That authentication method is not available on Windows.".to_string());
-    }
-    use windows::core::{factory, HSTRING};
-    use windows::Security::Credentials::UI::{UserConsentVerificationResult, UserConsentVerifier};
-    use windows::Win32::Foundation::HWND;
-    use windows::Win32::System::WinRT::IUserConsentVerifierInterop;
-    use windows_future::IAsyncOperation;
-    let window_handle =
-        window_handle.ok_or_else(|| "The Pasted window is unavailable.".to_string())?;
-    let interop = factory::<UserConsentVerifier, IUserConsentVerifierInterop>()
-        .map_err(|error| format!("Windows Hello is unavailable: {error}"))?;
-    let operation: IAsyncOperation<UserConsentVerificationResult> = unsafe {
-        interop.RequestVerificationForWindowAsync(
-            HWND(window_handle as *mut std::ffi::c_void),
-            &HSTRING::from("Unlock Pasted"),
-        )
-    }
-    .map_err(|error| format!("Windows Hello could not start: {error}"))?;
-    let result = operation
-        .join()
-        .map_err(|error| format!("Windows Hello could not finish: {error}"))?;
-    Ok(result == UserConsentVerificationResult::Verified)
-}
-
-#[cfg(target_os = "linux")]
-pub fn platform_authenticate(
-    _method: SystemAuthMethod,
-    _window_handle: Option<isize>,
-) -> Result<bool, String> {
-    Err("Desktop system authentication is not available in this Linux session.".to_string())
-}
-
-#[cfg(target_os = "macos")]
-fn macos_auth(method: SystemAuthMethod, evaluate: bool) -> Result<bool, String> {
-    use block2::RcBlock;
-    use objc::runtime::{Object, BOOL, YES};
-    use objc::{class, msg_send, sel, sel_impl};
-    use objc2::runtime::Bool;
-    use std::sync::mpsc;
-
-    // macOS owns enrollment and returns only success or failure; Pasted receives
-    // no fingerprint or companion data. Policy 3 is the companion-device policy,
-    // formerly named the Apple Watch policy before macOS 15.
-    let policy: i64 = match method {
-        SystemAuthMethod::Primary => 1,
-        SystemAuthMethod::AppleWatch => 3,
-    };
-    #[link(name = "LocalAuthentication", kind = "framework")]
-    extern "C" {}
-    unsafe {
-        let context: *mut Object = msg_send![class!(LAContext), new];
-        if context.is_null() {
-            return Ok(false);
-        }
-        let mut error: *mut Object = std::ptr::null_mut();
-        let available: BOOL = msg_send![context, canEvaluatePolicy: policy error: &mut error];
-        if !evaluate {
-            let _: () = msg_send![context, release];
-            return Ok(available == YES);
-        }
-        if available != YES {
-            let result = classify_native_auth_result(method, false, macos_error(error.cast()));
-            let _: () = msg_send![context, release];
-            return result;
-        }
-
-        let reason: *mut Object =
-            msg_send![class!(NSString), stringWithUTF8String: c"Unlock Pasted".as_ptr()];
-        let (sender, receiver) = mpsc::sync_channel(1);
-        let reply: RcBlock<dyn Fn(Bool, *mut std::ffi::c_void)> =
-            RcBlock::new(move |success: Bool, error: *mut std::ffi::c_void| {
-                let _ = sender.send((success.as_bool(), macos_error(error)));
-            });
-        let _: () =
-            msg_send![context, evaluatePolicy: policy localizedReason: reason reply: &*reply];
-        let received = receiver.recv_timeout(Duration::from_secs(120));
-        if received.is_err() {
-            let _: () = msg_send![context, invalidate];
-        }
-        let _: () = msg_send![context, release];
-        let (success, error) = received.map_err(|_| AUTH_TIMEOUT_ERROR.to_string())?;
-        classify_native_auth_result(method, success, error)
-    }
-}
-
-#[cfg(target_os = "macos")]
-unsafe fn macos_error(error: *mut std::ffi::c_void) -> Option<NativeAuthError> {
-    use objc::runtime::Object;
-    use objc::{msg_send, sel, sel_impl};
-    use std::ffi::CStr;
-
-    let error = error.cast::<Object>();
-    if error.is_null() {
-        return None;
-    }
-    let code: i64 = msg_send![error, code];
-    let domain: *mut Object = msg_send![error, domain];
-    let domain_utf8: *const std::ffi::c_char = msg_send![domain, UTF8String];
-    let domain = if domain_utf8.is_null() {
-        String::new()
-    } else {
-        CStr::from_ptr(domain_utf8).to_string_lossy().into_owned()
-    };
-    Some(NativeAuthError { domain, code })
 }
 
 #[cfg(test)]
@@ -532,35 +325,6 @@ mod tests {
         assert!(!encoded.contains("correct horse battery staple"));
         assert!(verify(&db, "correct horse battery staple").unwrap());
         assert!(!verify(&db, "wrong passphrase").unwrap());
-    }
-
-    #[test]
-    fn native_auth_outcomes_distinguish_cancellation_and_watch_failures() {
-        let local_auth = |code| NativeAuthError {
-            domain: "com.apple.LocalAuthentication".to_string(),
-            code,
-        };
-        assert!(classify_native_auth_result(SystemAuthMethod::AppleWatch, true, None).unwrap());
-        assert!(!classify_native_auth_result(
-            SystemAuthMethod::AppleWatch,
-            false,
-            Some(local_auth(-2)),
-        )
-        .unwrap());
-        assert_eq!(
-            classify_native_auth_result(
-                SystemAuthMethod::AppleWatch,
-                false,
-                Some(local_auth(-11)),
-            )
-            .unwrap_err(),
-            AUTH_WATCH_UNAVAILABLE_ERROR
-        );
-        assert_eq!(
-            classify_native_auth_result(SystemAuthMethod::AppleWatch, false, Some(local_auth(-1)),)
-                .unwrap_err(),
-            AUTH_WATCH_FAILED_ERROR
-        );
     }
 
     #[test]
@@ -597,6 +361,35 @@ mod tests {
         set_bool_policy(&db, LOCK_ON_SLEEP_SETTING, false).unwrap();
         assert!(!status(&db, &AppLockState::from_db(&db)).lock_on_sleep);
         assert!(set_bool_policy(&db, ENABLED_SETTING, false).is_err());
+    }
+
+    #[test]
+    fn policy_reset_restores_defaults_without_removing_credentials() {
+        let db = db();
+        configure(&db, "remembered").unwrap();
+        db.save_settings(&std::collections::HashMap::from([
+            (SYSTEM_AUTH_SETTING.to_string(), "true".to_string()),
+            (APPLE_WATCH_SETTING.to_string(), "true".to_string()),
+            (IDLE_MINUTES_SETTING.to_string(), "60".to_string()),
+            (LOCK_ON_SLEEP_SETTING.to_string(), "false".to_string()),
+            (LOCK_ON_RESTART_SETTING.to_string(), "false".to_string()),
+            (
+                CAPTURE_WHILE_LOCKED_SETTING.to_string(),
+                "false".to_string(),
+            ),
+        ]))
+        .unwrap();
+
+        reset_policy(&db).unwrap();
+        let status = status(&db, &AppLockState::from_db(&db));
+        assert!(status.enabled);
+        assert!(!status.system_auth_enabled);
+        assert!(!status.apple_watch_enabled);
+        assert_eq!(status.idle_minutes, DEFAULT_IDLE_MINUTES);
+        assert!(status.lock_on_sleep);
+        assert!(status.lock_on_restart);
+        assert!(status.capture_while_locked);
+        assert!(verify(&db, "remembered").unwrap());
     }
 
     #[test]

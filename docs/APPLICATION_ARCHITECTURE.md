@@ -21,6 +21,17 @@ shortcuts, platform capabilities, and paste automation.
 Rust and TypeScript registries are checked in so native and frontend builds do
 not require a generation step.
 
+`shared/settings-contract.json` is the canonical persisted-settings registry.
+It assigns every setting an owner, typed default, reset behavior, visibility,
+mutation boundary, and validation policy. The frontend derives first-launch and
+change-preview defaults from it, while `settings_contract.rs` provides the Rust
+validation and repeatable page-reset API. Settings with dedicated domain work,
+such as Security, Analysis, and Intelligence, declare that strategy explicitly;
+factory reset remains a separate atomic deletion of the complete settings table.
+The CLI uses the same reset plan for mutating resets and `--dry-run` previews.
+`npm run test:architecture` rejects unregistered `AppSettings` fields, duplicate
+ownership, incomplete reset defaults, or frontend/native contract drift.
+
 The IPC audit requires every frontend invocation to have exactly one registered
 Tauri command and an explicit browser implementation. Browser mode fails closed
 for unknown commands.
@@ -96,6 +107,7 @@ behavior.
 | Epic root | Adapter | Application service | Persistence | Platform boundary |
 | --- | --- | --- | --- | --- |
 | Native crate bootstrap (`lib.rs`) | `lib.rs` registers Tauri plugins and commands and composes lifecycle callbacks. | `app_runtime.rs` owns initialization order and run events; `app_windows.rs` owns reveal and window lifecycle; `app_tray.rs` owns tray behavior. | `db::DbState` is constructed by `app_runtime.rs`; bootstrap does not implement storage. | Tauri window, tray, menu, single-instance, and run-event APIs stay in the three `app_*` owners. |
+| Settings contract (`shared/settings-contract.json`) | GUI settings clients and CLI Settings commands translate values and page identifiers. | `settings_contract.rs` owns defaults, validation, visibility, mutation ownership, and repeatable scoped reset plans; dedicated page services consume its defaults where applicable. | `settings_service.rs` applies direct setting changes atomically; `db/lifecycle.rs` independently owns destructive factory reset. | OS-facing reactions such as autostart, shortcuts, tray presentation, and window appearance remain in the native adapter after a validated mutation. |
 | Clipboard monitor (`clipboard_monitor.rs`) | `clipboard_monitor.rs` polls the system clipboard and coordinates pause and acquisition state. | `clipboard_capture_policy.rs` owns deterministic selection and source policy; `clipboard_ingestion/{text,files,image}.rs` own payload-specific capture workflows. | Ingestion uses the focused `db/capture.rs` and clip owners through `DbState`; the monitor never writes clip rows directly. | `arboard`, active-application lookup, macOS pasteboard change markers, and Tauri capture feedback remain at the monitor/policy edges. |
 | Extraction runtime (`content_extraction.rs`) | GUI `commands/{extraction,extractors}.rs` and CLI `cli/commands/{extractors,analyzer}.rs` translate requests. | `content_analysis.rs` schedules participants and `extraction_execution.rs` translates results; `content_extraction.rs` owns the cohesive extraction contract and definitions. | `db/extractors/` owns definitions and runtime configuration; `db/stored_analysis/{extractions,searchable_text,ocr}.rs` own derived results and lifecycle state. | `content_extraction/engine_runtime/{apple_vision,tesseract,whisper,custom_command,discovery}.rs` own executable discovery and engine execution. |
 | Intelligence executor (`intelligence_executor.rs`) | GUI `commands/intelligence.rs` and CLI connection, Extractor, Suggestion, and Transform adapters map transport. | `intelligence_executor/{connections,planning,execution,extractor_authoring,saved_transforms}.rs` own selection, scheduling, authoring, and execution policy. | `db/intelligence_connections.rs`, `db/extractors/`, and `db/transforms/` own the durable definitions selected or produced by those workflows. | `intelligence_provider.rs` owns provider transport and `intelligence_scheduler.rs` owns bounded provider concurrency. |

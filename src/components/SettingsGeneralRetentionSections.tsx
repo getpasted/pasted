@@ -4,7 +4,6 @@ import type { AppSettings } from '../types';
 import { ActionButton } from './AppDialogLayout';
 import { MenuSelect } from './MenuSelect';
 import { SettingsSubsectionHeader } from './SettingsSubsectionHeader';
-
 interface SelectOption {
   value: string;
   label: string;

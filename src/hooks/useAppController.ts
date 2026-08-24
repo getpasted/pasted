@@ -38,6 +38,7 @@ export function useAppController() {
     addBlacklistApp: handleAddBlacklistApp,
     removeBlacklistApp: handleRemoveBlacklistApp,
     toggleBlacklistRule: handleToggleBlacklistRule,
+    resetBlacklistApps: handleResetBlacklistApps,
   } = useAppSettings();
   const enabledFeatures = useMemo(() => enabledFeatureRecord(appSettings), [appSettings]);
 
@@ -439,7 +440,7 @@ export function useAppController() {
   const draggedPreviewClip = findDraggedPreviewClip(clipDragPreview, displayedClips, allClips);
   return {
     shell: { direction, enabledFeatures, appSettings, settingsHydrated, initialDataLoaded },
-    settings: { blacklistApps, handleUpdateSettings, handleAddBlacklistApp, handleRemoveBlacklistApp, handleToggleBlacklistRule },
+    settings: { blacklistApps, handleUpdateSettings, handleAddBlacklistApp, handleRemoveBlacklistApp, handleToggleBlacklistRule, handleResetBlacklistApps },
     data: {
       allClips, trashedClips, bins, manualTransforms, seqStatus, totalClipCount, totalTrashCount,
       clipCollectionSummary, isClipboardPaused, ignoredAppStatus, fetchClips, fetchTrashedClips,

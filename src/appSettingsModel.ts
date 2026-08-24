@@ -1,70 +1,49 @@
 import type { AppSettings } from './types';
+import { DEFAULT_CAPTURE_POLICY_SETTINGS, savedCapturePolicySettings } from './appSettingsCapturePolicyModel';
 import { isConfiguredLanguage } from './localization/runtime';
 import { clampAppZoom } from './utils/appZoom';
 import {
-  DEFAULT_ANALYSIS_ATTEMPTS_PER_CLIP,
-  DEFAULT_REVISION_HISTORY_LIMIT,
   storedRetentionNumber,
 } from './appSettingsRetentionModel';
+import { DEFAULT_NOTIFICATION_SETTINGS } from './appSettingsSectionDefaults';
+import { DEFAULT_GENERAL_SETTINGS } from './generalSettingsDefaults';
+import { settingDefault } from './settingsContract.ts';
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  onboardingVersion: 0,
-  language: 'system',
-  textSize: 16,
-  enableSounds: true,
-  captureFeedback: true,
-  captureFeedbackIgnored: false,
-  captureFeedbackPreview: false,
-  captureFeedbackPosition: 'top-right',
-  captureFeedbackDismissSeconds: 7,
-  openAtLogin: true,
-  dockMenubarIcon: 'both',
-  menubarIconStyle: 'clipboard',
-  maxClipSizeMb: 100,
-  filePreviewMode: 'safe',
-  filePreviewMaxMb: 25,
-  keepClipCount: 1000,
-  keepClipAgeDays: 0,
-  revisionHistoryLimit: DEFAULT_REVISION_HISTORY_LIMIT,
-  analysisAttemptsPerClip: DEFAULT_ANALYSIS_ATTEMPTS_PER_CLIP,
-  alwaysPastePlainText: false,
-  rowHeight: 'medium',
-  startupView: 'last_active',
-  themeMode: 'system',
-  enableActivityLog: true,
-  activityLogCapacity: 1000,
-  activityLogAgeDays: 0,
-  enableTrash: true,
-  trashCapacityCount: 500,
-  trashAgeDays: 0,
-  enableAnalytics: true,
-  enableBins: true,
-  enableClipTypes: true,
-  enableFileFormats: true,
-  enableContentClassification: true,
-  enableConcealment: true,
-  enableNaming: true,
-  enableNotes: true,
-  enableNotifications: true,
-  enableAppLock: true,
-  enableOcr: true,
-  enableTranscriptions: true,
-  enablePinning: true,
-  enableProtection: true,
-  enableQueue: true,
-  enableRevisions: true,
-  enableHud: true,
-  enableHotkeys: true,
-  enableTransformations: true,
-  enableTypes: true,
-  enableSources: true,
-  enableSearch: true,
-  enableCli: true,
-  enableHelp: true,
-  hudHotkey: 'Alt+Shift+V',
-  seqToggleHotkey: 'Alt+Shift+C',
-  seqPopHotkey: 'Alt+Shift+X',
-  lockAppHotkey: 'Alt+Shift+L',
+  onboardingVersion: settingDefault('onboardingVersion'),
+  ...DEFAULT_GENERAL_SETTINGS,
+  ...DEFAULT_NOTIFICATION_SETTINGS,
+  ...DEFAULT_CAPTURE_POLICY_SETTINGS,
+  enableActivityLog: settingDefault('enableActivityLog'),
+  enableTrash: settingDefault('enableTrash'),
+  enableAnalytics: settingDefault('enableAnalytics'),
+  enableBins: settingDefault('enableBins'),
+  enableClipTypes: settingDefault('enableClipTypes'),
+  enableFileFormats: settingDefault('enableFileFormats'),
+  enableContentClassification: settingDefault('enableContentClassification'),
+  enableConcealment: settingDefault('enableConcealment'),
+  enableNaming: settingDefault('enableNaming'),
+  enableNotes: settingDefault('enableNotes'),
+  enableNotifications: settingDefault('enableNotifications'),
+  enableAppLock: settingDefault('enableAppLock'),
+  enableOcr: settingDefault('enableOcr'),
+  enableTranscriptions: settingDefault('enableTranscriptions'),
+  enablePinning: settingDefault('enablePinning'),
+  enableProtection: settingDefault('enableProtection'),
+  enableQueue: settingDefault('enableQueue'),
+  enableRevisions: settingDefault('enableRevisions'),
+  enableHud: settingDefault('enableHud'),
+  enableHotkeys: settingDefault('enableHotkeys'),
+  enableTransformations: settingDefault('enableTransformations'),
+  enableTypes: settingDefault('enableTypes'),
+  enableSources: settingDefault('enableSources'),
+  enableSearch: settingDefault('enableSearch'),
+  enableCli: settingDefault('enableCli'),
+  enableHelp: settingDefault('enableHelp'),
+  hudHotkey: settingDefault('hudHotkey'),
+  seqToggleHotkey: settingDefault('seqToggleHotkey'),
+  seqPopHotkey: settingDefault('seqPopHotkey'),
+  lockAppHotkey: settingDefault('lockAppHotkey'),
 };
 
 export function parseSavedSettings(saved: Record<string, string>): AppSettings {
@@ -98,7 +77,7 @@ export function parseSavedSettings(saved: Record<string, string>): AppSettings {
   if (saved.keepClipAgeDays !== undefined) next.keepClipAgeDays = Math.max(0, numberValue('keepClipAgeDays', next.keepClipAgeDays));
   if (saved.revisionHistoryLimit !== undefined) next.revisionHistoryLimit = storedRetentionNumber(saved, 'revisionHistoryLimit', next.revisionHistoryLimit);
   if (saved.analysisAttemptsPerClip !== undefined) next.analysisAttemptsPerClip = storedRetentionNumber(saved, 'analysisAttemptsPerClip', next.analysisAttemptsPerClip);
-  if (saved.alwaysPastePlainText !== undefined) next.alwaysPastePlainText = saved.alwaysPastePlainText === 'true';
+  Object.assign(next, savedCapturePolicySettings(saved));
   if (['small', 'medium', 'large'].includes(saved.rowHeight)) next.rowHeight = saved.rowHeight as AppSettings['rowHeight'];
   if (['last_active', 'clip_history'].includes(saved.startupView)) next.startupView = saved.startupView as AppSettings['startupView'];
   if (['system', 'cool', 'dark', 'warm', '2894', 'sauced', 'vampire', 'flux', '808'].includes(saved.themeMode)) next.themeMode = saved.themeMode as AppSettings['themeMode'];

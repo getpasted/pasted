@@ -76,12 +76,14 @@ pub mod paste_automation;
 #[cfg(feature = "gui")]
 mod paste_target;
 pub mod platform_capabilities;
+pub mod private_browsing;
 #[cfg(feature = "gui")]
 pub mod queue_actions;
 pub mod resource_limits;
 #[cfg(feature = "gui")]
 mod sequential_paste;
 pub mod settings_activity;
+pub mod settings_contract;
 pub mod settings_service;
 pub mod smart_bins;
 pub mod storage_protection;
@@ -208,6 +210,7 @@ pub fn run() {
             commands::app_lock::set_app_lock_lock_on_sleep,
             commands::app_lock::set_app_lock_lock_on_restart,
             commands::app_lock::set_app_lock_capture_while_locked,
+            commands::app_lock::reset_app_lock_policy,
             commands::platform::set_linux_native_menu_theme,
             commands::platform::set_overlay_cursor,
             commands::retention::enforce_clip_retention,
@@ -258,6 +261,7 @@ pub fn run() {
             commands::update_intelligence_connection,
             commands::delete_intelligence_connection,
             commands::reorder_intelligence_connections,
+            commands::reset_intelligence_connections,
             commands::propose_extractor_recipe,
             commands::plan_transformation_intent,
             commands::test_transformation_plan,

@@ -73,7 +73,8 @@ fn prefetch_previews(context: &CaptureContext<'_>, paths: Vec<String>, hash: Str
         .ok()
         .flatten()
         .filter(|mode| matches!(mode.as_str(), "off" | "safe" | "all"))
-        .unwrap_or_else(|| "safe".to_string());
+        .or_else(|| crate::settings_contract::default_value("filePreviewMode"))
+        .expect("file preview mode must have a contract default");
     if preview_mode == "off" {
         return;
     }
@@ -83,7 +84,8 @@ fn prefetch_previews(context: &CaptureContext<'_>, paths: Vec<String>, hash: Str
         .ok()
         .flatten()
         .and_then(|value| value.parse::<u64>().ok())
-        .unwrap_or(25)
+        .or_else(|| crate::settings_contract::default_u64("filePreviewMaxMb"))
+        .expect("file preview size must have a contract default")
         .clamp(1, 64);
     let app = context.app.clone();
     thread::spawn(move || {

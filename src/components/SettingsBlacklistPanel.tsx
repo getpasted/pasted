@@ -1,25 +1,31 @@
 import { useRef, useState } from 'react';
 import { Check, ChevronDown, Lock, Plus, Trash2 } from 'lucide-react';
-import type { BlacklistApp } from '../types';
+import type { AppSettings, BlacklistApp } from '../types';
 import { AddBlacklistAppModal } from './AddBlacklistAppModal';
 import { AnchoredMenu, MenuDivider, MenuItem } from './AnchoredMenu';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
 import { OverflowText } from './OverflowText';
 import { ActionButton } from './AppDialogLayout';
 import { SettingsAccentTile } from './SettingsAccentTile';
-import { SettingsPanelNote } from './SettingsPanelNote';
 import { ConfirmationDialog, type ConfirmationDialogRequest } from './ConfirmationDialog';
 import { ConnectedMenuAction } from './ConnectedMenuAction';
 import { translate } from '../localization/runtime';
 import { useLocalization } from '../localization/LocalizationProvider';
+import { PrivateBrowserExclusionSection } from './PrivateBrowserExclusionSection';
+import { SettingsPanelResetNote } from './SettingsPanelResetNote';
+import { DEFAULT_PRIVATE_BROWSER_SETTINGS } from '../appSettingsCapturePolicyModel';
+import { appExclusionResetChanges } from '../appExclusionResetChanges';
+import { SettingsResetChanges } from './SettingsResetChanges';
 
 interface SettingsBlacklistPanelProps {
   apps: BlacklistApp[];
   onAddApp: (appName: string) => void;
   onRemoveApp: (appId: string) => void;
   onToggleRule: (appId: string, rule: 'ignoreText' | 'ignoreImages' | 'ignoreFiles' | 'ignoreHotkeys') => void;
+  onResetApps: () => void;
+  settings: AppSettings;
+  onUpdateSettings: (updates: Partial<AppSettings>) => void;
 }
-
 const suggestedApps = [
   {
     get label() { return translate('component.settingsBlacklistPanel.securityAndPasswordManagers'); },
@@ -30,7 +36,7 @@ const suggestedApps = [
     apps: ['Signal', 'Telegram', 'Slack', 'Discord', 'WhatsApp'],
   },
   {
-    get label() { return translate('component.settingsBlacklistPanel.webBrowsersPrivateWindows'); },
+    get label() { return translate('component.settingsBlacklistPanel.webBrowsers'); },
     apps: ['Safari', 'Google Chrome', 'Firefox', 'Brave Browser', 'Arc', 'Orion'],
   },
   {
@@ -38,7 +44,6 @@ const suggestedApps = [
     apps: ['Terminal', 'Warp', 'VS Code', 'Xcode', 'Notes', 'Mail'],
   },
 ];
-
 type ExclusionRule = 'ignoreText' | 'ignoreImages' | 'ignoreFiles' | 'ignoreHotkeys';
 
 const exclusionOptions: Array<{ label: string; rule: ExclusionRule }> = [
@@ -139,10 +144,13 @@ export function SettingsBlacklistPanel({
   onAddApp,
   onRemoveApp,
   onToggleRule,
+  onResetApps,
+  settings,
+  onUpdateSettings,
 }: SettingsBlacklistPanelProps) {
+  const { locale } = useLocalization();
   const [isAddAppOpen, setIsAddAppOpen] = useState(false);
   const [confirmation, setConfirmation] = useState<ConfirmationDialogRequest | null>(null);
-
   const requestRemove = (app: BlacklistApp) => {
     setConfirmation({
       get title() { return translate('component.settingsBlacklistPanel.removeAppExclusion'); },
@@ -152,6 +160,22 @@ export function SettingsBlacklistPanel({
       tone: 'danger',
       onConfirm: () => {
         onRemoveApp(app.id);
+        setConfirmation(null);
+      },
+    });
+  };
+
+  const requestReset = () => {
+    const changes = appExclusionResetChanges(apps, settings, locale);
+    setConfirmation({
+      title: translate('component.settingsBlacklistPanel.resetAppExclusions'),
+      description: translate('component.settingsResetChanges.description'),
+      details: <SettingsResetChanges changes={changes} />,
+      confirmLabel: translate('common.reset'),
+      confirmDisabled: changes.length === 0,
+      onConfirm: () => {
+        onResetApps();
+        onUpdateSettings({ ...DEFAULT_PRIVATE_BROWSER_SETTINGS });
         setConfirmation(null);
       },
     });
@@ -203,7 +227,11 @@ export function SettingsBlacklistPanel({
         ))}
       </div>
 
-      <SettingsPanelNote>{translate('component.settingsBlacklistPanel.commonPasswordManagersIncluding1passwordAreExcludedByDefaultCheckedContentIs')}</SettingsPanelNote>
+      <SettingsPanelResetNote onReset={requestReset}>
+        {translate('component.settingsBlacklistPanel.commonPasswordManagersIncluding1passwordAreExcludedByDefaultCheckedContentIs')}
+      </SettingsPanelResetNote>
+
+      <PrivateBrowserExclusionSection settings={settings} onUpdateSettings={onUpdateSettings} />
 
       {isAddAppOpen && (
         <AddBlacklistAppModal

@@ -39,6 +39,8 @@ const hotkeys = readRustModuleTree(
   'src-tauri/src/hotkey_manager.rs',
   'src-tauri/src/hotkey_manager',
 );
+const pasteTarget = read('src-tauri/src/paste_target.rs');
+const appLock = read('src-tauri/src/app_lock.rs');
 const settingsService = read('src-tauri/src/settings_service.rs');
 const activityDatabase = read('src-tauri/src/db/activity.rs');
 const analysisActivityDatabase = read('src-tauri/src/db/analysis_activity.rs');
@@ -55,7 +57,10 @@ const contentTypeRegistryDatabase = read('src-tauri/src/db/content_type_registry
 const contractDatabase = read('src-tauri/src/db/contracts.rs');
 const extractorDatabase = read('src-tauri/src/db/extractors.rs');
 const fullBackupDatabase = read('src-tauri/src/db/full_backups.rs');
-const intelligenceConnectionDatabase = read('src-tauri/src/db/intelligence_connections.rs');
+const intelligenceConnectionDatabase = readRustModuleTree(
+  'src-tauri/src/db/intelligence_connections.rs',
+  'src-tauri/src/db/intelligence_connections',
+);
 const lifecycleDatabase = read('src-tauri/src/db/lifecycle.rs');
 const maintenanceDatabase = read('src-tauri/src/db/maintenance.rs');
 const operationDatabase = read('src-tauri/src/db/operations.rs');
@@ -522,6 +527,14 @@ assert.doesNotMatch(queueActions, /crate::commands::/,
   'Shared Queue workflows must remain independent of GUI commands');
 assert.doesNotMatch(hotkeys, /(?:crate::)?commands::/,
   'The hotkey adapter must not call the GUI command adapter');
+assert.match(pasteTarget, /mod platform;/,
+  'Paste targeting must delegate operating-system integration to focused platform modules');
+assert.doesNotMatch(pasteTarget, /AXUIElement|GetForegroundWindow|xdotool/,
+  'The Paste Target coordinator must not reclaim platform APIs');
+assert.match(appLock, /mod platform_auth;/,
+  'App Lock must delegate native authentication to its focused adapter');
+assert.doesNotMatch(appLock, /LAContext|UserConsentVerifier|Windows Hello/,
+  'The App Lock domain must not reclaim native authentication APIs');
 assert.ok(lineCount('src-tauri/src/hotkey_manager.rs') <= 228,
   'The hotkey coordinator must stay within its extracted size boundary');
 assert.match(read('src-tauri/src/hotkey_manager/action_dispatch.rs'), /pub fn dispatch/,
@@ -778,6 +791,7 @@ const sizeRatchets = new Map([
   ['src-tauri/src/intelligence_executor/planning.rs', 205],
   ['src-tauri/src/intelligence_executor/saved_transforms.rs', 175],
   ['src-tauri/src/intelligence_executor/tests.rs', 455],
+  ['src-tauri/src/commands/intelligence/connections.rs', 140],
   ['src-tauri/src/transformation_service.rs', 30],
   ['src-tauri/src/transformation_service/cancellation.rs', 85],
   ['src-tauri/src/transformation_service/compatibility.rs', 115],
@@ -807,10 +821,15 @@ const sizeRatchets = new Map([
   ['src-tauri/src/db/extractors.rs', 802],
   ['src-tauri/src/db/full_backups.rs', 277],
   ['src-tauri/src/db/intelligence_connections.rs', 231],
+  ['src-tauri/src/db/intelligence_connections/reset.rs', 75],
   ['src-tauri/src/db/lifecycle.rs', 233],
   ['src-tauri/src/db/maintenance.rs', 80],
   ['src-tauri/src/db/operations.rs', 377],
   ['src-tauri/src/db/retention.rs', 293],
+  ['src-tauri/src/settings_contract.rs', 260],
+  ['src-tauri/src/settings_contract/tests.rs', 100],
+  ['src-tauri/src/cli/commands/settings.rs', 200],
+  ['src-tauri/src/cli/commands/settings/reset_preview.rs', 120],
   ['src-tauri/src/db/schema.rs', 35],
   ['src-tauri/src/db/schema/canonical.rs', 60],
   ['src-tauri/src/db/schema/canonical/clips.rs', 230],
@@ -925,6 +944,16 @@ const sizeRatchets = new Map([
   ['src-tauri/src/commands/content_registry.rs', 260],
   ['src-tauri/src/commands/extractors.rs', 180],
   ['src-tauri/src/commands/app_lock.rs', 322],
+  ['src-tauri/src/commands/app_lock/tests.rs', 40],
+  ['src-tauri/src/app_lock.rs', 490],
+  ['src-tauri/src/app_lock/platform_auth.rs', 245],
+  ['src-tauri/src/paste_target.rs', 285],
+  ['src-tauri/src/paste_target/platform/mod.rs', 95],
+  ['src-tauri/src/paste_target/platform/macos.rs', 180],
+  ['src-tauri/src/paste_target/platform/windows.rs', 175],
+  ['src-tauri/src/paste_target/platform/linux.rs', 120],
+  ['src-tauri/src/private_browsing.rs', 240],
+  ['src-tauri/src/cli/commands/private_browsing.rs', 110],
   ['src-tauri/src/commands/queue.rs', 160],
   ['src-tauri/src/commands/storage.rs', 170],
   ['src-tauri/src/bin/pasted.rs', 320],
@@ -933,7 +962,10 @@ const sizeRatchets = new Map([
   ['src-tauri/tests/cli_integration/mod.rs', 10],
   ['src-tauri/tests/cli_integration/support.rs', 100],
   ['src-tauri/tests/cli_integration/analysis.rs', 360],
+  ['src-tauri/tests/cli_integration/app_lock_policy.rs', 100],
   ['src-tauri/tests/cli_integration/portability_library.rs', 280],
+  ['src-tauri/tests/cli_integration/settings_page_reset.rs', 90],
+  ['src-tauri/tests/cli_integration/settings_reset_dry_run.rs', 60],
   ['src-tauri/tests/cli_integration/lifecycle_policy.rs', 235],
   ['src-tauri/tests/cli_integration/registry_authoring.rs', 300],
   ['src/App.tsx', 16],
@@ -942,6 +974,9 @@ const sizeRatchets = new Map([
   ['src/hooks/useAuxiliaryWindowReady.ts', 20],
   ['src/hooks/useAuxiliaryAppSettings.ts', 70],
   ['src/appSettingsModel.ts', 145],
+  ['src/appSettingsCapturePolicyModel.ts', 30],
+  ['src/appSettingsSectionDefaults.ts', 35],
+  ['src/appExclusionModel.ts', 50],
   ['src/utils/appTheme.ts', 28],
   ['src/components/ClipImageThumbnail.tsx', 76],
   ['src/hooks/useAppController.ts', 499],
@@ -949,6 +984,26 @@ const sizeRatchets = new Map([
   ['src/hooks/appControllerModel.ts', 22],
   ['src/components/AppShellView.tsx', 467],
   ['src/components/AppDestinationView.tsx', 79],
+  ['src/components/SettingsBlacklistPanel.tsx', 250],
+  ['src/components/PrivateBrowserExclusionSection.tsx', 115],
+  ['src/components/SettingsNotificationsPanel.tsx', 145],
+  ['src/components/SettingsSecurityPanel.tsx', 285],
+  ['src/components/SettingsPanelResetNote.tsx', 35],
+  ['src/components/SettingsResetChanges.tsx', 65],
+  ['src/components/SettingsHotkeysPanel.tsx', 410],
+  ['src/hotkeySettingsModel.ts', 75],
+  ['src/appLockResetChanges.ts', 45],
+  ['src/appExclusionResetChanges.ts', 70],
+  ['src/notificationSettingsModel.ts', 50],
+  ['src/analysisResetChanges.ts', 70],
+  ['src/hooks/useAnalysisReset.ts', 65],
+  ['src/generalSettingsDefaults.ts', 30],
+  ['src/settingsContract.ts', 50],
+  ['src/generalSettingsResetChanges.ts', 115],
+  ['src/hooks/useGeneralSettingsReset.ts', 45],
+  ['src/components/SettingsGeneralResetFooter.tsx', 30],
+  ['src/intelligenceResetChanges.ts', 50],
+  ['src/components/IntelligenceConnectionsPanel.tsx', 270],
   ['src/hooks/useAppNavigation.ts', 175],
   ['src/hooks/useAppShell.ts', 130],
   ['src/hooks/useAppMenuActions.ts', 120],
@@ -1043,6 +1098,7 @@ const sizeRatchets = new Map([
   ['src/mocks/browser/contentRuntime.ts', 372],
   ['src/mocks/browser/extractors.ts', 60],
   ['src/mocks/browser/intelligenceRuntime.ts', 243],
+  ['src/mocks/browser/intelligenceDetectedConnections.ts', 10],
   ['src/mocks/browser/libraryRuntime.ts', 568],
   ['src/mocks/browser/systemRuntime.ts', 183],
   ['src/mocks/browser/retentionRuntime.ts', 20],

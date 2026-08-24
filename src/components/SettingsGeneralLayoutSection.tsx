@@ -5,7 +5,6 @@ import { ACTUAL_SIZE, APP_ZOOM_STEPS, appZoomPercent, stepAppZoom } from '../uti
 import { ActionButton } from './AppDialogLayout';
 import { MenuSelect } from './MenuSelect';
 import { SettingsSubsectionHeader } from './SettingsSubsectionHeader';
-
 const rowHeightOptions = [
   { value: 'small', get label() { return translate('component.settingsGeneralPanel.compact'); } },
   { value: 'medium', get label() { return translate('component.settingsGeneralPanel.standard'); } },

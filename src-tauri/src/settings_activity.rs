@@ -103,11 +103,17 @@ fn friendly_value(key: &str, value: &str) -> Option<String> {
             "480" => "8 hours".into(),
             _ => return None,
         },
+        "privateBrowserUnavailablePolicy" => match value {
+            "capture" => "Continue capturing".into(),
+            "exclude_browser" => "Exclude the browser".into(),
+            _ => return None,
+        },
         "enableSounds"
         | "captureFeedback"
         | "captureFeedbackIgnored"
         | "captureFeedbackPreview"
         | "alwaysPastePlainText"
+        | "excludePrivateBrowserWindows"
         | "appLockSystemAuthEnabled"
         | "appLockAppleWatchEnabled"
         | "appLockOnSleep"
@@ -155,6 +161,8 @@ fn setting_label(key: &str) -> Option<&'static str> {
         "captureFeedbackPosition" => Some("Capture feedback position"),
         "captureFeedbackDismissSeconds" => Some("Capture preview dismissal"),
         "alwaysPastePlainText" => Some("Plain-text paste"),
+        "excludePrivateBrowserWindows" => Some("Private browser exclusion"),
+        "privateBrowserUnavailablePolicy" => Some("Unavailable browser detection"),
         "appLockSystemAuthEnabled" => Some("System authentication"),
         "appLockAppleWatchEnabled" => Some("Apple Watch unlock"),
         "appLockIdleMinutes" => Some("App Lock idle timing"),

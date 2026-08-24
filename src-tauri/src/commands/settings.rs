@@ -116,6 +116,6 @@ pub fn get_all_app_settings(
     db: State<'_, Arc<DbState>>,
 ) -> Result<HashMap<String, String>, String> {
     let mut settings = db.get_all_settings().map_err(|error| error.to_string())?;
-    settings.retain(|key, _| !crate::app_lock::is_private_setting(key));
+    settings.retain(|key, _| !crate::settings_contract::is_private(key));
     Ok(settings)
 }
