@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "Pasted-1.0.0-rc.5-distributed-components",
-  "documentNamespace": "https://getpasted.app/sbom/1.0.0-rc.5/23a8b9880b3b2a7e7b93c2d8fb35094131e6f8ae9a32a9297cdcb2b363c3659c",
+  "documentNamespace": "https://getpasted.app/sbom/1.0.0-rc.5/0e29f840cef7ab05d8a9d690aa3d51e7b58e423d2e1888852697457b137f7794",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
@@ -6353,6 +6353,23 @@
       ]
     },
     {
+      "SPDXID": "SPDXRef-cargo-1ca4b7b582284d82",
+      "name": "window-vibrancy",
+      "versionInfo": "0.8.0",
+      "downloadLocation": "https://github.com/tauri-apps/tauri-plugin-vibrancy",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0 OR MIT",
+      "licenseDeclared": "Apache-2.0 OR MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/window-vibrancy@0.8.0"
+        }
+      ]
+    },
+    {
       "SPDXID": "SPDXRef-cargo-4c93c5e8058c736c",
       "name": "windows",
       "versionInfo": "0.61.3",
@@ -9442,6 +9459,11 @@
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-915771ca84f1b9c5"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-1ca4b7b582284d82"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
