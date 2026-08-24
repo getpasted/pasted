@@ -24,6 +24,8 @@ const workflowPaths = fs
 const nodeWorkflowEntries = workflowPaths
   .map((path) => ({ path, source: fs.readFileSync(path, 'utf8') }))
   .filter(({ source }) => source.includes('actions/setup-node@'));
+const workflowEntries = workflowPaths.map((path) => ({ path, source: fs.readFileSync(path, 'utf8') }));
+const movingActionExceptions = new Set(['dtolnay/rust-toolchain@stable']);
 const linuxDockerfile = fs.readFileSync('packaging/linux/Dockerfile', 'utf8');
 const dependabotConfig = fs.readFileSync('.github/dependabot.yml', 'utf8');
 const releaseWorkflow = fs.readFileSync('.github/workflows/desktop-release.yml', 'utf8');
@@ -53,6 +55,27 @@ for (const { path, source } of nodeWorkflowEntries) {
     source,
     /node-version:\s*["']?\d+/,
     `${path} must not maintain an independent Node.js version`,
+  );
+}
+for (const { path, source } of workflowEntries) {
+  for (const match of source.matchAll(/^\s*(?:-\s*)?uses:\s*([^\s#]+)/gm)) {
+    const actionReference = match[1];
+    if (actionReference.startsWith('./') || actionReference.startsWith('docker://')) continue;
+    const separator = actionReference.lastIndexOf('@');
+    const version = actionReference.slice(separator + 1);
+    assert.ok(separator > 0, `${path} contains an unversioned action reference: ${actionReference}`);
+    assert.ok(
+      /^[0-9a-f]{40}$/.test(version)
+        || /^v?\d+\.\d+(?:\.\d+)?$/.test(version)
+        || movingActionExceptions.has(actionReference),
+      `${path} must use an exact Action release, immutable commit, or reviewed moving-channel exception: ${actionReference}`,
+    );
+  }
+}
+for (const exception of movingActionExceptions) {
+  assert.ok(
+    workflowEntries.some(({ source }) => source.includes(`uses: ${exception}`)),
+    `Reviewed moving-channel exception is stale: ${exception}`,
   );
 }
 assert.match(
