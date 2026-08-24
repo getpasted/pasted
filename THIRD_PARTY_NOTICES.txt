@@ -444,7 +444,7 @@ Component inventory (434)
 - @tauri-apps/api 2.11.1 [npm; Apache-2.0 OR MIT] — https://github.com/tauri-apps/tauri
 - @tauri-apps/plugin-autostart 2.5.1 [npm; MIT OR Apache-2.0] — https://github.com/tauri-apps/plugins-workspace
 - clsx 2.1.1 [npm; MIT] — lukeed/clsx
-- lucide-react 1.30.0 [npm; ISC] — https://github.com/lucide-icons/lucide
+- lucide-react 1.33.0 [npm; ISC] — https://github.com/lucide-icons/lucide
 - react 19.2.8 [npm; MIT] — https://github.com/react/react
 - react-dom 19.2.8 [npm; MIT] — https://github.com/react/react
 - scheduler 0.27.0 [npm; MIT] — https://github.com/facebook/react
@@ -6888,7 +6888,7 @@ THIS SOFTWARE.
 ================================================================================
 lucide-react — LICENSE
 License identifier: ISC
-Used by: lucide-react 1.30.0 (npm)
+Used by: lucide-react 1.33.0 (npm)
 --------------------------------------------------------------------------------
 ISC License
 
