@@ -34,7 +34,7 @@ export default defineConfig(async () => ({
   },
   build: {
     target: "es2021",
-    minify: !process.env.TAURI_ENV_DEBUG ? "esbuild" : false,
+    minify: !process.env.TAURI_ENV_DEBUG ? "oxc" : false,
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
