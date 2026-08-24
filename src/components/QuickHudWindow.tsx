@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { AlertCircle, LoaderCircle, Search, Sparkles, X } from 'lucide-react';
+import { AlertCircle, LoaderCircle, ScanText, Search, Sparkles, X } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { clipsApi } from '../api/clips';
 import { listen } from '@tauri-apps/api/event';
@@ -225,7 +225,7 @@ export const QuickHudWindow: React.FC = () => {
             clips.map((clip, index) => {
               const isSel = index === selectedIndex;
               const previewText = clip.content_type === 'image'
-                ? clip.text_content ? translate('component.quickHudWindow.ocrText', { text: clip.text_content }) : translate('component.quickHudWindow.screenshotImage')
+                ? clip.text_content || translate('component.quickHudWindow.screenshotImage')
                 : clip.content_type === 'file'
                   ? getClipFileSummary(clip)
                   : clip.text_content || '';
@@ -239,30 +239,29 @@ export const QuickHudWindow: React.FC = () => {
                   onClick={() => activateClip(clip)}
                   className={`quick-hud-row px-2 py-1 rounded-lg border cursor-pointer flex items-center justify-between space-x-2 ${isSel ? 'is-selected shadow-md' : ''}`}
                 >
-                  <div className="flex items-center space-x-2.5 min-w-0 flex-1">
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     <span
                       className={`quick-hud-index w-5 h-5 rounded-md flex items-center justify-center font-mono text-[0.6875rem] font-extrabold shrink-0 border ${isSel ? 'is-selected shadow' : ''}`}
                     >
                       {index + 1}
                     </span>
 
-                    <div className="min-w-0 flex-1">
-                      {clip.content_type === 'image' ? (
-                        <div className="flex items-center space-x-2">
-                          <ClipImageThumbnail
-                            clipId={clip.id}
-                            contentHash={clip.content_hash}
-                            maxHeightClass="h-4 w-7"
-                            placeholderHeightClass="h-6 w-9"
-                          />
-                          <OverflowText text={previewText} className="theme-text-muted text-xs font-mono truncate" />
-                        </div>
-                      ) : clip.content_type === 'file' ? (
-                        <OverflowText as="p" text={previewText} className="text-xs font-mono truncate leading-snug" />
-                      ) : (
-                        <OverflowText as="p" text={previewText} className="text-xs font-mono truncate leading-snug" />
-                      )}
+                    <div className="h-6 w-12 shrink-0">
+                      {clip.content_type === 'image' && <ClipImageThumbnail
+                        clipId={clip.id}
+                        contentHash={clip.content_hash}
+                        maxHeightClass="h-4 w-10"
+                        placeholderHeightClass="h-6 w-12 shrink-0"
+                      />}
                     </div>
+                    <OverflowText as="p" text={previewText} className="min-w-0 flex-1 text-xs font-mono truncate leading-snug" />
+                    {clip.content_type === 'image' && clip.text_content && <span
+                      className="theme-text-muted shrink-0"
+                      title={translate('feature.ocr.label')}
+                      aria-label={translate('feature.ocr.label')}
+                    >
+                      <ScanText aria-hidden="true" className="h-4 w-4" />
+                    </span>}
                   </div>
                 </div>
               );
