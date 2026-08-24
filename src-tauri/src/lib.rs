@@ -23,6 +23,8 @@ pub mod clipboard_actions;
 mod clipboard_capture_policy;
 mod clipboard_fingerprint;
 #[cfg(feature = "gui")]
+mod clipboard_ingestion;
+#[cfg(feature = "gui")]
 mod clipboard_monitor;
 #[cfg(feature = "gui")]
 mod commands;

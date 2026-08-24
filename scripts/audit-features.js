@@ -27,7 +27,10 @@ const sidebar = [
 ].map(read).join('\n');
 const nativeMenu = read('src-tauri/src/app_menu.rs');
 const captureFeedbackWindow = read('src/components/CaptureFeedbackWindow.tsx');
-const clipboardMonitor = read('src-tauri/src/clipboard_monitor.rs');
+const clipboardMonitor = readRustModuleTree(
+  'src-tauri/src/clipboard_monitor.rs',
+  'src-tauri/src/clipboard_ingestion',
+);
 const hotkeyManager = readRustModuleTree(
   'src-tauri/src/hotkey_manager.rs',
   'src-tauri/src/hotkey_manager',

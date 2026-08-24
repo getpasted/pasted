@@ -63,11 +63,16 @@ capture decisions to `clipboard_capture_policy.rs`. That policy owns source
 attribution, screenshot and file-manager distinctions, composite image/file
 selection, bounded image-file inspection, pasteboard change deduplication, and
 recent-image coalescing. Payload persistence and user-facing feedback remain in
-the monitor until their dedicated ingestion boundaries are introduced.
+focused handlers under `clipboard_ingestion/`: Text owns Queue and Smart Bin
+automation, Files owns preview prefetching, and Image owns bounded encoding and
+OCR scheduling. Their shared context centralizes deduplication, App Exclusions,
+capture suppression, source attribution, and privacy-safe feedback.
 
 The policy is portable apart from its explicitly gated pasteboard generation
 adapter. Platform clipboard reads stay in the monitor, while policy decisions
-are covered by host-independent fixtures.
+and payload preflight are covered by host-independent fixtures. The monitor is a
+small coordinator for pause state, clipboard acquisition, policy resolution, and
+handler dispatch.
 
 ## Compatibility boundaries
 

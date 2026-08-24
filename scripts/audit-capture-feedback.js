@@ -6,7 +6,10 @@ const config = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'));
 const appSource = fs.readFileSync('src/App.tsx', 'utf8');
 const mainRootSource = fs.readFileSync('src/main.tsx', 'utf8');
 const rootSource = fs.readFileSync('src/capture-feedback-main.tsx', 'utf8');
-const monitorSource = fs.readFileSync('src-tauri/src/clipboard_monitor.rs', 'utf8');
+const monitorSource = readRustModuleTree(
+  'src-tauri/src/clipboard_monitor.rs',
+  'src-tauri/src/clipboard_ingestion',
+);
 const exclusionsNativeSource = fs.readFileSync('src-tauri/src/app_exclusions.rs', 'utf8');
 const hotkeySource = readRustModuleTree(
   'src-tauri/src/hotkey_manager.rs',

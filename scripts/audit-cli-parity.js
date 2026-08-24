@@ -39,7 +39,10 @@ const clipsApi = read('src/api/clips.ts');
 const activityApi = read('src/api/activity.ts');
 const backupApi = read('src/api/backup.ts');
 const extraction = readRustModuleTree('src-tauri/src/content_extraction.rs', 'src-tauri/src/content_extraction');
-const clipboardMonitor = read('src-tauri/src/clipboard_monitor.rs');
+const clipboardMonitor = readRustModuleTree(
+  'src-tauri/src/clipboard_monitor.rs',
+  'src-tauri/src/clipboard_ingestion',
+);
 const ocr = read('src-tauri/src/ocr.rs');
 const actions = [
   'src/hooks/useClipActions.ts',
