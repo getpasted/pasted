@@ -49,3 +49,8 @@ updates:
       time: "10:45"
       timezone: America/Chicago
     open-pull-requests-limit: 5
+    ignore:
+      # Node majors follow the LTS schedule, which SemVer alone cannot express.
+      - dependency-name: node
+        update-types:
+          - version-update:semver-major
