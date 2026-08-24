@@ -568,7 +568,12 @@ const sizeRatchets = new Map([
   ['src-tauri/src/content_analysis/pipeline/file_inspection.rs', 26],
   ['src-tauri/src/content_analysis/tests.rs', 558],
   ['src-tauri/src/content_extraction.rs', 785],
-  ['src-tauri/src/content_extraction/engine_runtime.rs', 1_213],
+  ['src-tauri/src/content_extraction/engine_runtime.rs', 70],
+  ['src-tauri/src/content_extraction/engine_runtime/apple_vision.rs', 220],
+  ['src-tauri/src/content_extraction/engine_runtime/custom_command.rs', 220],
+  ['src-tauri/src/content_extraction/engine_runtime/discovery.rs', 100],
+  ['src-tauri/src/content_extraction/engine_runtime/tesseract.rs', 165],
+  ['src-tauri/src/content_extraction/engine_runtime/whisper.rs', 425],
   ['src-tauri/src/content_extraction/file_routing.rs', 30],
   ['src-tauri/src/content_extraction/format_defaults.rs', 34],
   ['src-tauri/src/content_extraction/preset_tests.rs', 30],
@@ -949,6 +954,21 @@ assert.match(contentExtractionFacade, /mod engine_runtime;/,
   'Content Extraction must keep operating-system engines behind its runtime module');
 assert.doesNotMatch(contentExtractionFacade, /perform_tesseract_ocr|perform_whisper_cpp_transcription|execute_custom_command/,
   'Content Extraction definitions must not reclaim engine process execution');
+const extractionEngineRuntime = read('src-tauri/src/content_extraction/engine_runtime.rs');
+for (const adapter of ['apple_vision', 'custom_command', 'discovery', 'tesseract', 'whisper']) {
+  assert.match(extractionEngineRuntime, new RegExp(`mod ${adapter};`),
+    `The extraction engine registry must compose the ${adapter} adapter`);
+}
+assert.doesNotMatch(extractionEngineRuntime, /Command::new|fn perform_apple_vision_ocr|fn execute_custom_command/,
+  'The extraction engine registry must not reclaim adapter execution');
+assert.match(read('src-tauri/src/content_extraction/engine_runtime/apple_vision.rs'), /impl ExtractorEngine for AppleVisionOcrEngine/,
+  'Apple Vision extraction must remain in its focused adapter');
+assert.match(read('src-tauri/src/content_extraction/engine_runtime/tesseract.rs'), /impl ExtractorEngine for TesseractOcrEngine/,
+  'Tesseract extraction must remain in its focused adapter');
+assert.match(read('src-tauri/src/content_extraction/engine_runtime/whisper.rs'), /impl ExtractorEngine for WhisperCppEngine/,
+  'Whisper extraction must remain in its focused adapter');
+assert.match(read('src-tauri/src/content_extraction/engine_runtime/custom_command.rs'), /impl ExtractorEngine for CustomCommandEngine/,
+  'Custom command extraction must remain in its focused adapter');
 
 const centralizedCommands = [
   'get_activity_logs', 'clear_activity_logs', 'export_activity_json', 'export_activity_csv',
