@@ -63,7 +63,7 @@ fn apply_feature_policy_changes(app: &AppHandle, db: &Arc<DbState>, changed: &[F
         }
     }
     refresh_native_app_menu(app, db);
-    crate::refresh_tray_menu(app, db);
+    crate::app_tray::refresh_menu(app, db);
     let _ = register_all_app_shortcuts(app);
 }
 
@@ -75,7 +75,7 @@ fn apply_runtime_changes(app: &AppHandle, db: &Arc<DbState>, outcome: SettingsUp
     let mut language_changed = false;
     for change in outcome.changes {
         if change.key == "menubarIconStyle" {
-            crate::refresh_tray_icon(app, &change.value);
+            crate::app_tray::refresh_icon(app, &change.value);
         }
         if change.key == crate::localization::LANGUAGE_SETTING_KEY {
             language_changed = true;
@@ -84,7 +84,7 @@ fn apply_runtime_changes(app: &AppHandle, db: &Arc<DbState>, outcome: SettingsUp
     }
     if language_changed {
         refresh_native_app_menu(app, db);
-        crate::refresh_tray_menu(app, db);
+        crate::app_tray::refresh_menu(app, db);
     }
 }
 

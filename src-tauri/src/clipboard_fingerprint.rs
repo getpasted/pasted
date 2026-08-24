@@ -27,6 +27,7 @@ pub fn image_rgba(bytes: &[u8]) -> String {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "gui")]
     #[test]
     fn file_fingerprints_preserve_selection_order() {
         let first = vec!["/tmp/a.txt".to_string(), "/tmp/b.txt".to_string()];
@@ -35,6 +36,7 @@ mod tests {
         assert_eq!(file_list(&first), file_list(&first));
     }
 
+    #[cfg(feature = "gui")]
     #[test]
     fn image_fingerprints_match_exact_rgba_content() {
         assert_eq!(image_rgba(&[1, 2, 3, 4]), image_rgba(&[1, 2, 3, 4]));

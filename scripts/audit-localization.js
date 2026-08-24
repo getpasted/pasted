@@ -89,7 +89,7 @@ for (const { code, catalog } of manifest.locales) {
 
 const nativeSources = [
   fs.readFileSync('src-tauri/src/app_menu.rs', 'utf8'),
-  fs.readFileSync('src-tauri/src/lib.rs', 'utf8'),
+  fs.readFileSync('src-tauri/src/app_tray.rs', 'utf8'),
 ].join('\n');
 const referencedNativeKeys = new Set(
   [...nativeSources.matchAll(/t\("(native\.[A-Za-z0-9.]+)"\)/g)].map((match) => match[1]),
