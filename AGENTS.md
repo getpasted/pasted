@@ -41,6 +41,8 @@ Pasted aims to make its meaningful clipboard-management capabilities available t
 - If a governed file is at or near its limit, extract a cohesive capability or shared helper before adding the feature. Do not first grow the file past the limit and defer the extraction until the audit fails.
 - Never raise a ratchet, debt allowance, exception count, or line limit to accommodate a change. Do not game line-count limits by collapsing otherwise readable code; use a real module boundary.
 - Run the narrowest applicable audit immediately after the structural edit, then run the broader required suite once the focused ratchets pass.
+- Recheck ratchets after every formatter, generator, test-fixture expansion, or follow-up fix that can change a governed file's measurement. Before committing or pushing, run `npm run test:architecture` and confirm every changed governed file remains within its existing threshold; a previously passing result from before the latest edit does not count.
+- Before opening or updating a pull request or enabling auto-merge, run the same aggregate validation commands used by the applicable CI scopes—currently `npm run test:frontend` for frontend/audit changes and `npm run test:native` for Rust/native changes. Do not substitute a hand-picked subset or describe the branch as ready based only on narrower checks.
 
 ## Time and timestamp handling
 
