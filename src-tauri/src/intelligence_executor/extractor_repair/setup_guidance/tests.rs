@@ -9,7 +9,19 @@ fn unavailable_vision_recipe() -> (ExtractorRecipe, ExtractorDiagnosticReport) {
         required: true,
         path: None,
     }];
-    let diagnostic = crate::extractor_recipe::diagnose(&recipe);
+    let diagnostic = ExtractorDiagnosticReport {
+        version: 1,
+        is_available: false,
+        platform: "test".into(),
+        architecture: "test".into(),
+        package_managers: Vec::new(),
+        issues: vec![crate::extractor_recipe::ExtractorDiagnosticIssue {
+            code: ExtractorDiagnosticCode::ResourceNotConfigured,
+            subject_id: "model".into(),
+            label: "Multimodal GGUF language model".into(),
+            detail: "A required local resource has not been selected.".into(),
+        }],
+    };
     (recipe, diagnostic)
 }
 
