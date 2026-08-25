@@ -2534,5 +2534,9 @@
   "component.helpView.setOrClearAClipHotkeyAndProtectAssignments": "عيّن مفتاح اختصار المقطع أو أزله. يؤدي تعيينه إلى حماية المقطع.",
   "component.helpView.setInheritedProtectionForAManualBin": "فعّل الحماية الموروثة لـ Bin يدوي أو عطّلها.",
   "component.helpView.clipHotkeys": "مفاتيح اختصار المقاطع",
-  "component.helpView.clipHotkeyDescription": "عيّن مفتاح اختصار من عرض تفاصيل المقطع للصق ذلك المقطع بعينه في أي مكان. يؤدي التعيين إلى حماية المقطع تلقائيًا."
+  "component.helpView.clipHotkeyDescription": "عيّن مفتاح اختصار من عرض تفاصيل المقطع للصق ذلك المقطع بعينه في أي مكان. يؤدي التعيين إلى حماية المقطع تلقائيًا.",
+  "registry.extractor.extractorLlamaCppLabels.name": "تسميات llama.cpp",
+  "registry.extractor.extractorLlamaCppLabels.description": "يعثر محليًا على العناصر والموضوعات القابلة للبحث في الصور باستخدام llama.cpp.",
+  "component.contentExtractorManagerDialog.installLlamaCppWithCommand": "ثبّت llama.cpp باستخدام {command}.",
+  "component.contentExtractorManagerDialog.downloadLlamaCppModelWithCommand": "نزّل النموذج مرة واحدة باستخدام {command}. يبقى الاستخراج بلا اتصال بعد ذلك."
 }

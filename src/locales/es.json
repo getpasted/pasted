@@ -2450,5 +2450,9 @@
   "component.helpView.setOrClearAClipHotkeyAndProtectAssignments": "Establezca o elimine la tecla rápida de un clip. Asignarla protege el clip.",
   "component.helpView.setInheritedProtectionForAManualBin": "Active o desactive la protección heredada de un Bin manual.",
   "component.helpView.clipHotkeys": "Teclas rápidas de clips",
-  "component.helpView.clipHotkeyDescription": "Asigne una tecla rápida desde la vista de detalles para pegar ese clip en cualquier lugar. Al asignarla, el clip se protege automáticamente."
+  "component.helpView.clipHotkeyDescription": "Asigne una tecla rápida desde la vista de detalles para pegar ese clip en cualquier lugar. Al asignarla, el clip se protege automáticamente.",
+  "registry.extractor.extractorLlamaCppLabels.name": "Etiquetas de llama.cpp",
+  "registry.extractor.extractorLlamaCppLabels.description": "Encuentra localmente sujetos y objetos buscables en imágenes con llama.cpp.",
+  "component.contentExtractorManagerDialog.installLlamaCppWithCommand": "Instala llama.cpp con {command}.",
+  "component.contentExtractorManagerDialog.downloadLlamaCppModelWithCommand": "Descarga el modelo una vez con {command}. Después, la extracción permanece sin conexión."
 }

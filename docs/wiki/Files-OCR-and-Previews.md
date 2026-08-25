@@ -39,6 +39,8 @@ Explicit transcription accepts bounded FLAC, MP3, OGG, WAV, M4A, and AAC file re
 
 Apple Vision extracts searchable text from clipboard images and screenshots through the macOS Vision framework. Tesseract 5 provides an optional local alternative on macOS, Linux, and Windows. Install it with `brew install tesseract` on Homebrew systems or the distribution's `tesseract-ocr` package on Linux. Extractor settings show the framework or resolved executable location and detected version; an explicit Tesseract path can override automatic discovery.
 
+Visual Labels use the same searchable extraction history without replacing the original image. Apple Vision Labels is built into macOS. **llama.cpp Labels** provides the cross-platform alternative through the official `llama-cli` multimodal interface and `ggml-org/SmolVLM-500M-Instruct-GGUF`. Install llama.cpp with `brew install llama.cpp`, `winget install llama.cpp`, or `conda install -c conda-forge llama.cpp`, then run the exact one-time model-download command shown in Extractor settings. Pasted runs extraction offline, requests bounded structured labels, normalizes duplicates, and applies the Extractor's 80% confidence floor.
+
 - OCR is optional under **Settings → Functionality**.
 - Re-enabling OCR resumes a hash-safe backfill of eligible images.
 - Disabling OCR cancels background work; late results are discarded.

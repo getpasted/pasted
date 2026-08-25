@@ -26,6 +26,18 @@ pub const EXTRACTOR_PRESETS: &[ExtractorPreset] = &[
         revision: 3,
     },
     ExtractorPreset {
+        stable_ref: LLAMA_CPP_LABELS_REF,
+        name: "llama.cpp Labels",
+        description: "Finds searchable subjects and objects in images locally with llama.cpp.",
+        engine: RECIPE_ENGINE,
+        executable_path: None,
+        model_path: None,
+        input_contract: RepresentationKind::ImageBytes.stable_name(),
+        output_contract: RepresentationKind::SearchableText.stable_name(),
+        priority: 20,
+        revision: 1,
+    },
+    ExtractorPreset {
         stable_ref: TESSERACT_OCR_REF,
         name: "Tesseract OCR",
         description: "Extracts searchable text from images locally with Tesseract.",
@@ -34,7 +46,7 @@ pub const EXTRACTOR_PRESETS: &[ExtractorPreset] = &[
         model_path: None,
         input_contract: RepresentationKind::ImageBytes.stable_name(),
         output_contract: RepresentationKind::SearchableText.stable_name(),
-        priority: 20,
+        priority: 30,
         revision: 4,
     },
     ExtractorPreset {
@@ -46,7 +58,7 @@ pub const EXTRACTOR_PRESETS: &[ExtractorPreset] = &[
         model_path: None,
         input_contract: RepresentationKind::FileReferences.stable_name(),
         output_contract: RepresentationKind::SearchableText.stable_name(),
-        priority: 30,
+        priority: 40,
         revision: 4,
     },
 ];

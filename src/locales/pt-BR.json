@@ -2450,5 +2450,9 @@
   "component.helpView.setOrClearAClipHotkeyAndProtectAssignments": "Defina ou remova a tecla de atalho de um clipe. A atribuição protege o clipe.",
   "component.helpView.setInheritedProtectionForAManualBin": "Ative ou desative a proteção herdada de um Bin manual.",
   "component.helpView.clipHotkeys": "Teclas de atalho de clipes",
-  "component.helpView.clipHotkeyDescription": "Atribua uma tecla de atalho na visualização de detalhes para colar exatamente esse clipe em qualquer lugar. A atribuição protege o clipe automaticamente."
+  "component.helpView.clipHotkeyDescription": "Atribua uma tecla de atalho na visualização de detalhes para colar exatamente esse clipe em qualquer lugar. A atribuição protege o clipe automaticamente.",
+  "registry.extractor.extractorLlamaCppLabels.name": "Rótulos do llama.cpp",
+  "registry.extractor.extractorLlamaCppLabels.description": "Encontra localmente assuntos e objetos pesquisáveis em imagens com o llama.cpp.",
+  "component.contentExtractorManagerDialog.installLlamaCppWithCommand": "Instale o llama.cpp com {command}.",
+  "component.contentExtractorManagerDialog.downloadLlamaCppModelWithCommand": "Baixe o modelo uma vez com {command}. Depois, a extração permanece offline."
 }
