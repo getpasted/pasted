@@ -37,6 +37,8 @@ const clipSearch = read('src/utils/clipSearch.ts');
 const clipSearchGrammar = read('src/utils/clipSearchGrammar.ts');
 const historySearchDocs = read('docs/wiki/History-and-Search.md');
 const database = readRustModuleTree('src-tauri/src/db.rs', 'src-tauri/src/db');
+const nativeClipSearch = read('src-tauri/src/db/clip_search.rs');
+const nativeClipSearchTermFields = read('src-tauri/src/db/clip_search/term_fields.rs');
 const cli = readRustModuleTree('src-tauri/src/bin/pasted.rs', 'src-tauri/src/cli');
 const clipTypes = read('src/types.ts');
 const appData = read('src/hooks/useAppData.ts');
@@ -139,8 +141,10 @@ assert.match(app, /currentCollection\?\.membership === 'search' && Boolean\(sear
   'Search must preserve a settled empty state while its replacement query runs');
 assert.match(app, /searchQuery=\{currentTab === 'search' \? searchDisplayQuery : searchQuery\}/,
   'A preserved Search empty state must retain its settled query until replacement');
-assert.match(database, /indexed_fts_like[\s\S]{0,300}WHERE text_content \{fts_like\}/,
-  'Ordinary Search must retain the FTS5 trigram-optimized LIKE path');
+assert.match(nativeClipSearch, /indexed_fts_like[\s\S]{0,300}term_fields::base\(fts_like\)/,
+  'Ordinary Search must pass its FTS5 trigram-optimized LIKE policy to term fields');
+assert.match(nativeClipSearchTermFields, /WHERE text_content \{fts_like\}/,
+  'Ordinary Search term fields must retain the FTS5 text-content path');
 assert.match(clipsApi, /invoke<ClipSearchResult>\('search_clips'/, 'The Clips client must use the authoritative shared Search service');
 assert.doesNotMatch(clipViews, /search_clip_searchable_text_ids/, 'GUI Search must not intersect extracted-text IDs with loaded pages');
 assert.match(database, /LOWER\(clips\.content_type\) LIKE \? ESCAPE/, 'Collection-axis Search filters must use fuzzy case-insensitive matching');

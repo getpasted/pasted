@@ -89,6 +89,7 @@ unsafe fn observations(results: *mut objc::runtime::Object) -> Vec<VisualLabel> 
     crate::content_extraction::normalize_visual_labels(labels)
 }
 
+#[cfg(any(target_os = "macos", test))]
 fn plain_language_identifier(identifier: &str) -> String {
     identifier
         .split('_')

@@ -5,6 +5,7 @@ import { readRustSourceTree } from './audit-source-trees.js';
 const activityView = [
   'src/components/ActivityLogView.tsx',
   'src/components/ActivityEventBadge.tsx',
+  'src/components/activityLogFilter.ts',
 ].map((path) => fs.readFileSync(path, 'utf8')).join('\n');
 const activityApi = fs.readFileSync('src/api/activity.ts', 'utf8');
 const englishCatalog = JSON.parse(fs.readFileSync('src/locales/en.json', 'utf8'));
@@ -39,7 +40,7 @@ const filterFamilies = [
   ['skipped', (event) => event === 'clipboard_capture_ignored', "event_type === 'clipboard_capture_ignored'"],
   ['trashed', (event) => ['clip_trashed', 'clips_trashed', 'clip_auto_trashed', 'clips_trashed_all'].includes(event), "event_type === 'clip_trashed'"],
   ['restored', (event) => event === 'clip_restored' || event === 'clips_restored_all', "event_type === 'clip_restored'"],
-  ['revisions', (event) => event === 'clip_revision_restored', "event_type === 'clip_revision_restored'"],
+  ['revisions', (event) => event === 'clip_revision_restored' || event === 'clip_version_deleted', 'clip_version_deleted'],
   ['purged', (event) => ['clip_deleted', 'trash_emptied', 'clips_purged_all'].includes(event), "event_type === 'clip_deleted'"],
   ['protection', (event) => ['clip_protected_toggled', 'clips_protected_toggled', 'clip_hotkey_changed', 'bin_protection_changed'].includes(event), "event_type === 'clip_protected_toggled'"],
   ['pinning', (event) => event.includes('pinned'), "event_type.includes('pinned')"],
@@ -61,7 +62,8 @@ assert.match(activityView, /content_detector[\s\S]*content_detection/,
   'Activity must keep imported pre-rename analysis events visible');
 
 for (const [value, , predicate] of filterFamilies) {
-  assert.match(activityView, new RegExp(`selectedTypeFilter === '${value}'[^\\n]+${predicate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`),
+  const signature = predicate.match(/'([^']+)'/)?.[1] ?? predicate;
+  assert.match(activityView, new RegExp(`case '${value}'[\\s\\S]{0,400}${signature.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`),
     `Activity must retain the ${value} filter family`);
   assert.match(activityView, new RegExp(`value: '${value}'`),
     `Activity must expose the ${value} filter option`);

@@ -32,13 +32,10 @@ export function useClipVisualLabels({
     return () => { cancelled = true; };
   }, [clip]);
 
-  const mutate = async (command: string, label?: string) => {
+  const mutate = async (operation: (clipId: number) => Promise<EffectiveVisualLabels>) => {
     if (!clip || !canMutate) return;
     try {
-      const labels = await invoke<EffectiveVisualLabels>(command, {
-        clipId: clip.id,
-        ...(label === undefined ? {} : { label }),
-      });
+      const labels = await operation(clip.id);
       setVisualLabels(labels);
       onUpdate();
     } catch (error) {
@@ -50,9 +47,12 @@ export function useClipVisualLabels({
     refresh,
     contentProps: {
       visualLabels,
-      onAddVisualLabel: (label: string) => mutate('add_clip_visual_label', label),
-      onRemoveVisualLabel: (label: string) => mutate('remove_clip_visual_label', label),
-      onResetVisualLabels: () => mutate('reset_clip_visual_labels'),
+      onAddVisualLabel: (label: string) => mutate((clipId) =>
+        invoke<EffectiveVisualLabels>('add_clip_visual_label', { clipId, label })),
+      onRemoveVisualLabel: (label: string) => mutate((clipId) =>
+        invoke<EffectiveVisualLabels>('remove_clip_visual_label', { clipId, label })),
+      onResetVisualLabels: () => mutate((clipId) =>
+        invoke<EffectiveVisualLabels>('reset_clip_visual_labels', { clipId })),
     },
   };
 }
