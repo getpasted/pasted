@@ -6,7 +6,6 @@ import {
   FileWarning,
   FolderInput,
   FolderMinus,
-  History,
   Keyboard,
   ListOrdered,
   LockKeyhole,
@@ -27,6 +26,7 @@ import {
   Workflow,
 } from 'lucide-react';
 import { translate } from '../localization/runtime';
+import { ActivityVersionEventBadge } from './ActivityVersionEventBadge';
 
 export function ActivityEventBadge({ type, description }: { type: string; description: string }) {
     switch (type) {
@@ -188,12 +188,8 @@ export function ActivityEventBadge({ type, description }: { type: string; descri
           </div>
         );
       case 'clip_revision_restored':
-        return (
-          <div className="theme-status-info flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">
-            <History className="w-3.5 h-3.5" />
-            <span>{translate('component.activityLogView.revisionRestored')}</span>
-          </div>
-        );
+      case 'clip_version_deleted':
+        return <ActivityVersionEventBadge type={type} />;
       case 'library_moved':
       case 'external_history_imported':
       case 'clips_imported':

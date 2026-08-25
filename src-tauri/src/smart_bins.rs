@@ -3,7 +3,13 @@ use serde::{Deserialize, Serialize};
 pub const SMART_BIN_RULE_VERSION: u32 = 1;
 pub const MAX_SMART_BIN_CONDITIONS: usize = 32;
 pub const MAX_SMART_BIN_VALUE_CHARS: usize = 2_048;
-pub const CURRENT_TARGETS: [&str; 4] = ["clip_type", "content_type", "file_format", "source"];
+pub const CURRENT_TARGETS: [&str; 5] = [
+    "clip_type",
+    "content_type",
+    "file_format",
+    "source",
+    "visual_label",
+];
 const LEGACY_TARGETS: [&str; 4] = ["origin_kind", "contains", "file_extension", "file_path"];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

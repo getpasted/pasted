@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { analysisApi } from '../api/analysis';
 import type { ClipItem } from '../types';
@@ -7,14 +7,14 @@ import type {
   ClipContentMatch,
   ClipSearchableText,
   ExtractionApplicationResult,
-  ExtractionAttempt,
-  ExtractionResult,
   SmartActionSuggestion,
   StructuralInspection,
 } from '../components/clipPreviewModel';
 import { useFileClipPreviews } from './useFileClipPreviews';
 import { soundManager } from '../utils/sound';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { useClipVisualLabels } from './useClipVisualLabels';
+import { useClipExtractionRecords } from './useClipExtractionRecords';
 
 interface UseClipPreviewAnalysisInput {
   clip: ClipItem | null;
@@ -26,7 +26,7 @@ interface UseClipPreviewAnalysisInput {
   canMutateContent: boolean;
   filePreviewMode: 'off' | 'safe' | 'all';
   filePreviewMaxMb: number;
-  onRevisionAdded: () => void;
+  onRefreshRevisionCount: () => void | Promise<void>;
   onUpdateClip: () => void;
   onError: (message: string) => void;
 }
@@ -41,7 +41,7 @@ export function useClipPreviewAnalysis({
   canMutateContent,
   filePreviewMode,
   filePreviewMaxMb,
-  onRevisionAdded,
+  onRefreshRevisionCount,
   onUpdateClip,
   onError,
 }: UseClipPreviewAnalysisInput) {
@@ -49,10 +49,6 @@ export function useClipPreviewAnalysis({
   const [inspection, setInspection] = useState<StructuralInspection | null>(null);
   const [smartActions, setSmartActions] = useState<SmartActionSuggestion | null>(null);
   const [fileSearchableText, setFileSearchableText] = useState<ClipSearchableText | null>(null);
-  const [extractionResults, setExtractionResults] = useState<ExtractionResult[]>([]);
-  const [extractionHistory, setExtractionHistory] = useState<ExtractionAttempt[]>([]);
-  const [extractionHistoryHasMore, setExtractionHistoryHasMore] = useState(false);
-  const [isExtractionHistoryLoading, setIsExtractionHistoryLoading] = useState(false);
   const [isFileExtractionLoading, setIsFileExtractionLoading] = useState(false);
   const filePreview = useFileClipPreviews({
     clip,
@@ -62,7 +58,13 @@ export function useClipPreviewAnalysis({
   const [isOcrLoading, setIsOcrLoading] = useState(false);
   const [resolvedImage, setResolvedImage] = useState<{ clipId: number; base64: string } | null>(null);
   const fileExtractionRequestIdRef = useRef(0);
-  const extractionHistoryRequestIdRef = useRef(0);
+  const visualLabelController = useClipVisualLabels({
+    clip,
+    canMutate: canMutateContent,
+    onUpdate: onUpdateClip,
+    onError,
+  });
+  const extractionRecords = useClipExtractionRecords(clip, visualLabelController.refresh);
 
   useEffect(() => {
     let cancelled = false;
@@ -141,63 +143,6 @@ export function useClipPreviewAnalysis({
     return () => { cancelled = true; };
   }, [clip?.content_hash, clip?.content_type, clip?.id, transcriptionsEnabled]);
 
-  const loadExtractionResults = useCallback(async (clipId: number) => {
-    const results = await invoke<ExtractionResult[]>('get_clip_extraction_results', { clipId });
-    setExtractionResults(Array.isArray(results) ? results : []);
-    const requestId = ++extractionHistoryRequestIdRef.current;
-    setIsExtractionHistoryLoading(true);
-    try {
-      const attempts = await invoke<ExtractionAttempt[]>('get_clip_extraction_history', { clipId, limit: 101, offset: 0 });
-      if (requestId !== extractionHistoryRequestIdRef.current) return;
-      const page = Array.isArray(attempts) ? attempts : [];
-      setExtractionHistory(page.slice(0, 100));
-      setExtractionHistoryHasMore(page.length > 100);
-    } catch (error) {
-      console.error('Failed to refresh Extractor history:', error);
-    } finally {
-      if (requestId === extractionHistoryRequestIdRef.current) setIsExtractionHistoryLoading(false);
-    }
-  }, []);
-
-  const loadExtractionHistory = useCallback(async (reset: boolean) => {
-    if (!clip || (clip.content_type !== 'image' && clip.content_type !== 'file')) return;
-    const offset = reset ? 0 : extractionHistory.length;
-    const requestId = ++extractionHistoryRequestIdRef.current;
-    setIsExtractionHistoryLoading(true);
-    try {
-      const attempts = await invoke<ExtractionAttempt[]>('get_clip_extraction_history', { clipId: clip.id, limit: 101, offset });
-      if (requestId !== extractionHistoryRequestIdRef.current) return;
-      const page = Array.isArray(attempts) ? attempts : [];
-      setExtractionHistory((current) => reset ? page.slice(0, 100) : [...current, ...page.slice(0, 100)]);
-      setExtractionHistoryHasMore(page.length > 100);
-    } catch (error) {
-      console.error('Failed to load Extractor history:', error);
-    } finally {
-      if (requestId === extractionHistoryRequestIdRef.current) setIsExtractionHistoryLoading(false);
-    }
-  }, [clip, extractionHistory.length]);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!clip || (clip.content_type !== 'image' && clip.content_type !== 'file')) {
-      extractionHistoryRequestIdRef.current += 1;
-      setExtractionResults([]);
-      setExtractionHistory([]);
-      setExtractionHistoryHasMore(false);
-      setIsExtractionHistoryLoading(false);
-      return () => { cancelled = true; };
-    }
-    setExtractionResults([]);
-    extractionHistoryRequestIdRef.current += 1;
-    setExtractionHistory([]);
-    setExtractionHistoryHasMore(false);
-    setIsExtractionHistoryLoading(false);
-    invoke<ExtractionResult[]>('get_clip_extraction_results', { clipId: clip.id })
-      .then((results) => { if (!cancelled) setExtractionResults(Array.isArray(results) ? results : []); })
-      .catch((error) => { if (!cancelled) console.error('Failed to load Extractor results:', error); });
-    return () => { cancelled = true; };
-  }, [clip?.content_hash, clip?.content_type, clip?.id, clip?.ocr_extractor_ref, clip?.text_content]);
-
   useEffect(() => {
     let cancelled = false;
     let frame = 0;
@@ -230,16 +175,16 @@ export function useClipPreviewAnalysis({
     try {
       const result = await invoke<ExtractionApplicationResult>('extract_ocr_from_clip', { clipId: clip.id });
       if (result.outcome === 'failed') {
-        await loadExtractionResults(clip.id);
+        await extractionRecords.refresh(clip.id);
         throw new Error(result.failure?.message ?? 'The Extractor failed.');
       }
       if (result.outcome === 'no_output') {
-        await loadExtractionResults(clip.id);
+        await extractionRecords.refresh(clip.id);
         return;
       }
-      onRevisionAdded();
+      await onRefreshRevisionCount();
       soundManager.playCopySound();
-      await loadExtractionResults(clip.id);
+      await extractionRecords.refresh(clip.id);
       onUpdateClip();
     } catch (error) {
       console.error('OCR Extraction Failed:', error);
@@ -257,17 +202,17 @@ export function useClipPreviewAnalysis({
       const result = await invoke<ExtractionApplicationResult>('extract_text_from_file_clip', { clipId: requestedClipId });
       if (requestId !== fileExtractionRequestIdRef.current) return;
       if (result.outcome === 'failed') {
-        await loadExtractionResults(requestedClipId);
+        await extractionRecords.refresh(requestedClipId);
         throw new Error(result.failure?.message ?? 'The Extractor failed.');
       }
       if (result.outcome === 'no_output') {
-        await loadExtractionResults(requestedClipId);
+        await extractionRecords.refresh(requestedClipId);
         return;
       }
       const stored = await invoke<ClipSearchableText | null>('get_clip_searchable_text', { clipId: requestedClipId });
       if (requestId !== fileExtractionRequestIdRef.current) return;
       setFileSearchableText(stored);
-      await loadExtractionResults(requestedClipId);
+      await extractionRecords.refresh(requestedClipId);
       soundManager.playCopySound();
       onUpdateClip();
     } catch (error) {
@@ -282,18 +227,17 @@ export function useClipPreviewAnalysis({
     inspection,
     smartActions,
     fileSearchableText,
-    extractionResults,
-    extractionHistory,
-    extractionHistoryHasMore,
-    isExtractionHistoryLoading,
+    ...extractionRecords,
     isFileExtractionLoading,
     filePreviews: filePreview.filePreviews,
     isFilePreviewLoading: filePreview.isFilePreviewLoading,
-    recheckFileReference: filePreview.recheckFileReference,
     isOcrLoading,
     resolvedImage,
-    loadExtractionHistory,
     runOcr,
     runFileExtraction,
+    previewContentAnalysisProps: {
+      ...visualLabelController.contentProps,
+      onRecheckFileReference: filePreview.recheckFileReference,
+    },
   };
 }

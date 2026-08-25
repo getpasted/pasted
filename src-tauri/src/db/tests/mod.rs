@@ -41,6 +41,7 @@ mod analytics_boundaries;
 mod bins_and_transforms;
 mod capture_and_lifecycle;
 mod clip_transfer;
+mod clip_visual_labels;
 mod extractor_recipes;
 mod full_backups;
 mod history_and_organization_transfer;

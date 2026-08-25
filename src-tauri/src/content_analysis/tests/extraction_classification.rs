@@ -1,11 +1,16 @@
 use super::*;
 
+fn produced(text: &str) -> ExtractionOutcome {
+    ExtractionOutcome::Produced {
+        text: text.into(),
+        labels: Vec::new(),
+    }
+}
+
 #[test]
 fn extraction_makes_text_available_to_later_classification() {
     let classifiers = vec![classifier(r"^[^@]+@[^@]+\.[^@]+$", "email")];
-    let engine = engine(ExtractionOutcome::Produced {
-        text: "agent@example.com".into(),
-    });
+    let engine = engine(produced("agent@example.com"));
     let engines: [&dyn crate::content_extraction::ExtractorEngine; 1] = [&engine];
     let registry = ExtractorEngineRegistry::new(&engines);
     let report = analyze_test_image(vec![1, 2, 3], &extractor(), Some(&classifiers), &registry);
@@ -31,9 +36,7 @@ fn compatible_extractors_all_run_in_priority_order_and_keep_observations() {
     };
     let second_engine = StaticEngine {
         id: "second-v1",
-        outcome: ExtractionOutcome::Produced {
-            text: "Hello World!".into(),
-        },
+        outcome: produced("Hello World!"),
     };
     let third_engine = StaticEngine {
         id: "third-v1",
@@ -46,9 +49,7 @@ fn compatible_extractors_all_run_in_priority_order_and_keep_observations() {
     };
     let duplicate_engine = StaticEngine {
         id: "duplicate-v1",
-        outcome: ExtractionOutcome::Produced {
-            text: "Hello World!".into(),
-        },
+        outcome: produced("Hello World!"),
     };
     let engines: [&dyn crate::content_extraction::ExtractorEngine; 4] = [
         &first_engine,

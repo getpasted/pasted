@@ -158,8 +158,9 @@ const documentedCommands = [
   'pasted clear',
   'pasted clip get',
   'pasted clip note',
-  'pasted clip revisions',
-  'pasted clip restore-revision',
+  'pasted clip versions',
+  'pasted clip restore-version',
+  'pasted clip delete-version',
   'pasted clip provenance',
   'pasted clip copy|paste',
   'pasted clip export',
@@ -650,7 +651,7 @@ for (const [feature, target] of [['clipTypes', 'clip_type'], ['types', 'content_
   assert.match(clipViews, new RegExp(`${target}[\\s\\S]{0,500}features\\?\\.${feature}|features\\?\\.${feature}[\\s\\S]{0,500}${target}`),
     `GUI Smart Bin matching must honor the ${feature} Functionality setting`);
 }
-for (const method of ['update_clip_note', 'get_clip_versions_page', 'restore_clip_version', 'get_clip_transformation_provenance', 'purge_clip_permanently', 'empty_trash', 'get_analytics_summary']) {
+for (const method of ['update_clip_note', 'get_clip_version_timeline_page', 'restore_clip_version', 'delete_clip_version', 'get_clip_transformation_provenance', 'purge_clip_permanently', 'empty_trash', 'get_analytics_summary']) {
   assert.match(database, new RegExp(`pub fn ${method}`), `${method} must live in the shared database domain layer`);
   assert.match(cli, new RegExp(`db\\s*\\.${method}`), `${method} must be reused by the CLI`);
 }

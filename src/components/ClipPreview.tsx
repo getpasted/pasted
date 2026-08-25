@@ -3,7 +3,7 @@ import { ClipItem, Bin, ManualTransform } from '../types';
 import type { AppSettings } from '../types';
 import { parseColor, ColorFormats } from '../utils/color';
 import { soundManager } from '../utils/sound';
-import { ClipRevisionHistory } from './ClipRevisionHistory';
+import { ClipPreviewRevisionHistoryPanel } from './ClipPreviewRevisionHistoryPanel';
 import { ClipPreviewFooter } from './ClipPreviewFooter';
 import { ClipNoteViewer } from './ClipNoteViewer';
 import { safeInvoke as invoke } from '../utils/tauri';
@@ -125,7 +125,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   const {
     isOpen: showHistory,
     previewedVersion,
-    count: revisionCount,
+    count: versionCount,
   } = revisions;
   const analysis = useClipPreviewAnalysis({
     clip,
@@ -137,7 +137,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     canMutateContent: viewPolicy.canMutateContent,
     filePreviewMode,
     filePreviewMaxMb,
-    onRevisionAdded: revisions.noteRevisionAdded,
+    onRefreshRevisionCount: revisions.refreshCount,
     onUpdateClip: () => onUpdateClip(),
     onError: (message) => showToast({ tone: 'error', message }),
   });
@@ -308,9 +308,11 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
 
       <ClipPreviewWorkspace
         activeManualTransformName={activeManualTransformName}
+        canSaveVersion={viewPolicy.canMutateContent}
         contentProps={{
           clip,
           displayText,
+          previewingRevision: previewedVersion !== null,
           colorData,
           resolvedImageBase64: resolvedImage?.clipId === clip.id ? resolvedImage.base64 : null,
           filePreviews,
@@ -325,18 +327,26 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           isOcrLoading,
           ocrEnabled: features.ocr,
           transcriptionsEnabled: features.transcriptions,
-          readOnly: !viewPolicy.canMutateContent,
           onColorChange: setTransformedText,
           onCopyFormat: (label, value) => void handleCopySpecificFormat(label, value),
           onRunOCR: () => void handleRunOCR(),
           onRunFileExtraction: () => void handleRunFileExtraction(),
           onLoadExtractionHistory: (reset) => void loadExtractionHistory(reset),
-          onRecheckFileReference: analysis.recheckFileReference,
+          ...analysis.previewContentAnalysisProps,
+          visualLabels: previewedVersion
+            ? previewedVersion.visual_labels ?? { clipId: clip.id, labels: [], hasOverrides: false }
+            : analysis.previewContentAnalysisProps.visualLabels,
+          readOnly: !viewPolicy.canMutateContent || previewedVersion !== null,
         }}
         isManualTransformRunning={isManualTransformRunning}
         isTransforming={isTransforming}
+        isSavingVersion={revisions.restoringVersionId === previewedVersion?.id}
+        onCancelVersionPreview={revisions.clearPreview}
         onOpenIntelligence={onOpenIntelligence}
         onResetTransform={handleResetTransform}
+        onSaveVersion={() => {
+          if (previewedVersion) void revisions.restore(previewedVersion);
+        }}
         previewedVersion={previewedVersion}
         transformError={transformError}
         transformRequestStatus={transformRequestStatus}
@@ -368,21 +378,11 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         transforms={transforms}
       />
 
-      {features.revisions && showHistory && clip.content_type !== 'file' && (
-        <ClipRevisionHistory
-          versions={revisions.versions}
-          isLoading={revisions.isLoading}
-          readOnly={!viewPolicy.canMutateContent}
-          onClose={() => revisions.setIsOpen(false)}
-          previewedVersionId={previewedVersion?.id ?? null}
-          restoringVersionId={revisions.restoringVersionId}
-          hasMore={revisions.hasMore}
-          isLoadingMore={revisions.isLoadingMore}
-          onLoadMore={() => void revisions.loadMore()}
-          onPreview={revisions.togglePreview}
-          onRestore={(version) => void revisions.restore(version)}
-        />
-      )}
+      <ClipPreviewRevisionHistoryPanel
+        visible={features.revisions && showHistory && clip.content_type !== 'file'}
+        readOnly={!viewPolicy.canMutateContent}
+        revisions={revisions}
+      />
 
       <ClipPreviewFooter
         clip={clip}
@@ -392,7 +392,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         characterCount={charCount}
         wordCount={wordCount}
         lineCount={lineCount}
-        revisionCount={revisionCount}
+        versionCount={versionCount}
         showHistory={showHistory}
         onToggleHistory={revisions.toggleOpen}
       />

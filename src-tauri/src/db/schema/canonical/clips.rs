@@ -198,6 +198,7 @@ pub(super) fn initialize_clip_schema(conn: &Connection) -> Result<()> {
         )",
         [],
     )?;
+    super::visual_labels::initialize(conn)?;
 
     let _ = conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_clips_trashed ON clips (is_trashed, created_at DESC)",

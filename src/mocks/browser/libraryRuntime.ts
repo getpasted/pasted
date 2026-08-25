@@ -4,6 +4,7 @@ import { handleActivityBrowserMock } from './activity';
 import { handleBackupBrowserMock } from './backup';
 import { handleAnalyticsBrowserMock } from './analytics';
 import { handleClipBrowserMock } from './clips';
+import { handleClipVersionBrowserMock } from './clipVersions';
 import { handleBinBrowserMock } from './bins';
 import { handleAnalysisBrowserMock } from './analysis';
 import { handleQueueBrowserMock } from './queue';
@@ -147,6 +148,7 @@ export async function invokeLibraryBrowserMock<T>(
     handleBackupBrowserMock(cmd),
     handleAnalyticsBrowserMock(cmd, mockClips),
     handleClipBrowserMock(cmd, args, mockClips, withMockProtection),
+    handleClipVersionBrowserMock(cmd, args, mockClips),
     handleBinBrowserMock(cmd, mockBins, mockClips),
     handleAnalysisBrowserMock(cmd),
     handleQueueBrowserMock(cmd, args),
@@ -208,10 +210,6 @@ export async function invokeLibraryBrowserMock<T>(
       resetMockIntelligence();
       return report as unknown as T;
     }
-    case 'get_clip_versions':
-      return [] as unknown as T;
-    case 'get_clip_version_count':
-      return 0 as unknown as T;
     case 'get_clip_image':
       return null as unknown as T;
     case 'analyze_content': {
@@ -272,11 +270,6 @@ export async function invokeLibraryBrowserMock<T>(
     }
     case 'get_file_clip_previews':
       return [] as unknown as T;
-    case 'restore_clip_version': {
-      const clipId = Number(args?.clipId);
-      const clip = mockClips.find((item) => item.id === clipId);
-      return (clip ? { ...clip } : null) as unknown as T;
-    }
     case 'update_clip_note': {
       const clipId = Number(args?.clipId);
       const clip = mockClips.find((item) => item.id === clipId);

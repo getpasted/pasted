@@ -74,6 +74,18 @@ assert.match(
   /registry list \[--kind capture\|inspector\|extractor\|classifier\|suggestion\|operation\|transform\]/,
   'CLI Reference must list every registry kind, including Capture',
 );
+for (const command of [
+  'pasted clip versions <id>',
+  'pasted clip restore-version <id> <version-id>',
+  'pasted clip delete-version <id> <version-id> --yes',
+]) {
+  assert.ok(cliReference.includes(command), `CLI Reference must document ${command}`);
+}
+
+const recoveryGuide = readFileSync(join(repositoryRoot, 'docs/wiki/Backup-Trash-Revisions-and-Recovery.md'), 'utf8');
+for (const invariant of ['Current and Original cannot be deleted', 'Original is retained outside the configured limit']) {
+  assert.ok(recoveryGuide.includes(invariant), `Recovery guide must document: ${invariant}`);
+}
 
 for (const file of [
   'README.md',

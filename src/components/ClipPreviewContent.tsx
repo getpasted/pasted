@@ -1,84 +1,16 @@
 import React from 'react';
 import { AlertTriangle, Check, ChevronDown, Copy, Palette, Sparkles } from 'lucide-react';
 import { getClipFilePaths, type ClipItem } from '../types';
-import type { ColorFormats } from '../utils/color';
 import { UI_COPY } from '../utils/uiCopy';
 import { OverflowText } from './OverflowText';
 import { SafeRasterImage } from './SafeRasterImage';
 import { translate } from '../localization/runtime';
 import { dateTimeAttribute, formatFullDateTime, formatRelativeTime } from '../utils/date';
-import type { ExtractionAttempt, ExtractionResult } from './clipPreviewModel';
-import type { FileClipPreview } from './fileClipPreviewModel';
+import type { ExtractionAttempt } from './clipPreviewModel';
 import { FileClipPreviewPanel } from './FileClipPreviewPanel';
-
-interface ClipPreviewContentProps {
-  clip: ClipItem;
-  displayText: string;
-  colorData: ColorFormats | null;
-  resolvedImageBase64: string | null;
-  filePreviews: FileClipPreview[];
-  isFilePreviewLoading: boolean;
-  fileSearchableText: {
-    extractorName: string;
-    searchableText: string;
-  } | null;
-  extractionResults: ExtractionResult[];
-  extractionHistory: ExtractionAttempt[];
-  extractionHistoryHasMore: boolean;
-  isExtractionHistoryLoading: boolean;
-  isFileExtractionLoading: boolean;
-  copiedFormat: string | null;
-  isOcrLoading: boolean;
-  ocrEnabled: boolean;
-  transcriptionsEnabled: boolean;
-  readOnly?: boolean;
-  onColorChange: (value: string) => void;
-  onCopyFormat: (label: string, value: string) => void;
-  onRunOCR: () => void;
-  onRunFileExtraction: () => void;
-  onLoadExtractionHistory: (reset: boolean) => void;
-  onRecheckFileReference: (index: number) => Promise<void>;
-}
-
-function ExtractionCards({
-  results,
-  copiedFormat,
-  onCopyFormat,
-}: {
-  results: ExtractionResult[];
-  copiedFormat: string | null;
-  onCopyFormat: (label: string, value: string) => void;
-}) {
-  const produced = results.filter((result) => result.outcome === 'produced' && result.text && !result.duplicateOf);
-
-  return (
-    <>
-      {produced.map((result) => {
-        const copyLabel = `${result.extractorName} text`;
-        return (
-          <article key={result.extractorRef} className="theme-surface overflow-hidden rounded-xl border">
-            <header className="theme-divider flex min-h-10 items-center justify-between gap-2 border-b px-3 py-2">
-              <p className="theme-text-main min-w-0 truncate text-xs font-semibold">{result.extractorName}</p>
-              <button
-                type="button"
-                onClick={() => onCopyFormat(copyLabel, result.text || '')}
-                className="theme-icon-button theme-focusable shrink-0 cursor-pointer rounded-lg border p-1.5 transition-colors"
-                title={copiedFormat === copyLabel ? UI_COPY.copied : translate('component.clipPreviewContent.copyExtractedText')}
-              >
-                {copiedFormat === copyLabel ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-              </button>
-            </header>
-            <div className="p-3">
-              <div dir="auto" className="theme-code-surface overlay-scroll-region max-h-60 overflow-y-auto whitespace-pre-wrap rounded-lg border p-3.5 font-mono text-xs leading-relaxed shadow-inner select-text">
-                {result.text}
-              </div>
-            </div>
-          </article>
-        );
-      })}
-    </>
-  );
-}
+import type { ClipPreviewContentProps } from './clipPreviewContentModel';
+import { ClipExtractionCards as ExtractionCards } from './ClipExtractionCards';
+import { VisualLabelEditor } from './VisualLabelEditor';
 
 function ExtractionActivity({
   history,
@@ -143,7 +75,9 @@ function ExtractionActivity({
                         : result.outcome === 'failed'
                           ? result.failure?.code === 'engine_failed' ? translate('component.clipPreviewContent.extractorFailed') : result.failure?.message || translate('component.clipPreviewContent.extractorFailed')
                           : result.outcome === 'produced'
-                            ? translate('component.clipPreviewContent.extractedTextSuccessfully')
+                            ? translate(result.labels?.length
+                              ? 'component.clipPreviewContent.foundVisualLabels'
+                              : 'component.clipPreviewContent.extractedTextSuccessfully')
                             : translate('component.clipPreviewContent.noTextFound')}</p>
                     </div>
                   </div>
@@ -177,12 +111,14 @@ function getOcrExtractorLabel(clip: ClipItem): string | null {
 export function ClipPreviewContent({
   clip,
   displayText,
+  previewingRevision,
   colorData,
   resolvedImageBase64,
   filePreviews,
   isFilePreviewLoading,
   fileSearchableText,
   extractionResults,
+  visualLabels,
   extractionHistory,
   extractionHistoryHasMore,
   isExtractionHistoryLoading,
@@ -198,11 +134,14 @@ export function ClipPreviewContent({
   onRunFileExtraction,
   onLoadExtractionHistory,
   onRecheckFileReference,
+  onAddVisualLabel,
+  onRemoveVisualLabel,
+  onResetVisualLabels,
 }: ClipPreviewContentProps) {
   const ocrExtractorLabel = getOcrExtractorLabel(clip);
   const filePaths = getClipFilePaths(clip);
-  const hasProducedExtraction = extractionResults.some(
-    (result) => result.outcome === 'produced' && result.text && !result.duplicateOf,
+  const hasProducedExtraction = !previewingRevision && extractionResults.some(
+    (result) => result.outcome === 'produced' && (result.text || result.labels?.length) && !result.duplicateOf,
   );
   const [imageLoadingIndicatorClipId, setImageLoadingIndicatorClipId] = React.useState<number | null>(null);
   React.useEffect(() => {
@@ -229,7 +168,7 @@ export function ClipPreviewContent({
 
             {transcriptionsEnabled && <section className="theme-panel overflow-hidden rounded-xl border shadow-lg">
               <header className="theme-divider flex min-h-12 items-center justify-between gap-3 border-b px-4 py-2">
-                <h3 className="theme-text-main text-xs font-semibold">{translate('component.clipPreviewContent.extractedText')}</h3>
+                <h3 className="theme-text-main text-xs font-semibold">{translate('component.clipPreviewContent.extractions')}</h3>
                 <div className="flex items-center space-x-1.5">
                   {fileSearchableText && (
                     <button
@@ -254,7 +193,7 @@ export function ClipPreviewContent({
               </header>
               <div className="space-y-3 px-4 py-3">
                 {hasProducedExtraction ? (
-                  <ExtractionCards results={extractionResults} copiedFormat={copiedFormat} onCopyFormat={onCopyFormat} />
+                  <ExtractionCards results={extractionResults} copiedFormat={copiedFormat} onCopyFormat={onCopyFormat} visualLabels={visualLabels} readOnly={readOnly} onAddVisualLabel={onAddVisualLabel} onRemoveVisualLabel={onRemoveVisualLabel} onResetVisualLabels={onResetVisualLabels} />
                 ) : fileSearchableText ? <>
                   <p className="theme-text-muted text-xs">{translate('component.clipPreviewContent.extractedByName', { name: fileSearchableText.extractorName })}</p>
                   <div dir="auto" className="theme-code-surface overlay-scroll-region max-h-60 overflow-y-auto whitespace-pre-wrap rounded-xl border p-3.5 font-mono text-xs leading-relaxed shadow-inner select-text">
@@ -375,11 +314,11 @@ export function ClipPreviewContent({
 
             <section className="ocr-panel theme-panel overflow-hidden rounded-xl border shadow-lg">
               <header className="theme-divider flex min-h-12 items-center justify-between gap-3 border-b px-4 py-2">
-                <h3 className="theme-text-main text-xs font-semibold">{translate('component.clipPreviewContent.extractedText')}</h3>
+                <h3 className="theme-text-main text-xs font-semibold">{translate('component.clipPreviewContent.extractions')}</h3>
                 <div className="flex items-center space-x-1.5">
-                  {clip.text_content && (
+                  {displayText && (
                     <button
-                      onClick={() => onCopyFormat('Extracted Text', clip.text_content || '')}
+                      onClick={() => onCopyFormat('Extracted Text', displayText)}
                       className="theme-icon-button theme-focusable p-1.5 rounded-lg border transition-colors cursor-pointer"
                       title={copiedFormat === 'Extracted Text' ? UI_COPY.copied : translate('component.clipPreviewContent.copyExtractedText')}
                     >
@@ -390,21 +329,23 @@ export function ClipPreviewContent({
                     onClick={onRunOCR}
                     disabled={isOcrLoading || readOnly}
                     className="theme-primary-button theme-focusable p-1.5 rounded-lg border transition-colors shadow cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                    title={readOnly ? translate('component.clipPreviewContent.restoreBeforeExtracting') : isOcrLoading ? translate('component.clipPreviewContent.extractingText') : clip.text_content || extractionResults.length > 0 ? translate('component.clipPreviewContent.extractAgain') : translate('component.clipPreviewContent.extractText')}
+                    title={readOnly ? translate('component.clipPreviewContent.restoreBeforeExtracting') : isOcrLoading ? translate('component.clipPreviewContent.extractingText') : displayText || extractionResults.length > 0 ? translate('component.clipPreviewContent.extractAgain') : translate('component.clipPreviewContent.extractText')}
                   >
                     <Sparkles className={`w-3.5 h-3.5 ${isOcrLoading ? 'animate-spin' : ''}`} />
                   </button>}
                 </div>
               </header>
               <div className="space-y-3 px-4 py-3">
-                {!hasProducedExtraction && clip.text_content && ocrExtractorLabel && (
+                {!previewingRevision && !hasProducedExtraction && displayText && ocrExtractorLabel && (
                   <p className="theme-text-muted text-xs">{translate('component.clipPreviewContent.extractedByName', { name: ocrExtractorLabel })}</p>
                 )}
-                {hasProducedExtraction ? (
-                  <ExtractionCards results={extractionResults} copiedFormat={copiedFormat} onCopyFormat={onCopyFormat} />
-                ) : clip.text_content ? (
+                {previewingRevision && visualLabels?.labels.length ? (
+                  <VisualLabelEditor visualLabels={visualLabels} readOnly onAdd={onAddVisualLabel} onRemove={onRemoveVisualLabel} onReset={onResetVisualLabels} />
+                ) : hasProducedExtraction ? (
+                  <ExtractionCards results={extractionResults} copiedFormat={copiedFormat} onCopyFormat={onCopyFormat} visualLabels={visualLabels} readOnly={readOnly} onAddVisualLabel={onAddVisualLabel} onRemoveVisualLabel={onRemoveVisualLabel} onResetVisualLabels={onResetVisualLabels} />
+                ) : displayText ? (
                   <div dir="auto" className="theme-code-surface overlay-scroll-region max-h-60 overflow-y-auto whitespace-pre-wrap rounded-xl border p-3.5 font-mono text-xs leading-relaxed shadow-inner select-text">
-                    {clip.text_content}
+                    {displayText}
                   </div>
                 ) : (
                   <p className="theme-text-muted text-xs italic">

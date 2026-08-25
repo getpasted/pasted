@@ -1,5 +1,8 @@
 use super::support::*;
 
+mod version_support;
+mod versions;
+
 #[test]
 fn database_protection_has_a_conservative_cli_contract() {
     let database = temporary_path("storage-protection", "db");
@@ -129,6 +132,38 @@ fn clip_hotkeys_and_bin_policies_have_structured_cli_parity() {
 }
 
 #[test]
+fn clip_visual_labels_have_stable_cli_mutation_and_reset_contracts() {
+    let database = temporary_path("clip-visual-labels", "db");
+    let clip = success_json(&database, &["copy", "labelled CLI clip", "--json"]);
+    let clip_id = clip["id"].as_i64().expect("clip ID").to_string();
+
+    let added = success_json(
+        &database,
+        &["clip", "labels", "add", &clip_id, "favorite", "--json"],
+    );
+    assert_eq!(added["clipId"].to_string(), clip_id);
+    assert_eq!(added["labels"][0]["value"], "favorite");
+    assert_eq!(added["labels"][0]["source"], "manual");
+    assert_eq!(added["hasOverrides"], true);
+
+    let listed = success_json(&database, &["clip", "labels", "list", &clip_id, "--json"]);
+    assert_eq!(listed, added);
+
+    let refused = run(&database, &["clip", "labels", "reset", &clip_id, "--json"]);
+    assert!(!refused.status.success());
+    let preserved = success_json(&database, &["clip", "labels", "list", &clip_id, "--json"]);
+    assert_eq!(preserved["labels"][0]["value"], "favorite");
+
+    let reset = success_json(
+        &database,
+        &["clip", "labels", "reset", &clip_id, "--yes", "--json"],
+    );
+    assert_eq!(reset["labels"], serde_json::json!([]));
+    assert_eq!(reset["hasOverrides"], false);
+    clean_database(&database);
+}
+
+#[test]
 fn help_advertises_database_and_live_app_surfaces() {
     let database = temporary_path("help", "db");
     let output = run(&database, &["help"]);
@@ -137,6 +172,10 @@ fn help_advertises_database_and_live_app_surfaces() {
     for command in [
         "pasted analyzer",
         "pasted settings",
+        "pasted clip labels",
+        "pasted clip versions",
+        "pasted clip restore-version",
+        "pasted clip delete-version",
         "pasted recording",
         "pasted queue",
         "pasted backup inspect",

@@ -75,6 +75,44 @@ pub fn get_clip_extraction_results(
 }
 
 #[tauri::command]
+pub fn get_clip_visual_labels(
+    clip_id: i64,
+    db: State<'_, Arc<DbState>>,
+) -> Result<crate::db::clip_visual_labels::EffectiveVisualLabels, String> {
+    db.get_effective_visual_labels(clip_id)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn add_clip_visual_label(
+    clip_id: i64,
+    label: String,
+    db: State<'_, Arc<DbState>>,
+) -> Result<crate::db::clip_visual_labels::EffectiveVisualLabels, String> {
+    db.add_visual_label(clip_id, &label)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn remove_clip_visual_label(
+    clip_id: i64,
+    label: String,
+    db: State<'_, Arc<DbState>>,
+) -> Result<crate::db::clip_visual_labels::EffectiveVisualLabels, String> {
+    db.remove_visual_label(clip_id, &label)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn reset_clip_visual_labels(
+    clip_id: i64,
+    db: State<'_, Arc<DbState>>,
+) -> Result<crate::db::clip_visual_labels::EffectiveVisualLabels, String> {
+    db.reset_visual_labels(clip_id)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 pub fn get_clip_extraction_history(
     clip_id: i64,
     limit: usize,

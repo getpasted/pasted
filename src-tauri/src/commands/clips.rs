@@ -8,6 +8,8 @@ use crate::features::{self, Feature};
 
 use super::file_previews::parse_file_clip_paths;
 
+pub mod versions;
+
 #[tauri::command]
 pub fn get_clips(
     bin_id: Option<i64>,
@@ -189,40 +191,6 @@ pub fn reorder_bin_clips(
 ) -> Result<(), String> {
     features::require(&db, Feature::Bins)?;
     db.reorder_bin_clips(bin_id, clip_ids)
-        .map_err(|error| error.to_string())
-}
-
-#[tauri::command]
-pub fn get_clip_versions(
-    clip_id: i64,
-    limit: Option<i64>,
-    offset: Option<i64>,
-    db: State<'_, Arc<DbState>>,
-) -> Result<Vec<crate::db::ClipVersion>, String> {
-    features::require(&db, Feature::Revisions)?;
-    db.get_clip_versions_page(
-        clip_id,
-        limit.unwrap_or(50).clamp(1, 100),
-        offset.unwrap_or(0).max(0),
-    )
-    .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn get_clip_version_count(clip_id: i64, db: State<'_, Arc<DbState>>) -> Result<i64, String> {
-    features::require(&db, Feature::Revisions)?;
-    db.get_clip_version_count(clip_id)
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn restore_clip_version(
-    clip_id: i64,
-    version_id: i64,
-    db: State<'_, Arc<DbState>>,
-) -> Result<ClipItem, String> {
-    features::require(&db, Feature::Revisions)?;
-    db.restore_clip_version(clip_id, version_id)
         .map_err(|error| error.to_string())
 }
 

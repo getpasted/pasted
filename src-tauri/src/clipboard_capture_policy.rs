@@ -174,73 +174,6 @@ pub(crate) fn already_processed_change(marker: Option<i64>, processed: Option<i6
     marker.is_some() && marker == processed
 }
 
-pub(crate) fn image_file_rgba_fingerprint(path: &Path) -> Option<String> {
-    use std::io::Read;
-
-    let metadata = std::fs::symlink_metadata(path).ok()?;
-    if !metadata.is_file()
-        || metadata.file_type().is_symlink()
-        || metadata.len() > crate::resource_limits::MAX_FILE_PREVIEW_INPUT_BYTES
-    {
-        return None;
-    }
-
-    let file = std::fs::File::open(path).ok()?;
-    let mut bytes = Vec::with_capacity(metadata.len() as usize);
-    file.take(crate::resource_limits::MAX_FILE_PREVIEW_INPUT_BYTES + 1)
-        .read_to_end(&mut bytes)
-        .ok()?;
-    if bytes.len() as u64 > crate::resource_limits::MAX_FILE_PREVIEW_INPUT_BYTES {
-        return None;
-    }
-
-    let dimensions = image::ImageReader::new(std::io::Cursor::new(&bytes))
-        .with_guessed_format()
-        .ok()?
-        .into_dimensions()
-        .ok()?;
-    if !crate::resource_limits::image_dimensions_within_limit(dimensions.0, dimensions.1) {
-        return None;
-    }
-
-    let image = image::ImageReader::new(std::io::Cursor::new(bytes))
-        .with_guessed_format()
-        .ok()?
-        .decode()
-        .ok()?
-        .to_rgba8();
-    Some(crate::clipboard_fingerprint::image_rgba(image.as_raw()))
-}
-
-pub(crate) fn image_file_clipboard_payload(path: &Path) -> Option<arboard::ImageData<'static>> {
-    use std::io::Read;
-
-    let metadata = std::fs::symlink_metadata(path).ok()?;
-    if !metadata.is_file()
-        || metadata.file_type().is_symlink()
-        || metadata.len() > crate::resource_limits::MAX_FILE_PREVIEW_INPUT_BYTES
-    {
-        return None;
-    }
-    let file = std::fs::File::open(path).ok()?;
-    let mut bytes = Vec::with_capacity(metadata.len() as usize);
-    file.take(crate::resource_limits::MAX_FILE_PREVIEW_INPUT_BYTES + 1)
-        .read_to_end(&mut bytes)
-        .ok()?;
-    if bytes.len() as u64 > crate::resource_limits::MAX_FILE_PREVIEW_INPUT_BYTES {
-        return None;
-    }
-    let image = image::load_from_memory(&bytes).ok()?.to_rgba8();
-    if !crate::resource_limits::image_dimensions_within_limit(image.width(), image.height()) {
-        return None;
-    }
-    Some(arboard::ImageData {
-        width: usize::try_from(image.width()).ok()?,
-        height: usize::try_from(image.height()).ok()?,
-        bytes: std::borrow::Cow::Owned(image.into_raw()),
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -336,30 +269,5 @@ mod tests {
             capture_bytes_for_setting(Some("999999")),
             crate::resource_limits::MAX_CLIP_TEXT_BYTES
         );
-    }
-
-    #[test]
-    fn copied_image_files_share_the_clipboard_rgba_fingerprint() {
-        let path = std::env::temp_dir().join(format!(
-            "pasted-composite-fingerprint-{}-{}.png",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
-        let rgba = vec![10, 20, 30, 255, 40, 50, 60, 128];
-        let image = image::RgbaImage::from_raw(2, 1, rgba.clone()).unwrap();
-        image.save(&path).unwrap();
-
-        assert_eq!(
-            image_file_rgba_fingerprint(&path),
-            Some(crate::clipboard_fingerprint::image_rgba(&rgba))
-        );
-        let payload = image_file_clipboard_payload(&path).unwrap();
-        assert_eq!((payload.width, payload.height), (2, 1));
-        assert_eq!(payload.bytes.as_ref(), rgba);
-
-        let _ = std::fs::remove_file(path);
     }
 }

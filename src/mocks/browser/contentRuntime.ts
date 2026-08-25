@@ -23,6 +23,7 @@ const mockFileSearchableText = new Map<number, {
   searchableText: string;
   updatedAt: string;
 }>();
+const mockVisualLabels = new Map<number, string[]>();
 
 let mockContentTypes: Array<{
   id: string; label: string; icon: string; group: string; concealClips: boolean; isBuiltin: boolean; isArchived: boolean;
@@ -156,6 +157,31 @@ export async function invokeContentBrowserMock<T>(
       return [] as unknown as T;
     case 'get_clip_extraction_results':
       return [] as unknown as T;
+    case 'get_clip_visual_labels': {
+      const clipId = Number(args?.clipId);
+      const labels = mockVisualLabels.get(clipId) ?? [];
+      return { clipId, labels: labels.map((value) => ({ value, source: 'manual' })), hasOverrides: labels.length > 0 } as unknown as T;
+    }
+    case 'add_clip_visual_label': {
+      const clipId = Number(args?.clipId);
+      const current = mockVisualLabels.get(clipId) ?? [];
+      const label = String(args?.label ?? '').trim();
+      mockVisualLabels.set(clipId, current.some((value) => value.toLowerCase() === label.toLowerCase()) ? current : [...current, label]);
+      const labels = mockVisualLabels.get(clipId) ?? [];
+      return { clipId, labels: labels.map((value) => ({ value, source: 'manual' })), hasOverrides: labels.length > 0 } as unknown as T;
+    }
+    case 'remove_clip_visual_label': {
+      const clipId = Number(args?.clipId);
+      const label = String(args?.label ?? '');
+      const labels = (mockVisualLabels.get(clipId) ?? []).filter((value) => value.toLowerCase() !== label.toLowerCase());
+      mockVisualLabels.set(clipId, labels);
+      return { clipId, labels: labels.map((value) => ({ value, source: 'manual' })), hasOverrides: labels.length > 0 } as unknown as T;
+    }
+    case 'reset_clip_visual_labels': {
+      const clipId = Number(args?.clipId);
+      mockVisualLabels.delete(clipId);
+      return { clipId, labels: [], hasOverrides: false } as unknown as T;
+    }
     case 'get_clip_extraction_history':
       return [] as unknown as T;
     case 'propose_extractor_recipe': {

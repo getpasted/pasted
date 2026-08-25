@@ -1,6 +1,8 @@
 use super::super::*;
 use super::*;
 
+mod versions;
+
 pub(crate) fn run_clips(args: Vec<String>, db_path: PathBuf, _conn: Connection) -> Result<()> {
     let db = DbState::new(db_path.clone())?;
     let subcommand = args.get(2).map(String::as_str).unwrap_or("help");
@@ -93,6 +95,7 @@ pub(crate) fn run_clips(args: Vec<String>, db_path: PathBuf, _conn: Connection) 
                 );
             }
         }
+        "labels" => super::clip_labels::run(&args, &db, json)?,
         "note" => {
             let clip_id = parse_i64_argument(
                 &args,
@@ -141,60 +144,8 @@ pub(crate) fn run_clips(args: Vec<String>, db_path: PathBuf, _conn: Connection) 
                 println!("Cleared the name from clip #{clip_id}.");
             }
         }
-        "revisions" | "versions" => {
-            let clip_id = parse_i64_argument(
-                &args,
-                3,
-                "Usage: pasted clip revisions <clip-id> [--limit N] [--offset N] [--json]",
-            );
-            let limit = argument_value(&args, "--limit")
-                .and_then(|value| value.parse::<i64>().ok())
-                .unwrap_or(50)
-                .clamp(1, 1_000);
-            let offset = argument_value(&args, "--offset")
-                .and_then(|value| value.parse::<i64>().ok())
-                .unwrap_or(0)
-                .max(0);
-            let revisions = db.get_clip_versions_page(clip_id, limit, offset)?;
-            if json {
-                println!(
-                    "{}",
-                    serde_json::to_string_pretty(&revisions).map_err(json_error)?
-                );
-            } else if revisions.is_empty() {
-                println!("No revisions for clip #{clip_id}.");
-            } else {
-                for revision in revisions {
-                    println!(
-                        "{}\t{}\t{}",
-                        revision.id,
-                        revision.created_at,
-                        revision.action_label.as_deref().unwrap_or("Revision")
-                    );
-                }
-            }
-        }
-        "restore-revision" | "restore-version" => {
-            let clip_id = parse_i64_argument(
-                &args,
-                3,
-                "Usage: pasted clip restore-revision <clip-id> <revision-id> [--json]",
-            );
-            let revision_id = parse_i64_argument(
-                &args,
-                4,
-                "Usage: pasted clip restore-revision <clip-id> <revision-id> [--json]",
-            );
-            let clip = db.restore_clip_version(clip_id, revision_id)?;
-            if json {
-                println!(
-                    "{}",
-                    serde_json::to_string_pretty(&clip).map_err(json_error)?
-                );
-            } else {
-                println!("Restored revision #{revision_id} for clip #{clip_id}.");
-            }
-        }
+        "revisions" | "versions" | "restore-revision" | "restore-version" | "delete-revision"
+        | "delete-version" => versions::run(subcommand, &args, &db, json)?,
         "provenance" => {
             let clip_id =
                 parse_i64_argument(&args, 3, "Usage: pasted clip provenance <clip-id> [--json]");
@@ -388,7 +339,7 @@ pub(crate) fn run_clips(args: Vec<String>, db_path: PathBuf, _conn: Connection) 
             print_mutation_summary(&outcome.mutation, json)?;
         }
         _ => {
-            eprintln!("Usage: pasted clip get|name|note|revisions|restore-revision|provenance|copy|paste|hotkey|pin|unpin|order-pinned|protect|unprotect|conceal|reveal|trash|restore|restore-all|purge|empty-trash|assign|remove-bin|export|import [options] [--json]");
+            eprintln!("Usage: pasted clip get|name|note|versions|restore-version|delete-version|provenance|copy|paste|hotkey|pin|unpin|order-pinned|protect|unprotect|conceal|reveal|trash|restore|restore-all|purge|empty-trash|assign|remove-bin|export|import [options] [--json]");
             std::process::exit(2);
         }
     }

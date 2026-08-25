@@ -1,5 +1,8 @@
 use super::super::*;
 
+mod expectations;
+mod identity_migrations;
+
 #[test]
 fn capture_capabilities_are_exposed_through_the_shared_registry() {
     let db = setup_test_db();
@@ -43,6 +46,13 @@ fn content_extractors_are_versioned_available_and_restorable() {
         apple.unavailable_reason.is_some(),
         !cfg!(target_os = "macos")
     );
+    let visual_labels = extractors
+        .iter()
+        .find(|extractor| {
+            extractor.stable_ref == crate::content_extraction::APPLE_VISION_LABELS_REF
+        })
+        .unwrap();
+    assert_eq!(visual_labels.is_available, cfg!(target_os = "macos"));
     let tesseract = extractors
         .iter()
         .find(|extractor| extractor.stable_ref == crate::content_extraction::TESSERACT_OCR_REF)
@@ -105,16 +115,12 @@ fn content_extractors_are_versioned_available_and_restorable() {
     assert_eq!(updated.name, "Local Image Text");
     assert!(!updated.enabled);
     let active = db.active_image_text_extractor().unwrap();
-    if tesseract.is_available {
-        assert_eq!(
-            active
-                .as_ref()
-                .map(|extractor| extractor.stable_ref.as_str()),
-            Some(crate::content_extraction::TESSERACT_OCR_REF)
-        );
-    } else {
-        assert!(active.is_none());
-    }
+    expectations::assert_active_image_extractor(
+        active
+            .as_ref()
+            .map(|extractor| extractor.stable_ref.as_str()),
+        tesseract.is_available,
+    );
     assert!(db
         .get_library_items(Some("extractor"), false)
         .unwrap()

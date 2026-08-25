@@ -271,20 +271,20 @@ fn extractor_participant<'a>(
                 },
             };
             let duplicate_of = match &outcome {
-                ExtractionOutcome::Produced { text } => context
+                ExtractionOutcome::Produced { text, .. } => context
                     .extraction_observations
                     .iter()
                     .find_map(|observation| {
                         matches!(
                             &observation.outcome,
-                            ExtractionOutcome::Produced { text: existing } if existing == text
+                            ExtractionOutcome::Produced { text: existing, .. } if existing == text
                         )
                         .then(|| observation.extractor_ref.clone())
                     }),
                 _ => None,
             };
             let outcome = match outcome {
-                ExtractionOutcome::Produced { text }
+                ExtractionOutcome::Produced { text, .. }
                     if duplicate_of.is_none()
                         && context.searchable_text.as_ref().is_some_and(|current| {
                             current.len().saturating_add(text.len()).saturating_add(1)
@@ -310,7 +310,7 @@ fn extractor_participant<'a>(
                 outcome: outcome.clone(),
             });
             match outcome {
-                ExtractionOutcome::Produced { text } => {
+                ExtractionOutcome::Produced { text, .. } => {
                     if duplicate_of.is_none() {
                         if let Some(current) = context.searchable_text.as_mut() {
                             if !current.is_empty() {

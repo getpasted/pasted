@@ -1,4 +1,6 @@
 use super::*;
+mod ocr;
+
 #[test]
 fn test_clip_version_history() {
     let db = setup_test_db();
@@ -32,8 +34,8 @@ fn test_clip_version_history() {
         db.update_clip_text(clip.id, &format!("Revision {index}"))
             .unwrap();
     }
-    assert_eq!(db.get_clip_versions(clip.id).unwrap().len(), 10);
-    assert_eq!(db.get_clip_version_count(clip.id).unwrap(), 10);
+    assert_eq!(db.get_clip_versions(clip.id).unwrap().len(), 11);
+    assert_eq!(db.get_clip_version_count(clip.id).unwrap(), 11);
 
     db.purge_clip_permanently(clip.id).unwrap();
     assert!(db.get_clip_versions(clip.id).unwrap().is_empty());
@@ -94,6 +96,61 @@ fn revision_restore_rejects_versions_from_another_clip_without_mutation() {
 }
 
 #[test]
+fn revision_deletion_preserves_current_original_and_other_clips() {
+    let db = setup_test_db();
+    let first = db
+        .save_clip(
+            "text",
+            Some("First original"),
+            None,
+            None,
+            "delete-version-first",
+            "Test",
+        )
+        .unwrap();
+    let second = db
+        .save_clip(
+            "text",
+            Some("Second original"),
+            None,
+            None,
+            "delete-version-second",
+            "Test",
+        )
+        .unwrap();
+    db.update_clip_text(first.id, "First edit").unwrap();
+    db.update_clip_text(first.id, "First current").unwrap();
+    db.update_clip_text(second.id, "Second current").unwrap();
+
+    let first_versions = db.get_clip_versions(first.id).unwrap();
+    let editable = first_versions
+        .iter()
+        .find(|version| !version.is_original)
+        .unwrap();
+    let original = first_versions
+        .iter()
+        .find(|version| version.is_original)
+        .unwrap();
+    let second_version = db.get_clip_versions(second.id).unwrap().remove(0);
+
+    db.delete_clip_version(first.id, editable.id).unwrap();
+    assert_eq!(db.get_clip_version_count(first.id).unwrap(), 1);
+    assert_eq!(
+        db.get_clip_by_id(first.id).unwrap().text_content.as_deref(),
+        Some("First current")
+    );
+    assert!(db.delete_clip_version(first.id, original.id).is_err());
+    assert!(db.delete_clip_version(first.id, 0).is_err());
+    assert!(db.delete_clip_version(first.id, second_version.id).is_err());
+    assert_eq!(db.get_clip_version_count(second.id).unwrap(), 1);
+    assert!(db
+        .get_activity_logs(Some(20), None)
+        .unwrap()
+        .iter()
+        .any(|entry| entry.event_type == "clip_version_deleted"));
+}
+
+#[test]
 fn disabled_revision_history_preserves_existing_versions_and_skips_new_snapshots() {
     let db = setup_test_db();
     let clip = db
@@ -127,139 +184,6 @@ fn disabled_revision_history_preserves_existing_versions_and_skips_new_snapshots
 }
 
 #[test]
-fn ocr_state_is_hash_safe_and_follows_the_clip_lifecycle() {
-    let db = setup_test_db();
-    let clip = db
-        .save_clip(
-            "image",
-            None,
-            None,
-            Some(crate::resource_limits::TEST_PNG_DATA_URL),
-            "ocr-lifecycle-hash",
-            "Screenshot",
-        )
-        .unwrap();
-
-    let status = db.get_ocr_backfill_status().unwrap();
-    assert_eq!(status.total_images, 1);
-    assert_eq!(status.eligible_count, 1);
-
-    let candidate = db.claim_next_ocr_candidate().unwrap().unwrap();
-    assert_eq!(candidate.clip_id, clip.id);
-    assert!(db
-        .complete_ocr_attempt(
-            clip.id,
-            "wrong-hash",
-            Some("stale result"),
-            "test-engine",
-            None,
-        )
-        .is_ok());
-    assert_eq!(
-        db.get_clip_by_id(clip.id).unwrap().text_content.as_deref(),
-        None
-    );
-
-    db.delete_clip(clip.id).unwrap();
-    assert!(!db
-        .complete_ocr_attempt(
-            clip.id,
-            &clip.content_hash,
-            Some("late result"),
-            "test-engine",
-            None,
-        )
-        .unwrap());
-    assert_eq!(db.get_ocr_backfill_status().unwrap().total_images, 0);
-
-    db.restore_clip(clip.id).unwrap();
-    assert_eq!(db.get_ocr_backfill_status().unwrap().eligible_count, 1);
-    db.save_setting("enableOcr", "false").unwrap();
-    db.purge_clip_permanently(clip.id).unwrap();
-    assert!(db.get_clip_by_id(clip.id).is_err());
-    assert_eq!(db.get_ocr_backfill_status().unwrap().total_images, 0);
-}
-
-#[test]
-fn successful_ocr_records_state_and_revisions_only_when_text_changes() {
-    let db = setup_test_db();
-    let clip = db
-        .save_clip(
-            "image",
-            None,
-            None,
-            Some(crate::resource_limits::TEST_PNG_DATA_URL),
-            "ocr-success-hash",
-            "Screenshot",
-        )
-        .unwrap();
-
-    assert!(db
-        .complete_ocr_attempt_with_extractor(
-            clip.id,
-            &clip.content_hash,
-            Some("First OCR"),
-            OcrExtractorProvenance::identified("test-engine-v1", "extractor:test-ocr", "Test OCR",),
-            None,
-        )
-        .unwrap());
-    let completed_clip = db.get_clip_by_id(clip.id).unwrap();
-    assert_eq!(
-        completed_clip.ocr_extractor_ref.as_deref(),
-        Some("extractor:test-ocr")
-    );
-    assert_eq!(
-        completed_clip.ocr_extractor_name.as_deref(),
-        Some("Test OCR")
-    );
-    assert_eq!(
-        completed_clip.ocr_engine_version.as_deref(),
-        Some("test-engine-v1")
-    );
-    assert_eq!(db.get_ocr_backfill_status().unwrap().completed_count, 1);
-    assert_eq!(db.get_clip_version_count(clip.id).unwrap(), 0);
-
-    db.force_ocr_running(clip.id, &clip.content_hash).unwrap();
-    db.complete_ocr_attempt_with_extractor(
-        clip.id,
-        &clip.content_hash,
-        Some("Improved OCR"),
-        OcrExtractorProvenance::identified("test-engine-v2", "extractor:test-ocr-v2", "Test OCR 2"),
-        None,
-    )
-    .unwrap();
-    assert_eq!(db.get_clip_version_count(clip.id).unwrap(), 1);
-    assert_eq!(
-        db.get_clip_versions(clip.id).unwrap()[0].text_content,
-        "First OCR"
-    );
-
-    db.force_ocr_running(clip.id, &clip.content_hash).unwrap();
-    db.complete_ocr_attempt_with_extractor(
-        clip.id,
-        &clip.content_hash,
-        None,
-        OcrExtractorProvenance::identified(
-            "failed-engine-v1",
-            "extractor:failed-ocr",
-            "Failed OCR",
-        ),
-        Some("recognition_failed"),
-    )
-    .unwrap();
-    let failed_rerun = db.get_clip_by_id(clip.id).unwrap();
-    assert_eq!(failed_rerun.text_content.as_deref(), Some("Improved OCR"));
-    assert_eq!(
-        failed_rerun.ocr_extractor_name.as_deref(),
-        Some("Test OCR 2")
-    );
-    assert_eq!(
-        failed_rerun.ocr_engine_version.as_deref(),
-        Some("test-engine-v2")
-    );
-}
-
-#[test]
 fn revision_retention_is_configurable_and_can_be_unlimited() {
     let db = setup_test_db();
     let clip = db
@@ -278,21 +202,21 @@ fn revision_retention_is_configurable_and_can_be_unlimited() {
         db.update_clip_text(clip.id, &format!("Limited {index}"))
             .unwrap();
     }
-    assert_eq!(db.get_clip_version_count(clip.id).unwrap(), 10);
+    assert_eq!(db.get_clip_version_count(clip.id).unwrap(), 11);
 
     db.enforce_revision_retention(0).unwrap();
     for index in 0..60 {
         db.update_clip_text(clip.id, &format!("Unlimited {index}"))
             .unwrap();
     }
-    assert_eq!(db.get_clip_version_count(clip.id).unwrap(), 70);
+    assert_eq!(db.get_clip_version_count(clip.id).unwrap(), 71);
 
     db.enforce_revision_retention(25).unwrap();
-    assert_eq!(db.get_clip_version_count(clip.id).unwrap(), 25);
+    assert_eq!(db.get_clip_version_count(clip.id).unwrap(), 26);
     let newest = db.get_clip_versions_page(clip.id, 10, 0).unwrap();
     let middle = db.get_clip_versions_page(clip.id, 10, 10).unwrap();
     let oldest = db.get_clip_versions_page(clip.id, 10, 20).unwrap();
-    assert_eq!((newest.len(), middle.len(), oldest.len()), (10, 10, 5));
+    assert_eq!((newest.len(), middle.len(), oldest.len()), (10, 10, 6));
     assert_ne!(newest[0].id, middle[0].id);
 }
 

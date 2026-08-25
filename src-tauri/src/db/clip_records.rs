@@ -1,30 +1,11 @@
 use super::*;
 
-#[derive(Clone, Copy)]
-pub(super) struct SmartBinFeaturePolicy {
-    pub(super) clip_types: bool,
-    pub(super) content_types: bool,
-    pub(super) file_formats: bool,
-    pub(super) sources: bool,
-}
+mod smart_bin_policy;
+mod visual_label_condition;
 
+pub(super) use smart_bin_policy::SmartBinFeaturePolicy;
 pub(super) fn smart_bin_feature_policy(conn: &Connection) -> Result<SmartBinFeaturePolicy> {
-    conn.query_row(
-        "SELECT
-            NOT EXISTS(SELECT 1 FROM settings WHERE key = 'enableClipTypes' AND value IN ('false', '0')),
-            NOT EXISTS(SELECT 1 FROM settings WHERE key = 'enableTypes' AND value IN ('false', '0')),
-            NOT EXISTS(SELECT 1 FROM settings WHERE key = 'enableFileFormats' AND value IN ('false', '0')),
-            NOT EXISTS(SELECT 1 FROM settings WHERE key = 'enableSources' AND value IN ('false', '0'))",
-        [],
-        |row| {
-            Ok(SmartBinFeaturePolicy {
-                clip_types: row.get(0)?,
-                content_types: row.get(1)?,
-                file_formats: row.get(2)?,
-                sources: row.get(3)?,
-            })
-        },
-    )
+    smart_bin_policy::load(conn)
 }
 
 pub(super) fn push_smart_condition(
@@ -116,6 +97,7 @@ pub(super) fn push_smart_condition(
                 + "
             )"
         }
+        "visual_label" => visual_label_condition::build(contains, value, parameters),
         "origin_kind" => {
             parameters.push(Box::new(value.to_lowercase()));
             "CASE WHEN content_type IN ('image', 'file') AND (LOWER(source) LIKE '%screenshot%' OR LOWER(source) LIKE '%screencapture%' OR LOWER(source) LIKE '%cleanshot%') THEN 'screenshot' WHEN content_type = 'file' THEN 'file_reference' WHEN LOWER(source) IN ('cli terminal', 'pasted cli') THEN 'command_line' ELSE 'clipboard_content' END = ?".to_string()

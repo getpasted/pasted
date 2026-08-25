@@ -1,5 +1,7 @@
 use super::*;
 
+mod term_fields;
+
 #[derive(Debug, Default)]
 pub(super) struct ParsedClipSearch {
     pub sources: Vec<String>,
@@ -330,19 +332,7 @@ impl DbState {
                 } else {
                     "LIKE ? ESCAPE '\\'"
                 };
-                let mut fields = vec![
-                    format!(
-                        "clips.id IN (SELECT rowid FROM clips_fts
-                                           WHERE text_content {fts_like})"
-                    ),
-                    format!(
-                        "(clips.id IN (SELECT rowid FROM clip_searchable_text_fts
-                                            WHERE searchable_text {fts_like})
-                      AND EXISTS (SELECT 1 FROM clip_searchable_text AS extracted
-                                  WHERE extracted.clip_id = clips.id
-                                    AND extracted.input_hash = clips.content_hash))"
-                    ),
-                ];
+                let mut fields = term_fields::base(fts_like);
                 if features.sources {
                     fields.push(format!(
                         "clips.id IN (SELECT rowid FROM clips_fts WHERE source {fts_like})"
@@ -387,6 +377,7 @@ impl DbState {
                 let pattern = format!("%{}%", escape_like_literal(term));
                 parameters.push(Box::new(pattern.clone()));
                 parameters.push(Box::new(pattern.clone()));
+                term_fields::push_visual_label_parameters(&mut parameters, &pattern);
                 if features.sources {
                     parameters.push(Box::new(pattern.clone()));
                 }

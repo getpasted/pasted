@@ -7,6 +7,7 @@ export interface ExtractorRecipe {
   definitionVersion: 1;
   accepts: ExtractorInputKind[];
   acceptedFileFormats: string[];
+  minimumVisualLabelConfidence: number;
   output: 'searchable_text';
   steps: Array<{
     id: string;
@@ -103,6 +104,7 @@ export const emptyRecipe = (): ExtractorRecipe => ({
   definitionVersion: 1,
   accepts: ['image'],
   acceptedFileFormats: ['*'],
+  minimumVisualLabelConfidence: 80,
   output: 'searchable_text',
   steps: [{
     id: 'extract',

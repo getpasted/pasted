@@ -3,6 +3,7 @@ pub(super) mod analyzer;
 pub(super) mod app_lock;
 pub(super) mod bins;
 pub(super) mod classifiers;
+mod clip_labels;
 pub(super) mod clips;
 pub(super) mod connections;
 pub(super) mod extractors;

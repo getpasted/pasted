@@ -25,12 +25,13 @@ Current condition types are:
 | `content_type` | Stable Content Type ID assigned to the clip's current original or extracted searchable text. |
 | `file_format` | Format ID produced by current byte-verified File Format inspection. |
 | `source` | Captured source application name. |
+| `visual_label` | Visual concept emitted by a current hash-bound Extractor result. |
 
 Stable IDs are stored rather than localized labels. GUI pickers present localized built-in Content Type names and user-authored custom names without changing the saved ID.
 
 The corresponding Functionality setting controls each condition type. Disabling Clip Types, Content Types, File Formats, or Sources makes conditions on that axis inactive without deleting the rule. Re-enabling the feature restores matching; rescanning can backfill derived Content Types and File Formats.
 
-Legacy `origin_kind`, `contains`, `file_extension`, and `file_path` conditions remain readable for existing libraries and portable imports, but new authoring surfaces use the four collection axes above.
+Legacy `origin_kind`, `contains`, `file_extension`, and `file_path` conditions remain readable for existing libraries and portable imports, but new authoring surfaces use the five collection axes above.
 
 ## Public boundaries
 

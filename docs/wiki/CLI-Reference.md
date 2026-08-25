@@ -79,8 +79,9 @@ Quit the graphical app before CLI restore. Full Backup uses SQLite’s online ba
 ```text
 pasted clip get <id> [--json]
 pasted clip note <id> [--text <text> | --clear | --stdin] [--json]
-pasted clip revisions <id> [--limit <n>] [--offset <n>] [--json]
-pasted clip restore-revision <id> <revision-id> [--json]
+pasted clip versions <id> [--limit <n>] [--offset <n>] [--json]
+pasted clip restore-version <id> <version-id> [--json]
+pasted clip delete-version <id> <version-id> --yes [--json]
 pasted clip provenance <id> [--json]
 pasted clip copy|paste <id> [--json]
 pasted clip hotkey <id> <hotkey|none> [--json]
@@ -95,6 +96,7 @@ pasted clip assign <bin-id|none> <id>... [--json]
 ```
 
 Mutating commands report stable summaries and use explicit desired states rather than blind toggles. `restore-all` returns every trashed clip to History and reports the restored IDs in its structured result.
+Current and Original cannot be deleted from Version History. In structured output, `versions --json` identifies them with `is_current` and `is_original`; `delete-version --json` returns `clipId`, `versionId`, and `deleted`. The command permanently removes only the selected historical version. The legacy `revisions`, `restore-revision`, and `delete-revision` spellings remain accepted as compatibility aliases.
 
 ## Bins
 

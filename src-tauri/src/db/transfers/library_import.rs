@@ -470,6 +470,18 @@ impl DbState {
             imported += 1;
         }
 
+        for visual_label in payload.visual_label_overrides {
+            let Some(new_clip_id) = clip_id_map.get(&visual_label.clip_id) else {
+                continue;
+            };
+            tx.execute(
+                "INSERT OR REPLACE INTO clip_visual_label_overrides
+                    (clip_id, label, operation, updated_at)
+                 VALUES (?1, ?2, ?3, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
+                params![new_clip_id, visual_label.label, visual_label.operation],
+            )?;
+        }
+
         for (old_bin_id, ordered_clip_ids) in bin_clip_orders {
             let Some(new_bin_id) = bin_id_map.get(&old_bin_id) else {
                 continue;

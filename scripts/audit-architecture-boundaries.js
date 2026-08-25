@@ -292,6 +292,8 @@ assert.match(clipRevisionDatabase, /pub fn get_clip_versions_page/,
   'Clip revision reads must remain in the focused revision subsystem');
 assert.match(clipRevisionDatabase, /pub fn restore_clip_version/,
   'Clip revision restoration must remain centralized with revision reads');
+assert.match(clipRevisionDatabase, /pub fn delete_clip_version/,
+  'Clip version deletion must remain centralized with revision reads');
 assert.doesNotMatch(read('src-tauri/src/db.rs'), /pub fn restore_clip_version/,
   'The database integration root must not reclaim Clip revision persistence');
 assert.match(fullBackupDatabase, /pub fn create_full_backup/,
@@ -981,6 +983,8 @@ const sizeRatchets = new Map([
   ['src-tauri/tests/cli_integration/settings_page_reset.rs', 90],
   ['src-tauri/tests/cli_integration/settings_reset_dry_run.rs', 60],
   ['src-tauri/tests/cli_integration/lifecycle_policy.rs', 235],
+  ['src-tauri/tests/cli_integration/lifecycle_policy/version_support.rs', 20],
+  ['src-tauri/tests/cli_integration/lifecycle_policy/versions.rs', 65],
   ['src-tauri/tests/cli_integration/registry_authoring.rs', 300],
   ['src/App.tsx', 16],
   ['src/hud-main.tsx', 36],
@@ -1056,6 +1060,8 @@ const sizeRatchets = new Map([
   ['src/components/SettingsGeneralLayoutSection.tsx', 83],
   ['src/components/SettingsGeneralRetentionSections.tsx', 125],
   ['src/components/ActivityLogView.tsx', 269],
+  ['src/components/activityLogFilter.ts', 45],
+  ['src/components/ActivityVersionEventBadge.tsx', 22],
   ['src/components/ActivityEventBadge.tsx', 431],
   ['src/hooks/useClipActions.ts', 316],
   ['src/hooks/useClipPropertyActions.ts', 240],
@@ -1162,6 +1168,10 @@ assert.doesNotMatch(settingsGeneralPassiveViews,
 
 const activityView = read('src/components/ActivityLogView.tsx');
 const activityBadge = read('src/components/ActivityEventBadge.tsx');
+assert.match(activityView, /activityLogMatches\(log, filter, selectedTypeFilter\)/,
+  'Activity must delegate filtering rules to its model');
+assert.doesNotMatch(activityView, /clip_version_deleted|clip_revision_restored/,
+  'The Activity lifecycle view must not reclaim event filtering rules');
 assert.match(activityView, /<ActivityEventBadge type=\{log\.event_type\} description=\{log\.description\} \/>/,
   'Activity must delegate event presentation to its badge system');
 assert.doesNotMatch(activityView, /case 'recording_manually_paused'|case 'clip_trashed'|case 'transform_executed'/,

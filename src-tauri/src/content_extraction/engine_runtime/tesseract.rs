@@ -137,6 +137,9 @@ pub(crate) fn perform_tesseract_ocr(
     if text.is_empty() {
         ExtractionOutcome::NoOutput
     } else {
-        ExtractionOutcome::Produced { text }
+        ExtractionOutcome::Produced {
+            text,
+            labels: Vec::new(),
+        }
     }
 }

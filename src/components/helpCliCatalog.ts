@@ -25,9 +25,11 @@ export const CLI_COMMAND_GROUPS = [
     get title() { return translate('component.helpView.clipActions'); },
     commands: [
       { usage: 'pasted clip get <id> [--json]', get description() { return translate('component.helpView.inspectOneClipAndItsMetadata'); } },
+      { usage: 'pasted clip labels list|add|remove|reset <id> [label] [--yes] [--json]', get description() { return translate('component.helpView.manageAClipsVisualLabels'); } },
       { usage: 'pasted clip note <id> [--text TEXT | --clear | --stdin] [--json]', get description() { return translate('component.helpView.setOrClearAClipNote'); } },
-      { usage: 'pasted clip revisions <id> [--limit N] [--offset N] [--json]', get description() { return translate('component.helpView.listRetainedClipRevisions'); } },
-      { usage: 'pasted clip restore-revision <id> <revision-id> [--json]', get description() { return translate('component.helpView.restoreAnEarlierClipRevisionAndItsRecordedOrganization'); } },
+      { usage: 'pasted clip versions <id> [--limit N] [--offset N] [--json]', get description() { return translate('component.helpView.listRetainedClipVersions'); } },
+      { usage: 'pasted clip restore-version <id> <version-id> [--json]', get description() { return translate('component.helpView.restoreAnEarlierClipVersionAndItsRecordedOrganization'); } },
+      { usage: 'pasted clip delete-version <id> <version-id> --yes [--json]', get description() { return translate('component.helpView.permanentlyDeleteOneHistoricalClipVersion'); } },
       { usage: 'pasted clip provenance <id> [--json]', get description() { return translate('component.helpView.inspectTheTransformThatProducedTheCurrentClipContent'); } },
       { usage: 'pasted clip copy|paste <id> [--json]', get description() { return translate('component.helpView.copyOrPasteASavedClipThroughTheRunningApp'); } },
       { usage: 'pasted clip hotkey <id> <hotkey|none> [--json]', get description() { return translate('component.helpView.setOrClearAClipHotkeyAndProtectAssignments'); } },

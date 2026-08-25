@@ -134,7 +134,7 @@ fn normalize_result(
     }
     let mut outputs = Vec::new();
     for observation in &result.observations {
-        if let ExtractionOutcome::Produced { text } = &observation.outcome {
+        if let ExtractionOutcome::Produced { text, .. } = &observation.outcome {
             if !outputs.contains(text) {
                 outputs.push(text.clone());
             }

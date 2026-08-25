@@ -12,6 +12,7 @@ import {
   SmartConditionValueInput,
 } from './BinModalSmartConditionInputs';
 import { MenuSelect } from './MenuSelect';
+import { smartConditionPlaceholder } from './binModalPlaceholders';
 
 interface BinModalSmartRulesProps {
   form: BinModalFormController;
@@ -165,11 +166,7 @@ function BinModalSmartConditionValue({
       compact
     />;
   }
-  const placeholder = condition.target === 'file_extension'
-    ? translate('component.binModal.eGPdfZipPng')
-    : condition.target === 'file_path'
-      ? translate('component.binModal.eGProjectsOrDownloads')
-      : translate('component.binModal.eGHttpFunction');
+  const placeholder = smartConditionPlaceholder(condition.target);
   return <input
     type="text"
     placeholder={placeholder}

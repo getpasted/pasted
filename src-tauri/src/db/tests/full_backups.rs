@@ -74,6 +74,7 @@ fn full_backup_round_trip_covers_every_durable_table_and_interface_state() {
             duplicate_of: None,
             outcome: crate::content_extraction::ExtractionOutcome::Produced {
                 text: "complete transcription backup marker".into(),
+                labels: Vec::new(),
             },
         }],
     )
