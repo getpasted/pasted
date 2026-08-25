@@ -5,6 +5,7 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
+mod llama_labels;
 mod presets;
 mod visual_labels;
 
@@ -32,6 +33,7 @@ pub const APPLE_VISION_OCR_REF: &str = "extractor:apple-vision-ocr";
 pub const APPLE_VISION_LABELS_REF: &str = "extractor:apple-vision-labels";
 pub(crate) const LEGACY_APPLE_VISION_LABELS_REF: &str = "extractor:apple-vision-visual-labels";
 pub const APPLE_VISION_ENGINE: &str = "macos-vision-v1";
+pub const LLAMA_CPP_LABELS_REF: &str = "extractor:llama-cpp-labels";
 pub const TESSERACT_OCR_REF: &str = "extractor:tesseract-ocr";
 pub const TESSERACT_ENGINE: &str = "tesseract-cli-v1";
 pub const WHISPER_TRANSCRIPTION_REF: &str = "extractor:whisper-transcription";
@@ -617,12 +619,18 @@ impl ExtractorPreset {
         }
         .into();
         let mut recipe = recipe_for_legacy_definition(&definition);
+        if self.stable_ref == LLAMA_CPP_LABELS_REF {
+            recipe = llama_labels::recipe();
+        }
         if self.stable_ref == APPLE_VISION_LABELS_REF {
             recipe.steps[0].arguments[1] = "apple-vision-labels".into();
         }
         if matches!(
             self.stable_ref,
-            APPLE_VISION_OCR_REF | APPLE_VISION_LABELS_REF | TESSERACT_OCR_REF
+            APPLE_VISION_OCR_REF
+                | APPLE_VISION_LABELS_REF
+                | LLAMA_CPP_LABELS_REF
+                | TESSERACT_OCR_REF
         ) {
             recipe.accepts.push(ExtractorInputKind::FileReferences);
         }

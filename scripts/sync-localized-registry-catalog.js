@@ -37,6 +37,8 @@ Object.assign(messages, {
   'registry.extractor.extractorAppleVisionOcr.description': 'Extracts searchable text from images locally with Apple Vision.',
   'registry.extractor.extractorAppleVisionLabels.name': 'Apple Vision Labels',
   'registry.extractor.extractorAppleVisionLabels.description': 'Finds searchable subjects and objects in images locally with Apple Vision.',
+  'registry.extractor.extractorLlamaCppLabels.name': 'llama.cpp Labels',
+  'registry.extractor.extractorLlamaCppLabels.description': 'Finds searchable subjects and objects in images locally with llama.cpp.',
   'registry.extractor.extractorTesseractOcr.name': 'Tesseract OCR',
   'registry.extractor.extractorTesseractOcr.description': 'Extracts searchable text from images locally with Tesseract.',
   'registry.extractor.extractorWhisperTranscription.name': 'Whisper Transcription',

@@ -2450,5 +2450,9 @@
   "component.helpView.setOrClearAClipHotkeyAndProtectAssignments": "Set or clear a clip hotkey. Assigning one protects the clip.",
   "component.helpView.setInheritedProtectionForAManualBin": "Enable or disable inherited protection for a manual Bin.",
   "component.helpView.clipHotkeys": "Clip hotkeys",
-  "component.helpView.clipHotkeyDescription": "Assign a hotkey from a clip’s detail view to paste that exact clip anywhere. Assigning one protects the clip automatically."
+  "component.helpView.clipHotkeyDescription": "Assign a hotkey from a clip’s detail view to paste that exact clip anywhere. Assigning one protects the clip automatically.",
+  "registry.extractor.extractorLlamaCppLabels.name": "llama.cpp Labels",
+  "registry.extractor.extractorLlamaCppLabels.description": "Finds searchable subjects and objects in images locally with llama.cpp.",
+  "component.contentExtractorManagerDialog.installLlamaCppWithCommand": "Install llama.cpp with {command}.",
+  "component.contentExtractorManagerDialog.downloadLlamaCppModelWithCommand": "Download the model once with {command}. Extraction then stays offline."
 }

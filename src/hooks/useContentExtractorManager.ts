@@ -26,6 +26,7 @@ import {
   visibleContentExtractors,
 } from '../components/contentExtractorPolicy';
 import { useExtractorAiAuthoring } from './useExtractorAiAuthoring';
+import { llamaCppSetupGuidance } from '../components/llamaCppSetup';
 
 export function useContentExtractorManager({
   isOpen,
@@ -125,6 +126,7 @@ export function useContentExtractorManager({
     setRecipeDraft(selectedId === 'new' ? emptyRecipe() : selected?.recipe ?? emptyRecipe());
     setAuthoringPrompt('');
     aiAuthoring.clear();
+    setSetupGuidance(llamaCppSetupGuidance(selected?.stableRef));
     setTestOutcome(null);
   }, [selected, selectedId]);
 

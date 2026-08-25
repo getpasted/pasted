@@ -2450,5 +2450,9 @@
   "component.helpView.setOrClearAClipHotkeyAndProtectAssignments": "Définissez ou supprimez le raccourci global d’un clip. Son attribution protège le clip.",
   "component.helpView.setInheritedProtectionForAManualBin": "Activez ou désactivez la protection héritée d’un Bin manuel.",
   "component.helpView.clipHotkeys": "Raccourcis globaux des clips",
-  "component.helpView.clipHotkeyDescription": "Attribuez un raccourci global depuis la vue détaillée pour coller ce clip précis partout. L’attribution protège automatiquement le clip."
+  "component.helpView.clipHotkeyDescription": "Attribuez un raccourci global depuis la vue détaillée pour coller ce clip précis partout. L’attribution protège automatiquement le clip.",
+  "registry.extractor.extractorLlamaCppLabels.name": "Étiquettes llama.cpp",
+  "registry.extractor.extractorLlamaCppLabels.description": "Trouve localement des sujets et objets recherchables dans les images avec llama.cpp.",
+  "component.contentExtractorManagerDialog.installLlamaCppWithCommand": "Installez llama.cpp avec {command}.",
+  "component.contentExtractorManagerDialog.downloadLlamaCppModelWithCommand": "Téléchargez le modèle une fois avec {command}. L’extraction reste ensuite hors ligne."
 }

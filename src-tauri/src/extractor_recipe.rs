@@ -625,6 +625,14 @@ fn execute_recipe(recipe: &ExtractorRecipe, input: RecipeInput<'_>) -> Extractio
                     command.env(name, value);
                 }
             }
+            if step
+                .executable
+                .discover
+                .iter()
+                .any(|name| name == "llama-cli")
+            {
+                preserve_llama_cache_environment(&mut command);
+            }
             let mut child = match command.spawn() {
                 Ok(child) => child,
                 Err(_) => {
@@ -647,15 +655,25 @@ fn execute_recipe(recipe: &ExtractorRecipe, input: RecipeInput<'_>) -> Extractio
                 }
             };
             if !status.success() {
+                let message = if step
+                    .executable
+                    .discover
+                    .iter()
+                    .any(|name| name == "llama-cli")
+                {
+                    "llama.cpp Labels could not run offline. Install llama.cpp and download the configured model, then try again."
+                } else {
+                    "Extractor failed."
+                };
                 if isolates_input_failures {
                     failed_inputs.insert(run_index);
                     first_input_failure.get_or_insert_with(|| ExtractionFailure {
                         code: "engine_failed".into(),
-                        message: "Extractor failed.".into(),
+                        message: message.into(),
                     });
                     continue;
                 }
-                return failure("engine_failed", "Extractor failed.");
+                return failure("engine_failed", message);
             }
             artifacts.insert((step.id.clone(), run_index), artifact_path.clone());
             let captured_path = match step.capture {
@@ -722,6 +740,23 @@ fn execute_recipe(recipe: &ExtractorRecipe, input: RecipeInput<'_>) -> Extractio
             )
         } else {
             ExtractionOutcome::Produced { text, labels }
+        }
+    }
+}
+
+fn preserve_llama_cache_environment(command: &mut Command) {
+    for name in [
+        "HOME",
+        "USERPROFILE",
+        "LOCALAPPDATA",
+        "XDG_CACHE_HOME",
+        "HF_HOME",
+        "HF_HUB_CACHE",
+        "HUGGINGFACE_HUB_CACHE",
+        "LLAMA_CACHE",
+    ] {
+        if let Some(value) = std::env::var_os(name) {
+            command.env(name, value);
         }
     }
 }
