@@ -94,6 +94,7 @@ impl DbState {
                 action_label,
                 organization,
                 current_transformation_id,
+                derived_state: None,
             })
             .map_err(|error| rusqlite::Error::InvalidParameterName(error.to_string()))?;
             tx.execute(

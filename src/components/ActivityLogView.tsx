@@ -10,6 +10,7 @@ import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
 import { translate } from '../localization/runtime';
 import { ActivityEventBadge } from './ActivityEventBadge';
+import { activityLogMatches } from './activityLogFilter';
 
 const ACTIVITY_BATCH_SIZE = 200;
 
@@ -105,46 +106,7 @@ export const ActivityLogView: React.FC = () => {
 
   const [selectedTypeFilter, setSelectedTypeFilter] = useState('all');
 
-  const filteredLogs = logs.filter((l) => {
-    const matchesSearch =
-      l.description.toLowerCase().includes(filter.toLowerCase()) ||
-      l.event_type.toLowerCase().includes(filter.toLowerCase());
-    if (!matchesSearch) return false;
-    if (selectedTypeFilter === 'all') return true;
-    if (selectedTypeFilter === 'trashed') return l.event_type === 'clip_trashed' || l.event_type === 'clips_trashed' || l.event_type === 'clip_auto_trashed' || l.event_type === 'clips_trashed_all';
-    if (selectedTypeFilter === 'restored') return l.event_type === 'clip_restored' || l.event_type === 'clips_restored_all';
-    if (selectedTypeFilter === 'revisions') return l.event_type === 'clip_revision_restored';
-    if (selectedTypeFilter === 'purged') return l.event_type === 'clip_deleted' || l.event_type === 'trash_emptied' || l.event_type === 'clips_purged_all';
-    if (selectedTypeFilter === 'protection') return l.event_type === 'clip_protected_toggled'
-      || l.event_type === 'clips_protected_toggled'
-      || l.event_type === 'clip_hotkey_changed'
-      || l.event_type === 'bin_protection_changed';
-    if (selectedTypeFilter === 'pinning') return l.event_type.includes('pinned');
-    if (selectedTypeFilter === 'paused') return l.event_type === 'recording_auto_paused' || l.event_type === 'recording_manually_paused';
-    if (selectedTypeFilter === 'resumed') return l.event_type === 'recording_auto_resumed' || l.event_type === 'recording_manually_resumed';
-    if (selectedTypeFilter === 'notes') return l.event_type === 'note_updated';
-    if (selectedTypeFilter === 'names') return l.event_type === 'clip_name_updated';
-    if (selectedTypeFilter === 'skipped') return l.event_type === 'clipboard_capture_ignored';
-    if (selectedTypeFilter === 'transforms') return l.event_type.startsWith('transform_') || l.event_type.startsWith('transformation_') || l.event_type.startsWith('bin_transform_') || l.event_type.startsWith('operation_') || l.event_type.startsWith('pipeline_') || l.event_type === 'library_item_enabled_changed' || l.event_type === 'clip_transformed' || l.event_type === 'intelligence_connection_fallback';
-    if (selectedTypeFilter === 'queue') return l.event_type.startsWith('queue_');
-    if (selectedTypeFilter === 'hud') return l.event_type.startsWith('hud_');
-    if (selectedTypeFilter === 'bins') return l.event_type.startsWith('bin_') || l.event_type.includes('_bin_');
-    if (selectedTypeFilter === 'app') return l.event_type.startsWith('app_');
-    if (selectedTypeFilter === 'settings') return l.event_type.startsWith('setting_') || l.event_type.startsWith('settings_') || l.event_type.startsWith('autostart_');
-    if (selectedTypeFilter === 'analysis') return l.event_type.startsWith('content_classifier')
-      || l.event_type.startsWith('content_classification')
-      || l.event_type.startsWith('content_detector')
-      || l.event_type.startsWith('content_detection')
-      || l.event_type.startsWith('content_extractor')
-      || l.event_type.startsWith('content_type')
-      || l.event_type.startsWith('file_format');
-    if (selectedTypeFilter === 'storage') return l.event_type.startsWith('library_')
-      || l.event_type.startsWith('backup_')
-      || l.event_type.startsWith('data_export_')
-      || l.event_type === 'external_history_imported'
-      || l.event_type === 'clips_imported';
-    return true;
-  });
+  const filteredLogs = logs.filter((log) => activityLogMatches(log, filter, selectedTypeFilter));
 
   return (
     <div className="tools-page activity-page flex-1 font-sans h-screen flex flex-col overflow-hidden">
@@ -170,7 +132,7 @@ export const ActivityLogView: React.FC = () => {
               { value: 'skipped', get label() { return translate('component.activityLogView.skippedCaptures'); }, get group() { return translate('component.activityLogView.capture'); } },
               { value: 'trashed', get label() { return translate('component.activityLogView.trashed'); }, get group() { return translate('component.activityLogView.history'); } },
               { value: 'restored', get label() { return translate('component.activityLogView.restoredFromTrash'); }, get group() { return translate('component.activityLogView.history'); } },
-              { value: 'revisions', get label() { return translate('component.activityLogView.revisionRestored'); }, get group() { return translate('component.activityLogView.history'); } },
+              { value: 'revisions', get label() { return translate('component.activityLogView.versionActivity'); }, get group() { return translate('component.activityLogView.history'); } },
               { value: 'purged', get label() { return translate('component.activityLogView.permanentlyDeleted'); }, get group() { return translate('component.activityLogView.history'); } },
               { value: 'protection', get label() { return translate('component.activityLogView.protectionChanged'); }, get group() { return translate('component.activityLogView.organization'); } },
               { value: 'pinning', get label() { return translate('component.activityLogView.pinningChanged'); }, get group() { return translate('component.activityLogView.organization'); } },

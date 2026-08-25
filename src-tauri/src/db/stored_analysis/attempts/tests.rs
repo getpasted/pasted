@@ -10,7 +10,10 @@ fn observation(
         engine: "test-v1".into(),
         priority: 10,
         duplicate_of: None,
-        outcome: crate::content_extraction::ExtractionOutcome::Produced { text: text.into() },
+        outcome: crate::content_extraction::ExtractionOutcome::Produced {
+            text: text.into(),
+            labels: Vec::new(),
+        },
     }
 }
 

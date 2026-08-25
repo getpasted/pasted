@@ -8,12 +8,16 @@ Restore one clip from its Trash actions, or use **Settings → General → Trash
 
 ## Revision History
 
-Revisions record content-changing actions and enough organization context to undo a Transform-plus-Bin move. Pin, protection, and other lightweight attributes are not a total rewind log.
+Revision History stores Versions created by content-changing actions, including enough organization context to undo a Transform-plus-Bin move. Pin, protection, and other lightweight attributes are not a total rewind log.
 
-- Preview a revision before restoring it.
-- Restoring creates an inverse revision so the action can be reversed.
-- Revision retention is configurable or unlimited.
-- Disabling revisions preserves existing history but makes new edits irreversible.
+- Current represents the live clip, while Original is its protected baseline.
+- Preview a historical Version before saving it as Current; cancelling the preview changes nothing.
+- Restoring creates another historical Version so the action can be reversed.
+- Historical Versions can be deleted after confirmation. Current and Original cannot be deleted from Version History; removing Original means deleting the Clip through the normal Trash workflow.
+- Revision retention is configurable or unlimited. Original is retained outside the configured limit.
+- Disabling Revision History preserves existing Versions but makes new edits irreversible.
+
+The scriptable equivalents are `pasted clip versions <id>`, `pasted clip restore-version <id> <version-id>`, and `pasted clip delete-version <id> <version-id> --yes`.
 
 ## Full backup and restore
 

@@ -83,7 +83,8 @@ pub(super) fn intelligence_changes(
     }
     let remaining = connections
         .iter()
-        .filter_map(|connection| (!ordered.contains(&connection.id)).then(|| connection.id.clone()))
+        .filter(|connection| !ordered.contains(&connection.id))
+        .map(|connection| connection.id.clone())
         .collect::<Vec<_>>();
     ordered.extend(remaining);
     connections

@@ -23,6 +23,7 @@ const mockFileSearchableText = new Map<number, {
   searchableText: string;
   updatedAt: string;
 }>();
+const mockVisualLabels = new Map<number, string[]>();
 
 let mockContentTypes: Array<{
   id: string; label: string; icon: string; group: string; concealClips: boolean; isBuiltin: boolean; isArchived: boolean;
@@ -68,6 +69,16 @@ export async function invokeContentBrowserMock<T>(
       return '/mock/input/sample.dat' as unknown as T;
     case 'test_content_extractor_recipe':
       return { outcome: 'produced', text: 'Mock extracted text' } as unknown as T;
+    case 'diagnose_content_extractor_recipe': {
+      const recipe = args?.recipe as MockExtractorRecipe;
+      const issues = [
+        ...recipe.steps.filter((step) => !step.executable.path && step.executable.discover.length === 0)
+          .map((step) => ({ code: 'executable_not_configured', subjectId: step.id, label: step.id, detail: 'No executable is configured.' })),
+        ...recipe.resources.filter((resource) => resource.required && !resource.path)
+          .map((resource) => ({ code: 'resource_not_configured', subjectId: resource.id, label: resource.label, detail: 'A required resource is not configured.' })),
+      ];
+      return { version: 1, isAvailable: issues.length === 0, platform: 'browser', architecture: 'mock', packageManagers: [], issues } as unknown as T;
+    }
     case 'extract_ocr_from_clip': {
       const clipId = Number(args?.clipId);
       if (!Number.isInteger(clipId) || clipId <= 0) throw new Error('A valid clip ID is required.');
@@ -146,11 +157,43 @@ export async function invokeContentBrowserMock<T>(
       return [] as unknown as T;
     case 'get_clip_extraction_results':
       return [] as unknown as T;
+    case 'get_clip_visual_labels': {
+      const clipId = Number(args?.clipId);
+      const labels = mockVisualLabels.get(clipId) ?? [];
+      return { clipId, labels: labels.map((value) => ({ value, source: 'manual' })), hasOverrides: labels.length > 0 } as unknown as T;
+    }
+    case 'add_clip_visual_label': {
+      const clipId = Number(args?.clipId);
+      const current = mockVisualLabels.get(clipId) ?? [];
+      const label = String(args?.label ?? '').trim();
+      mockVisualLabels.set(clipId, current.some((value) => value.toLowerCase() === label.toLowerCase()) ? current : [...current, label]);
+      const labels = mockVisualLabels.get(clipId) ?? [];
+      return { clipId, labels: labels.map((value) => ({ value, source: 'manual' })), hasOverrides: labels.length > 0 } as unknown as T;
+    }
+    case 'remove_clip_visual_label': {
+      const clipId = Number(args?.clipId);
+      const label = String(args?.label ?? '');
+      const labels = (mockVisualLabels.get(clipId) ?? []).filter((value) => value.toLowerCase() !== label.toLowerCase());
+      mockVisualLabels.set(clipId, labels);
+      return { clipId, labels: labels.map((value) => ({ value, source: 'manual' })), hasOverrides: labels.length > 0 } as unknown as T;
+    }
+    case 'reset_clip_visual_labels': {
+      const clipId = Number(args?.clipId);
+      mockVisualLabels.delete(clipId);
+      return { clipId, labels: [], hasOverrides: false } as unknown as T;
+    }
     case 'get_clip_extraction_history':
       return [] as unknown as T;
     case 'propose_extractor_recipe': {
       const recipe = mockExtractorRecipe('file_references', 'pdftotext');
       return { name: 'PDF Text', description: 'Extracts searchable text from PDF files.', recipe, setupGuidance: ['Install Poppler.'], authoring: { manifestVersion: 1, source: 'ai', originalPrompt: String((args?.request as { prompt?: unknown } | undefined)?.prompt ?? ''), provider: 'Mock AI', model: 'mock', messages: [] }, connectionId: 'mock', connectionName: 'Mock AI', durationMs: 1 } as unknown as T;
+    }
+    case 'repair_extractor_recipe': {
+      const request = args?.request as { name: string; description: string; recipe: MockExtractorRecipe; prompt?: string | null };
+      const recipe = structuredClone(request.recipe);
+      const issues = recipe.resources.filter((resource) => resource.required && !resource.path)
+        .map((resource) => ({ code: 'resource_not_configured', subjectId: resource.id, label: resource.label, detail: 'A required resource is not configured.' }));
+      return { name: request.name, description: request.description, recipe, setupGuidance: issues.length > 0 ? ['Choose the required local resource, then diagnose again.'] : [], authoring: { manifestVersion: 1, source: 'ai', originalPrompt: request.prompt ?? null, provider: 'Mock AI', model: 'mock', messages: [] }, diagnostic: { version: 1, isAvailable: issues.length === 0, platform: 'browser', architecture: 'mock', packageManagers: [], issues }, status: issues.length === 0 ? 'ready' : 'setup_required', attempts: 1, connectionId: 'mock', connectionName: 'Mock AI', durationMs: 1 } as unknown as T;
     }
     case 'duplicate_content_extractor': {
       const reference = String(args?.reference ?? '');

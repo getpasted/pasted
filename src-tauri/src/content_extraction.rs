@@ -5,7 +5,17 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
+mod presets;
+mod visual_labels;
+
 use self::outcome::normalize as normalize_extraction_outcome;
+pub use self::presets::EXTRACTOR_PRESETS;
+pub(crate) use self::visual_labels::normalize as normalize_visual_labels;
+pub use self::visual_labels::VisualLabel;
+pub(crate) use self::visual_labels::{
+    into_outcome as visual_labels_into_outcome,
+    parse_json_fields as parse_visual_label_json_fields, MAX_VISUAL_LABELS, MAX_VISUAL_LABEL_BYTES,
+};
 
 use crate::analysis_contract::{RepresentationContract, RepresentationKind};
 use crate::extractor_recipe::{
@@ -19,6 +29,8 @@ use crate::extractor_recipe::{
 extern "C" {}
 
 pub const APPLE_VISION_OCR_REF: &str = "extractor:apple-vision-ocr";
+pub const APPLE_VISION_LABELS_REF: &str = "extractor:apple-vision-labels";
+pub(crate) const LEGACY_APPLE_VISION_LABELS_REF: &str = "extractor:apple-vision-visual-labels";
 pub const APPLE_VISION_ENGINE: &str = "macos-vision-v1";
 pub const TESSERACT_OCR_REF: &str = "extractor:tesseract-ocr";
 pub const TESSERACT_ENGINE: &str = "tesseract-cli-v1";
@@ -49,9 +61,15 @@ pub struct ExtractionFailure {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "outcome", rename_all = "snake_case")]
 pub enum ExtractionOutcome {
-    Produced { text: String },
+    Produced {
+        text: String,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        labels: Vec<VisualLabel>,
+    },
     NoOutput,
-    Failed { failure: ExtractionFailure },
+    Failed {
+        failure: ExtractionFailure,
+    },
 }
 
 pub trait ExtractorEngine: Sync {
@@ -352,45 +370,6 @@ pub struct ExtractorRuntimeStatus {
     pub dependencies: Vec<ExtractorRuntimeDependency>,
 }
 
-pub const EXTRACTOR_PRESETS: &[ExtractorPreset] = &[
-    ExtractorPreset {
-        stable_ref: APPLE_VISION_OCR_REF,
-        name: "Apple Vision OCR",
-        description: "Extracts searchable text from images locally with Apple Vision.",
-        engine: RECIPE_ENGINE,
-        executable_path: None,
-        model_path: None,
-        input_contract: RepresentationKind::ImageBytes.stable_name(),
-        output_contract: RepresentationKind::SearchableText.stable_name(),
-        priority: 10,
-        revision: 5,
-    },
-    ExtractorPreset {
-        stable_ref: TESSERACT_OCR_REF,
-        name: "Tesseract OCR",
-        description: "Extracts searchable text from images locally with Tesseract.",
-        engine: RECIPE_ENGINE,
-        executable_path: None,
-        model_path: None,
-        input_contract: RepresentationKind::ImageBytes.stable_name(),
-        output_contract: RepresentationKind::SearchableText.stable_name(),
-        priority: 20,
-        revision: 4,
-    },
-    ExtractorPreset {
-        stable_ref: WHISPER_TRANSCRIPTION_REF,
-        name: "Whisper Transcription",
-        description: "Extracts searchable text from local audio files with whisper.cpp.",
-        engine: RECIPE_ENGINE,
-        executable_path: None,
-        model_path: None,
-        input_contract: RepresentationKind::FileReferences.stable_name(),
-        output_contract: RepresentationKind::SearchableText.stable_name(),
-        priority: 30,
-        revision: 4,
-    },
-];
-
 pub fn validate_extractor_input(input: &ExtractorInput) -> Result<(), String> {
     if input.name.trim().is_empty() || input.name.trim().len() > 80 {
         return Err("Extractor names require 1–80 characters".to_string());
@@ -590,6 +569,8 @@ pub fn recipe_for_legacy_definition(input: &ExtractorDefinitionInput) -> Extract
         definition_version: EXTRACTOR_RECIPE_VERSION,
         accepts,
         accepted_file_formats: vec!["*".into()],
+        minimum_visual_label_confidence:
+            crate::extractor_recipe::DEFAULT_MINIMUM_VISUAL_LABEL_CONFIDENCE,
         output: ExtractorOutputKind::SearchableText,
         steps,
         resources,
@@ -629,14 +610,20 @@ impl ExtractorPreset {
     pub fn recipe(&self) -> ExtractorRecipe {
         let mut definition = self.definition();
         definition.engine = match self.stable_ref {
-            APPLE_VISION_OCR_REF => APPLE_VISION_ENGINE,
+            APPLE_VISION_OCR_REF | APPLE_VISION_LABELS_REF => APPLE_VISION_ENGINE,
             TESSERACT_OCR_REF => TESSERACT_ENGINE,
             WHISPER_TRANSCRIPTION_REF => WHISPER_CPP_ENGINE,
             _ => CUSTOM_COMMAND_ENGINE,
         }
         .into();
         let mut recipe = recipe_for_legacy_definition(&definition);
-        if matches!(self.stable_ref, APPLE_VISION_OCR_REF | TESSERACT_OCR_REF) {
+        if self.stable_ref == APPLE_VISION_LABELS_REF {
+            recipe.steps[0].arguments[1] = "apple-vision-labels".into();
+        }
+        if matches!(
+            self.stable_ref,
+            APPLE_VISION_OCR_REF | APPLE_VISION_LABELS_REF | TESSERACT_OCR_REF
+        ) {
             recipe.accepts.push(ExtractorInputKind::FileReferences);
         }
         recipe.accepted_file_formats = format_defaults::for_builtin(self.stable_ref);

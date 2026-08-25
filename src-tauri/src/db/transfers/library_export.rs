@@ -9,6 +9,7 @@ impl DbState {
     pub fn export_backup_json(&self) -> Result<String> {
         let clips = self.get_all_clips_for_backup()?;
         let bins = self.get_bins()?;
+        let visual_label_overrides = self.get_visual_label_overrides_for_backup()?;
         let pipelines = Vec::new();
         let operations = self.get_operations()?;
         let saved_transforms = self.get_saved_transforms()?;
@@ -34,6 +35,7 @@ impl DbState {
             timestamp: chrono::Utc::now().to_rfc3339(),
             clips,
             bins,
+            visual_label_overrides,
             pipelines,
             operations,
             saved_transforms,

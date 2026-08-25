@@ -63,6 +63,7 @@ impl DbState {
         let total_rows = [
             payload.clips.len(),
             payload.bins.len(),
+            payload.visual_label_overrides.len(),
             payload.pipelines.len(),
             payload.operations.len(),
             payload.saved_transforms.len(),
@@ -241,6 +242,21 @@ impl DbState {
             payload.clips.iter().map(|clip| clip.id).collect(),
             "clip ID",
         )?;
+        let mut visual_label_keys = HashSet::new();
+        for visual_label in &payload.visual_label_overrides {
+            if !clip_ids.contains(&visual_label.clip_id)
+                || !matches!(visual_label.operation.as_str(), "add" | "suppress")
+                || visual_label.label.trim().is_empty()
+                || visual_label.label.len() > crate::content_extraction::MAX_VISUAL_LABEL_BYTES
+                || visual_label.label.chars().any(char::is_control)
+                || !visual_label_keys
+                    .insert((visual_label.clip_id, visual_label.label.to_lowercase()))
+            {
+                return Err(rusqlite::Error::InvalidParameterName(
+                    "Transfer contains an invalid Visual Label override".into(),
+                ));
+            }
+        }
         unique(
             payload
                 .clips

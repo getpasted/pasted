@@ -6,6 +6,7 @@ export interface ExtractionResult {
   duplicateOf?: string;
   outcome: 'produced' | 'no_output' | 'failed';
   text?: string;
+  labels?: Array<{ value: string; confidenceBasisPoints?: number }>;
   failure?: { code: string; message: string };
   updatedAt: string;
 }

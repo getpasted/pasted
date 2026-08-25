@@ -198,15 +198,7 @@ export interface Bin {
   created_at: string;
 }
 
-export interface ClipVersion {
-  id: number;
-  clip_id: number;
-  text_content: string;
-  action_kind?: string | null;
-  action_label?: string | null;
-  restores_organization?: boolean;
-  created_at: string;
-}
+export type { ClipVersion } from './clipVersionTypes';
 
 export interface ClipMutationSummary {
   action: string;

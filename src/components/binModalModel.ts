@@ -10,7 +10,7 @@ export interface SmartBinFeatures {
   concealment: boolean;
 }
 
-export type SmartConditionTarget = 'clip_type' | 'file_format' | 'source' | 'content_type' | 'origin_kind' | 'contains' | 'file_extension' | 'file_path';
+export type SmartConditionTarget = 'clip_type' | 'file_format' | 'source' | 'content_type' | 'visual_label' | 'origin_kind' | 'contains' | 'file_extension' | 'file_path';
 
 export interface SmartConditionRow {
   id: string;

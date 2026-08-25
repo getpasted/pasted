@@ -1,5 +1,7 @@
 use super::super::*;
 
+mod visual_labels;
+
 #[test]
 fn smart_bin_text_operators_distinguish_exact_and_partial_axis_values() {
     let db = setup_test_db();

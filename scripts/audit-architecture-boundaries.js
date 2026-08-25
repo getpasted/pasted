@@ -292,6 +292,8 @@ assert.match(clipRevisionDatabase, /pub fn get_clip_versions_page/,
   'Clip revision reads must remain in the focused revision subsystem');
 assert.match(clipRevisionDatabase, /pub fn restore_clip_version/,
   'Clip revision restoration must remain centralized with revision reads');
+assert.match(clipRevisionDatabase, /pub fn delete_clip_version/,
+  'Clip version deletion must remain centralized with revision reads');
 assert.doesNotMatch(read('src-tauri/src/db.rs'), /pub fn restore_clip_version/,
   'The database integration root must not reclaim Clip revision persistence');
 assert.match(fullBackupDatabase, /pub fn create_full_backup/,
@@ -788,10 +790,18 @@ const sizeRatchets = new Map([
   ['src-tauri/src/intelligence_executor/connections.rs', 85],
   ['src-tauri/src/intelligence_executor/execution.rs', 325],
   ['src-tauri/src/intelligence_executor/extractor_authoring.rs', 240],
+  ['src-tauri/src/intelligence_executor/extractor_repair.rs', 200],
+  ['src-tauri/src/intelligence_executor/extractor_repair/prompt.rs', 55],
+  ['src-tauri/src/intelligence_executor/extractor_repair/setup_guidance.rs', 75],
+  ['src-tauri/src/intelligence_executor/extractor_repair/setup_guidance/actions.rs', 40],
+  ['src-tauri/src/intelligence_executor/extractor_repair/setup_guidance/matching.rs', 30],
+  ['src-tauri/src/intelligence_executor/extractor_repair/setup_guidance/tests.rs', 40],
+  ['src-tauri/src/intelligence_executor/extractor_repair/tests.rs', 20],
   ['src-tauri/src/intelligence_executor/planning.rs', 205],
   ['src-tauri/src/intelligence_executor/saved_transforms.rs', 175],
   ['src-tauri/src/intelligence_executor/tests.rs', 455],
   ['src-tauri/src/commands/intelligence/connections.rs', 140],
+  ['src-tauri/src/commands/intelligence/extractor_repair.rs', 40],
   ['src-tauri/src/transformation_service.rs', 30],
   ['src-tauri/src/transformation_service/cancellation.rs', 85],
   ['src-tauri/src/transformation_service/compatibility.rs', 115],
@@ -943,6 +953,11 @@ const sizeRatchets = new Map([
   ['src-tauri/src/commands/analysis.rs', 100],
   ['src-tauri/src/commands/content_registry.rs', 260],
   ['src-tauri/src/commands/extractors.rs', 180],
+  ['src-tauri/src/extractor_recipe/diagnostics.rs', 170],
+  ['src-tauri/src/extractor_recipe/diagnostics/invalid_tests.rs', 20],
+  ['src-tauri/src/extractor_recipe/diagnostics/tests.rs', 40],
+  ['src-tauri/src/cli/commands/extractors.rs', 400],
+  ['src-tauri/src/cli/commands/extractors/diagnostics.rs', 75],
   ['src-tauri/src/commands/app_lock.rs', 322],
   ['src-tauri/src/commands/app_lock/tests.rs', 40],
   ['src-tauri/src/app_lock.rs', 490],
@@ -962,11 +977,14 @@ const sizeRatchets = new Map([
   ['src-tauri/tests/cli_integration/mod.rs', 10],
   ['src-tauri/tests/cli_integration/support.rs', 100],
   ['src-tauri/tests/cli_integration/analysis.rs', 360],
+  ['src-tauri/tests/cli_integration/extractor_diagnostics.rs', 30],
   ['src-tauri/tests/cli_integration/app_lock_policy.rs', 100],
   ['src-tauri/tests/cli_integration/portability_library.rs', 280],
   ['src-tauri/tests/cli_integration/settings_page_reset.rs', 90],
   ['src-tauri/tests/cli_integration/settings_reset_dry_run.rs', 60],
   ['src-tauri/tests/cli_integration/lifecycle_policy.rs', 235],
+  ['src-tauri/tests/cli_integration/lifecycle_policy/version_support.rs', 20],
+  ['src-tauri/tests/cli_integration/lifecycle_policy/versions.rs', 65],
   ['src-tauri/tests/cli_integration/registry_authoring.rs', 300],
   ['src/App.tsx', 16],
   ['src/hud-main.tsx', 36],
@@ -1021,10 +1039,14 @@ const sizeRatchets = new Map([
   ['src/components/ClipPreviewHeader.tsx', 250],
   ['src/components/ClipPreviewOrganization.tsx', 93],
   ['src/components/ExtractorAiAuthoringPanel.tsx', 65],
+  ['src/components/ExtractorAiSetupPanel.tsx', 75],
+  ['src/extractorAiAuthoring.ts', 35],
+  ['src/hooks/useExtractorAiAuthoring.ts', 115],
   ['src/components/extractorFileFormats.ts', 20],
   ['src/components/ocrStatusModel.ts', 25],
   ['src/components/menuMultiSelectModel.ts', 30],
-  ['src-tauri/src/extractor_recipe/local_configuration.rs', 35],
+  ['src-tauri/src/extractor_recipe/local_configuration.rs', 45],
+  ['src-tauri/src/extractor_recipe/local_configuration/tests.rs', 25],
   ['src/components/ClipPreviewTransformControls.tsx', 159],
   ['src/components/ClipPreviewWorkspace.tsx', 84],
   ['src/components/SettingsSyncPanel.tsx', 456],
@@ -1038,6 +1060,8 @@ const sizeRatchets = new Map([
   ['src/components/SettingsGeneralLayoutSection.tsx', 83],
   ['src/components/SettingsGeneralRetentionSections.tsx', 125],
   ['src/components/ActivityLogView.tsx', 269],
+  ['src/components/activityLogFilter.ts', 45],
+  ['src/components/ActivityVersionEventBadge.tsx', 22],
   ['src/components/ActivityEventBadge.tsx', 431],
   ['src/hooks/useClipActions.ts', 316],
   ['src/hooks/useClipPropertyActions.ts', 240],
@@ -1071,6 +1095,7 @@ const sizeRatchets = new Map([
   ['src/components/HelpView.tsx', 385],
   ['src/components/HelpCliTopic.tsx', 115],
   ['src/components/helpCliCatalog.ts', 159],
+  ['src/components/helpCliAnalysisCatalog.ts', 50],
   ['src/components/ManualTransformEditorModal.tsx', 218],
   ['src/components/ManualTransformStepEditor.tsx', 168],
   ['src/components/manualTransformStepModel.ts', 100],
@@ -1143,6 +1168,10 @@ assert.doesNotMatch(settingsGeneralPassiveViews,
 
 const activityView = read('src/components/ActivityLogView.tsx');
 const activityBadge = read('src/components/ActivityEventBadge.tsx');
+assert.match(activityView, /activityLogMatches\(log, filter, selectedTypeFilter\)/,
+  'Activity must delegate filtering rules to its model');
+assert.doesNotMatch(activityView, /clip_version_deleted|clip_revision_restored/,
+  'The Activity lifecycle view must not reclaim event filtering rules');
 assert.match(activityView, /<ActivityEventBadge type=\{log\.event_type\} description=\{log\.description\} \/>/,
   'Activity must delegate event presentation to its badge system');
 assert.doesNotMatch(activityView, /case 'recording_manually_paused'|case 'clip_trashed'|case 'transform_executed'/,
@@ -1275,8 +1304,10 @@ assert.doesNotMatch(helpViewShell, /symlinkInUsrLocalBin|commandReferenceDescrip
   'Help must not reclaim CLI installation or command-reference presentation');
 assert.match(read('src/components/HelpCliTopic.tsx'), /helpCliCatalog/,
   'The Help CLI topic must compose its command catalog');
-assert.match(read('src/components/helpCliCatalog.ts'), /pasted classifier create[\s\S]*pasted activity import/,
-  'The Help CLI catalog must retain analysis and Activity command coverage');
+assert.match(read('src/components/helpCliCatalog.ts'), /CLI_ANALYSIS_COMMAND_GROUP[\s\S]*pasted activity import/,
+  'The Help CLI catalog must compose analysis and retain Activity command coverage');
+assert.match(read('src/components/helpCliAnalysisCatalog.ts'), /pasted analyzer run[\s\S]*pasted classifier create/,
+  'The focused Help analysis catalog must retain Analyzer and Classifier command coverage');
 
 const manualTransformShell = read('src/components/ManualTransformEditorModal.tsx');
 assert.match(manualTransformShell, /<ManualTransformStepEditor/,
@@ -1318,7 +1349,7 @@ assert.match(read('src-tauri/src/content_extraction/engine_runtime/whisper.rs'),
 assert.match(read('src-tauri/src/content_extraction/engine_runtime/custom_command.rs'), /impl ExtractorEngine for CustomCommandEngine/,
   'Custom command extraction must remain in its focused adapter');
 const intelligenceExecutorFacade = read('src-tauri/src/intelligence_executor.rs');
-for (const capability of ['connections', 'execution', 'extractor_authoring', 'planning', 'saved_transforms']) {
+for (const capability of ['connections', 'execution', 'extractor_authoring', 'extractor_repair', 'planning', 'saved_transforms']) {
   assert.match(intelligenceExecutorFacade, new RegExp(`mod ${capability};`),
     `The intelligence executor must compose the ${capability} capability`);
 }

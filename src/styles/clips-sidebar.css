@@ -741,7 +741,7 @@ html.is-stable-reordering * {
   transition: background-color 100ms ease, border-color 100ms ease, box-shadow 100ms ease;
 }
 
-.clip-revision-history-item.is-restoring {
+.clip-revision-history-item.is-mutating {
   border-color: color-mix(in srgb, var(--accent-primary) 65%, var(--border-card));
   cursor: wait;
 }
@@ -772,41 +772,22 @@ html.is-stable-reordering * {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-primary) 22%, transparent);
 }
 
-.clip-revision-history-restore {
+.clip-revision-history-actions {
   position: absolute;
   inset-inline-end: 0.625rem;
   bottom: 0.625rem;
-  width: 2rem;
-  height: 2rem;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--accent-primary);
-  background-color: color-mix(in srgb, var(--bg-surface) 94%, transparent);
-  border: 1px solid var(--border-card);
-  box-shadow: var(--shadow-card-selected);
   opacity: 0;
   transform: translateY(2px) scale(0.96);
-  transition: opacity 100ms ease, transform 100ms ease, background-color 100ms ease, color 100ms ease;
+  transition: opacity 100ms ease, transform 100ms ease;
 }
 
-.clip-revision-history-item:hover .clip-revision-history-restore,
-.clip-revision-history-item:focus-within .clip-revision-history-restore,
-.clip-revision-history-item.is-restoring .clip-revision-history-restore {
+.clip-revision-history-item:hover .clip-revision-history-actions,
+.clip-revision-history-item:focus-within .clip-revision-history-actions,
+.clip-revision-history-item.is-mutating .clip-revision-history-actions {
   opacity: 1;
   transform: translateY(0) scale(1);
 }
 
-.clip-revision-history-restore:disabled {
-  cursor: wait;
-  opacity: 0.72;
-}
-
-.clip-revision-history-restore:hover {
-  color: var(--accent-primary-contrast);
-  background-color: var(--accent-primary);
-}
 
 .clip-revision-history-load-more {
   display: flex;
@@ -831,7 +812,7 @@ html.is-stable-reordering * {
 }
 
 @media (hover: none) {
-  .clip-revision-history-restore {
+  .clip-revision-history-actions {
     opacity: 1;
     transform: none;
   }

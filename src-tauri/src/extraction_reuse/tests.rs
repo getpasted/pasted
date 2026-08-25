@@ -21,6 +21,7 @@ impl ExtractorEngine for CountingEngine {
         self.0.fetch_add(1, Ordering::SeqCst);
         ExtractionOutcome::Produced {
             text: "searchable".into(),
+            labels: Vec::new(),
         }
     }
 }

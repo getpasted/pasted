@@ -4,8 +4,10 @@ mod analysis_history;
 mod clips;
 mod content_compatibility;
 mod content_registry;
+mod extractor_identity_migrations;
 mod extractors;
 mod organization;
+mod visual_labels;
 
 use clips::initialize_clip_schema;
 use content_compatibility::finalize_content_registry;
@@ -32,6 +34,7 @@ impl DbState {
         migrate_analysis_terminology_schema(&conn)?;
 
         initialize_content_registry(&conn)?;
+        extractor_identity_migrations::migrate_apple_vision_labels_identity(&conn)?;
         initialize_extractor_registry(&conn)?;
         finalize_content_registry(&conn)?;
         Self::init_library_items(&conn)?;

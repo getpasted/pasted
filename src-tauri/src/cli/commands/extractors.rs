@@ -1,6 +1,8 @@
 use super::super::*;
 use super::*;
 
+mod diagnostics;
+
 pub(crate) fn run_extractor(args: Vec<String>, db_path: PathBuf, conn: Connection) -> Result<()> {
     drop(conn);
     let db = DbState::new(db_path.clone())?;
@@ -134,6 +136,8 @@ pub(crate) fn run_extractor(args: Vec<String>, db_path: PathBuf, conn: Connectio
                 }
             }
         }
+        "preflight" => diagnostics::run_preflight(&args, &db)?,
+        "diagnose" | "repair" => diagnostics::run_diagnose(&args, &db)?,
         "history" => {
             let reference = args.get(3).unwrap_or_else(|| {
                 eprintln!("Usage: pasted extractor history <ref> [--json]");
@@ -336,7 +340,7 @@ pub(crate) fn run_extractor(args: Vec<String>, db_path: PathBuf, conn: Connectio
             }
         }
         _ => {
-            eprintln!("Usage: pasted extractor list|get|create|update|propose|history|duplicate|delete|run|restore-defaults [options] [--json]");
+            eprintln!("Usage: pasted extractor list|get|create|update|propose|preflight|diagnose|history|duplicate|delete|run|restore-defaults [options] [--json]");
             std::process::exit(2);
         }
     }

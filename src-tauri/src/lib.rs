@@ -24,6 +24,8 @@ pub mod clipboard_actions;
 mod clipboard_capture_policy;
 mod clipboard_fingerprint;
 #[cfg(feature = "gui")]
+mod clipboard_image;
+#[cfg(feature = "gui")]
 mod clipboard_ingestion;
 #[cfg(feature = "gui")]
 mod clipboard_monitor;
@@ -164,6 +166,7 @@ pub fn run() {
             commands::analysis::get_content_inspectors,
             commands::extractors::choose_extractor_executable,
             commands::extractors::choose_extractor_resource_file,
+            commands::extractors::diagnose_content_extractor_recipe,
             commands::extractors::test_content_extractor_recipe,
             commands::extractors::create_content_extractor_recipe,
             commands::extractors::update_content_extractor_recipe,
@@ -228,9 +231,10 @@ pub fn run() {
             commands::clips::remove_clip_bin,
             commands::clips::reorder_pinned_clips,
             commands::clips::reorder_bin_clips,
-            commands::clips::get_clip_versions,
-            commands::clips::get_clip_version_count,
-            commands::clips::restore_clip_version,
+            commands::clips::versions::get_clip_versions,
+            commands::clips::versions::get_clip_version_count,
+            commands::clips::versions::restore_clip_version,
+            commands::clips::versions::delete_clip_version,
             commands::get_ocr_backfill_status,
             commands::start_ocr_backfill,
             commands::cancel_ocr_backfill,
@@ -263,6 +267,7 @@ pub fn run() {
             commands::reorder_intelligence_connections,
             commands::reset_intelligence_connections,
             commands::propose_extractor_recipe,
+            commands::repair_extractor_recipe,
             commands::plan_transformation_intent,
             commands::test_transformation_plan,
             commands::get_intent_transforms,
@@ -308,6 +313,10 @@ pub fn run() {
             commands::extract_ocr_from_clip,
             commands::get_clip_searchable_text,
             commands::get_clip_extraction_results,
+            commands::get_clip_visual_labels,
+            commands::add_clip_visual_label,
+            commands::remove_clip_visual_label,
+            commands::reset_clip_visual_labels,
             commands::get_clip_extraction_history,
             commands::library_access::search_clips,
             commands::extract_text_from_file_clip,

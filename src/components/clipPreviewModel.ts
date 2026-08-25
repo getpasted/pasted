@@ -88,6 +88,7 @@ export interface ExtractionApplicationResult {
 }
 
 export type { ExtractionAttempt, ExtractionResult } from './clipExtractionModel';
+export type { EffectiveVisualLabels } from './visualLabelModel';
 
 export interface ClipSearchableText {
   clipId: number;

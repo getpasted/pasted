@@ -5,3 +5,4 @@ use fixtures::*;
 mod extraction_classification;
 mod failure_contracts;
 mod scheduler_policy;
+mod visual_labels;

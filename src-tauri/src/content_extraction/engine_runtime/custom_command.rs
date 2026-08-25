@@ -187,12 +187,10 @@ fn execute_custom_command(executable: &Path, input: CustomCommandInput<'_>) -> E
             "The custom Extractor must return a JSON object.",
         );
     };
-    match response.get("text") {
-        Some(serde_json::Value::String(text)) => ExtractionOutcome::Produced { text: text.clone() },
-        Some(serde_json::Value::Null) | None => ExtractionOutcome::NoOutput,
-        _ => extraction_failure(
-            "invalid_output",
-            "Custom Extractor output requires a string or null text field.",
-        ),
+    match crate::content_extraction::parse_visual_label_json_fields(&response) {
+        Ok((text, labels)) => {
+            crate::content_extraction::visual_labels_into_outcome(text.unwrap_or_default(), labels)
+        }
+        Err(message) => extraction_failure("invalid_output", &message),
     }
 }

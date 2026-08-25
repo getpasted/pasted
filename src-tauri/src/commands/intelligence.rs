@@ -5,7 +5,9 @@ use crate::db::DbState;
 use crate::features::{self, Feature};
 
 mod connections;
+mod extractor_repair;
 pub use connections::*;
+pub use extractor_repair::*;
 
 #[tauri::command]
 pub async fn propose_extractor_recipe(

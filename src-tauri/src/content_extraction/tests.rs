@@ -72,6 +72,7 @@ fn ocr_acceptance_image() -> Vec<u8> {
 #[test]
 fn advertised_apple_vision_engine_is_linked() {
     assert!(objc::runtime::Class::get("VNRecognizeTextRequest").is_some());
+    assert!(objc::runtime::Class::get("VNClassifyImageRequest").is_some());
 }
 
 struct FixedEngine {
@@ -120,30 +121,31 @@ fn extractor(engine: &str) -> Extractor {
     }
 }
 
+fn produced(text: impl Into<String>) -> ExtractionOutcome {
+    ExtractionOutcome::Produced {
+        text: text.into(),
+        labels: Vec::new(),
+    }
+}
+
 #[test]
 fn registry_dispatches_typed_engine_outcomes() {
     let engine = FixedEngine {
-        outcome: ExtractionOutcome::Produced {
-            text: "recognized".into(),
-        },
+        outcome: produced("recognized"),
     };
     let engines: [&dyn ExtractorEngine; 1] = [&engine];
     let registry = ExtractorEngineRegistry::new(&engines);
 
     assert_eq!(
         registry.execute(&extractor("test-v1"), b"image"),
-        ExtractionOutcome::Produced {
-            text: "recognized".into()
-        }
+        produced("recognized")
     );
 }
 
 #[test]
 fn registry_rejects_unknown_contracts_before_engine_dispatch() {
     let engine = FixedEngine {
-        outcome: ExtractionOutcome::Produced {
-            text: "should not run".into(),
-        },
+        outcome: produced("should not run"),
     };
     let engines: [&dyn ExtractorEngine; 1] = [&engine];
     let registry = ExtractorEngineRegistry::new(&engines);
@@ -164,7 +166,7 @@ fn registry_rejects_unknown_contracts_before_engine_dispatch() {
 #[test]
 fn registry_normalizes_blank_and_oversized_engine_output() {
     let blank_engine = FixedEngine {
-        outcome: ExtractionOutcome::Produced { text: "  ".into() },
+        outcome: produced("  "),
     };
     let blank_engines: [&dyn ExtractorEngine; 1] = [&blank_engine];
     let blank_registry = ExtractorEngineRegistry::new(&blank_engines);
@@ -174,9 +176,7 @@ fn registry_normalizes_blank_and_oversized_engine_output() {
     );
 
     let oversized_engine = FixedEngine {
-        outcome: ExtractionOutcome::Produced {
-            text: "x".repeat(crate::resource_limits::MAX_OCR_TEXT_BYTES + 1),
-        },
+        outcome: produced("x".repeat(crate::resource_limits::MAX_OCR_TEXT_BYTES + 1)),
     };
     let oversized_engines: [&dyn ExtractorEngine; 1] = [&oversized_engine];
     let oversized_registry = ExtractorEngineRegistry::new(&oversized_engines);
@@ -218,9 +218,7 @@ fn custom_command_executes_the_bounded_v1_protocol() {
     );
     assert_eq!(
         system_engine_registry().execute(&custom, b"image"),
-        ExtractionOutcome::Produced {
-            text: "custom searchable text".into(),
-        }
+        produced("custom searchable text")
     );
 }
 
@@ -433,7 +431,7 @@ fn tesseract_adapter_recognizes_text_when_installed() {
         Duration::from_secs(15),
     );
     assert!(
-        matches!(outcome, ExtractionOutcome::Produced { ref text }
+        matches!(outcome, ExtractionOutcome::Produced { ref text, .. }
                 if text.to_ascii_uppercase().contains("PASTE")),
         "unexpected Tesseract result: {outcome:?}"
     );
@@ -451,7 +449,7 @@ fn shipped_tesseract_recipe_uses_the_universal_runner() {
         .recipe();
     let outcome = crate::extractor_recipe::execute_image(&recipe, &ocr_acceptance_image());
     assert!(
-        matches!(outcome, ExtractionOutcome::Produced { ref text }
+        matches!(outcome, ExtractionOutcome::Produced { ref text, .. }
                 if text.to_ascii_uppercase().contains("PASTE")),
         "unexpected recipe result: {outcome:?}"
     );

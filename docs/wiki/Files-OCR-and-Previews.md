@@ -49,3 +49,9 @@ Apple Vision extracts searchable text from clipboard images and screenshots thro
 Use **Settings → Analysis** or `pasted ocr status --json` to inspect background progress. Image extraction runs enabled, available `image → searchable_text` Extractors in priority order.
 
 Manual extraction APIs and `pasted extractor run --apply` use the same hash-safe application result as background OCR. A result reports whether OCR text, file-backed searchable text, and derived classification were actually updated; stale or removed clips are rejected instead of being reported as applied.
+
+## Visual Labels
+
+Apple Vision Labels finds searchable subjects and objects locally on macOS. Labels use the same Extractor result, current-result storage, bounded scan history, hash-safe searchable-text application, and GUI/CLI execution paths as OCR. They appear as labels in the clip Inspector and can be matched directly with the `visual_label` Smart Bin condition.
+
+The `pasted_json_v1` recipe protocol also accepts an optional `labels` array of `{ "value", "confidenceBasisPoints" }` objects. This provider-neutral contract lets a local llama.cpp wrapper or another image-recognition executable produce the same searchable, historical, and Smart Bin-compatible result without adding another storage path.

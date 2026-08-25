@@ -1,5 +1,11 @@
 use super::*;
 
+mod clip_version;
+pub use clip_version::ClipVersion;
+
+pub(super) const BACKUP_SCHEMA_VERSION: u32 = 14;
+pub(super) const MAX_BACKUP_INTERFACE_STATE_BYTES: usize = 1024 * 1024;
+
 pub(super) struct ClipSaveInput<'a> {
     pub(super) content_type: &'a str,
     pub(super) text_content: Option<&'a str>,
@@ -125,17 +131,6 @@ pub struct Bin {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ClipVersion {
-    pub id: i64,
-    pub clip_id: i64,
-    pub text_content: String,
-    pub action_kind: Option<String>,
-    pub action_label: Option<String>,
-    pub restores_organization: bool,
-    pub created_at: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
 pub(super) struct ClipRevisionContext {
     pub(super) schema_version: i64,
     pub(super) action_kind: String,
@@ -143,6 +138,8 @@ pub(super) struct ClipRevisionContext {
     pub(super) organization: Option<ClipRevisionOrganization>,
     #[serde(default)]
     pub(super) current_transformation_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) derived_state: Option<super::clip_revision_state::ClipRevisionDerivedState>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -227,6 +224,8 @@ pub struct BackupPayload {
     pub timestamp: String,
     pub clips: Vec<ClipItem>,
     pub bins: Vec<Bin>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub visual_label_overrides: Vec<super::clip_visual_labels::VisualLabelOverrideArchive>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub pipelines: Vec<Pipeline>,
     pub operations: Vec<Operation>,

@@ -91,29 +91,6 @@ impl DbState {
         self.enforce_clip_retention(keep_count, 0)
     }
 
-    pub fn enforce_revision_retention(&self, keep_count: i64) -> Result<()> {
-        let keep_count = keep_count.max(0);
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction()?;
-        tx.execute(
-            "INSERT INTO settings (key, value) VALUES ('revisionHistoryLimit', ?1)
-             ON CONFLICT(key) DO UPDATE SET value = ?1",
-            params![keep_count.to_string()],
-        )?;
-        if keep_count > 0 {
-            tx.execute(
-                "DELETE FROM clip_versions WHERE id IN (
-                    SELECT id FROM (
-                        SELECT id,
-                               ROW_NUMBER() OVER (PARTITION BY clip_id ORDER BY id DESC) AS revision_rank
-                        FROM clip_versions
-                    ) WHERE revision_rank > ?1
-                 )",
-                params![keep_count],
-            )?;
-        }
-        tx.commit()
-    }
     pub fn enforce_history_limit_internal(&self, conn: &Connection) -> Result<()> {
         let keep_count: i64 = conn
             .query_row(

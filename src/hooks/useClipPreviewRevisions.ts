@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import type { ClipItem, ClipVersion } from '../types';
-import { soundManager } from '../utils/sound';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { useClipRevisionPreview } from './useClipRevisionPreview';
+import { useClipVersionMutations } from './useClipVersionMutations';
 
 interface UseClipPreviewRevisionsInput {
   clip: ClipItem | null;
@@ -21,8 +22,7 @@ export function useClipPreviewRevisions({
 }: UseClipPreviewRevisionsInput) {
   const [isOpen, setIsOpen] = useState(false);
   const [versions, setVersions] = useState<ClipVersion[]>([]);
-  const [previewedVersion, setPreviewedVersion] = useState<ClipVersion | null>(null);
-  const [restoringVersionId, setRestoringVersionId] = useState<number | null>(null);
+  const preview = useClipRevisionPreview();
   const [count, setCount] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -35,9 +35,25 @@ export function useClipPreviewRevisions({
       .then((value) => setCount(Number.isFinite(value) ? value : 0))
       .catch((error) => console.error('Failed to refresh clip revision count:', error));
   }, [clip, supported]);
+  const mutations = useClipVersionMutations({
+    canMutate: canRestore,
+    clip,
+    refreshCount,
+    onDeleted: (version) => {
+      setVersions((current) => current.filter((item) => item.id !== version.id));
+      setCount((current) => current === null ? null : Math.max(1, current - 1));
+      if (preview.previewedVersion?.id === version.id) preview.clearPreview();
+    },
+    onRestored: (restoredClip) => {
+      onBeforeRestore();
+      setIsOpen(false);
+      preview.clearPreview();
+      onUpdateClip(restoredClip);
+    },
+  });
 
   useEffect(() => {
-    setPreviewedVersion(null);
+    preview.clearPreview();
     setVersions([]);
     setIsOpen(false);
   }, [clip?.id]);
@@ -102,45 +118,19 @@ export function useClipPreviewRevisions({
     }
   };
 
-  const restore = async (version: ClipVersion) => {
-    if (!clip || !canRestore || restoringVersionId !== null) return;
-    setRestoringVersionId(version.id);
-    try {
-      const restoredClip = await invoke<ClipItem>('restore_clip_version', {
-        clipId: clip.id,
-        versionId: version.id,
-      });
-      void refreshCount();
-      onBeforeRestore();
-      setIsOpen(false);
-      setPreviewedVersion(null);
-      soundManager.playCopySound();
-      onUpdateClip(restoredClip);
-    } catch (error) {
-      console.error('Failed to restore clip version:', error);
-    } finally {
-      setRestoringVersionId(null);
-    }
-  };
-
   return {
     supported,
     isOpen,
     setIsOpen,
     toggleOpen: () => setIsOpen((current) => !current),
     versions,
-    previewedVersion,
-    clearPreview: () => setPreviewedVersion(null),
-    togglePreview: (version: ClipVersion) => setPreviewedVersion((current) => (
-      current?.id === version.id ? null : version
-    )),
-    restoringVersionId,
+    ...preview,
+    ...mutations,
     count,
     isLoading,
     isLoadingMore,
     hasMore,
     loadMore,
-    restore,
     refreshCount,
     noteRevisionAdded: () => setCount((current) => (current ?? 0) + 1),
   };

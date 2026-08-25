@@ -7,6 +7,7 @@ export interface ExtractorRecipe {
   definitionVersion: 1;
   accepts: ExtractorInputKind[];
   acceptedFileFormats: string[];
+  minimumVisualLabelConfidence: number;
   output: 'searchable_text';
   steps: Array<{
     id: string;
@@ -103,6 +104,7 @@ export const emptyRecipe = (): ExtractorRecipe => ({
   definitionVersion: 1,
   accepts: ['image'],
   acceptedFileFormats: ['*'],
+  minimumVisualLabelConfidence: 80,
   output: 'searchable_text',
   steps: [{
     id: 'extract',
@@ -147,6 +149,37 @@ export interface ExtractorRecipeProposal {
   setupGuidance: string[];
   authoring: ExtractorAuthoringManifest;
   connectionName: string;
+}
+
+export type ExtractorDiagnosticCode =
+  | 'invalid_recipe'
+  | 'executable_not_configured'
+  | 'executable_unavailable'
+  | 'resource_not_configured'
+  | 'resource_unavailable';
+
+export interface ExtractorDiagnosticReport {
+  version: 1;
+  isAvailable: boolean;
+  platform: string;
+  architecture: string;
+  packageManagers: string[];
+  issues: Array<{
+    code: ExtractorDiagnosticCode;
+    subjectId: string;
+    label: string;
+    detail: string;
+  }>;
+}
+
+export type ExtractorRepairStatus = 'ready' | 'setup_required' | 'guidance_incomplete';
+
+export interface ExtractorRepairOutcome extends ExtractorRecipeProposal {
+  diagnostic: ExtractorDiagnosticReport;
+  status: ExtractorRepairStatus;
+  attempts: number;
+  connectionId: string;
+  durationMs: number;
 }
 
 export type ExtractorTestOutcome =

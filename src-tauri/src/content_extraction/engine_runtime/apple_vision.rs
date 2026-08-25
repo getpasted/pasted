@@ -1,5 +1,10 @@
 use super::*;
 
+mod labels;
+mod request;
+
+pub(crate) use labels::perform as perform_apple_vision_labels;
+
 pub(super) struct AppleVisionOcrEngine;
 
 impl ExtractorEngine for AppleVisionOcrEngine {
@@ -25,7 +30,10 @@ impl ExtractorEngine for AppleVisionOcrEngine {
         perform_apple_vision_ocr(image_bytes)
             .filter(|text| !text.trim().is_empty())
             .map_or(ExtractionOutcome::NoOutput, |text| {
-                ExtractionOutcome::Produced { text }
+                ExtractionOutcome::Produced {
+                    text,
+                    labels: Vec::new(),
+                }
             })
     }
 }
@@ -150,33 +158,33 @@ pub fn run_bundled_extractor_helper(arguments: &[String]) -> Option<i32> {
     let method = arguments.get(marker + 1).map(String::as_str);
     let request_path = arguments.get(marker + 2).map(Path::new);
     let result = match (method, request_path) {
-        (Some("apple-vision-ocr"), Some(request_path)) => {
-            let request = fs::metadata(request_path)
-                .ok()
-                .filter(|metadata| metadata.is_file() && metadata.len() <= 1024 * 1024)
-                .and_then(|_| fs::read(request_path).ok())
-                .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok());
-            let image_path = request
-                .as_ref()
-                .and_then(|request| request.pointer("/input/path"))
-                .and_then(serde_json::Value::as_str)
-                .map(Path::new);
-            let image = image_path
-                .and_then(|path| fs::metadata(path).ok().map(|metadata| (path, metadata)))
-                .filter(|(_, metadata)| {
-                    metadata.is_file()
-                        && metadata.len() <= crate::resource_limits::MAX_ENCODED_IMAGE_BYTES as u64
-                })
-                .and_then(|(path, _)| fs::read(path).ok());
-            image.map_or_else(
+        (Some(method @ ("apple-vision-ocr" | "apple-vision-labels")), Some(request_path)) => {
+            request::read_images(request_path).map_or_else(
                 || Err("invalid_input"),
-                |image| Ok(perform_apple_vision_ocr(&image)),
+                |images| {
+                    if method == "apple-vision-labels" {
+                        let labels = crate::content_extraction::normalize_visual_labels(
+                            images
+                                .iter()
+                                .flat_map(|image| perform_apple_vision_labels(image))
+                                .collect(),
+                        );
+                        Ok(serde_json::json!({ "text": null, "labels": labels }))
+                    } else {
+                        let text = images
+                            .iter()
+                            .filter_map(|image| perform_apple_vision_ocr(image))
+                            .collect::<Vec<_>>()
+                            .join("\n");
+                        Ok(serde_json::json!({ "text": text }))
+                    }
+                },
             )
         }
         _ => Err("unsupported_helper"),
     };
     match result {
-        Ok(text) => match serde_json::to_string(&serde_json::json!({ "text": text })) {
+        Ok(value) => match serde_json::to_string(&value) {
             Ok(output) => {
                 println!("{output}");
                 Some(0)

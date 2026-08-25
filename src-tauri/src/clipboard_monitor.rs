@@ -7,11 +7,11 @@ use tauri::{AppHandle, Manager};
 
 use crate::clipboard_capture_policy::{
     already_processed_change, clipboard_change_marker, composite_image_source,
-    configured_capture_bytes, image_file_clipboard_payload, image_file_rgba_fingerprint,
-    inferred_screenshot_source, is_image_file_path, is_pasted_source, resolved_capture_source,
-    should_coalesce_recent_image, should_prefer_composite_image, RecentImageCapture,
-    FILE_IMAGE_STABILIZATION_ATTEMPTS, FILE_IMAGE_STABILIZATION_INTERVAL,
+    configured_capture_bytes, inferred_screenshot_source, is_image_file_path, is_pasted_source,
+    resolved_capture_source, should_coalesce_recent_image, should_prefer_composite_image,
+    RecentImageCapture, FILE_IMAGE_STABILIZATION_ATTEMPTS, FILE_IMAGE_STABILIZATION_INTERVAL,
 };
+use crate::clipboard_image::{image_file_clipboard_payload, image_file_rgba_fingerprint};
 use crate::clipboard_ingestion::{ingest_files, ingest_image, ingest_text, CaptureContext};
 use crate::db::DbState;
 use crate::sequential_paste::SequentialQueueState;
@@ -140,7 +140,8 @@ pub fn start_clipboard_monitor(
 
             let mut composite_image =
                 if clipboard_files.len() == 1 && is_image_file_path(&clipboard_files[0]) {
-                    clipboard.get_image().ok()
+                    image_file_clipboard_payload(&clipboard_files[0])
+                        .or_else(|| clipboard.get_image().ok())
                 } else {
                     None
                 };

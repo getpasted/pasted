@@ -303,7 +303,9 @@ fn persist_image_analysis(
         .failure
         .as_ref()
         .map(|failure| failure.code.as_str());
-    let ocr_updated = db.complete_or_reset_ocr_attempt_with_extractor(
+    let derived_state_changes =
+        !db.current_extraction_results_match(clip_id, &analysis.observations)?;
+    let ocr_updated = db.complete_or_reset_ocr_attempt_with_extractor_and_revision(
         clip_id,
         content_hash,
         analysis.output.as_deref(),
@@ -313,6 +315,7 @@ fn persist_image_analysis(
             &extractor.name,
         ),
         extraction_error,
+        derived_state_changes,
     )?;
     if !ocr_updated {
         return Ok(ExtractionPersistence {
@@ -620,6 +623,7 @@ mod tests {
         let engine = FixedEngine {
             outcome: ExtractionOutcome::Produced {
                 text: "recognized text".into(),
+                labels: Vec::new(),
             },
         };
         let engines: [&dyn crate::content_extraction::ExtractorEngine; 1] = [&engine];
@@ -884,6 +888,7 @@ mod tests {
             id: "test-file-engine-v1",
             outcome: ExtractionOutcome::Produced {
                 text: "Recorded discussion about nebulae".into(),
+                labels: Vec::new(),
             },
             seen_paths: std::sync::Mutex::new(Vec::new()),
         };
@@ -932,6 +937,7 @@ mod tests {
             id: "test-pdf-engine-v1",
             outcome: ExtractionOutcome::Produced {
                 text: "pdf text".into(),
+                labels: Vec::new(),
             },
             seen_paths: std::sync::Mutex::new(Vec::new()),
         };
@@ -939,6 +945,7 @@ mod tests {
             id: "test-audio-engine-v1",
             outcome: ExtractionOutcome::Produced {
                 text: "audio text".into(),
+                labels: Vec::new(),
             },
             seen_paths: std::sync::Mutex::new(Vec::new()),
         };

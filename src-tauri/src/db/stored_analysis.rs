@@ -4,6 +4,7 @@ mod classifications;
 mod extractions;
 mod inspections;
 mod ocr;
+mod ocr_queue;
 mod searchable_text;
 mod types;
 

@@ -35,6 +35,8 @@ for (const [kind, path] of [
 Object.assign(messages, {
   'registry.extractor.extractorAppleVisionOcr.name': 'Apple Vision OCR',
   'registry.extractor.extractorAppleVisionOcr.description': 'Extracts searchable text from images locally with Apple Vision.',
+  'registry.extractor.extractorAppleVisionLabels.name': 'Apple Vision Labels',
+  'registry.extractor.extractorAppleVisionLabels.description': 'Finds searchable subjects and objects in images locally with Apple Vision.',
   'registry.extractor.extractorTesseractOcr.name': 'Tesseract OCR',
   'registry.extractor.extractorTesseractOcr.description': 'Extracts searchable text from images locally with Tesseract.',
   'registry.extractor.extractorWhisperTranscription.name': 'Whisper Transcription',

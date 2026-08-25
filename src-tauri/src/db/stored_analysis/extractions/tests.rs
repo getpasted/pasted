@@ -27,9 +27,7 @@ fn extractor_observations_round_trip_per_clip_in_priority_order() {
             engine: "second-v1".into(),
             priority: 20,
             duplicate_of: None,
-            outcome: crate::content_extraction::ExtractionOutcome::Produced {
-                text: "Hello World!".into(),
-            },
+            outcome: crate::content_extraction::ExtractionOutcome::produced("Hello World!"),
         },
         crate::content_analysis::ExtractionObservation {
             extractor_ref: "extractor:first".into(),
@@ -53,7 +51,7 @@ fn extractor_observations_round_trip_per_clip_in_priority_order() {
     assert_eq!(stored[1].observation.extractor_ref, "extractor:second");
     assert!(matches!(
         stored[1].observation.outcome,
-        crate::content_extraction::ExtractionOutcome::Produced { ref text }
+        crate::content_extraction::ExtractionOutcome::Produced { ref text, .. }
             if text == "Hello World!"
     ));
     let second_run = vec![crate::content_analysis::ExtractionObservation {

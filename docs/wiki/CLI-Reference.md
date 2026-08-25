@@ -79,8 +79,9 @@ Quit the graphical app before CLI restore. Full Backup uses SQLite’s online ba
 ```text
 pasted clip get <id> [--json]
 pasted clip note <id> [--text <text> | --clear | --stdin] [--json]
-pasted clip revisions <id> [--limit <n>] [--offset <n>] [--json]
-pasted clip restore-revision <id> <revision-id> [--json]
+pasted clip versions <id> [--limit <n>] [--offset <n>] [--json]
+pasted clip restore-version <id> <version-id> [--json]
+pasted clip delete-version <id> <version-id> --yes [--json]
 pasted clip provenance <id> [--json]
 pasted clip copy|paste <id> [--json]
 pasted clip hotkey <id> <hotkey|none> [--json]
@@ -95,6 +96,7 @@ pasted clip assign <bin-id|none> <id>... [--json]
 ```
 
 Mutating commands report stable summaries and use explicit desired states rather than blind toggles. `restore-all` returns every trashed clip to History and reports the restored IDs in its structured result.
+Current and Original cannot be deleted from Version History. In structured output, `versions --json` identifies them with `is_current` and `is_original`; `delete-version --json` returns `clipId`, `versionId`, and `deleted`. The command permanently removes only the selected historical version. The legacy `revisions`, `restore-revision`, and `delete-revision` spellings remain accepted as compatibility aliases.
 
 ## Bins
 
@@ -172,6 +174,8 @@ pasted extractor get <ref> [--json]
 pasted extractor create [--name <name>] [--description <text>] (--recipe <recipe.json> | --prompt <request>) [--format <format>]... [--connection <id>] [--priority <number>] [--enabled|--disabled] [--json]
 pasted extractor update <ref> --recipe <recipe.json> [--format <format>]... [options] [--json]
 pasted extractor propose --prompt <request> [--connection <id>] [--json]
+pasted extractor preflight <ref> [--json]
+pasted extractor diagnose <ref> [--prompt <request>] [--connection <id>] [--json]
 pasted extractor history <ref> [--json]
 pasted extractor duplicate <ref> [--name <name>] [--json]
 pasted extractor delete <ref> [--json]
@@ -211,7 +215,7 @@ Automatic scans, rescans, and whole-Analyzer extraction run every enabled, avail
 
 `extractor propose` asks an enabled Intelligence connection to draft this deterministic local recipe; it does not run tools or install software. `extractor create --prompt` drafts and saves in one command. The original request, provider/model identity, structured response, and timestamps are retained locally as reviewable authoring history. Runtime extraction never contacts AI. Use `--recipe` for the complete no-AI path; [`poppler-pdf-extractor.json`](../examples/poppler-pdf-extractor.json) is a directly runnable example.
 
-The shipped Apple Vision, Tesseract, and Whisper definitions use the same recipe runner. Apple Vision invokes the explicit bundled Pasted bridge, Tesseract invokes `tesseract`, and Whisper declares an FFmpeg preparation step followed by `whisper-cli` plus a required local GGML model resource. Installing commands or selecting resources never occurs implicitly. `pasted extractor run extractor:whisper-transcription --clip <id> --apply` stores hash-bound searchable text and provenance without replacing file references.
+The shipped Apple Vision, Tesseract, and Whisper definitions use the same recipe runner. Apple Vision invokes the explicit bundled Pasted bridge, Tesseract invokes `tesseract`, and Whisper declares an FFmpeg preparation step followed by `whisper-cli` plus a required local GGML model resource. `extractor preflight` reports every unavailable executable and required resource without sending data to AI. `extractor diagnose` gives that structured report to a connected AI for a bounded, non-mutating recipe revision and platform-specific setup guidance. Installing commands or selecting resources never occurs implicitly. `pasted extractor run extractor:whisper-transcription --clip <id> --apply` stores hash-bound searchable text and provenance without replacing file references.
 
 Inspector run JSON uses the versioned Analysis envelope. Structure reports origin, byte count, text counts, image dimensions, or file item count and filename extensions without returning the inspected clipboard content or paths. The File Format Inspector reads bounded file signatures, persists verified `fileFormats`, and never guesses from an extension. `inspector rescan --yes` backfills current file clips and reports missing external references as `missingCount`, not failures. File availability, file/directory counts, and total size are returned separately as live observations and are not persisted. When ffprobe or MediaInfo is installed, file runs can also return live aggregate `mediaMetadata` containing container, codec, stream-count, and duration facts. Up to eight files are inspected with bounded execution and output; paths never appear in results.
 

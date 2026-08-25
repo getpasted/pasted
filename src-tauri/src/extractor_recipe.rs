@@ -8,13 +8,18 @@ use std::time::Duration;
 
 use crate::content_extraction::{ExtractionFailure, ExtractionOutcome};
 
+mod diagnostics;
 mod local_configuration;
 mod runtime_status;
-pub use local_configuration::reset_preserving_local_paths;
+pub use diagnostics::{
+    diagnose, ExtractorDiagnosticCode, ExtractorDiagnosticIssue, ExtractorDiagnosticReport,
+};
+pub use local_configuration::{reset_preserving_local_paths, without_local_paths};
 pub use runtime_status::{runtime_status, runtime_status_summary};
 
 pub const EXTRACTOR_RECIPE_VERSION: u32 = 1;
 pub const EXTRACTOR_AUTHORING_VERSION: u32 = 1;
+pub const DEFAULT_MINIMUM_VISUAL_LABEL_CONFIDENCE: u8 = 80;
 const MAX_ARGUMENTS: usize = 128;
 const MAX_ARGUMENT_BYTES: usize = 4_096;
 const MAX_STEPS: usize = 16;
@@ -117,6 +122,8 @@ pub struct ExtractorRecipe {
     pub accepts: Vec<ExtractorInputKind>,
     #[serde(default = "default_accepted_file_formats")]
     pub accepted_file_formats: Vec<String>,
+    #[serde(default = "default_minimum_visual_label_confidence")]
+    pub minimum_visual_label_confidence: u8,
     pub output: ExtractorOutputKind,
     #[serde(default)]
     pub steps: Vec<ExtractorCommandStep>,
@@ -126,6 +133,10 @@ pub struct ExtractorRecipe {
 
 fn default_accepted_file_formats() -> Vec<String> {
     vec!["*".into()]
+}
+
+const fn default_minimum_visual_label_confidence() -> u8 {
+    DEFAULT_MINIMUM_VISUAL_LABEL_CONFIDENCE
 }
 
 impl ExtractorRecipe {
@@ -288,6 +299,9 @@ pub fn validate_recipe(recipe: &ExtractorRecipe) -> Result<(), String> {
             .any(|format| format == "*")
     {
         return Err("The any-format selector cannot be combined with specific formats".into());
+    }
+    if recipe.minimum_visual_label_confidence > 100 {
+        return Err("Minimum Visual Label confidence must be between 0 and 100".into());
     }
     if recipe.steps.is_empty() || recipe.steps.len() > MAX_STEPS {
         return Err(format!(
@@ -555,6 +569,7 @@ fn execute_recipe(recipe: &ExtractorRecipe, input: RecipeInput<'_>) -> Extractio
             .collect::<Vec<_>>(),
     };
     let mut produced = Vec::new();
+    let mut labels = Vec::new();
     let mut artifacts = HashMap::<(String, usize), PathBuf>::new();
     let mut failed_inputs = HashSet::new();
     let mut first_input_failure = None;
@@ -672,19 +687,16 @@ fn execute_recipe(recipe: &ExtractorRecipe, input: RecipeInput<'_>) -> Extractio
                 }
                 ExtractorCapture::PastedJsonV1 => {
                     match serde_json::from_str::<serde_json::Value>(&output) {
-                        Ok(value) => match value.get("text") {
-                            Some(serde_json::Value::String(text)) if !text.trim().is_empty() => {
-                                produced.push(text.trim().to_string())
+                        Ok(value) => {
+                            match crate::content_extraction::parse_visual_label_json_fields(&value)
+                            {
+                                Ok((text, mut parsed_labels)) => {
+                                    produced.extend(text);
+                                    labels.append(&mut parsed_labels);
+                                }
+                                Err(message) => return failure("invalid_output", message),
                             }
-                            Some(serde_json::Value::String(_) | serde_json::Value::Null) | None => {
-                            }
-                            _ => {
-                                return failure(
-                                    "invalid_output",
-                                    "Extractor output requires a string or null text field.",
-                                )
-                            }
-                        },
+                        }
                         Err(_) => {
                             return failure(
                                 "invalid_output",
@@ -696,7 +708,8 @@ fn execute_recipe(recipe: &ExtractorRecipe, input: RecipeInput<'_>) -> Extractio
             }
         }
     }
-    if produced.is_empty() {
+    labels = visual_labels_meeting_confidence(labels, recipe.minimum_visual_label_confidence);
+    if produced.is_empty() && labels.is_empty() {
         first_input_failure
             .map(|failure| ExtractionOutcome::Failed { failure })
             .unwrap_or(ExtractionOutcome::NoOutput)
@@ -708,9 +721,24 @@ fn execute_recipe(recipe: &ExtractorRecipe, input: RecipeInput<'_>) -> Extractio
                 "Extracted text exceeds the supported size limit.",
             )
         } else {
-            ExtractionOutcome::Produced { text }
+            ExtractionOutcome::Produced { text, labels }
         }
     }
+}
+
+fn visual_labels_meeting_confidence(
+    labels: Vec<crate::content_extraction::VisualLabel>,
+    minimum_confidence_percent: u8,
+) -> Vec<crate::content_extraction::VisualLabel> {
+    let minimum_confidence = u16::from(minimum_confidence_percent) * 100;
+    crate::content_extraction::normalize_visual_labels(labels)
+        .into_iter()
+        .filter(|label| {
+            label
+                .confidence_basis_points
+                .is_none_or(|confidence| confidence >= minimum_confidence)
+        })
+        .collect()
 }
 
 fn step_runs<'a>(step: &ExtractorCommandStep, input_paths: &'a [PathBuf]) -> Vec<Option<&'a Path>> {
@@ -894,6 +922,7 @@ mod tests {
                 ExtractorInputKind::FileReferences,
             ],
             accepted_file_formats: vec!["*".into()],
+            minimum_visual_label_confidence: DEFAULT_MINIMUM_VISUAL_LABEL_CONFIDENCE,
             output: ExtractorOutputKind::SearchableText,
             steps: vec![ExtractorCommandStep {
                 id: "extract".into(),
@@ -923,6 +952,39 @@ mod tests {
         });
         let parsed: ExtractorRecipe = serde_json::from_value(value).unwrap();
         assert_eq!(parsed.accepted_file_formats, ["*"]);
+        assert_eq!(
+            parsed.minimum_visual_label_confidence,
+            DEFAULT_MINIMUM_VISUAL_LABEL_CONFIDENCE
+        );
+    }
+
+    #[test]
+    fn visual_label_confidence_defaults_to_a_conservative_floor() {
+        let labels = vec![
+            crate::content_extraction::VisualLabel {
+                value: "dog".into(),
+                confidence_basis_points: Some(8_000),
+            },
+            crate::content_extraction::VisualLabel {
+                value: "terrier".into(),
+                confidence_basis_points: Some(7_999),
+            },
+            crate::content_extraction::VisualLabel {
+                value: "favorite".into(),
+                confidence_basis_points: None,
+            },
+        ];
+
+        let accepted =
+            visual_labels_meeting_confidence(labels, DEFAULT_MINIMUM_VISUAL_LABEL_CONFIDENCE);
+
+        assert_eq!(
+            accepted
+                .iter()
+                .map(|label| label.value.as_str())
+                .collect::<Vec<_>>(),
+            ["dog", "favorite"]
+        );
     }
 
     #[test]

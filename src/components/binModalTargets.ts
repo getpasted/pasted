@@ -1,26 +1,13 @@
 import { localizedContentTypeGroupLabel } from '../localization/presentation';
 import { translate } from '../localization/runtime';
-import type {
-  RegisteredContentType,
-  RegisteredContentTypeGroup,
-} from './ContentTypeProvider';
 import {
   STRUCTURAL_CLIP_TYPES,
-  type SmartBinFeatures,
   type SmartConditionRow,
   type SmartConditionTarget,
   type SmartTargetSection,
 } from './binModalModel';
 import { contentTypeLabel } from '../utils/contentTypes';
-
-interface UseBinModalTargetsInput {
-  contentTypes: RegisteredContentType[];
-  contentTypeGroups: RegisteredContentTypeGroup[];
-  features: SmartBinFeatures;
-  fileFormats: string[];
-  sources: string[];
-  installedApps: string[];
-}
+import type { UseBinModalTargetsInput } from './binModalTargetModel';
 
 export function buildBinModalTargets({
   contentTypes,
@@ -38,6 +25,7 @@ export function buildBinModalTargets({
     file_format: translate('component.binModal.fileFormat'),
     source: translate('component.binModal.source'),
     content_type: translate('component.binModal.contentType2'),
+    visual_label: translate('component.binModal.visualLabel'),
     origin_kind: translate('component.binModal.captureMethod'),
     contains: translate('component.binModal.textContent'),
     file_extension: translate('component.binModal.fileExtension'),
@@ -102,6 +90,10 @@ export function buildBinModalTargets({
             disabled: true,
           }],
       }] : []),
+      {
+        target: 'visual_label' as const,
+        label: targetLabels.visual_label,
+      },
     ];
   };
 

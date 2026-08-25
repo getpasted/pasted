@@ -16,7 +16,6 @@ import {
   type ExtractorAuthoringSession,
   type ExtractorInput,
   type ExtractorRecipe,
-  type ExtractorRecipeProposal,
   type ExtractorRuntimeStatus,
   type ExtractorTestOutcome,
 } from '../components/contentExtractorModel';
@@ -26,6 +25,7 @@ import {
   resetExtractorRecipePreservingLocalPaths,
   visibleContentExtractors,
 } from '../components/contentExtractorPolicy';
+import { useExtractorAiAuthoring } from './useExtractorAiAuthoring';
 
 export function useContentExtractorManager({
   isOpen,
@@ -49,12 +49,20 @@ export function useContentExtractorManager({
   const [authoringPrompt, setAuthoringPrompt] = useState('');
   const [setupGuidance, setSetupGuidance] = useState<string[]>([]);
   const [connections, setConnections] = useState<IntelligenceConnection[]>([]);
-  const [generating, setGenerating] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testOutcome, setTestOutcome] = useState<ExtractorTestOutcome | null>(null);
   const [authoringHistory, setAuthoringHistory] = useState<ExtractorAuthoringSession[] | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirmation, setConfirmation] = useState<ConfirmationDialogRequest | null>(null);
+  const aiAuthoring = useExtractorAiAuthoring({
+    draft,
+    recipe: recipeDraft,
+    prompt: authoringPrompt,
+    setDraft,
+    setRecipe: setRecipeDraft,
+    setAuthoring,
+    setSetupGuidance,
+  });
   const visibleExtractors = useMemo(
     () => visibleContentExtractors(extractors, { ocrEnabled, transcriptionsEnabled }),
     [extractors, ocrEnabled, transcriptionsEnabled],
@@ -115,9 +123,8 @@ export function useContentExtractorManager({
   useLayoutEffect(() => {
     setDraft(selectedId === 'new' ? toInput() : toInput(selected));
     setRecipeDraft(selectedId === 'new' ? emptyRecipe() : selected?.recipe ?? emptyRecipe());
-    setAuthoring(null);
     setAuthoringPrompt('');
-    setSetupGuidance([]);
+    aiAuthoring.clear();
     setTestOutcome(null);
   }, [selected, selectedId]);
 
@@ -146,6 +153,11 @@ export function useContentExtractorManager({
   );
   const runtimeConfigurationChanged = selected !== undefined
     && JSON.stringify(recipeDraft) !== JSON.stringify(selected.recipe);
+  const aiSetup = {
+    visible: setupGuidance.length > 0 || aiAuthoring.diagnostic !== null
+      || (selectedId !== 'new' && !runtimeConfigurationChanged && selected?.isAvailable === false),
+    guidanceIncomplete: aiAuthoring.repairStatus === 'guidance_incomplete',
+  };
   const unavailableReason = selected?.unavailableReason ?? 'The configured engine is unavailable.';
   const shortUnavailableReason = unavailableReason.match(/^.*?\.(?:\s|$)/)?.[0].trim()
     ?? unavailableReason;
@@ -205,8 +217,7 @@ export function useContentExtractorManager({
     if (selected) {
       setDraft(toInput(selected));
       setRecipeDraft(selected.recipe);
-      setAuthoring(null);
-      setSetupGuidance([]);
+      aiAuthoring.clear();
     }
   };
 
@@ -245,33 +256,6 @@ export function useContentExtractorManager({
       showToast({ tone: 'error', message: errorMessage(error) });
     } finally {
       setSaving(false);
-    }
-  };
-
-  const generateRecipe = async () => {
-    if (!authoringPrompt.trim()) return;
-    setGenerating(true);
-    try {
-      const proposal = await invoke<ExtractorRecipeProposal>('propose_extractor_recipe', {
-        request: { prompt: authoringPrompt },
-      });
-      setDraft((current) => ({
-        ...current,
-        name: proposal.name,
-        description: proposal.description,
-        engine: 'recipe-v1',
-        inputContract: proposal.recipe.accepts[0],
-        outputContract: proposal.recipe.output,
-        executablePath: proposal.recipe.steps[0]?.executable.path ?? null,
-        modelPath: proposal.recipe.resources.find((resource) => resource.id === 'model')?.path ?? null,
-      }));
-      setRecipeDraft(proposal.recipe);
-      setAuthoring(proposal.authoring);
-      setSetupGuidance(proposal.setupGuidance);
-    } catch (error) {
-      showToast({ tone: 'error', message: errorMessage(error) });
-    } finally {
-      setGenerating(false);
     }
   };
 
@@ -357,8 +341,7 @@ export function useContentExtractorManager({
   const resetDraft = () => {
     if (defaultDraft) setDraft(defaultDraft);
     if (defaultRecipeDraft) setRecipeDraft(defaultRecipeDraft);
-    setAuthoring(null);
-    setSetupGuidance([]);
+    aiAuthoring.clear();
   };
 
   const toggleConfirmed = async (extractor: ContentExtractor) => {
@@ -429,6 +412,7 @@ export function useContentExtractorManager({
   };
 
   return {
+    aiSetup,
     authoringHistory,
     authoringPrompt,
     availabilityLabel,
@@ -440,16 +424,19 @@ export function useContentExtractorManager({
     confirmation,
     defaults,
     differsFromDefaults,
+    diagnostic: aiAuthoring.diagnostic,
     draft,
     duplicate,
-    generateRecipe,
-    generating,
+    generateRecipe: aiAuthoring.generate,
+    generating: aiAuthoring.generating,
     hasIntelligence,
     isDirty,
     loading,
     openAuthoringHistory,
     recipeCanSave,
     recipeDraft,
+    repairRecipe: aiAuthoring.repair,
+    repairing: aiAuthoring.repairing,
     remove,
     resetDraft,
     restoreAll,

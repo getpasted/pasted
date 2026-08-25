@@ -41,45 +41,6 @@ impl DbState {
         Ok(())
     }
 
-    pub(super) fn revision_history_limit_internal(conn: &Connection) -> i64 {
-        conn.query_row(
-            "SELECT value FROM settings WHERE key = 'revisionHistoryLimit'",
-            [],
-            |row| row.get::<_, String>(0),
-        )
-        .ok()
-        .and_then(|value| value.parse::<i64>().ok())
-        .unwrap_or(10)
-        .max(0)
-    }
-
-    pub(super) fn revision_history_enabled_internal(conn: &Connection) -> bool {
-        let value = conn
-            .query_row(
-                "SELECT value FROM settings WHERE key = 'enableRevisions'",
-                [],
-                |row| row.get::<_, String>(0),
-            )
-            .ok();
-        crate::features::setting_value_is_enabled(value.as_deref())
-    }
-
-    pub(super) fn prune_clip_versions_internal(conn: &Connection, clip_id: i64) -> Result<()> {
-        let limit = Self::revision_history_limit_internal(conn);
-        if limit == 0 {
-            return Ok(());
-        }
-        conn.execute(
-            "DELETE FROM clip_versions
-             WHERE clip_id = ?1 AND id NOT IN (
-                SELECT id FROM clip_versions
-                WHERE clip_id = ?1 ORDER BY id DESC LIMIT ?2
-             )",
-            params![clip_id, limit],
-        )?;
-        Ok(())
-    }
-
     pub fn update_clip_text(&self, clip_id: i64, text: &str) -> Result<()> {
         ensure_resource_size(
             text,
@@ -114,6 +75,7 @@ impl DbState {
                     action_label: "Edited clip content".to_string(),
                     organization: None,
                     current_transformation_id,
+                    derived_state: None,
                 })
                 .map_err(|error| rusqlite::Error::InvalidParameterName(error.to_string()))?;
                 tx.execute(

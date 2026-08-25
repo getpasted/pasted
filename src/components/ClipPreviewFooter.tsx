@@ -16,7 +16,7 @@ interface ClipPreviewFooterProps {
   characterCount: number;
   wordCount: number;
   lineCount: number;
-  revisionCount: number | null;
+  versionCount: number | null;
   showHistory: boolean;
   onToggleHistory: () => void;
 }
@@ -29,7 +29,7 @@ export function ClipPreviewFooter({
   characterCount,
   wordCount,
   lineCount,
-  revisionCount,
+  versionCount,
   showHistory,
   onToggleHistory,
 }: ClipPreviewFooterProps) {
@@ -91,17 +91,17 @@ export function ClipPreviewFooter({
               <strong>{lineCount}</strong>
             </span>
             {revisionsEnabled && <span className="clip-preview-footer-stat">
-              <span>{translate('component.clipPreview.revisions')}</span>
+              <span>{translate('component.clipPreview.versions')}</span>
               <button
                 type="button"
                 onClick={onToggleHistory}
                 className={`clip-revision-count ${showHistory ? 'is-active' : ''}`}
-                title={revisionCount === null ? translate('component.clipPreview.loadingRevisions') : translate('component.clipPreview.viewRevisions')}
-                aria-label={revisionCount === null ? translate('component.clipPreview.loadingClipRevisionCount') : translate('component.clipPreview.viewCountClipRevisions', { count: revisionCount })}
+                title={versionCount === null ? translate('component.clipPreview.loadingVersions') : translate('component.clipPreview.viewVersions')}
+                aria-label={versionCount === null ? translate('component.clipPreview.loadingClipVersionCount') : translate('component.clipPreview.viewCountClipVersions', { count: versionCount })}
                 aria-expanded={showHistory}
                 aria-controls="clip-revision-history-panel"
               >
-                {revisionCount ?? '…'}
+                {versionCount ?? '…'}
               </button>
             </span>}
           </>

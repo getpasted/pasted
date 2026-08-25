@@ -351,6 +351,7 @@ mod tests {
                 self.db.save_setting("enableOcr", "false").unwrap();
                 crate::content_extraction::ExtractionOutcome::Produced {
                     text: "must not be saved".into(),
+                    labels: Vec::new(),
                 }
             }
         }

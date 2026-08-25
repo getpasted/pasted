@@ -392,6 +392,7 @@ pub(crate) fn perform_whisper_cpp_transcription(
     } else {
         ExtractionOutcome::Produced {
             text: transcripts.join("\n\n"),
+            labels: Vec::new(),
         }
     }
 }
