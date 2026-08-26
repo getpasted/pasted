@@ -2368,7 +2368,7 @@
   "transformRequest.startingLabel": "{label} の開始",
   "component.contentExtractorManagerDialog.acceptedClipTypes": "対応する Clip タイプ",
   "component.contentExtractorManagerDialog.acceptedFileFormats": "対応ファイル形式",
-  "component.contentExtractorManagerDialog.minimumVisualLabelConfidence": "ビジュアルラベルの最低信頼度",
+  "component.contentExtractorManagerDialog.minimumVisualLabelConfidence": "ラベルの信頼度",
   "component.contentExtractorManagerDialog.chooseFileFormats": "形式を選択",
   "component.contentExtractorManagerDialog.anyFileFormat": "すべてのファイル形式",
   "component.contentExtractorManagerDialog.fileFormatGroup.any": "すべて",

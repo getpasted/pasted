@@ -2368,7 +2368,7 @@
   "transformRequest.startingLabel": "Starting {label}",
   "component.contentExtractorManagerDialog.acceptedClipTypes": "Accepted Clip Types",
   "component.contentExtractorManagerDialog.acceptedFileFormats": "Accepted File Formats",
-  "component.contentExtractorManagerDialog.minimumVisualLabelConfidence": "Minimum Visual Label confidence",
+  "component.contentExtractorManagerDialog.minimumVisualLabelConfidence": "Label confidence",
   "component.contentExtractorManagerDialog.chooseFileFormats": "Choose formats",
   "component.contentExtractorManagerDialog.anyFileFormat": "Any file format",
   "component.contentExtractorManagerDialog.fileFormatGroup.any": "Any",

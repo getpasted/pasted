@@ -2452,7 +2452,7 @@
   "transformRequest.startingLabel": "بدأ تشغيل {label}",
   "component.contentExtractorManagerDialog.acceptedClipTypes": "أنواع Clips المقبولة",
   "component.contentExtractorManagerDialog.acceptedFileFormats": "تنسيقات الملفات المقبولة",
-  "component.contentExtractorManagerDialog.minimumVisualLabelConfidence": "الحد الأدنى للثقة في التسميات المرئية",
+  "component.contentExtractorManagerDialog.minimumVisualLabelConfidence": "ثقة التسميات",
   "component.contentExtractorManagerDialog.chooseFileFormats": "اختر التنسيقات",
   "component.contentExtractorManagerDialog.anyFileFormat": "أي تنسيق ملف",
   "component.contentExtractorManagerDialog.fileFormatGroup.any": "أي نوع",
