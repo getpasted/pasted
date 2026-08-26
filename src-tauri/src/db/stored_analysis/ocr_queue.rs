@@ -1,8 +1,41 @@
 use rusqlite::{params, OptionalExtension, Result};
 
-use super::super::{DbState, OcrBackfillStatus, OcrCandidate};
+use super::super::{DbState, OcrBackfillStatus, OcrCandidate, MAX_CLIP_SEARCH_IDS};
 
 impl DbState {
+    pub fn get_ocr_backfill_clip_ids(&self, group: &str) -> Result<Vec<i64>> {
+        let status = match group {
+            "images" => None,
+            "waiting" => Some("never"),
+            "running" => Some("running"),
+            "complete" => Some("complete"),
+            "noText" => Some("no_text"),
+            "failed" => Some("failed"),
+            _ => {
+                return Err(rusqlite::Error::InvalidParameterName(
+                    "Unknown OCR status group".into(),
+                ))
+            }
+        };
+        let conn = self.conn.lock();
+        let mut statement = conn.prepare(
+            "SELECT id FROM clips
+             WHERE content_type = 'image' AND COALESCE(is_trashed, 0) = 0
+               AND (?1 IS NULL OR ocr_status = ?1)
+             ORDER BY created_at DESC, id DESC",
+        )?;
+        let clip_ids = statement
+            .query_map([status], |row| row.get(0))?
+            .take(MAX_CLIP_SEARCH_IDS + 1)
+            .collect::<Result<Vec<_>>>()?;
+        if clip_ids.len() > MAX_CLIP_SEARCH_IDS {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "OCR status group exceeds the clip ID Search safety limit".into(),
+            ));
+        }
+        Ok(clip_ids)
+    }
+
     pub fn get_ocr_backfill_status(&self) -> Result<OcrBackfillStatus> {
         let conn = self.conn.lock();
         conn.query_row(

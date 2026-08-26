@@ -17,6 +17,16 @@ fn ocr_state_is_hash_safe_and_follows_the_clip_lifecycle() {
     let status = db.get_ocr_backfill_status().unwrap();
     assert_eq!(status.total_images, 1);
     assert_eq!(status.eligible_count, 1);
+    assert_eq!(
+        db.get_ocr_backfill_clip_ids("images").unwrap(),
+        vec![clip.id]
+    );
+    assert_eq!(
+        db.get_ocr_backfill_clip_ids("waiting").unwrap(),
+        vec![clip.id]
+    );
+    assert!(db.get_ocr_backfill_clip_ids("complete").unwrap().is_empty());
+    assert!(db.get_ocr_backfill_clip_ids("unknown").is_err());
 
     let candidate = db.claim_next_ocr_candidate().unwrap().unwrap();
     assert_eq!(candidate.clip_id, clip.id);
@@ -91,6 +101,10 @@ fn successful_ocr_records_state_and_revisions_only_when_text_changes() {
         Some("test-engine-v1")
     );
     assert_eq!(db.get_ocr_backfill_status().unwrap().completed_count, 1);
+    assert_eq!(
+        db.get_ocr_backfill_clip_ids("complete").unwrap(),
+        vec![clip.id]
+    );
     assert_eq!(db.get_clip_version_count(clip.id).unwrap(), 1);
     assert_eq!(db.get_clip_version_timeline_count(clip.id).unwrap(), 2);
     let timeline = db.get_clip_version_timeline_page(clip.id, 50, 0).unwrap();

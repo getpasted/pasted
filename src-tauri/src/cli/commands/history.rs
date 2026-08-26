@@ -137,6 +137,8 @@ pub(crate) fn run_list(args: Vec<String>, db_path: PathBuf, conn: Connection) ->
 }
 
 pub(crate) fn run_search(args: Vec<String>, db_path: PathBuf, _conn: Connection) -> Result<()> {
+    let db = DbState::new(db_path.clone())?;
+    require_feature(&db, Feature::Search);
     let option_value = |name: &str| {
         args.iter()
             .position(|argument| argument == name)
@@ -147,6 +149,20 @@ pub(crate) fn run_search(args: Vec<String>, db_path: PathBuf, _conn: Connection)
     let content_type = option_value("--content");
     let file_format = option_value("--format");
     let source = option_value("--source");
+    let clip_ids = option_value("--ids")
+        .map(|value| {
+            value
+                .split(',')
+                .map(|id| id.parse::<i64>())
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|_| {
+                    rusqlite::Error::InvalidParameterName(
+                        "--ids must be a comma-separated list of clip IDs".into(),
+                    )
+                })
+        })
+        .transpose()?
+        .unwrap_or_default();
     let json = args.iter().any(|argument| argument == "--json");
     let trash = args.iter().any(|argument| argument == "--trash");
     let limit = match option_value("--limit") {
@@ -172,10 +188,9 @@ pub(crate) fn run_search(args: Vec<String>, db_path: PathBuf, _conn: Connection)
         .cloned()
         .collect::<Vec<_>>()
         .join(" ");
-    let db = DbState::new(db_path.clone())?;
-    require_feature(&db, Feature::Search);
     let result = db.search_clips(&pasted_lib::db::ClipSearchRequest {
         query,
+        clip_ids,
         clip_types: clip_type.into_iter().collect(),
         content_types: content_type.into_iter().collect(),
         file_formats: file_format.into_iter().collect(),

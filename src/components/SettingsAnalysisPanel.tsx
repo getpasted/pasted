@@ -13,6 +13,7 @@ import { SearchIndexManagerDialog } from './SearchIndexManagerDialog';
 import { SettingsOcrPanel } from './SettingsOcrPanel';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
 import { SettingsPanelResetNote } from './SettingsPanelResetNote';
+import type { SettingsAnalysisPanelProps } from './settingsAnalysisTypes';
 export function SettingsAnalysisPanel({
   contentClassificationEnabled,
   fileFormatsEnabled,
@@ -23,17 +24,8 @@ export function SettingsAnalysisPanel({
   sourcesEnabled,
   searchEnabled,
   onOpenIntelligence,
-}: {
-  contentClassificationEnabled: boolean;
-  fileFormatsEnabled: boolean;
-  ocrEnabled: boolean;
-  transcriptionsEnabled: boolean;
-  transformationsEnabled: boolean;
-  typesEnabled: boolean;
-  sourcesEnabled: boolean;
-  searchEnabled: boolean;
-  onOpenIntelligence?: () => void;
-}) {
+  onSearchClips,
+}: SettingsAnalysisPanelProps) {
   const { refresh: refreshContentTypes, refreshGroups } = useContentTypes();
   const [isCaptureManagerOpen, setIsCaptureManagerOpen] = useState(false);
   const [isInspectorManagerOpen, setIsInspectorManagerOpen] = useState(false);
@@ -124,6 +116,6 @@ export function SettingsAnalysisPanel({
       icon={Lightbulb}
     />
     <ConfirmationDialog request={confirmation} onCancel={() => setConfirmation(null)} />
-    {ocrEnabled && <SettingsOcrPanel extractorRevision={Number(isExtractorManagerOpen)} />}
+    {ocrEnabled && <SettingsOcrPanel extractorRevision={Number(isExtractorManagerOpen)} searchEnabled={searchEnabled} onSearchClips={onSearchClips} />}
   </div>;
 }

@@ -17,6 +17,7 @@ Search is its own persistent collection. Leaving Search does not erase the query
 
 Supported helpers include:
 
+- `id:` — one or more comma-separated clip IDs;
 - `clip:` — structural Clip Type;
 - `content:` — current Content Type;
 - `format:` — verified File Format;

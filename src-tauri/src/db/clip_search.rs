@@ -1,9 +1,11 @@
 use super::*;
 
+mod request_validation;
 mod term_fields;
 
 #[derive(Debug, Default)]
 pub(super) struct ParsedClipSearch {
+    pub clip_ids: Vec<i64>,
     pub sources: Vec<String>,
     pub clip_types: Vec<String>,
     pub content_types: Vec<String>,
@@ -89,7 +91,19 @@ pub(super) fn parse_clip_search(query: &str) -> ParsedClipSearch {
                 values.push(value.to_string());
             }
         };
-        if let Some(value) = lower.strip_prefix("source:") {
+        if let Some(value) = lower.strip_prefix("id:") {
+            let values = value.split(',').collect::<Vec<_>>();
+            if values.is_empty() || values.iter().any(|value| value.is_empty()) {
+                parsed.incomplete = true;
+            } else {
+                for value in values {
+                    match value.parse::<i64>() {
+                        Ok(id) if id > 0 => parsed.clip_ids.push(id),
+                        _ => parsed.incomplete = true,
+                    }
+                }
+            }
+        } else if let Some(value) = lower.strip_prefix("source:") {
             push_filter(&mut parsed.sources, value.trim(), &mut parsed.incomplete);
         } else if let Some(value) = lower.strip_prefix("clip:") {
             push_filter(&mut parsed.clip_types, value.trim(), &mut parsed.incomplete);
@@ -154,45 +168,7 @@ impl DbState {
     }
 
     pub fn search_clips(&self, request: &ClipSearchRequest) -> Result<ClipSearchResult> {
-        if request.query.len() > MAX_CLIP_SEARCH_QUERY_BYTES {
-            return Err(rusqlite::Error::InvalidParameterName(
-                "Search query exceeds its safety limit".into(),
-            ));
-        }
-        if request.offset > MAX_CLIP_SEARCH_OFFSET {
-            return Err(rusqlite::Error::InvalidParameterName(
-                "Search offset exceeds its safety limit".into(),
-            ));
-        }
-        if request.limit > MAX_CLIP_SEARCH_PAGE_SIZE {
-            return Err(rusqlite::Error::InvalidParameterName(format!(
-                "Search limit must not exceed {MAX_CLIP_SEARCH_PAGE_SIZE}"
-            )));
-        }
-        let requested_filter_count = request.clip_types.len()
-            + request.content_types.len()
-            + request.file_formats.len()
-            + request.sources.len();
-        if requested_filter_count > MAX_CLIP_SEARCH_FILTERS {
-            return Err(rusqlite::Error::InvalidParameterName(
-                "Search filters exceed their safety limit".into(),
-            ));
-        }
-        let validate_filter = |value: &String| {
-            !value.trim().is_empty() && value.len() <= 256 && !value.contains('\0')
-        };
-        if request
-            .clip_types
-            .iter()
-            .chain(&request.content_types)
-            .chain(&request.file_formats)
-            .chain(&request.sources)
-            .any(|value| !validate_filter(value))
-        {
-            return Err(rusqlite::Error::InvalidParameterName(
-                "Search filter is empty or exceeds its safety limit".into(),
-            ));
-        }
+        request_validation::validate(request)?;
 
         let limit = if request.limit == 0 {
             DEFAULT_CLIP_SEARCH_PAGE_SIZE
@@ -201,6 +177,9 @@ impl DbState {
         };
         let offset = request.offset;
         let mut parsed = parse_clip_search(&request.query);
+        parsed.clip_ids.extend(request.clip_ids.iter().copied());
+        parsed.clip_ids.sort_unstable();
+        parsed.clip_ids.dedup();
         parsed.clip_types.extend(
             request
                 .clip_types
@@ -231,6 +210,7 @@ impl DbState {
             + parsed.file_formats.len()
             + parsed.sources.len();
         if parsed_filter_count > MAX_CLIP_SEARCH_FILTERS
+            || parsed.clip_ids.len() > MAX_CLIP_SEARCH_IDS
             || parsed.terms.len() > MAX_CLIP_SEARCH_TERMS
             || parsed.terms.iter().any(|term| term.len() > 256)
             || parsed
@@ -273,6 +253,12 @@ impl DbState {
             "COALESCE(clips.is_trashed, 0) = 0".to_string()
         }];
         let mut parameters: Vec<Box<dyn ToSql>> = Vec::new();
+        if !parsed.clip_ids.is_empty() {
+            clauses.push("clips.id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))".into());
+            parameters.push(Box::new(serde_json::to_string(&parsed.clip_ids).map_err(
+                |error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)),
+            )?));
+        }
         if parsed.requires_note {
             clauses.push("TRIM(COALESCE(clips.note, '')) <> ''".into());
         }

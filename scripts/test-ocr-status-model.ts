@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { actionableOcrCount, shouldRetryFailedOcr } from '../src/components/ocrStatusModel.ts';
+import { actionableOcrCount, ocrStatusSearchQuery, shouldRetryFailedOcr } from '../src/components/ocrStatusModel.ts';
 import type { OcrBackfillStatus } from '../src/types.ts';
 
 const status = (eligibleCount: number, failedCount: number): OcrBackfillStatus => ({
@@ -19,5 +19,7 @@ assert.equal(shouldRetryFailedOcr(status(4, 6)), true,
   'a unified scan must reset failed attempts before scanning the whole pool');
 assert.equal(shouldRetryFailedOcr(status(4, 0)), false,
   'a waiting-only scan must start without resetting history');
+assert.equal(ocrStatusSearchQuery([42, 7, 11]), 'id:42,7,11',
+  'OCR status cards must navigate through the shared clip-ID Search grammar');
 
 console.log('OCR status model tests passed.');

@@ -169,6 +169,9 @@ export async function invokeLibraryBrowserMock<T>(
       appendFilters(plan.contentTypes, request.contentTypes);
       appendFilters(plan.formats, request.fileFormats);
       appendFilters(plan.sources, request.sources);
+      if (Array.isArray(request.clipIds)) {
+        plan.clipIds.push(...request.clipIds.filter((id): id is number => Number.isInteger(id) && Number(id) > 0));
+      }
       if (request.trash === true) plan.requiresTrashed = true;
       const offset = Math.max(0, Number(request.offset ?? 0));
       const limit = Math.min(500, Math.max(1, Number(request.limit ?? 100)));

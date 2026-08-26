@@ -38,6 +38,7 @@ interface SettingsModalProps {
   activeTab: SettingsTab;
   onActiveTabChange: (tab: SettingsTab) => void;
   onOpenAnalytics?: () => void;
+  onSearchClips: (clipIds: number[]) => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -61,6 +62,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   activeTab,
   onActiveTabChange,
   onOpenAnalytics,
+  onSearchClips,
 }) => {
   useEffect(() => {
     if (!settings.enableNotifications && activeTab === 'notifications') {
@@ -123,6 +125,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             sourcesEnabled={settings.enableSources}
             searchEnabled={settings.enableSearch}
             onOpenIntelligence={() => onActiveTabChange('intelligence')}
+            onSearchClips={onSearchClips}
           />
         )}
 

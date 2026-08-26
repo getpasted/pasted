@@ -1,5 +1,22 @@
 [
   {
+    "query": "id:7,11,42 report",
+    "clipIds": [7, 11, 42],
+    "sources": [],
+    "clipTypes": [],
+    "contentTypes": [],
+    "fileFormats": [],
+    "terms": ["report"],
+    "requiresNote": false,
+    "requiresNamed": false,
+    "requiresPinned": false,
+    "requiresProtected": false,
+    "requiresTrashed": false,
+    "incomplete": false,
+    "regex": null,
+    "regexFallback": null
+  },
+  {
     "query": "clip:file content:document format:pdf source:finder report",
     "sources": ["finder"],
     "clipTypes": ["file"],

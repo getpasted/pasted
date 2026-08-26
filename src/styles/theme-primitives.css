@@ -222,6 +222,16 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   box-shadow: var(--shadow-card);
 }
 
+.ocr-status-card {
+  transition: background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.ocr-status-card:hover:not(:disabled) {
+  background-color: var(--bg-card-hover);
+  border-color: var(--border-card-selected);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-primary) 24%, transparent), var(--shadow-card);
+}
+
 .theme-surface {
   background-color: var(--bg-surface);
   border-color: var(--border-subtle);
