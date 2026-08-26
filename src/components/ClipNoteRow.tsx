@@ -45,7 +45,7 @@ export const NoteRowItem: React.FC<NoteRowItemProps> = ({
       } : undefined}
       className={`note-row relative group min-h-[42px] px-3 py-2 rounded-lg border flex items-center justify-between gap-3 select-none transition-[background-color,border-color,box-shadow,opacity,transform] duration-100 ease-out ${
         !readOnly && totalNotes > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'
-      } ${isDragging ? 'is-dragging opacity-60 shadow-lg ring-1 ring-inset' : ''}`}
+      } ${isDragging ? 'is-dragging elevation-floating opacity-60 ring-1 ring-inset' : ''}`}
       onPointerDown={(event) => {
         if (readOnly) return;
         if ((event.target as HTMLElement).closest('button, input, textarea, select, a')) return;
@@ -68,14 +68,14 @@ export const NoteRowItem: React.FC<NoteRowItemProps> = ({
             <button
               type="button"
               onClick={() => setEditingNoteId(null)}
-              className="note-cancel-button px-2.5 py-1 rounded text-xs font-medium transition-colors cursor-pointer"
+              className="note-cancel-button"
             >
               {translate('common.cancel')}
             </button>
             <button
               type="button"
               onClick={() => handleUpdateNoteItem(noteItem.id, editingNoteText)}
-              className="note-save-button px-2.5 py-1 rounded text-xs font-semibold shadow cursor-pointer"
+              className="note-save-button"
             >
               {translate('common.save')}
             </button>

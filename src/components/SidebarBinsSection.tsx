@@ -6,6 +6,7 @@ import type { Bin } from '../types';
 import { binTextColor } from '../utils/binColor';
 import { getClipCollection } from '../utils/clipCollections';
 import { formatEmojiIcon } from '../utils/emoji';
+import { activateSidebarBin, activateSidebarBinFromKeyboard } from '../utils/sidebarBinActivation';
 import { OverflowText } from './OverflowText';
 
 interface SidebarBinsSectionProps {
@@ -154,10 +155,8 @@ export function SidebarBinsSection({
                     : !Number.isNaN(parsedText) && parsedText > 0 ? parsedText : draggedClipId;
                   if (targetClipId) onClipDropOnBin?.(targetClipId, bin.id);
                 }}
-                onClick={() => {
-                  if (consumeBinDragClick()) return;
-                  if (!activeDragBinId) onSelectBin(bin.id);
-                }}
+                onClick={() => activateSidebarBin(bin.id, activeDragBinId, consumeBinDragClick, onSelectBin)}
+                onKeyDown={(event) => activateSidebarBinFromKeyboard(event, bin.id, activeDragBinId, onSelectBin)}
                 onContextMenu={(event) => {
                   event.preventDefault();
                   event.stopPropagation();

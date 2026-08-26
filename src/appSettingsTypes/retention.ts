@@ -5,6 +5,8 @@ export interface RetentionSettings {
   analysisAttemptsPerClip: number;
   activityLogCapacity: number;
   activityLogAgeDays: number;
+  searchHistoryLimit: number;
+  searchHistoryAgeDays: number;
   trashCapacityCount: number;
   trashAgeDays: number;
 }

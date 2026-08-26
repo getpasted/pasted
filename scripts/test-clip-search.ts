@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { parseClipSearch } from '../src/utils/clipSearchGrammar.ts';
-import { appendUniqueSearchPage } from '../src/utils/searchPagination.ts';
+import { appendUniqueSearchPage, resolveSearchDisplayItems } from '../src/utils/searchPagination.ts';
+import { searchHistoryRequestQuery } from '../src/utils/searchHistory.ts';
 
 interface GrammarFixture {
   clipIds?: number[];
@@ -66,5 +67,44 @@ assert.deepEqual(
   [{ id: 3 }, { id: 2 }, { id: 1 }],
   'paginated Search results must retain unloaded items without duplicating page boundaries',
 );
+
+const historyFallback = [{ id: 1 }, { id: 2 }];
+assert.deepEqual(
+  resolveSearchDisplayItems('', '', historyFallback),
+  [],
+  'an empty Search must not display the History collection behind a zero result count',
+);
+assert.deepEqual(
+  resolveSearchDisplayItems('invoice', '', historyFallback),
+  [],
+  'a Search awaiting its first authoritative result must not display History as provisional results',
+);
+assert.deepEqual(
+  resolveSearchDisplayItems('invoice', 'invoice', historyFallback),
+  historyFallback,
+  'an authoritative Search result must remain visible',
+);
+
+assert.equal(searchHistoryRequestQuery({
+  query: 'invoice',
+  clipIds: [4, 9],
+  clipTypes: ['text'],
+  contentTypes: ['financial record'],
+  fileFormats: ['pdf'],
+  sources: ['Acme Browser'],
+  trash: true,
+}), 'invoice id:4,9 clip:text content:"financial record" format:pdf source:"Acme Browser" is:trashed');
+assert.equal(
+  searchHistoryRequestQuery({ query: 'regex:invoice.*', sources: ['Finder'] }),
+  null,
+  'regex searches with separate filters must not be rerun with silently changed semantics',
+);
+assert.equal(
+  searchHistoryRequestQuery({ query: 'invoice', sources: [`both "double" and 'single'`] }),
+  null,
+  'unrepresentable filter values must disable rerun rather than dropping a filter',
+);
+assert.equal(searchHistoryRequestQuery({ query: 'invoice', sources: ['say"hello'] }), 'invoice source:\'say"hello\'');
+assert.equal(searchHistoryRequestQuery({ query: '"unfinished', sources: ['Finder'] }), null);
 
 console.log(`Clip search grammar tests passed (${fixtures.length} shared fixtures).`);

@@ -88,7 +88,7 @@ export function ContentExtractorManagerDialog({
     labelledBy="extractor-manager-title"
     isDirty={isDirty}
     discardMessage={translate('component.contentExtractorManagerDialog.discardExtractorChanges')}
-    panelClassName="theme-panel @container flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden border shadow-2xl"
+    panelClassName="theme-panel @container flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden border"
   >
     {({ requestClose }) => <>
       <AppDialogHeader onClose={requestClose} className="shrink-0">

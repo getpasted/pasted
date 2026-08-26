@@ -190,7 +190,7 @@ export function IntelligenceConnectionsPanel() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => toggleConnection(connection)} disabled={executionUnavailable} className={`connection-power-button theme-icon-button border rounded-lg p-2 ${isOperational ? 'is-enabled' : ''}`} title={executionUnavailable ? translate('component.intelligenceConnectionsPanel.automaticExecutionUnavailable') : connection.enabled ? translate('component.intelligenceConnectionsPanel.disable') : translate('component.intelligenceConnectionsPanel.enable')}>
+                      <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => toggleConnection(connection)} disabled={executionUnavailable} className={`connection-power-button theme-icon-button ui-control-radius grid h-8 w-8 place-items-center border ${isOperational ? 'is-enabled' : ''}`} title={executionUnavailable ? translate('component.intelligenceConnectionsPanel.automaticExecutionUnavailable') : connection.enabled ? translate('component.intelligenceConnectionsPanel.disable') : translate('component.intelligenceConnectionsPanel.enable')}>
                         <Power className="w-4 h-4" />
                       </button>
                       <button
@@ -200,7 +200,7 @@ export function IntelligenceConnectionsPanel() {
                         disabled={!canDelete}
                         tabIndex={canDelete ? 0 : -1}
                         aria-hidden={!canDelete}
-                        className={`theme-icon-button theme-danger-text border rounded-lg p-2 ${canDelete ? '' : 'invisible pointer-events-none'}`}
+                        className={`theme-icon-button theme-danger-text ui-control-radius grid h-8 w-8 place-items-center border ${canDelete ? '' : 'invisible pointer-events-none'}`}
                         title={canDelete ? translate('component.intelligenceConnectionsPanel.deleteConnection') : undefined}
                       >
                         <Trash2 className="w-4 h-4" />

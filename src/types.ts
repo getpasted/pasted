@@ -1,3 +1,5 @@
+export type { SearchHistoryEntry, SearchHistoryPage } from './searchHistoryTypes';
+
 export interface ClipNote {
   id: string;
   text: string;

@@ -1,7 +1,8 @@
-import { Check, Copy, Download, Terminal } from 'lucide-react';
+import { Check, Copy, Terminal } from 'lucide-react';
 
 import { translate } from '../localization/runtime';
-import { CLI_ALIAS_COMMAND, CLI_COMMAND_GROUPS, CLI_SYMLINK_COMMAND } from './helpCliCatalog';
+import { HelpCliInstallCard } from './HelpCliInstallCard';
+import { CLI_COMMAND_GROUPS } from './helpCliCatalog';
 
 interface HelpCliTopicProps {
   copiedCmd: string | null;
@@ -22,57 +23,7 @@ export function HelpCliTopic({ copiedCmd, onCopyCode, onInstallCli }: HelpCliTop
                 </p>
               </div>
 
-              {/* PATH Installation Box */}
-              <div className="theme-status-info p-4 rounded-xl border space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2 text-xs font-bold">
-                    <Download className="w-4 h-4" />
-                    <span>{translate('component.helpView.installCliToPath')}</span>
-                  </div>
-                  <button
-                    onClick={onInstallCli}
-                    className="theme-primary-button ui-control-radius flex items-center space-x-1.5 px-3 py-1.5 border text-xs font-bold transition-colors cursor-pointer shadow-sm"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>{translate('component.helpView.value1ClickSymlinkToLocalBin')}</span>
-                  </button>
-                </div>
-
-                <div className="theme-text-main space-y-2 text-xs">
-                  <p className="font-semibold theme-title">{translate('component.helpView.manualPathSetup')}</p>
-                  <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
-                    <div className="theme-code-surface min-w-0 rounded-lg border p-2.5">
-                      <div className="mb-2 flex items-center justify-between gap-2">
-                        <span className="theme-status-success-text text-[10px] font-semibold">{translate('component.helpView.symlinkInUsrLocalBin')}</span>
-                        <button
-                          type="button"
-                          onClick={() => onCopyCode(CLI_SYMLINK_COMMAND)}
-                          className="theme-icon-button shrink-0 rounded border p-1"
-                          title={translate('component.helpView.copyCommand')}
-                        >
-                          {copiedCmd === CLI_SYMLINK_COMMAND ? <Check className="h-3.5 w-3.5 theme-status-success-text" /> : <Copy className="h-3.5 w-3.5" />}
-                        </button>
-                      </div>
-                      <code className="selectable-text block select-text whitespace-pre-wrap break-all font-mono text-[11px]">{CLI_SYMLINK_COMMAND}</code>
-                    </div>
-
-                    <div className="theme-code-surface min-w-0 rounded-lg border p-2.5">
-                      <div className="mb-2 flex items-center justify-between gap-2">
-                        <span className="theme-status-success-text text-[10px] font-semibold">{translate('component.helpView.shellAlias')}</span>
-                        <button
-                          type="button"
-                          onClick={() => onCopyCode(CLI_ALIAS_COMMAND)}
-                          className="theme-icon-button shrink-0 rounded border p-1"
-                          title={translate('component.helpView.copyAlias')}
-                        >
-                          {copiedCmd === CLI_ALIAS_COMMAND ? <Check className="h-3.5 w-3.5 theme-status-success-text" /> : <Copy className="h-3.5 w-3.5" />}
-                        </button>
-                      </div>
-                      <code className="selectable-text block select-text whitespace-pre-wrap break-all font-mono text-[11px]">{CLI_ALIAS_COMMAND}</code>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <HelpCliInstallCard copiedCmd={copiedCmd} onCopyCode={onCopyCode} onInstallCli={onInstallCli} />
 
               <div className="space-y-3">
                 <div>
@@ -98,7 +49,7 @@ export function HelpCliTopic({ copiedCmd, onCopyCode, onInstallCli }: HelpCliTop
                             <button
                               type="button"
                               onClick={() => onCopyCode(command.usage)}
-                              className="theme-icon-button shrink-0 rounded border p-1.5"
+                              className="theme-icon-button ui-control-radius grid h-7 w-7 shrink-0 place-items-center border"
                               title={translate('component.helpView.copyCommand')}
                             >
                               {copiedCmd === command.usage ? <Check className="h-3.5 w-3.5 theme-status-success-text" /> : <Copy className="h-3.5 w-3.5" />}

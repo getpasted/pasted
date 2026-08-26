@@ -8,3 +8,5 @@ export { useClipListViewport } from './useClipListViewport';
 export { useClipReordering } from './useClipReordering';
 export { useClipSelectionController } from './useClipSelectionController';
 export { useCopyQueueController } from './useCopyQueueController';
+export { useSettledSearchQuery } from './useSettledSearchQuery';
+export { useSoundSettings } from './useSoundSettings';

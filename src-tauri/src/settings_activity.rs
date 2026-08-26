@@ -77,19 +77,24 @@ fn friendly_value(key: &str, value: &str) -> Option<String> {
         },
         "textSize" => format!("{value}px"),
         "maxClipSizeMb" | "filePreviewMaxMb" => format!("{value} MB"),
-        "keepClipCount" | "activityLogCapacity" | "trashCapacityCount" if value == "0" => {
+        "keepClipCount" | "searchHistoryLimit" | "activityLogCapacity" | "trashCapacityCount"
+            if value == "0" =>
+        {
             "Unlimited".into()
         }
         "keepClipCount"
         | "revisionHistoryLimit"
         | "analysisAttemptsPerClip"
+        | "searchHistoryLimit"
         | "activityLogCapacity"
         | "trashCapacityCount" => value.to_string(),
-        "keepClipAgeDays" | "activityLogAgeDays" | "trashAgeDays" => match value {
-            "0" => "Forever".into(),
-            "1" => "1 day".into(),
-            _ => format!("{value} days"),
-        },
+        "keepClipAgeDays" | "searchHistoryAgeDays" | "activityLogAgeDays" | "trashAgeDays" => {
+            match value {
+                "0" => "Forever".into(),
+                "1" => "1 day".into(),
+                _ => format!("{value} days"),
+            }
+        }
         "captureFeedbackDismissSeconds" => match value {
             "0" => "Never".into(),
             "3" | "5" | "7" | "10" | "15" | "30" => format!("{value} seconds"),
@@ -150,6 +155,8 @@ fn setting_label(key: &str) -> Option<&'static str> {
         "keepClipAgeDays" => Some("History age limit"),
         "revisionHistoryLimit" => Some("Revision limit"),
         "analysisAttemptsPerClip" => Some("Analysis attempt limit"),
+        "searchHistoryLimit" => Some("Search History limit"),
+        "searchHistoryAgeDays" => Some("Search History age limit"),
         "activityLogCapacity" => Some("Activity limit"),
         "activityLogAgeDays" => Some("Activity age limit"),
         "trashCapacityCount" => Some("Trash limit"),

@@ -22,6 +22,10 @@ Focus the intended destination before opening Pasted/HUD. Pasted stores the last
 
 OCR applies to captured image content, not arbitrary file references. Confirm OCR is enabled, the item contains previewable image bytes, and either Apple Vision or Tesseract OCR appears as available under **Settings → Analysis → Manage Extractors**. Install Tesseract 5 when a cross-platform engine is needed, then check `pasted extractor list --json` and `pasted ocr status --json`.
 
+## llama.cpp Labels is unavailable
+
+Open **Settings → Analysis → Manage Extractors** and select llama.cpp Labels. Install llama.cpp, then copy and run the exact one-time model setup command shown in the Extractor header. Reopen the settings after setup so availability is checked again. Pasted uses the cached model offline during extraction and never starts the download implicitly. `pasted extractor preflight extractor:llama-cpp-labels --json` reports any remaining local dependency without exposing its path.
+
 ## Whisper Transcription is unavailable
 
 Open **Settings → Analysis → Manage Extractors** and select Whisper Transcription. The header identifies the first missing command or resource. Install FFmpeg and whisper.cpp, expand Advanced, then select an existing local GGML model under Resources. Pasted does not download models automatically. `pasted extractor get extractor:whisper-transcription --json` reports the complete recipe and readiness.

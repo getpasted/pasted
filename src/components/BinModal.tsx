@@ -71,7 +71,7 @@ export const BinModal: React.FC<BinModalProps> = ({
       onClose={onClose}
       labelledBy="bin-modal-title"
       isDirty={form.isDirty}
-      panelClassName="bin-modal-card theme-panel w-full max-w-2xl max-h-[90vh] border shadow-2xl overflow-hidden flex flex-col font-sans"
+      panelClassName="bin-modal-card theme-panel w-full max-w-2xl max-h-[90vh] border overflow-hidden flex flex-col font-sans"
     >
       {({ requestClose }) => <>
         <AppDialogHeader onClose={requestClose}>
@@ -91,14 +91,14 @@ export const BinModal: React.FC<BinModalProps> = ({
                 <button
                   type="button"
                   onClick={() => form.setModalTab('bin')}
-                  className={`settings-tab px-4 py-1.5 rounded-lg text-xs font-semibold transition-none border border-transparent ${form.modalTab === 'bin' ? 'is-active' : ''}`}
+                  className={`settings-tab ui-control-radius border border-transparent px-4 py-1.5 text-xs font-semibold transition-none ${form.modalTab === 'bin' ? 'is-active' : ''}`}
                 >
                   {translate('component.binModal.manual')}
                 </button>
                 <button
                   type="button"
                   onClick={() => form.setModalTab('smart')}
-                  className={`settings-tab px-4 py-1.5 rounded-lg text-xs font-semibold transition-none border border-transparent ${form.modalTab === 'smart' ? 'is-active' : ''}`}
+                  className={`settings-tab ui-control-radius border border-transparent px-4 py-1.5 text-xs font-semibold transition-none ${form.modalTab === 'smart' ? 'is-active' : ''}`}
                 >
                   {translate('component.binModal.smart')}
                 </button>

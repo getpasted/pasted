@@ -296,7 +296,7 @@ for (const method of ['import_activity_json', 'import_activity_csv', 'import_cli
 }
 
 assert.match(cli, /if matches!\(command, "licenses" \| "license"\)/, 'Legal notices must be available before database initialization');
-assert.match(commands, /pub fn get_third_party_licenses/, 'The GUI must expose the shared generated license document');
+assert.match(commands, /pub async fn get_third_party_licenses/, 'The GUI must expose the shared generated license document without blocking app dispatch');
 
 for (const mutation of ['batch_pin_clips', 'batch_protect_clips', 'batch_trash_clips', 'restore_all_trashed_clips']) {
   assert.match(database, new RegExp(`pub fn ${mutation}`), `${mutation} must live in the shared database domain layer`);

@@ -4,7 +4,9 @@ Bins are named collections of clips. They can have an emoji, a theme-safe text c
 
 ## Manual Bins
 
-Drag a clip onto a manual Bin or select one from the clip viewer. A clip has one primary manual/category Bin at a time; assigning another clears the old primary relationship.
+Drag a clip onto a manual Bin or use the multi-select Bin picker in the clip viewer. A clip can belong to several manual Bins at once. The picker adds and removes individual memberships without disturbing the others, and the selected clip shows its complete Bin list.
+
+Older libraries may still carry one primary-Bin compatibility pointer, but it does not limit current organization: persisted membership records are authoritative and manual Bins can overlap freely. The GUI, CLI, Full Backup, History and Organization transfer, Revision History, Search, and Activity use those same assignment records.
 
 When deleting a Bin, choose what happens to its clips:
 
@@ -14,7 +16,7 @@ When deleting a Bin, choose what happens to its clips:
 
 If the operation cannot finish, the Bin and clip relationships remain unchanged.
 
-Manual Bins and Tags can protect every assigned clip without changing any clip's explicit protection setting. Inherited protection applies immediately on assignment and disappears when the clip leaves its last protecting Bin, unless the clip is also explicitly protected or has an assigned hotkey. The Protected collection and `is:protected` search include both explicit and inherited protection. Smart Bins cannot confer protection because their membership is computed dynamically.
+Manual Bins can protect every assigned clip without changing any clip's explicit protection setting. Inherited protection applies immediately on assignment and disappears when the clip leaves its last protecting Bin, unless the clip is also explicitly protected or has an assigned hotkey. When several Bins protect a clip, it remains protected until it leaves all of them. The Protected collection and `is:protected` search include explicit, hotkey, and inherited protection. Smart Bins cannot confer protection because their membership is computed dynamically.
 
 ## Smart Bins
 
@@ -24,11 +26,12 @@ Each axis follows its Functionality setting. Disabling Clip Types, Content Types
 
 Smart Bins are computed views, so clips are not manually dropped into them. Older rules that used Capture Method, raw text, extensions, or file locations remain compatible but are no longer offered for new rules.
 
-Default first-launch Smart Bins are:
+Default first-launch Bins are:
 
-- Images;
-- Links and Web;
-- Code Snippets.
+- **Projects**, a manual Bin for organizing clips into a collection;
+- **From Browsers**, a Smart Bin that combines clips captured from common browsers.
+
+These defaults demonstrate manual and calculated organization without duplicating the Clip Type and Content Type collections in the main navigation.
 
 The versioned rule shape used by the GUI, CLI, and portable transfer files is documented in [Smart Bin Rule Contract](Smart-Bin-Rule-Contract.md).
 

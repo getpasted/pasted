@@ -99,7 +99,7 @@ export function ClipCardHeader({
           <Workflow className="clip-meta-icon" />
         </span>}
         {features.queue && queueIndex !== undefined && (queueIndex === 1
-          ? <span className="clip-meta-item clip-queue-next rounded-full font-mono font-extrabold shadow animate-pulse">
+          ? <span className="clip-meta-item clip-queue-next elevation-control rounded-full font-mono font-extrabold animate-pulse">
             {translate('component.clipCard.nextUp1')}
           </span>
           : <span className="clip-meta-item clip-queue-position rounded-full font-mono font-semibold">

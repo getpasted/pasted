@@ -3,6 +3,7 @@ export const BACKED_UP_LOCAL_STORAGE_KEYS = [
   'pasted_sidebar_width',
   'pasted_list_width',
   'pasted_bin_order',
+  'pasted_scroll_positions',
 ] as const;
 
 export interface BackupStateStorage {

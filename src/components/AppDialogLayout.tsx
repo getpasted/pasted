@@ -93,7 +93,7 @@ export function ActionButton({
   type = 'button',
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: 'secondary' | 'primary' | 'warning' | 'danger';
+  variant?: 'secondary' | 'primary' | 'warning' | 'danger' | 'solid-primary' | 'solid-danger';
 }) {
   return (
     <button

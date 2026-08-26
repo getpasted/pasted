@@ -78,7 +78,7 @@ export function CollapsedSidebar({
           <PanelLeftOpen className="h-5 w-5 rtl:-scale-x-100" />
         </button>
       </div>
-      <div className="w-full flex-1 overflow-y-auto overflow-x-hidden sidebar-scroll-container flex flex-col items-center gap-1.5 py-2 px-1 custom-scrollbar">
+      <div data-pasted-scroll-key="sidebar:collapsed" className="w-full flex-1 overflow-y-auto overflow-x-hidden sidebar-scroll-container flex flex-col items-center gap-1.5 py-2 px-1 custom-scrollbar">
         <button
           data-sidebar-hover-key="expand"
           onClick={() => setIsCollapsed(false)}
@@ -108,7 +108,7 @@ export function CollapsedSidebar({
                   : isClipDragging
                   ? 'sidebar-action-drop-ineligible cursor-default'
                   : currentTab === item.tab && (item.tab !== 'all' || selectedBinId === null)
-                  ? 'sidebar-item-active shadow-sm cursor-pointer'
+                  ? 'sidebar-item-active cursor-pointer'
                   : hoveredControl === `clip:${item.tab}`
                   ? 'sidebar-item-hovered border-transparent cursor-pointer'
                   : 'sidebar-item-idle border-transparent cursor-pointer'
@@ -130,7 +130,7 @@ export function CollapsedSidebar({
             disabled={isClipDragging}
             className={`ui-control-radius w-9 h-9 flex items-center justify-center p-0 transition-colors duration-75 border shrink-0 cursor-pointer ${
               currentTab === 'bin' && selectedBinId === bin.id
-                ? 'sidebar-item-active shadow-sm'
+                ? 'sidebar-item-active'
                 : hoveredControl === `bin:${bin.id}`
                 ? 'sidebar-item-hovered border-transparent'
                 : 'sidebar-item-idle border-transparent'
@@ -149,7 +149,7 @@ export function CollapsedSidebar({
             disabled={isClipDragging}
             className={`ui-control-radius w-9 h-9 flex items-center justify-center p-0 transition-colors duration-75 border shrink-0 cursor-pointer ${
               currentTab === item.tab
-                ? 'sidebar-item-active shadow-sm cursor-pointer'
+                ? 'sidebar-item-active cursor-pointer'
                 : hoveredControl === `tool:${item.tab}`
                 ? 'sidebar-item-hovered border-transparent cursor-pointer'
                 : 'sidebar-item-idle border-transparent cursor-pointer'

@@ -106,7 +106,7 @@ export function BinModalIdentityFields({ form, desktopPlatform }: BinModalIdenti
             onFocus={(event) => event.currentTarget.select()}
             placeholder="📂"
             maxLength={64}
-            className={`w-16 theme-input ui-field-radius emoji-input-picker border py-1.5 text-center font-mono text-lg focus:outline-none shadow-inner cursor-pointer select-none transition-colors ${errors.icon ? 'form-field-error' : 'form-field-valid'}`}
+            className={`theme-input theme-input-action ui-field-radius emoji-input-picker elevation-inset w-16 cursor-pointer select-none border py-1.5 text-center font-mono text-lg transition-colors focus:outline-none ${errors.icon ? 'form-field-error' : 'form-field-valid'}`}
             aria-label={translate('component.binModal.chooseBinIcon')}
             title={translate('component.binModal.openEmojiPicker')}
           />
@@ -115,7 +115,7 @@ export function BinModalIdentityFields({ form, desktopPlatform }: BinModalIdenti
             ref={emojiTriggerRef}
             type="button"
             onClick={() => setIsEmojiMenuOpen((open) => !open)}
-            className={`w-16 theme-input ui-field-radius emoji-input-picker border py-1.5 text-center font-mono text-lg focus:outline-none shadow-inner cursor-pointer select-none transition-colors ${errors.icon ? 'form-field-error' : 'form-field-valid'}`}
+            className={`theme-input theme-input-action ui-field-radius emoji-input-picker elevation-inset w-16 cursor-pointer select-none border py-1.5 text-center font-mono text-lg transition-colors focus:outline-none ${errors.icon ? 'form-field-error' : 'form-field-valid'}`}
             aria-label={translate('component.binModal.chooseBinIcon')}
             aria-haspopup="menu"
             aria-expanded={isEmojiMenuOpen}

@@ -33,7 +33,7 @@ export function ClipNoteViewer({ note, source, onClose }: ClipNoteViewerProps) {
       isOpen
       onClose={onClose}
       labelledBy="clip-note-viewer-title"
-      panelClassName="clip-note-viewer-card border rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
+      panelClassName="clip-note-viewer-card border rounded-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[80vh]"
     >
       {({ requestClose }) => (
         <>
@@ -47,7 +47,7 @@ export function ClipNoteViewer({ note, source, onClose }: ClipNoteViewerProps) {
           </AppDialogHeader>
 
           <AppDialogBody className="clip-note-viewer-body space-y-3">
-            <div className="clip-note-viewer-content border rounded-xl p-4 font-mono text-xs whitespace-pre-wrap leading-relaxed select-text shadow-inner">
+            <div className="clip-note-viewer-content elevation-inset border rounded-xl p-4 font-mono text-xs whitespace-pre-wrap leading-relaxed select-text">
               {note.text}
             </div>
             <div className={`clip-note-viewer-meta flex items-center text-[11px] font-sans px-1 ${source ? 'justify-between' : 'justify-end'}`}>

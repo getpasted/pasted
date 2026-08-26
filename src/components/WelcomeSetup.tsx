@@ -7,6 +7,7 @@ import { ExternalHistoryImport, type ExternalImportReport } from './ExternalHist
 import { CopycatHeadMark } from './CopycatMark';
 import { ActionButton } from './AppDialogLayout';
 import { translate } from '../localization/runtime';
+import { WelcomeBackupRestore } from './WelcomeBackupRestore';
 
 const ONBOARDING_VERSION = 1;
 
@@ -115,7 +116,7 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
       onClose={complete}
       labelledBy="pasted-welcome-title"
       overlayClassName="welcome-setup-overlay p-5"
-      panelClassName="welcome-setup-panel theme-panel w-full max-w-3xl overflow-hidden rounded-2xl border shadow-2xl"
+      panelClassName="welcome-setup-panel theme-panel w-full max-w-3xl overflow-hidden rounded-2xl border"
     >
       <div className="welcome-setup-progress" aria-label={translate('component.welcomeSetup.setupStepValueOfLength', { value: stepIndex + 1, length: steps.length })}>
         {steps.map((candidate, index) => (
@@ -149,11 +150,14 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
               <div>
                 <p className="welcome-setup-kicker">{translate('component.welcomeSetup.bringYourHistory')}</p>
                 <h1 id="pasted-welcome-title">{translate('component.welcomeSetup.startWhereYouLeftOff')}</h1>
-                <p>{translate('component.welcomeSetup.supportedTextHistoryFromAnotherClipboardManagerCanBeMergedIntoHistory')}</p>
+                <p className="welcome-setup-migration-description">{translate('component.welcomeSetup.restoreAPastedFullBackupOrImportClipboardHistory')}</p>
               </div>
             </div>
-            <div className="welcome-setup-content">
-              <ExternalHistoryImport compact onImported={handleImported} />
+            <div className="welcome-setup-migration-content">
+              <WelcomeBackupRestore />
+              <div className="welcome-setup-migration-sources">
+                <ExternalHistoryImport compact onImported={handleImported} />
+              </div>
             </div>
           </div>
         )}
@@ -275,7 +279,7 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
                 <strong>{translate('component.welcomeSetup.keepTheCopycatCopying')}</strong>
                 <span>{translate('component.welcomeSetup.nothingToUnlockJustUsefulSoftwareAndOneMoreReasonToKeep')}</span>
               </div>
-              <ActionButton onClick={() => void openBackingPage()}>
+              <ActionButton variant="solid-primary" onClick={() => void openBackingPage()}>
                 {translate('component.welcomeSetup.backPasted999')} <ExternalLink />
               </ActionButton>
             </div>

@@ -80,7 +80,7 @@ export function SettingsSyncImportSection({
                 </p>
               </div>
             </div>
-            <button type="button" className="theme-icon-button theme-focusable shrink-0 rounded-lg border p-1.5" onClick={onRemoveFile} aria-label={translate('component.settingsSyncPanel.removeSelectedFile')} title={translate('component.settingsSyncPanel.removeSelectedFile')}>
+            <button type="button" className="theme-icon-button theme-focusable ui-control-radius grid h-8 w-8 shrink-0 place-items-center border" onClick={onRemoveFile} aria-label={translate('component.settingsSyncPanel.removeSelectedFile')} title={translate('component.settingsSyncPanel.removeSelectedFile')}>
               <X className="h-3.5 w-3.5" />
             </button>
           </div>

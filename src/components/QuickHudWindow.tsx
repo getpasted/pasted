@@ -181,7 +181,7 @@ export const QuickHudWindow: React.FC = () => {
         className={`quick-hud-caret ${hudAnchor.flipped ? 'is-bottom' : 'is-top'}`}
         style={{ left: `${hudAnchor.x}px` }}
       />
-      <div className={`quick-hud-shell flex-1 rounded-xl border flex flex-col overflow-hidden no-drag shadow-none ${hudAnchor.flipped ? 'mb-2' : 'mt-2'}`}>
+      <div className={`quick-hud-shell elevation-floating flex-1 rounded-xl border flex flex-col overflow-hidden no-drag ${hudAnchor.flipped ? 'mb-2' : 'mt-2'}`}>
         {/* Header Bar */}
         <div className="quick-hud-header p-2.5 border-b flex items-center space-x-2 no-drag">
           {features.search && <div className="relative flex-1">
@@ -200,7 +200,7 @@ export const QuickHudWindow: React.FC = () => {
           </div>}
           <button
             onClick={() => invoke('toggle_hud_window')}
-            className="theme-icon-button p-1 rounded-md border border-transparent transition-colors shrink-0 no-drag"
+            className="theme-icon-button ui-control-radius grid h-6 w-6 shrink-0 place-items-center border border-transparent transition-colors no-drag"
             title={translate('component.quickHudWindow.hideEsc')}
           >
             <X className="w-4 h-4" />
@@ -237,11 +237,11 @@ export const QuickHudWindow: React.FC = () => {
                   aria-selected={isSel}
                   onPointerDown={() => setSelectedIndex(index)}
                   onClick={() => activateClip(clip)}
-                  className={`quick-hud-row px-2 py-1 rounded-lg border cursor-pointer flex items-center justify-between space-x-2 ${isSel ? 'is-selected shadow-md' : ''}`}
+                  className={`quick-hud-row px-2 py-1 rounded-lg border cursor-pointer flex items-center justify-between space-x-2 ${isSel ? 'is-selected elevation-raised' : ''}`}
                 >
                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     <span
-                      className={`quick-hud-index w-5 h-5 rounded-md flex items-center justify-center font-mono text-[0.6875rem] font-extrabold shrink-0 border ${isSel ? 'is-selected shadow' : ''}`}
+                      className={`quick-hud-index w-5 h-5 rounded-md flex items-center justify-center font-mono text-[0.6875rem] font-extrabold shrink-0 border ${isSel ? 'is-selected elevation-control' : ''}`}
                     >
                       {index + 1}
                     </span>

@@ -3,6 +3,7 @@
 - [Home](Home)
 - [Getting Started](Getting-Started)
 - [History and Search](History-and-Search)
+- [Activity and Insights](Activity-and-Insights)
 - [Bins and Organization](Bins-and-Organization)
   - [Smart Bin Rule Contract](Smart-Bin-Rule-Contract)
 - [Queue and HUD](Queue-and-Quick-HUD)

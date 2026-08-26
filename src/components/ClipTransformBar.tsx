@@ -2,6 +2,7 @@ import { Check, Clock3, LoaderCircle, RotateCcw, Workflow } from 'lucide-react';
 import type { IntelligenceRequestStatus } from '../hooks/useIntelligenceRequestStatus';
 import { OverflowText } from './OverflowText';
 import { formatTransformRequestPhase, translate } from '../localization/runtime';
+import { ActionButton } from './AppDialogLayout';
 
 interface ClipTransformBarProps {
   activeTransformName: string;
@@ -45,7 +46,7 @@ export function ClipTransformBar({
             type="button"
             onClick={onApply}
             disabled={isRunning || !hasPreview}
-            className="transform-workspace-action manual-transforms flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+            className="transform-workspace-action manual-transforms"
             title={translate('component.clipTransformBar.applyAndSaveRevision')}
           >
             {isRunning
@@ -55,13 +56,11 @@ export function ClipTransformBar({
               : <Check className="h-3.5 w-3.5" />}
             <span>{isRunning ? (requestStatus?.phase === 'queued' ? translate('component.clipTransformBar.queued') : translate('component.clipTransformBar.running')) : translate('component.clipTransformBar.apply')}</span>
           </button>
-          <button
-            type="button"
+          <ActionButton
             onClick={onReset}
-            className="preview-filter-reset px-2.5 py-1 rounded-lg border text-xs font-semibold transition-colors"
           >
             {translate('common.cancel')}
-          </button>
+          </ActionButton>
         </div>
       </div>
       {!isRunning && hasPreview && (

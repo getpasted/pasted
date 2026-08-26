@@ -72,10 +72,10 @@ export function ClipPreviewNotesPanel({ controller, readOnly }: ClipPreviewNotes
               onKeyDown={(event) => { if (event.key === 'Escape') cancelAdding(); }}
             />
             <div className="flex items-center justify-end space-x-2 pt-1">
-              <button type="button" onClick={cancelAdding} className="note-cancel-button px-3 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer">
+              <button type="button" onClick={cancelAdding} className="note-cancel-button">
                 {translate('common.cancel')}
               </button>
-              <button type="button" onClick={create} className="note-save-button px-3 py-1 rounded-md text-xs font-semibold shadow cursor-pointer">
+              <button type="button" onClick={create} className="note-save-button">
                 {translate('common.save')}
               </button>
             </div>

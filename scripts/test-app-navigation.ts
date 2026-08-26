@@ -9,6 +9,10 @@ assert.deepEqual(resolveAppNavigationTarget('settings:security'), {
   tab: 'settings',
   settingsTab: 'security',
 });
+assert.deepEqual(resolveAppNavigationTarget('settings:search-history'), {
+  tab: 'settings',
+  settingsTab: 'search-history',
+});
 assert.deepEqual(resolveAppNavigationTarget('help:privacy-capture'), {
   tab: 'help',
   helpTopic: 'privacy-capture',

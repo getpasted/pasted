@@ -25,7 +25,7 @@ export function FloatingActionStrip({
 
   return (
     <div
-      className={`floating-action-strip absolute bottom-2 end-2 z-10 flex items-center gap-1 rounded-lg border p-1 shadow-xl transition-opacity ${visibilityClass}`}
+      className={`floating-action-strip absolute bottom-2 end-2 z-10 flex items-center gap-1 rounded-lg border p-1 transition-opacity ${visibilityClass}`}
       aria-label={label}
       onPointerDown={stopPointer}
       onMouseDown={stopPointer}

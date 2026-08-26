@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { consumePendingBackupClientState } from '../utils/backupClientState';
 import { dismissStartupSplash } from '../utils/startupSplash';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { installPersistedScrollSurfaces } from '../utils/persistedScrollSurfaces';
 
 const TRANSIENT_SCROLL_SURFACE_SELECTOR = [
   '.surface-scroll-region',
@@ -32,13 +32,7 @@ export function useAppShell({
 }: UseAppShellOptions) {
   const previousTitlebarDirectionRef = useRef(direction);
 
-  useEffect(() => {
-    void consumePendingBackupClientState()
-      .then((restored) => {
-        if (restored) window.location.reload();
-      })
-      .catch((error) => console.error('Failed to restore backed-up interface state:', error));
-  }, []);
+  useEffect(() => installPersistedScrollSurfaces(), []);
 
   useEffect(() => {
     if (document.documentElement.dataset.platform !== 'macos') return undefined;

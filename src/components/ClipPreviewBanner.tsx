@@ -50,7 +50,7 @@ export function ClipPreviewBanner({
       </span>
     </div>
     {previewedVersion
-      ? <div className="floating-action-strip flex shrink-0 items-center gap-1 rounded-lg border p-1 shadow-xl">
+      ? <div className="floating-action-strip flex shrink-0 items-center gap-1 rounded-lg border p-1">
         <button type="button" onClick={onCancelVersionPreview} disabled={isSavingVersion} className="floating-action-button disabled:cursor-not-allowed disabled:opacity-40" title={translate('common.cancel')} aria-label={translate('common.cancel')}>
           <X />
         </button>

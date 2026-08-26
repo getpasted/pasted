@@ -19,6 +19,8 @@ import { backupApi } from '../api/backup';
 import { SettingsSyncLibrarySection } from './SettingsSyncLibrarySection';
 import { SettingsSyncExportSection } from './SettingsSyncExportSection';
 import { SettingsSyncImportSection } from './SettingsSyncImportSection';
+import { restoreFullBackupWithTransition } from './fullBackupRestore';
+import { cacheStorageProtection, getCachedStorageProtection, loadStorageProtection } from './settingsSyncStorageProtection';
 import type {
   ExportDataId,
   ExportFormat,
@@ -37,27 +39,6 @@ interface SettingsSyncPanelProps {
   analyticsEnabled?: boolean;
   activityEnabled?: boolean;
   onOpenAnalytics?: () => void;
-}
-
-let cachedStorageProtection: StorageProtectionInfo | null = null;
-let storageProtectionRequest: Promise<StorageProtectionInfo> | null = null;
-
-function loadStorageProtection(force = false): Promise<StorageProtectionInfo> {
-  if (force) {
-    cachedStorageProtection = null;
-    storageProtectionRequest = null;
-  }
-  if (cachedStorageProtection) return Promise.resolve(cachedStorageProtection);
-  if (storageProtectionRequest) return storageProtectionRequest;
-  storageProtectionRequest = invoke<StorageProtectionInfo>('get_storage_protection')
-    .then((protection) => {
-      cachedStorageProtection = protection;
-      return protection;
-    })
-    .finally(() => {
-      storageProtectionRequest = null;
-    });
-  return storageProtectionRequest;
 }
 
 export function SettingsSyncPanel({
@@ -80,7 +61,7 @@ export function SettingsSyncPanel({
   const [isRestoringFullBackup, setIsRestoringFullBackup] = useState(false);
   const [isRestoreConfirmOpen, setIsRestoreConfirmOpen] = useState(false);
   const [location, setLocation] = useState<LibraryLocationInfo | null>(null);
-  const [storageProtection, setStorageProtection] = useState<StorageProtectionInfo | null>(cachedStorageProtection);
+  const [storageProtection, setStorageProtection] = useState<StorageProtectionInfo | null>(getCachedStorageProtection);
   const [exportMode, setExportMode] = useState<ExportMode>('full');
   const [exportFormat, setExportFormat] = useState<ExportFormat>('json');
   const [exportData, setExportData] = useState<Record<ExportDataId, boolean>>({
@@ -111,7 +92,7 @@ export function SettingsSyncPanel({
         get summary() { return translate('component.settingsSyncPanel.volumeEncryptionCouldNotBeDetermined'); },
         get detail() { return translate('component.settingsSyncPanel.checkTheOperatingSystemSStorageSecuritySettings'); },
       };
-      cachedStorageProtection = unavailable;
+      cacheStorageProtection(unavailable);
       setStorageProtection(unavailable);
     }
   };
@@ -316,22 +297,19 @@ export function SettingsSyncPanel({
     setIsRestoreConfirmOpen(false);
     setIsRestoringFullBackup(true);
     try {
-      const report = await backupApi.restoreFull(
-        collectBackupClientState(),
+      const outcome = await restoreFullBackupWithTransition(
         importInspection?.kind === 'backup' ? importInspection.path : undefined,
       );
-      if (!report) {
+      if (outcome === 'cancelled') {
         setIsRestoringFullBackup(false);
         return;
       }
       setImportInspection(null);
+      if (outcome === 'restarting') return;
       showToast({
         tone: 'success',
         get message() { return translate('component.settingsSyncPanel.fullBackupRestoredRestartingWithTheRestoredState'); },
       });
-      if ((window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__) {
-        setTimeout(() => window.location.reload(), 700);
-      }
       setIsRestoringFullBackup(false);
     } catch (error) {
       console.error('Full backup restore failed:', error);

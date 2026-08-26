@@ -2,6 +2,8 @@
 
 The app bundle includes the native `pasted` executable and uses the same SQLite domain services as the GUI.
 
+The main command grouping follows **Help → CLI Commands** in the app. The Wiki also documents advanced flags, compatibility aliases, and behavioral contracts that are intentionally more detailed than the in-app quick reference.
+
 Install it from **Settings → About**, or on macOS:
 
 ```sh
@@ -15,21 +17,16 @@ pasted copy "Hello"
 cat server.log | pasted copy
 pasted list [--limit N] [--offset N] [--bin ID | --pinned | --trash] [--json]
 pasted search [query] [--clip <type>] [--content <type>] [--format <format>] [--source <source>] [--ids <id,...>] [--trash] [--limit N] [--offset N] [--json]
+pasted search-history list [--limit N] [--offset N] [--json]
+pasted search-history delete <id> [--json]
+pasted search-history clear --yes [--json]
 pasted import sources [--json]
 pasted import <alfred|pastebot|pasta|paste|copyclip|maccy|flycut> [history-file-or-folder] [--json]
-pasted activity list [--limit N|--all] [--offset N] [--category VALUE] [--severity VALUE] [--event NAME] [--json]
-pasted activity export [path] [--format json|csv]
-pasted activity import <path> [--format json|csv] [--json]
-pasted activity clear --yes [--json]
-pasted transfer export <path.json> [--json]
-pasted transfer inspect <path.json> [--json]
-pasted transfer import <path.json> [--json]
-pasted clip export [path] [--format json|csv]
-pasted clip import <path> [--format json|csv] [--json]
 pasted retention [--count <number|unlimited>] [--days <number|forever>]
                  [--trash-count <number|unlimited>] [--trash-days <number|forever>]
                  [--log-count <number|unlimited>] [--log-days <number|forever>]
-                 [--revision-count <number|unlimited>] [--json]
+                 [--revision-count <number|unlimited>]
+                 [--search-count <number|unlimited>] [--search-days <number|forever>] [--json]
 pasted settings list|get|set|reset [arguments] [--dry-run] [--json]
 pasted app-lock status|enable|change-passphrase|disable|lock|unlock [--stdin] [--json]
 pasted app-lock idle <never|1m|5m|1h|8h> [--stdin] [--json]
@@ -46,23 +43,17 @@ pasted clear --yes [--json]
 
 `settings reset <page>` uses the same scoped defaults as the corresponding Settings footer. Supported pages are `general`, `notifications`, `hotkeys`, `app-exclusions`, `security`, `analysis`, and `intelligence`. Add `--dry-run` to inspect the effective changes without saving them. Security accepts `--stdin` when an actual reset requires App Lock authentication. Structured output reports the reset scope, whether it was a dry run, and the effective setting changes.
 
-`pasted search` uses the same query grammar, fuzzy case-insensitive collection-axis filters, Functionality gates, chronological ordering, and extracted-text index as Search in the app and Quick HUD. It is unavailable when Clip Search is disabled under Functionality; background indexing continues. `--ids` accepts comma-separated clip IDs; the equivalent query helper is `id:7,11,42`. ID filters combine with `--clip`, `--content`, `--format`, `--source`, and other query helpers. `--limit` accepts 1–500 items per page. `--json` returns `{ "schemaVersion": 1, "items", "totalCount", "limit", "offset" }`; each item keeps the stable snake-case Clip fields, and extracted OCR or transcript text is not returned. Offset pages reflect the current library, so restart at offset 0 after mutating clips between requests.
+`pasted search` uses the same query grammar, fuzzy case-insensitive collection-axis filters, Functionality gates, chronological ordering, and extracted-text index as Search in the app and HUD. It is unavailable when Clip Search is disabled under Functionality; background indexing continues. `--ids` accepts comma-separated clip IDs; the equivalent query helper is `id:7,11,42`. ID filters combine with `--clip`, `--content`, `--format`, `--source`, and other query helpers. `--limit` accepts 1–500 items per page. `--json` returns `{ "schemaVersion": 1, "items", "totalCount", "limit", "offset" }`; each item keeps the stable snake-case Clip fields, and extracted OCR or transcript text is not returned. Offset pages reflect the current library, so restart at offset 0 after mutating clips between requests.
 
-`copy` accepts bounded stdin when text is omitted. `list` and `search` provide bounded pagination; both can inspect Trash, while `list` can select a Bin or pinned clips. `search` filters Clip Type, Content Type, File Format, and Source with case-insensitive partial matching. Its structured records expose canonical `content_type`, `content_types`, `file_formats`, and `source` fields. A disabled Functionality axis cannot be used as a search filter. `import sources` reports supported managers and detected locations. `import` reads a source without modification and merges supported text while skipping duplicates. `retention` manages History, Trash, Activity History, and per-clip revision policies. `settings` reads or changes persisted values; app-bound visual or operating-system effects apply when the app observes the setting or next launches. `clear` requires `--yes` and permanently removes unpinned, unprotected clips from History.
+Successful first-page searches are deduplicated in Search History; requesting a later offset does not create another entry. `search-history list` exposes the canonical request, result count, use count, and last-used timestamp. Individual deletion is immediate, while clearing the complete history requires `--yes`. `retention --search-count` and `--search-days` control the same maximum and age policies shown under **Settings → General**; `unlimited` and `forever` map to zero.
+
+`copy` accepts bounded stdin when text is omitted. `list` and `search` provide bounded pagination; both can inspect Trash, while `list` can select a Bin or pinned clips. `search` filters Clip Type, Content Type, File Format, and Source with case-insensitive partial matching. Its structured records expose canonical `content_type`, `content_types`, `file_formats`, and `source` fields. A disabled Functionality axis cannot be used as a search filter. `import sources` reports supported managers and detected locations. `import` reads a source without modification and merges supported text while skipping duplicates. `retention` manages History, Trash, Activity History, Search History, and per-clip revision policies. `settings` reads or changes persisted values; app-bound visual or operating-system effects apply when the app observes the setting or next launches. `clear` requires `--yes` and permanently removes unpinned, unprotected clips from History.
 
 App-lock mutations read the passphrase from a hidden terminal prompt or bounded stdin with `--stdin`; the passphrase is never accepted as a command-line argument. `change-passphrase --stdin` accepts exactly two lines: the current passphrase followed by the new passphrase. `lock` and `unlock` contact the running app. Enabling `system-auth` or `apple-watch` verifies that the operating-system method is available; the operating-system prompt appears when that method is used to unlock. Live availability can change while a configured method remains enabled, such as while a paired Watch is locked or out of range. App-lock commands are unavailable when App Lock is disabled under Functionality; `pasted settings set enableAppLock true` restores the feature. While app lock is enabled, other CLI commands require a valid `PASTED_APP_LOCK_PASSPHRASE` in their process environment. `status --json` reports the stable `enabled`, `systemAuthEnabled`, `systemAuthAvailable`, `systemAuthLabel`, `appleWatchEnabled`, `appleWatchAvailable`, `idleMinutes`, `lockOnSleep`, `lockOnRestart`, and `captureWhileLocked` fields without exposing the verifier.
 
 `app-lock disable` requires the current passphrase and removes the passphrase verifier plus every system-authentication preference. If the passphrase is unavailable, quit Pasted and run `pasted app-lock reset --yes`. Recovery reset does not require the passphrase because App Lock protects the interface rather than encrypting the database. It disables App Lock, removes its verifier and authenticator preferences, preserves timing and capture policies, records a local Activity event, and does not delete clips or unrelated settings. The command refuses to reset a running app.
 
 `recording`, `queue`, `clip copy`, `clip paste`, and `ocr cancel` contact the running app through a bounded private request. Clipboard monitoring, Queue state, paste targeting, and cancellation therefore remain inside the process that owns them. These commands can launch Pasted when its executable is installed beside the CLI.
-
-`activity list` exposes structured retained records to scripts. `activity export` writes every retained entry as OpenTelemetry-shaped JSON or analysis-friendly CSV; omitting the path writes to stdout. JSON archives include a versioned Pasted resource block and event timestamp, observed timestamp, event name, severity, body, and attributes. `activity import` accepts bounded JSON or CSV exports, validates the complete input, deduplicates records, applies the current Activity retention policy, and never replays imported actions. The file extension selects the format unless `--format` is supplied. `activity clear` permanently removes every retained entry and requires `--yes`.
-
-`transfer export` writes the portable History and Organization JSON available under Settings → Storage → Export. `transfer inspect` performs the same bounded structural and referential preflight as import without changing saved data. `transfer import` validates the complete file before opening a write transaction, updates matching stable identities and content hashes, adds new items, and leaves unrelated data unchanged. The former `archive` command remains as a compatibility alias.
-
-`clip export` and `clip import` are the CLI equivalents of selecting Clips under Settings → Storage → Export or choosing a Clips file under Import. JSON preserves complete clip records. CSV carries text-based rows for spreadsheet workflows. Imports validate the complete file before writing and skip existing content hashes.
-
-`database location`, `database protection`, `database move`, and `database default` inspect or change SQLite storage. `database protection` reports `protected`, `notDetected`, or `unknown` for the volume containing the active database; it never treats an unavailable operating-system check as proof that encryption is off. The former `library` command remains as a compatibility alias.
 
 ## Full backup and restore
 
@@ -78,6 +69,7 @@ Quit the graphical app before CLI restore. Full Backup uses SQLite’s online ba
 
 ```text
 pasted clip get <id> [--json]
+pasted clip labels list|add|remove|reset <id> [label] [--yes] [--json]
 pasted clip note <id> [--text <text> | --clear | --stdin] [--json]
 pasted clip versions <id> [--limit <n>] [--offset <n>] [--json]
 pasted clip restore-version <id> <version-id> [--json]
@@ -92,13 +84,20 @@ pasted clip trash|restore <id>... [--json]
 pasted clip restore-all [--json]
 pasted clip purge <id>... --yes [--json]
 pasted clip empty-trash --yes [--json]
+pasted clip export [path] [--format json|csv]
+pasted clip import <path> [--format json|csv] [--json]
 pasted clip assign <bin-id|none> <id>... [--json]
 ```
 
 Mutating commands report stable summaries and use explicit desired states rather than blind toggles. `restore-all` returns every trashed clip to History and reports the restored IDs in its structured result.
+
+`clip labels` lists detected and manual Visual Labels, adds or suppresses one label, or resets manual changes to the current detected set. Label changes create restorable Clip Versions, preserve the original image, and use the same normalized searchable labels as the clip Inspector and Smart Bins.
+
+`clip export` and `clip import` are the CLI equivalents of selecting Clips under Settings → Storage → Export or choosing a Clips file under Import. JSON preserves complete clip records. CSV carries text-based rows for spreadsheet workflows. Imports validate the complete file before writing and skip existing content hashes.
+
 Current and Original cannot be deleted from Version History. In structured output, `versions --json` identifies them with `is_current` and `is_original`; `delete-version --json` returns `clipId`, `versionId`, and `deleted`. The command permanently removes only the selected historical version. The legacy `revisions`, `restore-revision`, and `delete-revision` spellings remain accepted as compatibility aliases.
 
-## Bins
+## Bins and Transforms
 
 ```text
 pasted bin list [--json]
@@ -126,10 +125,10 @@ pasted bin create --name "Safari Links" \
 
 Use `pasted type list --json` for registered Content Type IDs and `pasted insights summary --json` for observed Clip Types, File Formats, and Sources. The corresponding Functionality setting must be enabled for an axis to match. Invalid rule shapes are rejected. See [Smart Bin Rule Contract](Smart-Bin-Rule-Contract.md) for bounds and compatibility behavior.
 
-## Transforms
+### Transforms, Operations, and Connections
 
 ```text
-pasted transform list
+pasted transform list [--json]
 pasted transform get <ref> [--json]
 pasted transform plan [--intent <text> | --stdin] [--sample <text>] [--mode pinned|adaptive] [--connection <id>] [--json]
 pasted transform test --plan-json <json> [--text <text> | --stdin] [--connection <id>] [--json]
@@ -209,7 +208,7 @@ Registry JSON includes Capture definitions and each Analysis participant’s `an
 
 `pasted analyzer run` returns one versioned preview of the applicable passes. Its JSON includes content-free structure, classification, Smart Action suggestions, and participant outcomes, but never original text, extracted text, image bytes, or file paths. Interactive policy includes suggestion when Transformations is enabled; capture, background, and rescan stop after classification. Image and file extraction are opt-in with `--extract` because OCR and transcription can be comparatively expensive. File references never enter text Classifiers or Suggestions; only a produced searchable-text representation can feed later passes.
 
-Every Extractor now stores the same versioned `recipe-v1` document. Recipes declare one or both input kinds, local executable discovery or absolute paths, argv tokens, time limits, resources, step artifacts, post-processing, and how searchable text is captured. Commands run directly without a shell, in a private workspace with a reduced environment and bounded input, output, and runtime. Supported placeholders are `{input.path}`, `{input.stagedPath}`, `{request.path}`, `{output.path}`, `{output.base}`, `{step.ID.output}`, and `{resource.ID.path}`. A step can capture standard output, a generated text file, Pasted protocol JSON, or nothing. New custom Extractors remain disabled unless `--enabled` is explicit. The optional `postProcessing` array is ordered and provider-neutral; `{ "kind": "filter_labels_by_confidence", "minimumPercent": 80 }` filters scored Pasted JSON labels before they become searchable text while retaining labels without a confidence score.
+Every Extractor now stores the same versioned `recipe-v1` document. Recipes declare one or both input kinds, local executable discovery or absolute paths, argv tokens, time limits, resources, step artifacts, post-processing, and how searchable text is captured. Commands run directly without a shell, in a private workspace with a reduced environment and bounded input, output, and runtime. Supported placeholders are `{input.path}`, `{input.stagedPath}`, `{request.path}`, `{output.path}`, `{output.base}`, `{step.ID.output}`, and `{resource.ID.path}`. A step can capture standard output, a generated text file, Pasted protocol JSON, or nothing. Positive, unique `noOutputExitCodes` let a command distinguish an expected empty result from a failure. New custom Extractors remain disabled unless `--enabled` is explicit. The optional `postProcessing` array is ordered and provider-neutral; `{ "kind": "filter_labels_by_confidence", "minimumPercent": 80 }` filters scored Pasted JSON labels before they become searchable text while retaining labels without a confidence score.
 
 Automatic scans, rescans, and whole-Analyzer extraction run every enabled, available Extractor compatible with the clip in priority order. Successful outputs are deduplicated and combined into searchable text. A targeted `pasted extractor run REF` still runs only the requested Extractor.
 
@@ -231,8 +230,18 @@ Content Type and Group IDs are stable. Built-in Content Types can be renamed, re
 
 ```text
 pasted diagnostics [--json]
-pasted licenses [--json]
 pasted insights summary [--json]
+pasted licenses [--json]
+pasted database location [--json]
+pasted database protection [--json]
+pasted database move <folder> [--json]
+pasted database default [--json]
+pasted transfer export <path.json> [--json]
+pasted transfer inspect <path.json> [--json]
+pasted transfer import <path.json> [--json]
+pasted backup create <path.pastedbackup> [--json]
+pasted backup inspect <path.pastedbackup> [--json]
+pasted backup restore <path.pastedbackup> --yes [--json]
 pasted ocr status [--json]
 pasted ocr scan [--clip <id>] [--json]
 pasted ocr retry [--json]
@@ -242,7 +251,22 @@ pasted reset --yes [--json]
 
 `licenses` remains available without a database and even when the optional clipboard-management CLI feature is disabled. `reset` is intentionally gated by `--yes`. Other commands respect feature settings and exit with an explicit explanation when a capability is disabled or unavailable.
 
+`database location`, `database protection`, `database move`, and `database default` inspect or change SQLite storage. `database protection` reports `protected`, `notDetected`, or `unknown` for the volume containing the active database; it never treats an unavailable operating-system check as proof that encryption is off. The former `library` command remains as a compatibility alias.
+
+`transfer export` writes the portable History and Organization JSON available under Settings → Storage → Export. `transfer inspect` performs the same bounded structural and referential preflight as import without changing saved data. `transfer import` validates the complete file before opening a write transaction, updates matching stable identities and content hashes, adds new items, and leaves unrelated data unchanged. The former `archive` command remains as a compatibility alias.
+
 `insights summary --json` keeps structural `clip_types`, verified `file_formats`, and semantic `content_types` separate. Clip Type entries use `clip_type`; Content Type entries use `content_type`. File Formats come from bounded byte-signature inspection, are ordered by clip count, and are limited to the top 24 values.
+
+## Activity
+
+```text
+pasted activity list [--limit N|--all] [--offset N] [--category VALUE] [--severity VALUE] [--event NAME] [--json]
+pasted activity export [path] [--format json|csv]
+pasted activity import <path> [--format json|csv] [--json]
+pasted activity clear --yes [--json]
+```
+
+`activity list` exposes structured retained records to scripts. `activity export` writes every retained entry as OpenTelemetry-shaped JSON or analysis-friendly CSV; omitting the path writes to stdout. JSON archives include a versioned Pasted resource block and event timestamp, observed timestamp, event name, severity, body, and attributes. `activity import` accepts bounded JSON or CSV exports, validates the complete input, deduplicates records, applies the current Activity retention policy, and never replays imported actions. The file extension selects the format unless `--format` is supplied. `activity clear` permanently removes every retained entry and requires `--yes`.
 
 ## Intentional app-only boundaries
 

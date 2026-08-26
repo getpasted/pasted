@@ -101,7 +101,7 @@ export function ClipFileThumbnail({
       /> : <pre className={`${maxHeightClass} min-h-full overflow-hidden whitespace-pre-wrap break-words p-2 pb-6 font-mono text-[10px] leading-relaxed`}>
         {preview.textContent}
       </pre>}
-      <OverflowText text={getClipFileSummary(clip)} className="theme-surface theme-text-muted absolute bottom-1 start-1 max-w-[calc(100%-0.5rem)] truncate rounded-md px-1.5 py-0.5 text-[9px] shadow-sm" />
+      <OverflowText text={getClipFileSummary(clip)} className="theme-surface theme-text-muted elevation-control absolute bottom-1 start-1 max-w-[calc(100%-0.5rem)] truncate rounded-md px-1.5 py-0.5 text-[9px]" />
     </>}
   </div>;
 }

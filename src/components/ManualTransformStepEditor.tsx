@@ -90,10 +90,10 @@ export const ManualTransformStepEditor: FC<ManualTransformStepEditorProps> = ({
           searchPlaceholder={translate('component.pipelineEditorModal.searchOperations')}
         />
         <span className="flex shrink-0 items-center gap-1">
-          <button type="button" onClick={onMoveUp} disabled={index === 0} className="theme-icon-button rounded-md border p-1.5 disabled:opacity-35" aria-label={translate('component.pipelineEditorModal.moveStepUp')} title={translate('component.pipelineEditorModal.moveStepUp')}><ArrowUp className="h-3.5 w-3.5" /></button>
-          <button type="button" onClick={onMoveDown} disabled={index === totalSteps - 1} className="theme-icon-button rounded-md border p-1.5 disabled:opacity-35" aria-label={translate('component.pipelineEditorModal.moveStepDown')} title={translate('component.pipelineEditorModal.moveStepDown')}><ArrowDown className="h-3.5 w-3.5" /></button>
+          <button type="button" onClick={onMoveUp} disabled={index === 0} className="theme-icon-button ui-control-radius grid h-7 w-7 place-items-center border disabled:opacity-35" aria-label={translate('component.pipelineEditorModal.moveStepUp')} title={translate('component.pipelineEditorModal.moveStepUp')}><ArrowUp className="h-3.5 w-3.5" /></button>
+          <button type="button" onClick={onMoveDown} disabled={index === totalSteps - 1} className="theme-icon-button ui-control-radius grid h-7 w-7 place-items-center border disabled:opacity-35" aria-label={translate('component.pipelineEditorModal.moveStepDown')} title={translate('component.pipelineEditorModal.moveStepDown')}><ArrowDown className="h-3.5 w-3.5" /></button>
           {totalSteps > 1 && (
-            <button type="button" onClick={onRemove} className="theme-icon-button theme-danger-text rounded-md border p-1.5" aria-label={translate('component.pipelineEditorModal.deleteStep')} title={translate('component.pipelineEditorModal.deleteStep')}>
+            <button type="button" onClick={onRemove} className="theme-icon-button theme-danger-text ui-control-radius grid h-7 w-7 place-items-center border" aria-label={translate('component.pipelineEditorModal.deleteStep')} title={translate('component.pipelineEditorModal.deleteStep')}>
               <Trash2 className="h-3.5 w-3.5" />
             </button>
           )}

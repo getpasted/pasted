@@ -13,6 +13,7 @@ import {
   Radar,
   ScanText,
   History,
+  Tags,
   type LucideIcon,
 } from 'lucide-react';
 import { ToolPageHeader } from './ToolPageHeader';
@@ -75,7 +76,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ activeTopic, onActiveTopicCh
       {/* Subpage Navigation & Content Container */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Sub-Tab Sidebar Navigation */}
-        <div className="help-topic-nav theme-subtle-surface">
+        <div className="help-topic-nav col-list">
           {HELP_TOPICS.map(({ id, label, icon: Icon, iconClassName }) => {
             const isSelected = activeTopic === id;
 
@@ -98,7 +99,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ activeTopic, onActiveTopicCh
         </div>
 
         {/* Right Detail Subpage Content */}
-        <div className="tools-scroll-region flex-1 p-6 overflow-y-auto space-y-6">
+        <div data-pasted-scroll-key={`help:${activeTopic}`} className="tools-scroll-region flex-1 p-6 overflow-y-auto space-y-6">
           {activeTopic === 'getting-started' && (
             <div className="space-y-6 animate-in fade-in">
               <div>
@@ -127,15 +128,17 @@ export const HelpView: React.FC<HelpViewProps> = ({ activeTopic, onActiveTopicCh
                   <ul className="theme-text-main list-inside list-disc space-y-2 text-xs leading-relaxed">
                     <li>{translate('component.helpView.copyNormallyInAnotherAppToAddAnItemToHistory')}</li>
                     <li>{translate('component.helpView.useSearchToFindClipContentAndCollectionMetadata')}</li>
+                    <li>{translate('component.helpView.organizeClipsAcrossSeveralManualBinsAndUseSearchVisualLabelsInsights')}</li>
+                    <li>{translate('component.helpView.activityKeepsAPrivacySafeLocalAuditTrailInsightsSummarizesTheActive')}</li>
                     <li>{translate('component.helpView.rightClickAClipForQueuePinProtectNoteBinTransformAnd')}</li>
                     <li>{translate('component.helpView.openSettingsFunctionalityToChooseTheSimpleOrFullExperience')}</li>
                   </ul>
                 </section>
               </div>
 
-              <div className="theme-status-warning rounded-xl border p-4">
-                <h4 className="text-xs font-bold">{translate('component.helpView.featuresNormallyHideWithoutDeletingData')}</h4>
-                <p className="mt-1 text-xs leading-relaxed">{translate('component.helpView.disablingAFeatureUsuallyHidesItsInterfaceAndStopsNewBehaviorWhile')}</p>
+              <div className="theme-panel rounded-xl border p-4">
+                <h4 className="theme-title text-xs font-bold">{translate('component.helpView.featuresNormallyHideWithoutDeletingData')}</h4>
+                <p className="theme-text-muted mt-1 text-xs leading-relaxed">{translate('component.helpView.disablingAFeatureUsuallyHidesItsInterfaceAndStopsNewBehaviorWhile')}</p>
               </div>
             </div>
           )}
@@ -177,6 +180,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ activeTopic, onActiveTopicCh
                   <p className="theme-text-main text-xs leading-relaxed">
                     {translate('component.helpView.defaultPasswordManagerExclusions', { onePassword: translate('component.helpView.value1password'), keychain: translate('component.helpView.keychainAccess'), passwords: translate('component.helpView.passwords'), bitwarden: translate('component.helpView.bitwarden') })}</p>
                   <p className="theme-text-muted text-xs leading-relaxed">{translate('component.helpView.blockingEveryContentKindPresentsAsAnAutomaticCapturePausePartialRules')}</p>
+                  <p className="theme-text-muted text-xs leading-relaxed">{translate('component.helpView.privateBrowserExclusionBlocksCaptureFromSupportedPrivateOrIncognitoWindowsWhen')}</p>
                 </section>
 
                 <section className="theme-panel space-y-3 rounded-xl border p-4">
@@ -222,6 +226,7 @@ export const HelpView: React.FC<HelpViewProps> = ({ activeTopic, onActiveTopicCh
                   </div>
                   <p className="theme-text-main text-xs leading-relaxed">{translate('component.helpView.revisionHistorySavesRestorableSnapshotsBeforeContentChangingEditsAndTransformReplacements')}</p>
                   <p className="theme-text-muted text-xs leading-relaxed">{translate('component.helpView.useSettingsStorageToCreateAFullBackupBeforeMajorChangesOr')}</p>
+                  <p className="theme-text-muted text-xs leading-relaxed">{translate('component.helpView.pageResetActionsPreviewExactSettingChangesAndDoNotResetClips')}</p>
                 </section>
               </div>
             </div>
@@ -290,6 +295,15 @@ export const HelpView: React.FC<HelpViewProps> = ({ activeTopic, onActiveTopicCh
                   <p className="theme-text-main text-xs leading-relaxed">{translate('component.helpView.ocrUsesAppleVisionOnMacosOrAnInstalledTesseract5Executable')}</p>
                   <p className="theme-text-muted text-xs leading-relaxed">{translate('component.helpView.ocrStatusDescription', { command: 'pasted ocr status --json' })}
                   </p>
+                </section>
+
+                <section className="theme-panel space-y-3 rounded-xl border p-4">
+                  <div className="theme-status-success-text flex items-center gap-2 text-xs font-bold">
+                    <Tags className="h-4 w-4" />
+                    <span>{translate('component.helpView.visualLabels')}</span>
+                  </div>
+                  <p className="theme-text-main text-xs leading-relaxed">{translate('component.helpView.visualLabelsDescription')}</p>
+                  <p className="theme-text-muted text-xs leading-relaxed">{translate('component.helpView.visualLabelFilteringDescription')}</p>
                 </section>
               </div>
             </div>

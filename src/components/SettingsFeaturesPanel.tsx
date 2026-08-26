@@ -134,7 +134,7 @@ export function SettingsFeaturesPanel({ settings, onUpdateSettings }: SettingsFe
         title={translate('component.settingsFeaturesPanel.functionality')}
         description={translate('component.settingsFeaturesPanel.chooseWhichFeaturesAreAvailable')}
         actions={(
-          <div className="theme-surface flex rounded-xl border p-1" aria-label={translate('component.settingsFeaturesPanel.featurePresets')}>
+          <div className="theme-surface ui-card-radius flex border p-1" aria-label={translate('component.settingsFeaturesPanel.featurePresets')}>
             {visiblePresets.map((preset) => (
               <button
                 key={preset}
@@ -143,7 +143,7 @@ export function SettingsFeaturesPanel({ settings, onUpdateSettings }: SettingsFe
                 onClick={() => {
                   if (preset !== 'custom') onUpdateSettings(featureUpdatesForPreset(preset));
                 }}
-                className={`settings-feature-preset rounded-lg px-3 py-1.5 font-semibold capitalize ${activePreset === preset ? 'is-active' : ''}`}
+                className={`settings-feature-preset ui-control-radius border border-transparent px-3 py-1.5 font-semibold capitalize ${activePreset === preset ? 'is-active' : ''}`}
               >
                 {translate(FEATURE_PRESET_KEYS[preset])}
               </button>

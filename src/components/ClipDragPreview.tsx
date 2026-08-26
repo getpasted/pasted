@@ -26,7 +26,7 @@ export function ClipDragPreview({ clip, x, y, batchCount, showSource, concealed 
   return (
     <div
       data-testid="clip-drag-preview"
-      className="clip-drag-preview fixed w-64 pointer-events-none rounded-xl border px-3 py-2.5 shadow-2xl"
+      className="clip-drag-preview fixed w-64 pointer-events-none rounded-xl border px-3 py-2.5"
       style={{ left: x + 14, top: y + 14, transform: 'rotate(1.5deg)' }}
     >
       {(showSource || batchCount > 1) && (

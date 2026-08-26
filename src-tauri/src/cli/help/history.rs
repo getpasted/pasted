@@ -1,0 +1,18 @@
+pub(super) const HELP_LINES: &[&str] = &[
+    "  pasted copy <text> [--json] Classify and save content, or pipe stdin",
+    "  pasted list [--limit N] [--offset N] [--bin ID|--pinned|--named|--trash] [--json]",
+    "  pasted search [query] [--clip TYPE] [--content TYPE] [--format FORMAT] [--source APP] [--ids ID,...] [--trash] [--limit N] [--offset N] [--json]",
+    "  pasted search-history list [--limit N] [--offset N] [--json]",
+    "  pasted search-history delete <id> [--json] | clear --yes [--json]",
+    "  pasted import sources [--json] List supported external-history sources",
+    "  pasted import <source> [path] --json Import history from another clipboard manager",
+    "  pasted diagnostics --json Show installation diagnostics",
+    "  pasted insights summary --json Show aggregate clipboard insights",
+    "  pasted licenses [--json] Show bundled open-source licenses and notices",
+    "  pasted retention [--count N|unlimited] [--days N|forever] [--json]",
+    "                   [--trash-count N|unlimited] [--trash-days N|forever]",
+    "                   [--log-count N|unlimited] [--log-days N|forever]",
+    "                   [--revision-count N|unlimited]",
+    "                   [--analysis-count N|unlimited]",
+    "                   [--search-count N|unlimited] [--search-days N|forever]",
+];

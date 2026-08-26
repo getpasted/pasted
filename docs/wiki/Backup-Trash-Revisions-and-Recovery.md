@@ -37,8 +37,14 @@ Transfer files include clips in History and Trash, notes, pins, explicit protect
 
 Imports are bounded and transactional. Unsupported or malformed data is rejected; a failure partway through leaves the destination unchanged.
 
+## External clipboard-manager imports
+
+The welcome flow and **Settings → Storage → Import** can merge bounded text history from Alfred, Pastebot, Pasta, Paste, CopyClip 2, Maccy, and Flycut. Pasted can inspect known local locations or use a selected source database. Preflight reports what can be read before mutation, duplicates are skipped, and a failed import leaves the existing library unchanged.
+
+These migrations import supported text history rather than another application's complete settings or proprietary features. Use `pasted import sources --json` to inspect supported sources and detected locations, then `pasted import <source> [path] --json` for a scriptable import.
+
 ## Factory Reset
 
-Factory Reset removes local data and preferences after explicit confirmation, recreates starter Smart Bins, and relaunches. It is transactional: a database failure rolls back the reset rather than leaving partially cleared data.
+Factory Reset removes local data and preferences after explicit confirmation, recreates the starter manual and Smart Bins, and relaunches. It is transactional: a database failure rolls back the reset rather than leaving partially cleared data.
 
 Export before reset if any data matters.

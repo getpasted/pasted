@@ -1,8 +1,4 @@
-use std::sync::Arc;
-use tauri::AppHandle;
-
-use crate::db::DbState;
-
+pub(crate) mod about;
 pub(crate) mod activity;
 pub(crate) mod analysis;
 pub(crate) mod app_lock;
@@ -28,6 +24,7 @@ pub(crate) mod manual_transforms;
 pub(crate) mod platform;
 pub(crate) mod queue;
 pub(crate) mod retention;
+mod runtime;
 pub(crate) mod search_indexes;
 pub(crate) mod settings;
 pub(crate) mod source_apps;
@@ -44,11 +41,6 @@ pub(crate) use hud::*;
 pub(crate) use imports::*;
 pub(crate) use intelligence::*;
 pub(crate) use manual_transforms::*;
+pub(crate) use runtime::refresh_native_app_menu;
 pub(crate) use source_apps::*;
 pub(crate) use transformations::*;
-
-fn refresh_native_app_menu(app: &AppHandle, db: &Arc<DbState>) {
-    if let Err(error) = crate::app_menu::install(app, db) {
-        eprintln!("Could not refresh the native app menu: {error}");
-    }
-}

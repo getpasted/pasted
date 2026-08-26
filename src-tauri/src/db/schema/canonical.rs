@@ -7,6 +7,7 @@ mod content_registry;
 mod extractor_identity_migrations;
 mod extractors;
 mod organization;
+mod search_history;
 mod visual_labels;
 
 use clips::initialize_clip_schema;
@@ -14,6 +15,7 @@ use content_compatibility::finalize_content_registry;
 use content_registry::initialize_content_registry;
 use extractors::initialize_extractor_registry;
 use organization::initialize_organization_schema;
+use search_history::initialize_search_history_schema;
 
 impl DbState {
     pub(in crate::db) fn init_tables(&self) -> Result<()> {
@@ -21,6 +23,7 @@ impl DbState {
 
         initialize_clip_schema(&conn)?;
         initialize_organization_schema(&conn)?;
+        initialize_search_history_schema(&conn)?;
         self.init_transformation_tables(&conn)?;
 
         conn.execute(

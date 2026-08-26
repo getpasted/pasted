@@ -28,7 +28,7 @@ export function FileReferenceFooter({ preview, isChecking, onRecheck }: FileRefe
     <span className="min-w-0 flex-1 truncate px-2 py-1.5" role="status">{label}</span>
     <button
       type="button"
-      className="theme-icon-button theme-focusable flex h-8 w-8 shrink-0 items-center justify-center rounded-md border transition-colors disabled:cursor-wait disabled:opacity-60"
+      className="theme-icon-button theme-focusable ui-control-radius flex h-8 w-8 shrink-0 items-center justify-center border transition-colors disabled:cursor-wait disabled:opacity-60"
       disabled={isChecking}
       onClick={onRecheck}
       aria-label={translate('component.fileClipPreviewPanel.recheck')}

@@ -1,17 +1,28 @@
 use super::*;
 
+const DEFAULT_BROWSER_SMART_RULE: &str = concat!(
+    r#"{"version":1,"conditions":["#,
+    r#"{"type":"source","operator":"contains","value":"Safari"},"#,
+    r#"{"type":"source","operator":"contains","value":"Chrome"},"#,
+    r#"{"type":"source","operator":"contains","value":"Chromium"},"#,
+    r#"{"type":"source","operator":"contains","value":"Firefox"},"#,
+    r#"{"type":"source","operator":"contains","value":"Edge"},"#,
+    r#"{"type":"source","operator":"is","value":"Arc"},"#,
+    r#"{"type":"source","operator":"contains","value":"Brave"},"#,
+    r#"{"type":"source","operator":"contains","value":"Vivaldi"},"#,
+    r#"{"type":"source","operator":"contains","value":"Opera"},"#,
+    r#"{"type":"source","operator":"contains","value":"Orion"},"#,
+    r#"{"type":"source","operator":"is","value":"Zen Browser"}],"match":"any"}"#,
+);
+
 pub(crate) fn insert_default_bins(conn: &Connection) -> Result<()> {
     conn.execute(
-        "INSERT INTO bins (name, icon, color, smart_rule) VALUES ('Images', '🖼️', '#ec4899', '{\"version\":1,\"conditions\":[{\"type\":\"clip_type\",\"operator\":\"is\",\"value\":\"image\"}],\"match\":\"any\"}')",
+        "INSERT INTO bins (name, icon, color, smart_rule) VALUES ('Projects', '🗂️', '#6b7280', NULL)",
         [],
     )?;
     conn.execute(
-        "INSERT INTO bins (name, icon, color, smart_rule) VALUES ('Links and Web', 'Link', '#3b82f6', '{\"version\":1,\"conditions\":[{\"type\":\"content_type\",\"operator\":\"is\",\"value\":\"link\"}],\"match\":\"any\"}')",
-        [],
-    )?;
-    conn.execute(
-        "INSERT INTO bins (name, icon, color, smart_rule) VALUES ('Code Snippets', 'Code', '#10b981', '{\"version\":1,\"conditions\":[{\"type\":\"content_type\",\"operator\":\"is\",\"value\":\"code\"}],\"match\":\"any\"}')",
-        [],
+        "INSERT INTO bins (name, icon, color, smart_rule) VALUES ('From Browsers', '🌐', '#6b7280', ?1)",
+        params![DEFAULT_BROWSER_SMART_RULE],
     )?;
     Ok(())
 }

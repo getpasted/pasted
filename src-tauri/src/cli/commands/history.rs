@@ -188,7 +188,7 @@ pub(crate) fn run_search(args: Vec<String>, db_path: PathBuf, _conn: Connection)
         .cloned()
         .collect::<Vec<_>>()
         .join(" ");
-    let result = db.search_clips(&pasted_lib::db::ClipSearchRequest {
+    let request = pasted_lib::db::ClipSearchRequest {
         query,
         clip_ids,
         clip_types: clip_type.into_iter().collect(),
@@ -198,7 +198,18 @@ pub(crate) fn run_search(args: Vec<String>, db_path: PathBuf, _conn: Connection)
         trash,
         limit,
         offset: usize::try_from(offset).unwrap_or(0),
-    })?;
+    };
+    let result = db.search_clips(&request)?;
+    let has_history_value = !request.query.trim().is_empty()
+        || !request.clip_ids.is_empty()
+        || !request.clip_types.is_empty()
+        || !request.content_types.is_empty()
+        || !request.file_formats.is_empty()
+        || !request.sources.is_empty()
+        || request.trash;
+    if request.offset == 0 && has_history_value {
+        db.record_search_history(&request, result.total_count)?;
+    }
 
     if json {
         println!(

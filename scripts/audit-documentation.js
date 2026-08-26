@@ -75,9 +75,11 @@ assert.match(
   'CLI Reference must list every registry kind, including Capture',
 );
 for (const command of [
+  'pasted clip labels list|add|remove|reset <id>',
   'pasted clip versions <id>',
   'pasted clip restore-version <id> <version-id>',
   'pasted clip delete-version <id> <version-id> --yes',
+  'pasted transform list [--json]',
 ]) {
   assert.ok(cliReference.includes(command), `CLI Reference must document ${command}`);
 }
@@ -85,6 +87,22 @@ for (const command of [
 const recoveryGuide = readFileSync(join(repositoryRoot, 'docs/wiki/Backup-Trash-Revisions-and-Recovery.md'), 'utf8');
 for (const invariant of ['Current and Original cannot be deleted', 'Original is retained outside the configured limit']) {
   assert.ok(recoveryGuide.includes(invariant), `Recovery guide must document: ${invariant}`);
+}
+
+const wikiCoverage = files
+  .filter((file) => file.startsWith('docs/wiki/'))
+  .map((file) => readFileSync(join(repositoryRoot, file), 'utf8'))
+  .join('\n');
+for (const rc5Coverage of [
+  'Activity and Insights',
+  'several manual Bins',
+  'Exclude private browser windows',
+  'pasted settings reset <page> --dry-run --json',
+  'expected no-output',
+  'pasted clip labels list|add|remove|reset <id>',
+  'External clipboard-manager imports',
+]) {
+  assert.ok(wikiCoverage.includes(rc5Coverage), `Wiki must document RC5 coverage: ${rc5Coverage}`);
 }
 
 for (const file of [

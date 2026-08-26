@@ -220,7 +220,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto sidebar-scroll-container px-2.5 pt-2 pb-3 space-y-3 text-[0.8125rem]">
+      <div data-pasted-scroll-key="sidebar:expanded" className="flex-1 overflow-y-auto sidebar-scroll-container px-2.5 pt-2 pb-3 space-y-3 text-[0.8125rem]">
         <SidebarClipSection
           items={clipNavItems}
           counts={clipCountByTab}

@@ -7,7 +7,7 @@ import { OverflowText } from './OverflowText';
 import { useMinuteTick } from '../hooks/useMinuteTick';
 import { dateTimeAttribute, formatFullDateTime, formatRelativeTime } from '../utils/date';
 import { AppDialog } from './AppDialog';
-import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
+import { ActionButton, AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading } from './AppDialogLayout';
 import { translate } from '../localization/runtime';
 import { ActivityEventBadge } from './ActivityEventBadge';
 import { activityLogMatches } from './activityLogFilter';
@@ -156,20 +156,20 @@ export const ActivityLogView: React.FC = () => {
             />
           </div>
 
-          <button
+          <ActionButton
+            variant="danger"
             onClick={() => setIsClearConfirmOpen(true)}
             disabled={logs.length === 0}
-            className="theme-secondary-button ui-control-radius flex h-[34px] items-center space-x-1.5 px-3 disabled:opacity-40 border text-xs font-semibold transition-[background-color,border-color,color,opacity] cursor-pointer"
           >
             <Trash2 className="w-3.5 h-3.5" />
             <span>{translate('component.activityLogView.clearActivity')}</span>
-          </button>
+          </ActionButton>
           </div>
         )}
       />
 
       {/* Timeline Content List */}
-      <div className="tools-scroll-region flex-1 overflow-y-auto p-6 space-y-3">
+      <div data-pasted-scroll-key="activity" className="tools-scroll-region flex-1 overflow-y-auto p-6 space-y-3">
         {filteredLogs.length === 0 ? (
           <div className="theme-text-subtle h-full flex flex-col items-center justify-center space-y-2">
             <Activity className="w-10 h-10 opacity-30" />

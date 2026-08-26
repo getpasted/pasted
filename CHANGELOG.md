@@ -4,43 +4,32 @@ Notable user-facing changes to Pasted are recorded here. The project follows sem
 
 ## Unreleased
 
-- added a Hotkeys Functionality gate that unregisters all system-wide hotkeys while preserving configured app, clip, Bin, and Transform assignments.
-- hardened hotkey registration with duplicate and invalid-binding preflight, targeted conflict rollback, lean assignment queries, nonblocking serialized clipboard actions, and event-driven Settings status updates.
-- added paste-by-ID hotkeys for clips, automatic explicit protection for hotkey assignments, and inherited protection for every clip assigned to a manual Bin or Tag, with GUI, CLI, Activity, transfer, backup, Help, and localization parity.
-- added validated Full Backup and Full Restore across Settings and the CLI, covering every durable database table plus saved interface/window state and creating a pre-restore recovery snapshot automatically.
-- consolidated reporting exports under Storage and added History and Organization preflight summaries in the GUI and `pasted transfer` CLI workflow.
-- added one-step recovery for every trashed clip through Settings and `pasted clip restore-all`, with shared mutation summaries and Activity logging.
-- added seamless Activity history loading plus versioned OpenTelemetry-shaped JSON archives, round-trip reporting CSV, safe deduplicating imports, and matching CLI commands.
-- clarified the portable History and Organization scope and renamed clips-only exports so they cannot be mistaken for Full Backups.
-- bounded clip, Trash, and HUD queries with incremental loading, exact collection counts, and offscreen card virtualization.
-- renamed Activity clearing consistently across the GUI and CLI, and tightened Insights language to its active-library scope.
-- unified Capture, Inspectors, Extractors, Classifiers, and Suggestions under one bounded Analysis lifecycle with matching GUI, CLI, and versioned JSON contracts.
-- added Tesseract OCR, ffprobe and MediaInfo inspection, and whisper.cpp transcription with explicit local dependency and model configuration.
-- unified shipped and custom Extractors under editable, revisioned local recipes, with AI-assisted authoring, a complete Advanced form, local authoring history, testing, and GUI/CLI parity.
-- separated structural Clip Type, referenced File Format, and semantic Content Type throughout Analysis, Insights, Functionality, Help, and documentation.
-- unified Search and Smart Bins around Clip Type, Content Type, File Format, and Source with explicit operators, validated versioned rules, shared GUI/CLI behavior, and Functionality-aware matching.
-- aligned Reset, Content Type, Insights, and Help navigation language across dialogs, native menus, CLI messages, and architecture documentation.
-- made App Exclusions enforce independent text, image, file, and hotkey rules, with reliable focused-app identity on macOS, Windows, and X11.
-- added a built-in private-browser exclusion for Safari, Chrome, Edge, Firefox, DuckDuckGo, and Brave, with an explicit capture-or-exclude fallback, native accessibility signals, and matching GUI and CLI controls.
-- added consistent confirmed Reset actions to every applicable Settings footer, including General and Intelligence, with exact change previews and scoped defaults that preserve library data, connection details, App Lock credentials, custom Analysis definitions, and assigned item hotkeys; added matching `pasted settings reset <page> --json` commands.
-- centralized persisted setting ownership, defaults, validation, visibility, and reset behavior in a shared versioned contract consumed by the GUI and Rust services, with coverage audits and factory-reset parity tests.
-- added non-mutating `settings reset <page> --dry-run` CLI previews.
-- unified Settings footer guidance, connected registry controls, and selected-menu styling while tightening copy and row layout.
+No changes yet.
 
-## 1.0.0-rc.5 — 2026-08-12
+## 1.0.0-rc.5 — 2026-08-26
 
-This release candidate expands library organization, capture feedback, and customization while hardening shared data contracts:
+This release candidate expands organization, recovery, local Analysis, and automation while hardening the shared contracts intended for 1.0:
 
-- added release-blocking open-source policy checks, expiring RustSec exceptions, pull-request dependency review, and source plus exact-artifact SPDX SBOMs;
-- added multi-Bin clip organization with persistent per-Bin ordering and matching GUI and CLI behavior;
-- introduced editable content types, groups, and classifiers, including rescanning and safe migration of earlier classification preferences;
-- added bounded external-history imports for Maccy, Pastebot, Paste, Pasta, CopyClip, and Flycut;
-- added welcome setup, reorganized feature settings, two new light themes, interactive capture previews, and a global notification gate;
-- consolidated Transform storage and interfaces while refining editor workflows, provider warnings, and execution provenance;
-- normalized clip source metadata and fixed screenshot and image-copy semantics without reinterpreting existing clip identity;
-- restored the last active page, selected clip, sidebar state, and navigation sections across launches, with a configurable Startup View preference;
-- improved clip-list rendering, pin feedback, macOS titlebar and window-drag behavior, and in-app help; and
-- added in-app open-source license access and complete third-party notice artifacts for distributed packages.
+- added multi-Bin organization with persistent per-Bin ordering, paste-by-ID clip hotkeys, explicit and inherited protection, and matching GUI, CLI, Activity, transfer, backup, Help, and localization behavior;
+- added validated Full Backup and Full Restore for every durable Pasted-owned table plus interface state, including automatic pre-restore recovery snapshots;
+- separated portable History and Organization transfer from Full Backup, added bounded preflight summaries, and added one-step restoration of every trashed clip;
+- added seamless Activity loading, OpenTelemetry-shaped JSON archives, reporting CSV, safe deduplicating imports, and independent retention controls;
+- bounded History, Trash, Search, and HUD queries with pagination, exact counts, incremental loading, and offscreen-card virtualization;
+- unified Capture, Inspectors, Extractors, Classifiers, and Suggestions under one bounded Analysis lifecycle with shared GUI, CLI, and versioned privacy-safe JSON contracts;
+- separated structural Clip Type, byte-verified File Format, semantic Content Type, and Source throughout Analysis, Insights, Search, Smart Bins, Functionality, Help, and documentation;
+- added local Tesseract OCR, ffprobe and MediaInfo inspection, whisper.cpp transcription, and Apple Vision or cross-platform llama.cpp Visual Labels;
+- made Visual Labels searchable and editable, preserved label edits in Clip Versions, and added shared minimum-confidence post-processing for shipped and custom label Extractors;
+- unified shipped and custom Extractors under editable local recipes with guided setup, copyable commands, AI-assisted drafting and diagnosis, authoring history, reusable post-processing, and explicit expected no-output exit codes;
+- made nonzero OCR status counts open Search for the matching clips and added stable clip-ID filtering to the GUI and CLI search contract;
+- unified Search and Smart Bins around partial, case-insensitive Clip Type, Content Type, File Format, Source, and Visual Label matching with explicit operators and Functionality-aware behavior;
+- added editable Content Types, Groups, and Classifiers with rescanning and safe migration of earlier classification preferences;
+- made App Exclusions enforce independent text, image, file, and hotkey rules, and added private-browser capture exclusion for Safari, Chrome, Edge, Firefox, DuckDuckGo, and Brave;
+- added confirmed, scoped Settings resets with exact change previews, shared defaults and validation, factory-reset coverage, and non-mutating `pasted settings reset <page> --dry-run --json` previews;
+- added bounded external-history imports for Alfred, Pastebot, Pasta, Paste, CopyClip 2, Maccy, and Flycut;
+- added welcome setup, reorganized Functionality settings, two new light themes, interactive capture previews, a global Notifications gate, and persistent workspace restoration;
+- consolidated Transform storage and interfaces while refining manual editing, provider warnings, execution provenance, and deterministic GUI/CLI parity;
+- normalized source metadata and stabilized screenshot, image-copy, file-reference, HUD, titlebar, and window-drag behavior; and
+- added release-blocking license, advisory, mission-policy, dependency-review, notice, and source plus exact-artifact SPDX SBOM checks.
 
 ## 1.0.0-rc.4 — 2026-08-10
 

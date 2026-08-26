@@ -12,6 +12,7 @@ import { SettingsGeneralAppearanceSection } from './SettingsGeneralAppearanceSec
 import { SettingsGeneralLayoutSection } from './SettingsGeneralLayoutSection';
 import { SettingsGeneralRetentionSections } from './SettingsGeneralRetentionSections';
 import { SettingsGeneralHistoryLimits } from './SettingsGeneralHistoryLimits';
+import { SettingsGeneralSearchHistorySection } from './SettingsGeneralSearchHistorySection';
 import { SettingsGeneralResetFooter } from './SettingsGeneralResetFooter';
 
 interface SettingsGeneralPanelProps {
@@ -383,6 +384,8 @@ export function SettingsGeneralPanel({
               <SettingsGeneralHistoryLimits settings={settings} onUpdateSettings={onUpdateSettings} />
 
             </div>
+
+            <SettingsGeneralSearchHistorySection settings={settings} onUpdateSettings={onUpdateSettings} />
 
             <SettingsGeneralRetentionSections
               settings={settings}

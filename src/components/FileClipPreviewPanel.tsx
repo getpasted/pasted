@@ -96,7 +96,7 @@ function FileCopyField({
     <button
       type="button"
       onClick={() => onCopyFormat(copyLabel, value)}
-      className="theme-icon-button theme-focusable flex h-8 w-8 shrink-0 items-center justify-center rounded-md border transition-colors"
+      className="theme-icon-button theme-focusable ui-control-radius flex h-8 w-8 shrink-0 items-center justify-center border transition-colors"
       title={copiedFormat === copyLabel ? UI_COPY.copied : translate('component.clipPreviewContent.copyLabel', { label })}
     >
       {copiedFormat === copyLabel ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
@@ -132,7 +132,7 @@ export function FileClipPreviewPanel({
       });
     }
   };
-  return <div className="theme-panel rounded-2xl border px-4 pb-4 pt-3 shadow-lg">
+  return <div className="theme-panel rounded-2xl border px-4 pb-4 pt-3">
     <div className="theme-title mb-2 flex min-h-8 items-center gap-2 text-xs font-semibold">
       <div className="flex min-w-0 items-center gap-2">
         <Files className="theme-status-info-text h-4 w-4 shrink-0" />

@@ -22,6 +22,8 @@ import {
   handleManualTransformBrowserMock,
   mockManualTransforms,
 } from './manualTransforms';
+import { createDefaultMockBins } from './defaultBins';
+import { handleSearchHistoryBrowserMock, resetMockSearchHistory } from './searchHistory';
 
 let mockClips: MockClip[] = [
   {
@@ -58,10 +60,7 @@ let mockClips: MockClip[] = [
   },
 ];
 
-let mockBins: MockBin[] = [
-  { id: 1, name: 'My Manual Bin', icon: '📂', color: 'default', smart_rule: null, bin_type: 'category' },
-  { id: 2, name: 'Work Bin', icon: '💼', color: '#10b981', smart_rule: '', bin_type: 'category' },
-];
+let mockBins: MockBin[] = createDefaultMockBins();
 
 export const getMockClips = () => mockClips;
 
@@ -154,6 +153,7 @@ export async function invokeLibraryBrowserMock<T>(
     handleQueueBrowserMock(cmd, args),
     handleAppStateBrowserMock(cmd, args),
     handleManualTransformBrowserMock(cmd, args),
+    handleSearchHistoryBrowserMock(cmd, args),
   ]) {
     if (result.matched) return result.value as T;
   }
@@ -205,11 +205,8 @@ export async function invokeLibraryBrowserMock<T>(
         activityEntriesDeleted: 0,
       };
       mockClips = [];
-      mockBins = [
-        { id: 1, name: 'Images', icon: '🖼️', color: '#ec4899', smart_rule: '{"version":1,"conditions":[{"type":"clip_type","operator":"is","value":"image"}],"match":"any"}', bin_type: 'category' },
-        { id: 2, name: 'Links and Web', icon: 'Link', color: '#3b82f6', smart_rule: '{"version":1,"conditions":[{"type":"content_type","operator":"is","value":"link"}],"match":"any"}', bin_type: 'category' },
-        { id: 3, name: 'Code Snippets', icon: 'Code', color: '#10b981', smart_rule: '{"version":1,"conditions":[{"type":"content_type","operator":"is","value":"code"}],"match":"any"}', bin_type: 'category' },
-      ];
+      mockBins = createDefaultMockBins();
+      resetMockSearchHistory();
       resetMockIntelligence();
       return report as unknown as T;
     }

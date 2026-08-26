@@ -3,6 +3,10 @@ use super::*;
 mod request_validation;
 mod term_fields;
 
+pub(super) fn validate_search_request(request: &ClipSearchRequest) -> Result<()> {
+    request_validation::validate(request)
+}
+
 #[derive(Debug, Default)]
 pub(super) struct ParsedClipSearch {
     pub clip_ids: Vec<i64>,
@@ -168,7 +172,7 @@ impl DbState {
     }
 
     pub fn search_clips(&self, request: &ClipSearchRequest) -> Result<ClipSearchResult> {
-        request_validation::validate(request)?;
+        validate_search_request(request)?;
 
         let limit = if request.limit == 0 {
             DEFAULT_CLIP_SEARCH_PAGE_SIZE

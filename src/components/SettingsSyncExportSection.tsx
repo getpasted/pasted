@@ -58,7 +58,7 @@ export function SettingsSyncExportSection({
       id="export-title"
       title={translate('component.settingsSyncPanel.export')}
       description={translate('component.settingsSyncPanel.chooseWhatToIncludeAndHowToPackageIt')}
-      actions={<div className="theme-code-surface flex shrink-0 rounded-lg border p-1" aria-label={translate('component.settingsSyncPanel.exportFormat')}>
+      actions={<div className="theme-code-surface ui-control-radius flex shrink-0 border p-1" aria-label={translate('component.settingsSyncPanel.exportFormat')}>
         {(['json', 'csv', 'backup'] as const satisfies readonly VisibleExportFormat[]).map((format) => {
           const active = exportMode === 'full' ? format === 'backup' : format === exportFormat;
           return <button
@@ -73,7 +73,7 @@ export function SettingsSyncExportSection({
               onChooseFormat(format);
               onChooseMode('custom');
             }}
-            className={`settings-feature-preset rounded-md px-3 py-1.5 text-[10px] font-semibold uppercase ${active ? 'is-active' : ''}`}
+            className={`settings-feature-preset ui-control-radius border border-transparent px-3 py-1.5 text-[10px] font-semibold uppercase ${active ? 'is-active' : ''}`}
           >
             {EXPORT_FORMAT_LABEL[format]}
           </button>;

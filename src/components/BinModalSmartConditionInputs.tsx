@@ -162,7 +162,7 @@ export function SmartConditionValueInput({
     />
     <button
       type="button"
-      className="theme-text-muted grid self-stretch shrink-0 place-items-center px-2"
+      className="theme-icon-button grid self-stretch shrink-0 place-items-center rounded-e-lg px-2 transition-colors"
       aria-label={label}
       aria-haspopup="menu"
       aria-expanded={isOpen}

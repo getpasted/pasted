@@ -3,7 +3,7 @@ export const SIDEBAR_SECTION_IDS = ['clips', 'bins', 'clipTypes', 'types', 'file
 export type SidebarSectionId = typeof SIDEBAR_SECTION_IDS[number];
 export type SidebarSectionState = Record<SidebarSectionId, boolean>;
 
-export const SETTINGS_TABS = ['general', 'functionality', 'hotkeys', 'notifications', 'security', 'app-exclusions', 'storage', 'analysis', 'intelligence', 'about'] as const;
+export const SETTINGS_TABS = ['general', 'functionality', 'search-history', 'hotkeys', 'notifications', 'security', 'app-exclusions', 'storage', 'analysis', 'intelligence', 'about'] as const;
 export const HELP_TOPICS = ['getting-started', 'cli', 'shortcuts-hud', 'privacy-capture', 'deletion-recovery', 'analysis', 'transformations'] as const;
 export const TRANSFORM_WORKSPACES = ['transforms', 'advanced', 'playground'] as const;
 
@@ -22,6 +22,8 @@ export interface AppUiState {
   isSidebarCollapsed: boolean;
   sidebarSections: SidebarSectionState;
 }
+
+export const APP_UI_STATE_KEY = 'pasted_app_ui_state';
 
 export const DEFAULT_SIDEBAR_SECTIONS: SidebarSectionState = {
   clips: true,
@@ -44,6 +46,21 @@ export const DEFAULT_APP_UI_STATE: AppUiState = {
   isSidebarCollapsed: false,
   sidebarSections: DEFAULT_SIDEBAR_SECTIONS,
 };
+
+interface ResettableClientStorage {
+  readonly length: number;
+  key(index: number): string | null;
+  removeItem(key: string): void;
+  setItem(key: string, value: string): void;
+}
+
+export function resetPastedClientStorage(storage: ResettableClientStorage) {
+  for (let index = storage.length - 1; index >= 0; index -= 1) {
+    const key = storage.key(index);
+    if (key?.startsWith('pasted_')) storage.removeItem(key);
+  }
+  storage.setItem(APP_UI_STATE_KEY, JSON.stringify(DEFAULT_APP_UI_STATE));
+}
 
 const STANDARD_TABS = new Set([
   'all', 'search', 'sequential', 'pinned', 'protected', 'concealed', 'notes', 'trash', 'bin',

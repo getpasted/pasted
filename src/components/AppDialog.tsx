@@ -134,7 +134,7 @@ export function AppDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelledBy}
-        className={`app-dialog-panel ${panelClassName}`}
+        className={`app-dialog-panel elevation-modal ${panelClassName}`}
       >
         {typeof children === 'function' ? children({ requestClose }) : children}
       </div>
@@ -151,7 +151,7 @@ export function AppDialog({
             role="alertdialog"
             aria-modal="true"
             aria-labelledby={discardTitleId}
-            className="app-dialog-confirm-panel theme-panel w-full max-w-sm overflow-hidden rounded-2xl border shadow-2xl"
+            className="app-dialog-confirm-panel theme-panel elevation-modal w-full max-w-sm overflow-hidden rounded-2xl border"
           >
             <div className="app-dialog-body">
               <h2 id={discardTitleId} className="app-dialog-title">{translate('common.discardChangesQuestion')}</h2>

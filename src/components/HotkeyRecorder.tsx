@@ -114,14 +114,14 @@ export const HotkeyRecorder: React.FC<HotkeyRecorderProps> = ({
           isRecording
             ? 'is-recording px-2.5 animate-pulse'
             : value
-            ? 'has-value ps-2.5 pe-1.5 shadow-sm'
+            ? 'has-value elevation-control ps-2.5 pe-1.5'
             : 'is-empty px-2'
         }`}
       >
         <button
           type="button"
           onClick={() => setIsRecording(true)}
-          className="flex items-center space-x-1"
+          className="hotkey-recorder-trigger flex items-center space-x-1"
           title={value ? translate('component.hotkeyRecorder.hotkeyValue', { value: formatHotkeyDisplay(value) ?? value }) : translate('component.hotkeyRecorder.setHotkey')}
         >
           <Keyboard className="hotkey-recorder-icon w-3.5 h-3.5 opacity-80 shrink-0" />

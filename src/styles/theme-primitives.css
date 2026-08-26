@@ -86,7 +86,7 @@
   border: 1px solid;
   border-radius: var(--radius-control);
   background-color: color-mix(in srgb, var(--bg-surface) 88%, transparent);
-  box-shadow: var(--shadow-card-selected);
+  box-shadow: var(--elevation-floating);
   backdrop-filter: blur(22px) saturate(135%);
   -webkit-backdrop-filter: blur(22px) saturate(135%);
   pointer-events: auto;
@@ -131,13 +131,13 @@
 html:not(.is-stable-reordering) .connection-priority-card:hover {
   background-color: color-mix(in srgb, var(--accent-primary) 5%, var(--bg-card));
   border-color: color-mix(in srgb, var(--accent-primary) 28%, var(--border-card));
-  box-shadow: var(--shadow-card-selected);
+  box-shadow: var(--elevation-floating);
 }
 
 .connection-priority-card.is-dragging {
   opacity: 0.62;
   border-color: color-mix(in srgb, var(--accent-primary) 42%, var(--border-card));
-  box-shadow: var(--shadow-card-selected);
+  box-shadow: var(--elevation-floating);
 }
 
 .theme-status-warning,
@@ -219,7 +219,31 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   background-color: var(--bg-card);
   border-color: var(--border-card);
   color: var(--text-main);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--elevation-raised);
+}
+
+.theme-interactive-card {
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+
+.theme-interactive-card:hover:not(:disabled) {
+  background-color: var(--bg-card-hover);
+  border-color: var(--border-card-selected);
+  box-shadow: var(--elevation-raised), 0 0 0 1px color-mix(in srgb, var(--accent-primary) 24%, transparent);
+}
+
+.theme-input-action:hover:not(:disabled) {
+  background-color: var(--bg-tab-hover);
+  border-color: var(--border-card-selected);
+}
+
+.theme-inline-action {
+  transition: color 100ms ease, text-decoration-color 100ms ease;
+}
+
+.theme-inline-action:hover:not(:disabled) {
+  color: var(--text-title);
+  text-decoration-color: var(--accent-primary);
 }
 
 .ocr-status-card {
@@ -258,7 +282,7 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   background-color: color-mix(in srgb, var(--bg-card) 96%, transparent);
   border-color: var(--border-card);
   color: var(--text-muted);
-  box-shadow: var(--shadow-card-selected);
+  box-shadow: var(--elevation-floating);
 }
 
 .floating-action-button {
@@ -334,10 +358,9 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 }
 
 .settings-tab.is-active {
-  background-color: var(--accent-primary);
-  border-color: color-mix(in srgb, var(--accent-primary) 72%, var(--border-subtle));
-  color: var(--accent-primary-contrast);
-  box-shadow: 0 1px 3px color-mix(in srgb, var(--accent-primary) 28%, transparent);
+  background-color: color-mix(in srgb, var(--accent-primary) 14%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--accent-primary) 58%, var(--border-subtle));
+  color: color-mix(in srgb, var(--accent-primary) 82%, var(--text-title));
 }
 
 .settings-tab:focus-visible {
@@ -365,8 +388,9 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 }
 
 .settings-feature-preset.is-active {
-  background-color: var(--accent-primary);
-  color: var(--accent-primary-contrast);
+  background-color: color-mix(in srgb, var(--accent-primary) 14%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--accent-primary) 58%, var(--border-subtle));
+  color: color-mix(in srgb, var(--accent-primary) 82%, var(--text-title));
 }
 
 .settings-disabled-row {
@@ -491,7 +515,6 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 .info-popover-trigger:focus-visible {
   background-color: color-mix(in srgb, currentColor 12%, transparent);
   box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 35%, transparent);
-  outline: none;
 }
 
 .info-popover-content {
@@ -585,8 +608,11 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 
 .settings-switch {
   background-color: var(--bg-tab-hover);
+  transition: background-color 120ms ease, box-shadow 120ms ease;
 }
 
+.settings-switch:hover:not(:disabled):not(.is-on),
+.settings-switch:focus-visible:not(:disabled):not(.is-on),
 .settings-feature-card:hover .settings-switch:not(.is-on),
 .settings-feature-card:focus-within .settings-switch:not(.is-on) {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-primary) 48%, var(--border-subtle));
@@ -639,6 +665,10 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   color: var(--text-title);
 }
 
+.hotkey-recorder-trigger:hover {
+  color: var(--text-title);
+}
+
 .hotkey-recorder-icon {
   color: var(--accent-primary);
 }
@@ -670,21 +700,28 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 }
 
 .smart-action-button {
+  box-sizing: border-box;
+  display: inline-flex;
+  height: 2rem;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.375rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 46%, var(--border-subtle));
+  border-radius: var(--radius-control);
   background-color: color-mix(in srgb, var(--accent-primary) 12%, var(--bg-surface));
-  border-color: color-mix(in srgb, var(--accent-primary) 46%, var(--border-subtle));
   color: var(--text-main);
-  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, transform 140ms ease;
+  font-size: 0.75rem;
+  font-weight: 650;
+  line-height: 1;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
 }
 
 .smart-action-button:hover {
   background-color: color-mix(in srgb, var(--accent-primary) 20%, var(--bg-surface));
   border-color: color-mix(in srgb, var(--accent-primary) 68%, var(--border-subtle));
   color: var(--text-title);
-  transform: translateY(-1px);
-}
-
-.smart-action-button:active {
-  transform: translateY(0);
 }
 
 .smart-action-button:focus-visible {
@@ -762,13 +799,14 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 }
 
 .theme-secondary-button {
-  background-color: var(--bg-tab-hover);
+  background-color: transparent;
   border-color: var(--border-subtle);
   color: var(--text-main);
 }
 
 .theme-secondary-button:hover {
-  background-color: var(--bg-card-selected);
+  background-color: var(--bg-tab-hover);
+  border-color: var(--border-card-selected);
   color: var(--text-title);
 }
 
@@ -782,9 +820,9 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 }
 
 .appearance-mode-button.is-active {
-  color: var(--accent-primary-contrast);
-  background-color: var(--accent-primary);
-  box-shadow: 0 1px 3px color-mix(in srgb, var(--accent-primary) 32%, transparent);
+  color: color-mix(in srgb, var(--accent-primary) 82%, var(--text-title));
+  background-color: color-mix(in srgb, var(--accent-primary) 14%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--accent-primary) 58%, var(--border-subtle));
 }
 
 .appearance-mode-button:focus-visible {
@@ -842,17 +880,6 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-primary) 38%, transparent);
 }
 
-.preview-filter-reset {
-  background-color: color-mix(in srgb, var(--accent-primary) 11%, var(--bg-surface));
-  border-color: color-mix(in srgb, var(--accent-primary) 44%, var(--border-subtle));
-  color: var(--text-main);
-}
-
-.preview-filter-reset:hover {
-  background-color: color-mix(in srgb, var(--accent-primary) 19%, var(--bg-surface));
-  color: var(--text-title);
-}
-
 .transform-workspace-tab {
   color: var(--text-muted);
 }
@@ -865,7 +892,7 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 .transform-workspace-tab.is-active {
   background-color: var(--bg-card-selected);
   color: var(--text-title);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--elevation-raised);
 }
 
 .transform-workspace-tab.manual-transforms.is-active svg {
@@ -888,23 +915,46 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 }
 
 .transform-workspace-action {
-  color: var(--status-danger-contrast);
+  box-sizing: border-box;
+  display: inline-flex;
+  min-height: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.375rem 1rem;
+  border: 1px solid;
+  border-radius: var(--radius-control);
+  background-color: transparent;
+  font-size: 0.75rem;
+  font-weight: 650;
+  line-height: 1;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, opacity 120ms ease;
 }
 
 .transform-workspace-action.manual-transforms {
-  background-color: var(--manual-transform-action);
+  border-color: color-mix(in srgb, var(--manual-transform-accent) 58%, var(--border-subtle));
+  color: color-mix(in srgb, var(--manual-transform-accent) 72%, var(--text-title));
 }
 
 .transform-workspace-action.manual-transforms:hover {
-  background-color: var(--manual-transform-action-hover);
+  background-color: color-mix(in srgb, var(--manual-transform-accent) 14%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--manual-transform-accent) 82%, var(--border-subtle));
 }
 
 .transform-workspace-action.operations {
-  background-color: var(--operation-action);
+  border-color: color-mix(in srgb, var(--operation-accent) 58%, var(--border-subtle));
+  color: color-mix(in srgb, var(--operation-accent) 72%, var(--text-title));
 }
 
 .transform-workspace-action.operations:hover {
-  background-color: var(--operation-action-hover);
+  background-color: color-mix(in srgb, var(--operation-accent) 14%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--operation-accent) 82%, var(--border-subtle));
+}
+
+.transform-workspace-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
 }
 
 .transform-category-select {
@@ -912,7 +962,7 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   background-color: var(--bg-card);
   border-color: var(--border-card);
   color: var(--text-main);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--elevation-raised);
 }
 
 .menu-select-trigger {
@@ -926,7 +976,6 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 .menu-select-trigger[aria-expanded="true"] {
   background-color: var(--bg-card-hover);
   border-color: var(--border-card-selected);
-  outline: none;
 }
 
 .clip-bin-picker {
@@ -963,7 +1012,6 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 .playground-run-status-action:focus-visible {
   background-color: var(--menu-hover);
   color: var(--text-title);
-  outline: none;
 }
 
 .transform-category-select:hover,
@@ -974,7 +1022,7 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 }
 
 .transform-category-select[aria-expanded="true"] {
-  box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 16%, transparent), var(--shadow-card);
+  box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 16%, transparent), var(--elevation-raised);
 }
 
 .transform-category-select.manual-transforms > svg {
@@ -1038,13 +1086,14 @@ option {
 }
 
 .theme-primary-button {
-  background-color: var(--accent-primary);
-  border-color: color-mix(in srgb, var(--accent-primary) 72%, var(--border-subtle));
-  color: var(--accent-primary-contrast);
+  background-color: transparent;
+  border-color: color-mix(in srgb, var(--accent-primary) 58%, var(--border-subtle));
+  color: var(--accent-primary);
 }
 
-.theme-primary-button:hover {
-  background-color: color-mix(in srgb, var(--accent-primary) 94%, var(--text-title));
+.theme-primary-button:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--accent-primary) 14%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--accent-primary) 82%, var(--border-subtle));
 }
 
 .theme-icon-button {
@@ -1232,15 +1281,12 @@ option {
   padding: 0.375rem 1rem;
   border: 1px solid transparent;
   border-radius: var(--radius-control);
+  cursor: pointer;
   font-size: 0.75rem;
   font-weight: 650;
   line-height: 1;
   white-space: nowrap;
-  transition: background-color 100ms ease, border-color 100ms ease, color 100ms ease, transform 100ms ease;
-}
-
-.app-dialog-button:active:not(:disabled) {
-  transform: scale(0.98);
+  transition: background-color 100ms ease, border-color 100ms ease, color 100ms ease, filter 100ms ease;
 }
 
 .app-dialog-button:disabled {
@@ -1249,7 +1295,7 @@ option {
 }
 
 .app-dialog-button.is-secondary {
-  background-color: var(--bg-input);
+  background-color: transparent;
   border-color: var(--border-input);
   color: var(--text-main);
 }
@@ -1260,26 +1306,53 @@ option {
 }
 
 .app-dialog-button.is-primary {
-  background-color: var(--accent-primary);
-  border-color: var(--accent-primary);
-  color: var(--accent-primary-contrast);
+  background-color: transparent;
+  border-color: color-mix(in srgb, var(--accent-primary) 58%, var(--border-subtle));
+  color: var(--accent-primary);
 }
 
 .app-dialog-button.is-warning {
-  background-color: color-mix(in srgb, var(--status-warning) 16%, var(--bg-input));
+  background-color: transparent;
   border-color: color-mix(in srgb, var(--status-warning) 58%, var(--border-input));
   color: var(--status-warning);
 }
 
 .app-dialog-button.is-danger {
+  background-color: transparent;
+  border-color: color-mix(in srgb, var(--status-danger) 58%, var(--border-subtle));
+  color: var(--status-danger);
+}
+
+.app-dialog-button.is-primary:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--accent-primary) 14%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--accent-primary) 82%, var(--border-subtle));
+}
+
+.app-dialog-button.is-warning:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--status-warning) 14%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--status-warning) 82%, var(--border-subtle));
+}
+
+.app-dialog-button.is-danger:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--status-danger) 14%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--status-danger) 82%, var(--border-subtle));
+}
+
+.app-dialog-button.is-solid-primary {
+  background-color: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary-contrast);
+}
+
+.app-dialog-button.is-solid-danger {
   background-color: var(--status-danger);
   border-color: var(--status-danger);
   color: var(--status-danger-contrast);
 }
 
-.app-dialog-button.is-primary:hover:not(:disabled),
-.app-dialog-button.is-danger:hover:not(:disabled) {
-  filter: brightness(1.08);
+.app-dialog-button.is-solid-primary:hover:not(:disabled),
+.app-dialog-button.is-solid-danger:hover:not(:disabled) {
+  filter: brightness(1.14) saturate(1.08);
 }
 
 .delete-bin-options {
@@ -1296,7 +1369,7 @@ option {
   background-color: var(--menu-surface);
   border-color: var(--border-subtle);
   color: var(--text-main);
-  box-shadow: 0 10px 30px color-mix(in srgb, var(--shadow-color) 42%, transparent);
+  box-shadow: var(--elevation-floating);
   -webkit-backdrop-filter: blur(24px) saturate(var(--material-saturation));
   backdrop-filter: blur(24px) saturate(var(--material-saturation));
 }
@@ -1314,7 +1387,6 @@ option {
 .theme-menu-item:focus-visible {
   background-color: var(--menu-hover);
   color: var(--text-title);
-  outline: none;
 }
 
 .theme-menu-item:focus-visible {
@@ -1502,13 +1574,12 @@ option {
 }
 
 .clip-format-button {
-  transition: background-color 140ms ease, border-color 140ms ease, transform 140ms ease;
+  transition: background-color 140ms ease, border-color 140ms ease;
 }
 
 .clip-format-button:hover {
   background-color: var(--bg-card-hover);
   border-color: var(--border-card-selected);
-  transform: translateY(-1px);
 }
 
 .image-preview-stage {
@@ -1715,22 +1786,47 @@ option {
   border-color: color-mix(in srgb, var(--queue-accent) 28%, var(--border-subtle));
 }
 
+.queue-action-secondary,
+.queue-action-primary {
+  box-sizing: border-box;
+  display: inline-flex;
+  min-height: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.375rem 1rem;
+  border: 1px solid;
+  border-radius: var(--radius-control);
+  background-color: transparent;
+  font-size: 0.75rem;
+  font-weight: 650;
+  line-height: 1;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, opacity 120ms ease;
+}
+
 .queue-action-secondary {
-  background-color: color-mix(in srgb, var(--queue-accent) 18%, var(--bg-surface));
   border-color: color-mix(in srgb, var(--queue-accent) 46%, var(--border-subtle));
   color: color-mix(in srgb, var(--queue-accent) 76%, var(--text-title));
 }
 
 .queue-action-secondary:hover {
-  background-color: color-mix(in srgb, var(--queue-accent) 25%, var(--bg-surface));
+  background-color: color-mix(in srgb, var(--queue-accent) 12%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--queue-accent) 68%, var(--border-subtle));
 }
 
 .queue-action-primary {
-  background-color: var(--queue-accent);
-  border-color: color-mix(in srgb, var(--queue-accent) 76%, var(--border-subtle));
-  color: var(--accent-primary-contrast);
+  border-color: color-mix(in srgb, var(--queue-accent) 72%, var(--border-subtle));
+  color: color-mix(in srgb, var(--queue-accent) 86%, var(--text-title));
 }
 
 .queue-action-primary:hover {
-  background-color: color-mix(in srgb, var(--queue-accent) 86%, var(--text-title));
+  background-color: color-mix(in srgb, var(--queue-accent) 16%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--queue-accent) 88%, var(--border-subtle));
+}
+
+.queue-action-secondary:disabled,
+.queue-action-primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
 }

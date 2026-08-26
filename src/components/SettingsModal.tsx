@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Settings } from 'lucide-react';
-import { AppSettings, BlacklistApp, ManualTransform, Bin } from '../types';
+import { AppSettings, BlacklistApp, ManualTransform, Bin, type ClipSearchRequest } from '../types';
 import { SettingsTabs, type SettingsTab } from './SettingsTabs';
 import { SettingsBlacklistPanel } from './SettingsBlacklistPanel';
 import { SettingsGeneralPanel } from './SettingsGeneralPanel';
@@ -15,6 +15,7 @@ import { SettingsNotificationsPanel } from './SettingsNotificationsPanel';
 import { SettingsAnalysisPanel } from './SettingsAnalysisPanel';
 import { SettingsWelcomePanel } from './SettingsWelcomePanel';
 import { SettingsSecurityPanel } from './SettingsSecurityPanel';
+import { SettingsSearchHistoryPanel } from './SettingsSearchHistoryPanel';
 import { translate } from '../localization/runtime';
 
 interface SettingsModalProps {
@@ -31,6 +32,7 @@ interface SettingsModalProps {
   onRefreshBins?: () => void;
   onRefreshClips?: () => void;
   onRefreshTrashedClips?: () => void;
+  onResetClientState?: (resetInPlace: boolean) => void;
   onClearHistory?: (permanent: boolean) => void;
   onRestoreAllTrashedClips?: () => Promise<number>;
   trashedClipCount?: number;
@@ -39,6 +41,7 @@ interface SettingsModalProps {
   onActiveTabChange: (tab: SettingsTab) => void;
   onOpenAnalytics?: () => void;
   onSearchClips: (clipIds: number[]) => void;
+  onRunSearch: (request: ClipSearchRequest) => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -55,6 +58,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onRefreshBins,
   onRefreshClips,
   onRefreshTrashedClips,
+  onResetClientState,
   onClearHistory,
   onRestoreAllTrashedClips,
   trashedClipCount = 0,
@@ -63,6 +67,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onActiveTabChange,
   onOpenAnalytics,
   onSearchClips,
+  onRunSearch,
 }) => {
   useEffect(() => {
     if (!settings.enableNotifications && activeTab === 'notifications') {
@@ -82,15 +87,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }, [activeTab, onActiveTabChange, settings.enableHotkeys]);
 
+  useEffect(() => {
+    if (!settings.enableSearch && activeTab === 'search-history') {
+      onActiveTabChange('functionality');
+    }
+  }, [activeTab, onActiveTabChange, settings.enableSearch]);
+
   return (
     <div className="tools-page settings-page flex-1 settings-modal-bg h-screen overflow-hidden font-sans select-none flex flex-col">
       <ToolPageHeader
         icon={<Settings className="w-4 h-4" />}
         title={translate('destination.settings')}
-        actions={<SettingsTabs activeTab={activeTab} onChange={onActiveTabChange} showNotifications={settings.enableNotifications} showSecurity={settings.enableAppLock} showHotkeys={settings.enableHotkeys} />}
+        actions={<SettingsTabs activeTab={activeTab} onChange={onActiveTabChange} showNotifications={settings.enableNotifications} showSecurity={settings.enableAppLock} showHotkeys={settings.enableHotkeys} showSearchHistory={settings.enableSearch} />}
       />
 
-      <div className="tools-scroll-region flex-1 overflow-y-auto p-6">
+      <div data-pasted-scroll-key={`settings:${activeTab}`} className="tools-scroll-region flex-1 overflow-y-auto p-6">
         <div className={`w-full mx-auto max-w-xl ${activeTab === 'storage' || activeTab === 'general' ? 'space-y-4' : 'settings-primary-well theme-panel rounded-2xl border p-6'}`}>
 
         {/* TAB 1: GENERAL */}
@@ -112,6 +123,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {activeTab === 'functionality' && (
           <SettingsFeaturesPanel settings={settings} onUpdateSettings={onUpdateSettings} />
+        )}
+
+        {settings.enableSearch && activeTab === 'search-history' && (
+          <SettingsSearchHistoryPanel onRunSearch={onRunSearch} />
         )}
 
         {activeTab === 'analysis' && (
@@ -182,6 +197,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               onRefreshManualTransforms={onRefreshManualTransforms}
               onRefreshClips={onRefreshClips}
               onRefreshTrashedClips={onRefreshTrashedClips}
+              onResetClientState={onResetClientState}
             />
           </>
         )}

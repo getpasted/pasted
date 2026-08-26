@@ -11,6 +11,7 @@ import { FileClipPreviewPanel } from './FileClipPreviewPanel';
 import type { ClipPreviewContentProps } from './clipPreviewContentModel';
 import { ClipExtractionCards as ExtractionCards } from './ClipExtractionCards';
 import { VisualLabelEditor } from './VisualLabelEditor';
+import { ActionButton } from './AppDialogLayout';
 
 function ExtractionActivity({
   history,
@@ -42,7 +43,7 @@ function ExtractionActivity({
       <div className="flex min-h-9 items-center justify-end px-2 py-1">
         <button
           type="button"
-          className="theme-secondary-button theme-focusable flex items-center gap-1.5 rounded-lg border px-2 py-1 font-semibold transition-colors"
+          className="theme-secondary-button theme-focusable ui-control-radius flex h-8 items-center gap-1.5 border px-3 font-semibold transition-colors"
           onClick={toggle}
           aria-expanded={expanded}
         >
@@ -88,9 +89,9 @@ function ExtractionActivity({
           {loading && <p>{translate('component.clipPreviewContent.loadingDetails')}</p>}
           {!loading && runs.length === 0 && <p>{translate('component.clipPreviewContent.noScanHistory')}</p>}
           {hasMore && !loading && (
-            <button type="button" className="theme-text-main theme-focusable rounded-md" onClick={() => onLoad(false)}>
+            <ActionButton onClick={() => onLoad(false)}>
               {translate('component.clipPreviewContent.loadOlder')}
-            </button>
+            </ActionButton>
           )}
         </div>
       )}
@@ -166,14 +167,14 @@ export function ClipPreviewContent({
               onRecheck={onRecheckFileReference}
             />
 
-            {transcriptionsEnabled && <section className="theme-panel overflow-hidden rounded-xl border shadow-lg">
+            {transcriptionsEnabled && <section className="theme-panel overflow-hidden rounded-xl border">
               <header className="theme-divider flex min-h-12 items-center justify-between gap-3 border-b px-4 py-2">
                 <h3 className="theme-text-main text-xs font-semibold">{translate('component.clipPreviewContent.extractions')}</h3>
                 <div className="flex items-center space-x-1.5">
                   {fileSearchableText && (
                     <button
                       onClick={() => onCopyFormat('Extracted Text', fileSearchableText.searchableText)}
-                      className="theme-icon-button theme-focusable cursor-pointer rounded-lg border p-1.5 transition-colors"
+                      className="theme-icon-button theme-focusable ui-control-radius grid h-8 w-8 place-items-center border transition-colors"
                       aria-label={copiedFormat === 'Extracted Text' ? UI_COPY.copied : translate('component.clipPreviewContent.copyExtractedText')}
                       title={copiedFormat === 'Extracted Text' ? UI_COPY.copied : translate('component.clipPreviewContent.copyExtractedText')}
                     >
@@ -183,7 +184,7 @@ export function ClipPreviewContent({
                   <button
                     onClick={onRunFileExtraction}
                     disabled={isFileExtractionLoading || readOnly}
-                    className="theme-primary-button theme-focusable cursor-pointer rounded-lg border p-1.5 shadow transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                    className="theme-primary-button theme-focusable ui-control-radius grid h-8 w-8 place-items-center border transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                     aria-label={readOnly ? translate('component.clipPreviewContent.restoreBeforeExtracting') : isFileExtractionLoading ? translate('component.clipPreviewContent.extractingText') : fileSearchableText || extractionResults.length > 0 ? translate('component.clipPreviewContent.extractAgain') : translate('component.clipPreviewContent.extractText')}
                     title={readOnly ? translate('component.clipPreviewContent.restoreBeforeExtracting') : isFileExtractionLoading ? translate('component.clipPreviewContent.extractingText') : fileSearchableText || extractionResults.length > 0 ? translate('component.clipPreviewContent.extractAgain') : translate('component.clipPreviewContent.extractText')}
                   >
@@ -196,7 +197,7 @@ export function ClipPreviewContent({
                   <ExtractionCards results={extractionResults} copiedFormat={copiedFormat} onCopyFormat={onCopyFormat} visualLabels={visualLabels} readOnly={readOnly} onAddVisualLabel={onAddVisualLabel} onRemoveVisualLabel={onRemoveVisualLabel} onResetVisualLabels={onResetVisualLabels} />
                 ) : fileSearchableText ? <>
                   <p className="theme-text-muted text-xs">{translate('component.clipPreviewContent.extractedByName', { name: fileSearchableText.extractorName })}</p>
-                  <div dir="auto" className="theme-code-surface overlay-scroll-region max-h-60 overflow-y-auto whitespace-pre-wrap rounded-xl border p-3.5 font-mono text-xs leading-relaxed shadow-inner select-text">
+                  <div dir="auto" className="theme-code-surface overlay-scroll-region elevation-inset max-h-60 overflow-y-auto whitespace-pre-wrap rounded-xl border p-3.5 font-mono text-xs leading-relaxed select-text">
                     {fileSearchableText.searchableText}
                   </div>
                 </> : (
@@ -207,7 +208,7 @@ export function ClipPreviewContent({
             </section>}
           </div>
         ) : colorData ? (
-          <div className="clip-color-inspector theme-panel p-6 rounded-2xl border shadow-2xl space-y-6">
+          <div className="clip-color-inspector theme-panel p-6 rounded-2xl border space-y-6">
             <div className="flex items-center justify-between">
               <div className="clip-content-accent flex items-center space-x-2 font-sans font-semibold text-xs">
                 <Palette className="w-4 h-4" />
@@ -218,7 +219,7 @@ export function ClipPreviewContent({
 
             <div className="flex items-center space-x-6">
               <div
-                className="theme-divider w-24 h-24 rounded-2xl border-2 shadow-2xl transition-[box-shadow,transform] duration-300 relative group shrink-0"
+                className="theme-divider elevation-object w-24 h-24 rounded-2xl border-2 transition-[box-shadow,transform] duration-300 relative group shrink-0"
                 style={{
                   backgroundColor: colorData.hex,
                   boxShadow: `0 12px 32px ${colorData.hex}44`,
@@ -292,13 +293,13 @@ export function ClipPreviewContent({
           </div>
         ) : clip.content_type === 'image' ? (
           <div className="space-y-4 font-sans">
-            <div className="image-preview-stage theme-panel flex flex-col items-center justify-center p-6 rounded-xl border shadow-inner">
+            <div className="image-preview-stage theme-panel elevation-inset flex flex-col items-center justify-center p-6 rounded-xl border">
               {resolvedImageBase64 ? (
                 <SafeRasterImage
                   source={resolvedImageBase64}
                   alt={translate('component.clipPreviewContent.fullPreview')}
                   decoding="async"
-                  className="max-h-96 object-contain rounded-lg shadow-2xl"
+                  className="elevation-object max-h-96 object-contain rounded-lg"
                 />
               ) : (
                 <div className="theme-text-muted flex items-center space-x-2 py-12">
@@ -312,14 +313,14 @@ export function ClipPreviewContent({
               )}
             </div>
 
-            <section className="ocr-panel theme-panel overflow-hidden rounded-xl border shadow-lg">
+            <section className="ocr-panel theme-panel overflow-hidden rounded-xl border">
               <header className="theme-divider flex min-h-12 items-center justify-between gap-3 border-b px-4 py-2">
                 <h3 className="theme-text-main text-xs font-semibold">{translate('component.clipPreviewContent.extractions')}</h3>
                 <div className="flex items-center space-x-1.5">
                   {displayText && (
                     <button
                       onClick={() => onCopyFormat('Extracted Text', displayText)}
-                      className="theme-icon-button theme-focusable p-1.5 rounded-lg border transition-colors cursor-pointer"
+                      className="theme-icon-button theme-focusable ui-control-radius grid h-8 w-8 place-items-center border transition-colors"
                       title={copiedFormat === 'Extracted Text' ? UI_COPY.copied : translate('component.clipPreviewContent.copyExtractedText')}
                     >
                       <Copy className="w-3.5 h-3.5" />
@@ -328,7 +329,7 @@ export function ClipPreviewContent({
                   {ocrEnabled && <button
                     onClick={onRunOCR}
                     disabled={isOcrLoading || readOnly}
-                    className="theme-primary-button theme-focusable p-1.5 rounded-lg border transition-colors shadow cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="theme-primary-button theme-focusable ui-control-radius grid h-8 w-8 place-items-center border transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                     title={readOnly ? translate('component.clipPreviewContent.restoreBeforeExtracting') : isOcrLoading ? translate('component.clipPreviewContent.extractingText') : displayText || extractionResults.length > 0 ? translate('component.clipPreviewContent.extractAgain') : translate('component.clipPreviewContent.extractText')}
                   >
                     <Sparkles className={`w-3.5 h-3.5 ${isOcrLoading ? 'animate-spin' : ''}`} />
@@ -344,7 +345,7 @@ export function ClipPreviewContent({
                 ) : hasProducedExtraction ? (
                   <ExtractionCards results={extractionResults} copiedFormat={copiedFormat} onCopyFormat={onCopyFormat} visualLabels={visualLabels} readOnly={readOnly} onAddVisualLabel={onAddVisualLabel} onRemoveVisualLabel={onRemoveVisualLabel} onResetVisualLabels={onResetVisualLabels} />
                 ) : displayText ? (
-                  <div dir="auto" className="theme-code-surface overlay-scroll-region max-h-60 overflow-y-auto whitespace-pre-wrap rounded-xl border p-3.5 font-mono text-xs leading-relaxed shadow-inner select-text">
+                  <div dir="auto" className="theme-code-surface overlay-scroll-region elevation-inset max-h-60 overflow-y-auto whitespace-pre-wrap rounded-xl border p-3.5 font-mono text-xs leading-relaxed select-text">
                     {displayText}
                   </div>
                 ) : (
@@ -357,7 +358,7 @@ export function ClipPreviewContent({
             </section>
           </div>
         ) : (
-          <div dir="auto" className="clip-text-content theme-surface p-4 rounded-xl border leading-relaxed overflow-x-auto whitespace-pre-wrap shadow-inner">
+          <div dir="auto" className="clip-text-content theme-surface elevation-inset p-4 rounded-xl border leading-relaxed overflow-x-auto whitespace-pre-wrap">
             {displayText}
           </div>
         )}

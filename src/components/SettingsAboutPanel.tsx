@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Bot, CheckCircle2, ChevronRight, Copy, Database, ExternalLink, HardDrive, HeartHandshake, Info, RadioTower, Scale, ShieldCheck, TerminalSquare } from 'lucide-react';
+import { Bot, CheckCircle2, Copy, Database, ExternalLink, HardDrive, HeartHandshake, Info, RadioTower, Scale, ShieldCheck, TerminalSquare } from 'lucide-react';
 import type { InstallationDiagnostics } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
 import { SettingsSubsectionHeader } from './SettingsSubsectionHeader';
 import { OpenSourceLicensesDialog } from './OpenSourceLicensesDialog';
 import { ActionButton } from './AppDialogLayout';
-import { SettingsAccentTile } from './SettingsAccentTile';
 import { CopycatHeadMark } from './CopycatMark';
 import { translate } from '../localization/runtime';
+import { SettingsLoadingState } from './SettingsLoadingState';
+import { SettingsNavigationCard } from './SettingsNavigationCard';
 
 function fileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -121,7 +122,7 @@ export function SettingsAboutPanel() {
               {translate('component.settingsAboutPanel.nothingToUnlockNoLicenseKeyNoEtPhoneHomeJustUseful')}
             </p>
           </div>
-          <ActionButton variant="primary" className="shrink-0" onClick={() => void openBackingPage()}>
+          <ActionButton variant="solid-primary" className="shrink-0" onClick={() => void openBackingPage()}>
             {translate('component.settingsAboutPanel.backPasted999')} <ExternalLink className="h-3.5 w-3.5" />
           </ActionButton>
         </div>
@@ -169,29 +170,19 @@ export function SettingsAboutPanel() {
               {installation.signingTeamId ? translate('component.settingsAboutPanel.teamId', { id: installation.signingTeamId }) : ''}
             </div>
           </div>
-        ) : (
-          <div className="theme-text-muted p-3 text-center text-xs">{translate('component.settingsAboutPanel.inspectingThisInstallation')}</div>
-        )}
+        ) : !error ? (
+          <SettingsLoadingState label={translate('component.settingsAboutPanel.inspectingThisInstallation')} className="min-h-20 p-3" />
+        ) : null}
         {error && <div className="theme-status-danger rounded-xl border px-3 py-2 text-xs">{error}</div>}
       </section>
 
       <section className="theme-surface rounded-2xl border p-3">
-        <button
-          type="button"
+        <SettingsNavigationCard
           onClick={() => setLicensesOpen(true)}
-          className="theme-card-idle flex w-full items-center gap-3 border px-3 py-3 text-start"
-        >
-          <SettingsAccentTile>
-            <Scale className="h-4 w-4" />
-          </SettingsAccentTile>
-          <span className="min-w-0 flex-1">
-            <span className="theme-title block text-sm font-bold">{translate('component.settingsAboutPanel.openSourceLicenses')}</span>
-            <span className="theme-text-muted mt-0.5 block text-xs">
-              {translate('component.settingsAboutPanel.licensesAndAcknowledgementsForBundledSoftware')}
-            </span>
-          </span>
-          <ChevronRight className="theme-text-muted h-4 w-4 shrink-0 rtl:-scale-x-100" />
-        </button>
+          icon={<Scale className="h-4 w-4" />}
+          title={translate('component.settingsAboutPanel.openSourceLicenses')}
+          description={translate('component.settingsAboutPanel.licensesAndAcknowledgementsForBundledSoftware')}
+        />
       </section>
 
       <OpenSourceLicensesDialog isOpen={licensesOpen} onClose={() => setLicensesOpen(false)} />

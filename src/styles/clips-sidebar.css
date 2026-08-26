@@ -138,7 +138,7 @@
   color: var(--sidebar-bin-drop-color, var(--accent-primary));
   box-shadow:
     0 0 0 2px color-mix(in srgb, var(--sidebar-bin-drop-color, var(--accent-primary)) 25%, transparent),
-    var(--shadow-card);
+    var(--elevation-raised);
 }
 
 .sidebar-bin-ineligible {
@@ -152,7 +152,7 @@
   z-index: var(--layer-sticky);
   opacity: 0.6;
   background-color: var(--bg-card-hover);
-  box-shadow: inset 0 0 0 1px var(--border-subtle), var(--shadow-card);
+  box-shadow: inset 0 0 0 1px var(--border-subtle), var(--elevation-raised);
 }
 
 /* Column resizing is an exclusive interaction mode. Pointer capture keeps the
@@ -200,7 +200,7 @@
   background-color: var(--bg-card);
   border-color: var(--border-card);
   color: var(--text-main);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--elevation-raised);
 }
 
 .clip-card-hovered {
@@ -213,7 +213,7 @@
   background-color: var(--bg-card-selected);
   border-color: var(--border-card-selected);
   color: var(--text-selected);
-  box-shadow: var(--shadow-card-selected);
+  box-shadow: var(--elevation-floating);
 }
 
 .clip-card-trashed.clip-card-idle {
@@ -373,7 +373,6 @@
   background-color: color-mix(in srgb, var(--status-success) 16%, var(--bg-card-selected));
   border-color: color-mix(in srgb, var(--status-success) 52%, var(--border-card-selected));
   box-shadow: var(--shadow-card-selected);
-  outline: none;
 }
 
 .pinned-clip-shelf-stack:hover .pinned-clip-shelf-card.is-stack-tail,

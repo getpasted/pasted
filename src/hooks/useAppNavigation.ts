@@ -12,6 +12,7 @@ import {
   type AppUiState,
   type SidebarSectionId,
 } from '../utils/appUiState';
+import { wasBackupClientStateRestoredBeforeMount } from '../utils/backupClientState';
 import type { Bin } from '../types';
 import { useAppEvent } from './useAppEvent';
 
@@ -43,6 +44,7 @@ export function useAppNavigation({
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(restoredUiState.isSidebarCollapsed);
   const [sidebarSections, setSidebarSections] = useState(restoredUiState.sidebarSections);
   const startupViewAppliedRef = useRef(false);
+  const preserveRestoredViewRef = useRef(wasBackupClientStateRestoredBeforeMount());
   const lastClipViewRef = useRef<ClipViewLocation>({
     tab: restoredUiState.currentTab,
     binId: restoredUiState.selectedBinId,
@@ -83,7 +85,7 @@ export function useAppNavigation({
   useEffect(() => {
     if (!settingsHydrated || startupViewAppliedRef.current) return;
     startupViewAppliedRef.current = true;
-    if (startupView === 'clip_history') {
+    if (startupView === 'clip_history' && !preserveRestoredViewRef.current) {
       setCurrentTab('all');
       setSelectedBinId(null);
     }

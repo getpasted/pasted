@@ -95,7 +95,7 @@ export function SearchIndexManagerDialog({ isOpen, onClose }: { isOpen: boolean;
       isOpen={isOpen}
       onClose={onClose}
       labelledBy="search-index-manager-title"
-      panelClassName="theme-panel @container flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden border shadow-2xl"
+      panelClassName="theme-panel @container flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden border"
     >
       {({ requestClose }) => <>
         <AppDialogHeader onClose={requestClose} className="shrink-0">
