@@ -2380,6 +2380,7 @@
   "component.contentExtractorManagerDialog.aiCreatesLocalReviewableRecipe": "L’IA crée la même recette locale et vérifiable que celle affichée sous Avancé.",
   "component.contentExtractorManagerDialog.arguments": "Arguments · un par ligne",
   "component.contentExtractorManagerDialog.versionArguments": "Arguments de version",
+  "component.contentExtractorManagerDialog.noOutputExitCodes": "Codes de sortie sans résultat · séparés par des virgules",
   "component.contentExtractorManagerDialog.capture": "Capture",
   "component.contentExtractorManagerDialog.chooseInputs": "Choisir les entrées",
   "component.contentExtractorManagerDialog.chooseResource": "Choisir une ressource d’Extracteur",

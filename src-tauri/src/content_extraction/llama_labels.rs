@@ -45,6 +45,7 @@ pub(super) fn recipe() -> ExtractorRecipe {
             mode: ExtractorStepMode::EachInput,
             capture: ExtractorCapture::PastedJsonV1,
             output_extension: None,
+            no_output_exit_codes: Vec::new(),
             timeout_seconds: 180,
         }],
         resources: Vec::new(),

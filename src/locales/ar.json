@@ -2464,6 +2464,7 @@
   "component.contentExtractorManagerDialog.aiCreatesLocalReviewableRecipe": "ينشئ الذكاء الاصطناعي الوصفة المحلية القابلة للمراجعة نفسها المعروضة ضمن متقدم.",
   "component.contentExtractorManagerDialog.arguments": "الوسائط · واحد في كل سطر",
   "component.contentExtractorManagerDialog.versionArguments": "وسائط الإصدار",
+  "component.contentExtractorManagerDialog.noOutputExitCodes": "رموز الخروج بلا نتائج · مفصولة بفواصل",
   "component.contentExtractorManagerDialog.capture": "التقاط",
   "component.contentExtractorManagerDialog.chooseInputs": "اختيار المدخلات",
   "component.contentExtractorManagerDialog.chooseResource": "اختيار مورد للمستخرج",

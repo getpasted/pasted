@@ -72,7 +72,7 @@ pub(super) fn extractor_recipe_schema() -> serde_json::Value {
                         "items": {
                             "type": "object",
                             "additionalProperties": false,
-                            "required": ["id", "executable", "arguments", "mode", "capture", "outputExtension", "timeoutSeconds"],
+                            "required": ["id", "executable", "arguments", "mode", "capture", "outputExtension", "noOutputExitCodes", "timeoutSeconds"],
                             "properties": {
                                 "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
                                 "executable": {
@@ -89,6 +89,7 @@ pub(super) fn extractor_recipe_schema() -> serde_json::Value {
                                 "mode": { "type": "string", "enum": ["once", "each_input"] },
                                 "capture": { "type": "string", "enum": ["ignore", "stdout_text", "file_text", "pasted_json_v1"] },
                                 "outputExtension": { "type": ["string", "null"], "maxLength": 16 },
+                                "noOutputExitCodes": { "type": "array", "maxItems": 16, "items": { "type": "integer", "minimum": 1, "maximum": 2147483647 } },
                                 "timeoutSeconds": { "type": "integer", "minimum": 1, "maximum": 600 }
                             }
                         }

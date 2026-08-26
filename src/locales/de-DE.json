@@ -2380,6 +2380,7 @@
   "component.contentExtractorManagerDialog.aiCreatesLocalReviewableRecipe": "KI erstellt dasselbe lokale, überprüfbare Rezept wie unter „Erweitert“.",
   "component.contentExtractorManagerDialog.arguments": "Argumente · eines pro Zeile",
   "component.contentExtractorManagerDialog.versionArguments": "Versionsargumente",
+  "component.contentExtractorManagerDialog.noOutputExitCodes": "Exitcodes ohne Ausgabe · kommagetrennt",
   "component.contentExtractorManagerDialog.capture": "Erfassung",
   "component.contentExtractorManagerDialog.chooseInputs": "Eingaben auswählen",
   "component.contentExtractorManagerDialog.chooseResource": "Extraktor-Ressource auswählen",

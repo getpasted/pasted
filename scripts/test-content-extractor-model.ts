@@ -57,6 +57,7 @@ const validRecipe: ExtractorRecipe = {
     mode: 'once',
     capture: 'pasted_json_v1',
     outputExtension: null,
+    noOutputExitCodes: [],
     timeoutSeconds: 60,
   }],
   resources: [],
