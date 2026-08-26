@@ -4,12 +4,12 @@ import { safeInvoke as invoke } from '../utils/tauri';
 import type { useAppController } from '../hooks/useAppController';
 import { AppDialogLayer } from './AppDialogLayer';
 import { AppDestinationView } from './AppDestinationView';
-import { ClipBatchActionBar } from './ClipBatchActionBar';
 import { ClipCard } from './ClipCard';
 import { ClipContextMenuLayer } from './ClipContextMenuLayer';
 import { ClipDragPreview } from './ClipDragPreview';
 import { ClipListHeader } from './ClipListHeader';
 import { ClipPreview } from './ClipPreview';
+import { ClipSelectionBatchActions } from './ClipSelectionBatchActions';
 import { EmptyClipList } from './EmptyClipList';
 import { MacRtlWindowControls } from './MacRtlWindowControls';
 import { PinnedClipShelf } from './PinnedClipShelf';
@@ -57,7 +57,7 @@ export function AppShellView({ controller }: { controller: AppController }) {
     selectClipForContextMenu, selectPinnedShelfClip, handleSetSelectedPinned,
   } = selection;
   const {
-    handleTogglePin, handleToggleProtected, handleToggleConcealed, handleBatchTrash,
+    handleTogglePin, handleToggleProtected, handleToggleConcealed, handleSetProtected, handleSetConcealed, handleBatchTrash,
     handleDeleteClip, handleCopyClip, assignClipToBin, removeClipFromBin,
     handleRunTransformForClip, handleToggleSequentialStack, handleUpdateClipNoteLocally,
     handleUpdateClipNameLocally, handleDeleteNoteFromClip, transformingClipIds,
@@ -346,17 +346,16 @@ export function AppShellView({ controller }: { controller: AppController }) {
               </div>
             </div>
 
-            {/* Floating Glass Batch Action Bar */}
-            {selectedClipIds.size > 1 && selectedClipViewPolicy.showOrganizeBatchActions && !hasRestrictedSelection && (
-              <ClipBatchActionBar
-                selectedCount={selectedClipIds.size}
-                pinningEnabled={enabledFeatures.pinning}
-                trashEnabled={appSettings.enableTrash}
-                onSetPinned={handleSetSelectedPinned}
-                onTrash={handleBatchTrash}
-                onClearSelection={clearClipSelection}
-              />
-            )}
+            <ClipSelectionBatchActions
+              selectedClipIds={selectedClipIds} collection={currentCollection} viewPolicy={selectedClipViewPolicy}
+              hasRestrictedSelection={hasRestrictedSelection} pinningEnabled={enabledFeatures.pinning}
+              trashEnabled={appSettings.enableTrash} onSetPinned={handleSetSelectedPinned} onTrash={handleBatchTrash}
+              onUnprotect={(ids) => handleSetProtected(ids[0], false)}
+              onReveal={(ids) => handleSetConcealed(ids[0], false)}
+              onRestore={(ids) => void clipHistoryFocus.restoreClipsFromTrash(ids)}
+              onDeletePermanently={(ids) => void Promise.all(ids.map(handlePurgeClipPermanently))}
+              onClearSelection={clearClipSelection}
+            />
           </div>
 
           {/* List resizer with a 1px visual line and an inline-end grab target. */}
@@ -384,6 +383,7 @@ export function AppShellView({ controller }: { controller: AppController }) {
             onToggleConcealed={handleToggleConcealed}
             onName={handlePromptNameClip}
             onDeleteClip={selectedClipViewPolicy.state === 'trash' ? handlePurgeClipPermanently : handleDeleteClip}
+            onRestoreClip={clipHistoryFocus.restoreClipToHistory}
             onUpdateClipNote={handleUpdateClipNoteLocally}
             isTransforming={selectedClip ? transformingClipIds.has(selectedClip.id) : false}
             transformError={selectedClip ? transformErrorsByClipId.get(selectedClip.id) : undefined}

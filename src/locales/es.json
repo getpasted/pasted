@@ -525,7 +525,6 @@
   "component.clipPreview.previewing": "Vista previa",
   "component.clipPreview.previewingVersion": "Vista previa de la versión",
   "component.clipPreview.previewTransformname": "Vista previa de {transformName}",
-  "component.clipPreview.restoreToOrganizeOrEditNotes": "Restaurar para organizar o editar notas.",
   "component.clipPreview.versions": "Versiones:",
   "component.clipPreview.searchManualTransforms": "Manual de búsqueda: Transformaciones...",
   "component.clipPreview.selectAnItemFromHistoryOrRightClickToCopyTransformAdd": "Seleccione un elemento de la historia o haga clic derecho para copiar, transformar, añadir notas o organizar.",

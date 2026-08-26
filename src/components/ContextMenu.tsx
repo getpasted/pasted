@@ -18,7 +18,7 @@ import {
   ListPlus,
   Pin,
   Trash2,
-  Trash,
+  X,
   Sparkles,
   Shield,
   Eye,
@@ -404,7 +404,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
               onRestore?.();
               onClose();
             }}
-          className="theme-menu-item is-accent flex w-full items-center space-x-2.5 rounded-md px-3 py-1.5"
+          className="theme-menu-item is-success flex w-full items-center space-x-2.5 rounded-md px-3 py-1.5"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>{UI_COPY.restore}</span>
@@ -416,7 +416,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
             }}
           className="theme-menu-item theme-danger-text flex w-full items-center space-x-2.5 rounded-md px-3 py-1.5"
           >
-            <Trash className="w-3.5 h-3.5" />
+            <X className="w-3.5 h-3.5" />
             <span>{UI_COPY.deletePermanently}</span>
           </button>
         </>
@@ -433,7 +433,7 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({
         }`}
       >
         {isAltPressed || !trashEnabled
-          ? <Trash className="theme-danger-text w-3.5 h-3.5" />
+          ? <X className="theme-danger-text w-3.5 h-3.5" />
           : <Trash2 className="theme-danger-text w-3.5 h-3.5" />}
         <span>
           {clip.is_protected

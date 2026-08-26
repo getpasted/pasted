@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { clipCollectionViewKey, pendingClipFocusId, selectionIdsForContextMenu } from '../src/utils/clipSelection.ts';
+import { clipCollectionViewKey, clipIdsForSelectAll, isSelectAllShortcut, pendingClipFocusId, selectionIdsForContextMenu } from '../src/utils/clipSelection.ts';
 import { concealedClipMask } from '../src/utils/concealedClipMask.ts';
 import { ClipListScrollMemory } from '../src/utils/clipListScrollMemory.ts';
 
@@ -41,6 +41,10 @@ assert.deepEqual(
   new Set([9]),
   'Right-clicking outside a multi-selection must select only the target clip',
 );
+assert.deepEqual(clipIdsForSelectAll([{ id: 7 }, { id: 3 }, { id: 11 }]), new Set([7, 3, 11]));
+assert.equal(isSelectAllShortcut({ key: 'a', metaKey: true, ctrlKey: false, altKey: false }), true);
+assert.equal(isSelectAllShortcut({ key: 'A', metaKey: false, ctrlKey: true, altKey: false }), true);
+assert.equal(isSelectAllShortcut({ key: 'a', metaKey: true, ctrlKey: false, altKey: true }), false);
 
 const historyFocusRequest = { clipId: 42, requestId: 3, viewKey: 'section:all' };
 assert.equal(

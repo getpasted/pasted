@@ -42,5 +42,10 @@ export function useClipHistoryFocus({
     return restore;
   }, [currentTab, focusClipInHistory, restoreClip]);
 
-  return { focusRequest, handlePropertyRemoved, restoreClipToHistory };
+  const restoreClipsFromTrash = useCallback(
+    (clipIds: number[]) => Promise.all(clipIds.map((clipId) => restoreClip(clipId))),
+    [restoreClip],
+  );
+
+  return { focusRequest, handlePropertyRemoved, restoreClipToHistory, restoreClipsFromTrash };
 }
