@@ -13,7 +13,6 @@ pub(super) fn recipe() -> ExtractorRecipe {
         post_processing: vec![ExtractorPostProcessing::FilterLabelsByConfidence {
             minimum_percent: DEFAULT_LABEL_CONFIDENCE_PERCENT,
         }],
-        legacy_minimum_visual_label_confidence: None,
         output: ExtractorOutputKind::SearchableText,
         steps: vec![ExtractorCommandStep {
             id: "label".into(),
