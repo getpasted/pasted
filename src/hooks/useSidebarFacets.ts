@@ -6,6 +6,7 @@ import type { ClipCollectionSummary } from '../types';
 import { clipFacetRoute } from '../utils/clipCollections';
 import { contentTypeLabel } from '../utils/contentTypes';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { sortFacetItemsByPopularity } from '../components/sidebarFacetModel';
 
 export interface SidebarFacetItem {
   value: string;
@@ -21,14 +22,13 @@ export function useSidebarFacets(
   sourcesEnabled: boolean,
 ) {
   const typeItems = React.useMemo(() => {
-    const order = new Map(contentTypes.map(({ id }, index) => [id, index]));
     const labels = new Map(contentTypes.map(({ id }) => [id, contentTypeLabel(id)]));
-    return clipCollectionSummary.typeCounts.map(({ content_type: value, count }) => ({
+    return sortFacetItemsByPopularity(clipCollectionSummary.typeCounts.map(({ content_type: value, count }) => ({
       value,
       count,
       route: clipFacetRoute('content_type', value),
       label: labels.get(value) ?? value.split('_').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' '),
-    })).sort((left, right) => (order.get(left.value) ?? Number.MAX_SAFE_INTEGER) - (order.get(right.value) ?? Number.MAX_SAFE_INTEGER));
+    })));
   }, [clipCollectionSummary.typeCounts, contentTypes, locale]);
   const clipTypeItems = React.useMemo(() => {
     const definitions = [
@@ -37,22 +37,22 @@ export function useSidebarFacets(
       { value: 'file', label: translate('component.analyticsView.files') },
     ];
     const counts = new Map(clipCollectionSummary.clipTypeCounts.map(({ clip_type, count }) => [clip_type, count]));
-    return definitions
+    return sortFacetItemsByPopularity(definitions
       .map(({ value, label }) => ({ value, label, count: counts.get(value as 'text' | 'image' | 'file') ?? 0, route: clipFacetRoute('clip_type', value) }))
-      .filter(({ count }) => count > 0);
+      .filter(({ count }) => count > 0));
   }, [clipCollectionSummary.clipTypeCounts, locale]);
-  const fileFormatItems = React.useMemo(() => clipCollectionSummary.fileFormatCounts.map(({ file_format: value, count }) => ({
+  const fileFormatItems = React.useMemo(() => sortFacetItemsByPopularity(clipCollectionSummary.fileFormatCounts.map(({ file_format: value, count }) => ({
     value,
     count,
     route: clipFacetRoute('file_format', value),
     label: value.toUpperCase(),
-  })), [clipCollectionSummary.fileFormatCounts]);
-  const sourceItems = React.useMemo(() => clipCollectionSummary.sourceCounts.map(({ name: value, count }) => ({
+  }))), [clipCollectionSummary.fileFormatCounts]);
+  const sourceItems = React.useMemo(() => sortFacetItemsByPopularity(clipCollectionSummary.sourceCounts.map(({ name: value, count }) => ({
     value,
     count,
     route: clipFacetRoute('source', value),
     label: localizedSourceName(value),
-  })).sort((left, right) => right.count - left.count || left.label.localeCompare(right.label)), [clipCollectionSummary.sourceCounts, locale]);
+  }))), [clipCollectionSummary.sourceCounts, locale]);
   const [sourceIcons, setSourceIcons] = React.useState<Record<string, string>>({});
   const sourceIconsRef = React.useRef<Record<string, string>>({});
   const requestedSourceIconsRef = React.useRef(new Set<string>());

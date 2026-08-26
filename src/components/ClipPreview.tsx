@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ClipItem, Bin, ManualTransform } from '../types';
-import type { AppSettings } from '../types';
+import { ClipItem } from '../types';
 import { parseColor, ColorFormats } from '../utils/color';
 import { soundManager } from '../utils/sound';
 import { ClipPreviewRevisionHistoryPanel } from './ClipPreviewRevisionHistoryPanel';
@@ -10,7 +9,6 @@ import { safeInvoke as invoke } from '../utils/tauri';
 import { useClipPreviewNotes } from '../hooks/useClipPreviewNotes';
 import { useClipPreviewAnalysis } from '../hooks/useClipPreviewAnalysis';
 import { useClipPreviewTransforms } from '../hooks/useClipPreviewTransforms';
-import type { ClipViewPolicy } from '../utils/clipViewPolicy';
 import { useFeatures } from '../hooks/useFeatures';
 import { useToast } from './ToastProvider';
 import { translate } from '../localization/runtime';
@@ -22,30 +20,7 @@ import { ClipPreviewOrganization } from './ClipPreviewOrganization';
 import { ClipPreviewTransformControls } from './ClipPreviewTransformControls';
 import { ClipPreviewWorkspace } from './ClipPreviewWorkspace';
 import { ClipPreviewEmptyState } from './ClipPreviewEmptyState';
-
-interface ClipPreviewProps {
-  clip: ClipItem | null;
-  viewPolicy: ClipViewPolicy;
-  bins: Bin[];
-  viewedBinId?: number | null;
-  manualTransforms: ManualTransform[];
-  onUpdateClip: (updatedClip?: ClipItem) => void;
-  onAssignBin: (clipId: number, binId: number | null) => void | Promise<void>;
-  onRemoveBin: (clipId: number, binId: number) => void | Promise<void>;
-  onTogglePin: (clipId: number) => void;
-  onToggleProtected: (clipId: number) => void;
-  onToggleConcealed: (clipId: number) => void;
-  onName: (clip: ClipItem) => void;
-  onDeleteClip: (id: number) => void;
-  onUpdateClipNote?: (clipId: number, noteContent: string | null) => void;
-  isTransforming?: boolean;
-  transformError?: string;
-  onOpenTransformations?: () => void;
-  onOpenIntelligence?: () => void;
-  trashEnabled: boolean;
-  filePreviewMode: AppSettings['filePreviewMode'];
-  filePreviewMaxMb: number;
-}
+import type { ClipPreviewProps } from './clipPreviewProps';
 
 export const ClipPreview: React.FC<ClipPreviewProps> = ({
   clip,
@@ -61,6 +36,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   onToggleConcealed,
   onName,
   onDeleteClip,
+  onRestoreClip,
   onUpdateClipNote,
   isTransforming = false,
   transformError,
@@ -278,6 +254,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
         onManageTransforms={onOpenTransformations}
         onName={() => onName(clip)}
         onPreviewTransform={(transform) => void handlePreviewTransform(transform)}
+        onRestore={() => onRestoreClip(clip.id)}
         onToggleConcealed={() => onToggleConcealed(clip.id)}
         onToggleNote={handleToggleAddNote}
         onTogglePin={() => onTogglePin(clip.id)}

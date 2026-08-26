@@ -1,5 +1,7 @@
 import { useEffect, type Dispatch, type SetStateAction } from 'react';
 import type { ClipItem } from '../types';
+import { getClipCollection } from '../utils/clipCollections';
+import { clipIdsForSelectAll, isSelectAllShortcut } from '../utils/clipSelection';
 import { getClipViewPolicy } from '../utils/clipViewPolicy';
 
 interface UseClipSelectionKeyboardOptions {
@@ -34,7 +36,30 @@ export function useClipSelectionKeyboard({
         setIsSidebarCollapsed((collapsed) => !collapsed);
         return;
       }
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((event.target as HTMLElement).tagName) || displayedClips.length === 0) return;
+      if (event.defaultPrevented || !getClipCollection(currentTab)) return;
+      const target = event.target;
+      if (target instanceof HTMLElement && (
+        ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)
+        || target.isContentEditable
+        || target.closest('[contenteditable]:not([contenteditable="false"])')
+      )) return;
+      if (displayedClips.length === 0) return;
+      if (isSelectAllShortcut(event)) {
+        event.preventDefault();
+        setSelectedClipIds(clipIdsForSelectAll(displayedClips));
+        if (!selectedClip) {
+          setSelectedClip(displayedClips[0]);
+          setSelectedIndex(0);
+        }
+        return;
+      }
+      if (event.key === 'Escape' && selectedClip) {
+        event.preventDefault();
+        setSelectedClip(null);
+        setSelectedClipIds(new Set());
+        setSelectedIndex(-1);
+        return;
+      }
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
         event.preventDefault();
         const direction = event.key === 'ArrowDown' ? 1 : -1;

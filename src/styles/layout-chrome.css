@@ -235,6 +235,21 @@ html:not([data-platform="macos"]) .platform-sidebar-header {
   color: var(--accent-primary);
 }
 
+.batch-action-button.is-success,
+.batch-action-button.is-success:hover {
+  color: var(--status-success);
+}
+
+.batch-action-button.is-accent,
+.batch-action-button.is-accent:hover {
+  color: var(--accent-primary);
+}
+
+.batch-action-button.is-warning,
+.batch-action-button.is-warning:hover {
+  color: var(--status-warning);
+}
+
 .batch-action-button.is-danger,
 .batch-action-button.is-danger:hover {
   color: var(--status-danger);

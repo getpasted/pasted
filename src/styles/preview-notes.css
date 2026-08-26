@@ -209,6 +209,15 @@ body.capture-feedback-mode,
   color: var(--text-title);
 }
 
+.clip-preview-action.is-success {
+  color: var(--status-success);
+}
+
+.clip-preview-action.is-success:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--status-success) 10%, transparent);
+  color: var(--status-success);
+}
+
 .clip-preview-action svg {
   width: 1rem;
   height: 1rem;

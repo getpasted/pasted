@@ -1,4 +1,4 @@
-import { ArrowRightCircle, Check, Copy, Eye, EyeOff, FilePenLine, MinusCircle, Pin, RotateCcw, Shield, ShieldOff, Trash, Trash2, X } from 'lucide-react';
+import { ArrowRightCircle, Check, Copy, Eye, EyeOff, FilePenLine, MinusCircle, Pin, RotateCcw, Shield, ShieldOff, Trash2, X } from 'lucide-react';
 import { useState, type MouseEvent } from 'react';
 
 import type { useFeatures } from '../hooks/useFeatures';
@@ -129,7 +129,7 @@ export function ClipCardActions({
           event.stopPropagation();
           onRestore?.();
         }}
-        className="floating-action-button is-accent"
+        className="floating-action-button is-success"
         title={UI_COPY.restore}
       >
         <RotateCcw className="w-3.5 h-3.5" />
@@ -142,7 +142,7 @@ export function ClipCardActions({
         className="floating-action-button is-danger"
         title={UI_COPY.deletePermanently}
       >
-        <Trash className="w-3.5 h-3.5" />
+        <X className="w-3.5 h-3.5" />
       </button>
     </> : <>
       {features.pinning && <button

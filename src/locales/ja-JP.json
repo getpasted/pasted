@@ -525,7 +525,6 @@
   "component.clipPreview.previewing": "プレビュー",
   "component.clipPreview.previewingVersion": "バージョンをプレビュー中",
   "component.clipPreview.previewTransformname": "{transformName}をプレビュー",
-  "component.clipPreview.restoreToOrganizeOrEditNotes": "ノートを整理または編集するために復元する。",
   "component.clipPreview.versions": "バージョン：",
   "component.clipPreview.searchManualTransforms": "手動での変換を検索…",
   "component.clipPreview.selectAnItemFromHistoryOrRightClickToCopyTransformAdd": "履歴から項目を選択するか、右クリックしてコピー、変換、ノートの追加、または整理します。",

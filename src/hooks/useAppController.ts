@@ -475,7 +475,7 @@ export function useAppController() {
       selectClipForContextMenu, selectPinnedShelfClip, handleSetSelectedPinned,
     },
     actions: {
-      handleTogglePin, handleToggleProtected, handleToggleConcealed, handleBatchTrash,
+      handleTogglePin, handleToggleProtected, handleToggleConcealed, handleSetProtected, handleSetConcealed, handleBatchTrash,
       handleDeleteClip, handleCopyClip, assignClipToBin, removeClipFromBin,
       handleRunTransformForClip, handleToggleSequentialStack, handleUpdateClipNoteLocally,
       handleUpdateClipNameLocally, handleDeleteNoteFromClip, transformingClipIds,

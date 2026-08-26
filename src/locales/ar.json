@@ -537,7 +537,6 @@
   "component.clipPreview.previewing": "لمحة أولية",
   "component.clipPreview.previewingVersion": "معاينة الإصدار",
   "component.clipPreview.previewTransformname": "لمحة سريعة عن {transformName}",
-  "component.clipPreview.restoreToOrganizeOrEditNotes": "استعادة لتنظيم أو تحرير الملاحظات.",
   "component.clipPreview.versions": "الإصدارات:",
   "component.clipPreview.searchManualTransforms": "البحث في دليل التحويل…",
   "component.clipPreview.selectAnItemFromHistoryOrRightClickToCopyTransformAdd": "حدد عنصرًا من التاريخ أو انقر بزر الماوس الأيمن لنسخ أو تحويل أو إضافة ملاحظات أو تنظيم.",

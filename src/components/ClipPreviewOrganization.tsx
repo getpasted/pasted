@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { FilePenLine, Trash2 } from 'lucide-react';
+import { FilePenLine } from 'lucide-react';
 
 import type { useFeatures } from '../hooks/useFeatures';
 import { translate } from '../localization/runtime';
@@ -37,7 +37,7 @@ export function ClipPreviewOrganization({
   viewPolicy: ClipViewPolicy;
 }) {
   return <>
-    {features.bins && (viewPolicy.canOrganize ? <div className="preview-bin-bar px-4 py-2 flex items-center text-xs border-b">
+    {features.bins && viewPolicy.canOrganize && <div className="preview-bin-bar px-4 py-2 flex items-center text-xs border-b">
       <div className="flex min-w-0 items-center">
         <ClipBinPicker
           bins={bins}
@@ -56,15 +56,7 @@ export function ClipPreviewOrganization({
           onChange={onHotkeyChange}
         />
       </div>}
-    </div> : <div
-      className="preview-bin-bar px-4 py-2 flex items-center justify-between text-xs border-b"
-      role="note"
-    >
-      <div className="preview-readonly-notice flex items-center space-x-2">
-        <Trash2 className="w-3.5 h-3.5" />
-        <span>{translate('component.clipPreview.restoreToOrganizeOrEditNotes')}</span>
-      </div>
-    </div>)}
+    </div>}
 
     {features.protection && features.hotkeys && !features.bins && viewPolicy.canOrganize && <div className="preview-bin-bar flex items-center justify-end border-b px-4 py-2 text-xs">
       <HotkeyRecorder

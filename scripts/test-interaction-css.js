@@ -49,6 +49,10 @@ const activityLogView = read('src/components/ActivityLogView.tsx');
 const clipPreviewContent = read('src/components/ClipPreviewContent.tsx');
 const clipPreviewTransformControls = read('src/components/ClipPreviewTransformControls.tsx');
 const clipTransformBar = read('src/components/ClipTransformBar.tsx');
+const clipCardActions = read('src/components/ClipCardActions.tsx');
+const clipPreviewTrashActions = read('src/components/ClipPreviewTrashActions.tsx');
+const clipBatchActionBar = read('src/components/ClipBatchActionBar.tsx');
+const contextMenu = read('src/components/ContextMenu.tsx');
 const helpCliInstallCard = read('src/components/HelpCliInstallCard.tsx');
 const sequentialQueueBar = read('src/components/SequentialQueueBar.tsx');
 const solidProductActions = [
@@ -57,6 +61,13 @@ const solidProductActions = [
   read('src/components/SettingsResetPanel.tsx'),
   read('src/components/FactoryResetDialog.tsx'),
 ].join('\n');
+
+for (const source of [clipCardActions, clipPreviewTrashActions, clipBatchActionBar, contextMenu]) {
+  assert.match(source, /onRestore[\s\S]{0,180}is-success/,
+    'every Trash clip Restore surface must use the success treatment');
+}
+assert.match(clipCardActions, /onPasteQueueItem[\s\S]*?className="floating-action-button is-accent"/,
+  'the queue paste action keeps its accent treatment');
 
 const ruleBody = (css, selector) => {
   const start = css.indexOf(selector);
@@ -283,6 +294,10 @@ assert.match(smartActionButton, /height:\s*2rem;/);
 assert.match(smartActionButton, /min-height:\s*2rem;/);
 assert.match(smartActionButton, /font-size:\s*0\.75rem;/);
 assert.match(previewNotes, /\.note-save-button \{\s*background-color:\s*transparent;/);
+assert.doesNotMatch(ruleBody(previewNotes, '.clip-preview-action.is-success {'), /background-color:/,
+  'Restore must not look selected while idle');
+assert.match(ruleBody(previewNotes, '.clip-preview-action.is-success:hover:not(:disabled) {'), /background-color:/,
+  'Restore may use a success tint on hover');
 assert.match(previewNotes, /\.note-save-button \{[\s\S]*?border:\s*1px solid color-mix\(/);
 assert.match(ruleBody(previewNotes, '.note-cancel-button {'), /background-color:\s*transparent;/);
 assert.match(ruleBody(previewNotes, '.note-cancel-button {'), /border:\s*1px solid var\(--border-input\);/);

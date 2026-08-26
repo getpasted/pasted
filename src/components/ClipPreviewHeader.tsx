@@ -11,9 +11,7 @@ import {
   ShieldOff,
   Sparkles,
   StickyNote,
-  Trash2,
   Workflow,
-  X,
 } from 'lucide-react';
 
 import type { useFeatures } from '../hooks/useFeatures';
@@ -22,11 +20,12 @@ import { localizedSourceName } from '../localization/presentation';
 import { getClipFilePaths, type ClipItem, type ClipTransformationProvenance, type SavedTransform } from '../types';
 import { contentTypeLabel, structuralClipType } from '../utils/contentTypes';
 import type { ClipViewPolicy } from '../utils/clipViewPolicy';
-import { clipDeleteLabel, UI_COPY } from '../utils/uiCopy';
+import { UI_COPY } from '../utils/uiCopy';
 import { handleWindowDragDoubleClick, startWindowDrag } from '../utils/windowDrag';
 import type { ClipContentMatch } from './clipPreviewModel';
 import { contentMatchTitle } from './clipPreviewModel';
 import { ClipWorkflowMenu } from './ClipWorkflowMenu';
+import { ClipPreviewTrashActions } from './ClipPreviewTrashActions';
 import { OverflowText } from './OverflowText';
 
 type ClipPreviewFeatures = ReturnType<typeof useFeatures>;
@@ -50,6 +49,7 @@ export function ClipPreviewHeader({
   onManageTransforms,
   onName,
   onPreviewTransform,
+  onRestore,
   onToggleConcealed,
   onToggleNote,
   onTogglePin,
@@ -82,6 +82,7 @@ export function ClipPreviewHeader({
   onManageTransforms?: () => void;
   onName: () => void;
   onPreviewTransform: (transform: SavedTransform) => void;
+  onRestore: () => void;
   onToggleConcealed: () => void;
   onToggleNote: () => void;
   onTogglePin: () => void;
@@ -231,20 +232,7 @@ export function ClipPreviewHeader({
       >
         <StickyNote />
       </button>}
-      <button
-        type="button"
-        onClick={onDelete}
-        disabled={Boolean(clip.is_protected) && viewPolicy.state !== 'trash'}
-        className={`clip-preview-action preview-delete-btn theme-danger-text theme-focusable transition-[background-color,color,opacity] ${clip.is_protected && viewPolicy.state !== 'trash' ? 'cursor-not-allowed opacity-45' : ''}`}
-        title={clip.is_protected && viewPolicy.state !== 'trash'
-          ? translate('component.clipPreview.clipIsProtectedUnprotectFirstToDelete')
-          : clipDeleteLabel({ trashEnabled, permanent: viewPolicy.state === 'trash' })}
-        aria-label={viewPolicy.state === 'trash' || !trashEnabled
-          ? translate('component.clipPreview.deleteClipPermanently')
-          : translate('component.clipPreview.moveClipToTrash')}
-      >
-        {viewPolicy.state === 'trash' || !trashEnabled ? <X /> : <Trash2 />}
-      </button>
+      <ClipPreviewTrashActions clip={clip} onDelete={onDelete} onRestore={onRestore} trashEnabled={trashEnabled} viewPolicy={viewPolicy} />
     </div>
   </div>;
 }

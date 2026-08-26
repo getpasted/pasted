@@ -24,3 +24,11 @@ export function selectionIdsForContextMenu(
 ): Set<number> {
   return selectedIds.has(clipId) ? selectedIds : new Set([clipId]);
 }
+
+export function isSelectAllShortcut(event: Pick<KeyboardEvent, 'altKey' | 'ctrlKey' | 'key' | 'metaKey'>): boolean {
+  return !event.altKey && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'a';
+}
+
+export function clipIdsForSelectAll(clips: Array<{ id: number }>): Set<number> {
+  return new Set(clips.map(({ id }) => id));
+}
