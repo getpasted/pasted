@@ -44,8 +44,6 @@ use connections::select_connection;
 #[cfg(test)]
 use execution::semantic_prompt;
 #[cfg(test)]
-use extractor_authoring::extractor_recipe_schema;
-#[cfg(test)]
 use planning::{parse_plan, planning_prompt};
 
 #[cfg(test)]

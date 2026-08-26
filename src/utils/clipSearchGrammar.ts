@@ -1,4 +1,5 @@
 export interface ClipSearchPlan {
+  clipIds: number[];
   sources: string[];
   clipTypes: string[];
   contentTypes: string[];
@@ -41,6 +42,7 @@ function tokenizeSearch(query: string) {
 export function parseClipSearch(rawQuery: string): ClipSearchPlan {
   const trimmed = rawQuery.trim();
   const plan: ClipSearchPlan = {
+    clipIds: [],
     sources: [],
     clipTypes: [],
     contentTypes: [],
@@ -73,7 +75,17 @@ export function parseClipSearch(rawQuery: string): ClipSearchPlan {
 
   tokenizeSearch(trimmed).forEach((token) => {
     const lower = token.toLowerCase();
-    if (lower.startsWith('source:')) {
+    if (lower.startsWith('id:')) {
+      const values = lower.slice(3).split(',');
+      if (values.length === 0 || values.some((value) => {
+        const id = Number(value);
+        return !/^\d+$/.test(value) || !Number.isSafeInteger(id) || id <= 0;
+      })) {
+        plan.hasIncompleteFilter = true;
+      } else {
+        plan.clipIds.push(...values.map(Number));
+      }
+    } else if (lower.startsWith('source:')) {
       const value = lower.slice(7).trim();
       if (value) plan.sources.push(value);
       else plan.hasIncompleteFilter = true;

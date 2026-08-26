@@ -6,7 +6,9 @@ use crate::db::DbState;
 use crate::features::{self, Feature};
 
 mod ocr_backfill;
+mod ocr_status_clips;
 pub use ocr_backfill::*;
+pub use ocr_status_clips::*;
 
 #[tauri::command]
 pub fn extract_ocr_from_clip(

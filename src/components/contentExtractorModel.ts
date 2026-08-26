@@ -20,6 +20,7 @@ export interface ExtractorRecipe {
     mode: 'once' | 'each_input';
     capture: ExtractorCapture;
     outputExtension: string | null;
+    noOutputExitCodes: number[];
     timeoutSeconds: number;
   }>;
   resources: Array<{
@@ -117,6 +118,7 @@ export const emptyRecipe = (): ExtractorRecipe => ({
     mode: 'once',
     capture: 'pasted_json_v1',
     outputExtension: null,
+    noOutputExitCodes: [],
     timeoutSeconds: 60,
   }],
   resources: [],

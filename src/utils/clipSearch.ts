@@ -43,6 +43,7 @@ export function clipMatchesSearch(
   const clipType = clip.content_type.toLowerCase();
   const contentTypes = (clip.content_types ?? []).map((value) => value.toLowerCase());
   const formats = (clip.file_formats ?? []).map((value) => value.toLowerCase());
+  if (plan.clipIds.length > 0 && !plan.clipIds.includes(clip.id)) return false;
   if (plan.sources.length > 0 && features && !features.sources) return false;
   if (plan.clipTypes.length > 0 && features && !features.clipTypes) return false;
   if (plan.contentTypes.length > 0 && features && !features.types) return false;

@@ -59,7 +59,7 @@ use clip_records::{
     append_clip_content_types, append_clip_file_formats, append_clip_protection,
     append_smart_bin_memberships, clip_item_from_row, normalize_imported_clip_types,
     push_smart_condition, replace_imported_content_types, smart_bin_feature_policy,
-    SmartBinFeaturePolicy, MAX_CLIP_SEARCH_FILTERS, MAX_CLIP_SEARCH_OFFSET,
+    SmartBinFeaturePolicy, MAX_CLIP_SEARCH_FILTERS, MAX_CLIP_SEARCH_IDS, MAX_CLIP_SEARCH_OFFSET,
     MAX_CLIP_SEARCH_QUERY_BYTES, MAX_CLIP_SEARCH_TERMS,
 };
 pub use clip_records::{

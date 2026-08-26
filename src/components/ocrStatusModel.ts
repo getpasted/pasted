@@ -16,3 +16,7 @@ export function actionableOcrCount(status: OcrBackfillStatus) {
 export function shouldRetryFailedOcr(status: OcrBackfillStatus) {
   return status.failedCount > 0;
 }
+
+export function ocrStatusSearchQuery(clipIds: number[]) {
+  return `id:${clipIds.join(',')}`;
+}

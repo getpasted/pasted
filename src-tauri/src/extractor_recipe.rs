@@ -23,6 +23,7 @@ pub const EXTRACTOR_RECIPE_VERSION: u32 = 1;
 pub const EXTRACTOR_AUTHORING_VERSION: u32 = 1;
 const MAX_ARGUMENTS: usize = 128;
 const MAX_ARGUMENT_BYTES: usize = 4_096;
+const MAX_NO_OUTPUT_EXIT_CODES: usize = 16;
 const MAX_STEPS: usize = 16;
 const MAX_RESOURCES: usize = 32;
 const MAX_ACCEPTED_FILE_FORMATS: usize = 64;
@@ -96,6 +97,8 @@ pub struct ExtractorCommandStep {
     pub capture: ExtractorCapture,
     #[serde(default)]
     pub output_extension: Option<String>,
+    #[serde(default)]
+    pub no_output_exit_codes: Vec<i32>,
     pub timeout_seconds: u64,
 }
 
@@ -355,6 +358,19 @@ pub fn validate_recipe(recipe: &ExtractorRecipe) -> Result<(), String> {
                     .all(|character| character.is_ascii_alphanumeric())
         }) {
             return Err("Extractor output extensions require 1–16 letters or numbers".into());
+        }
+        if step.no_output_exit_codes.len() > MAX_NO_OUTPUT_EXIT_CODES
+            || step.no_output_exit_codes.iter().any(|code| *code <= 0)
+            || step
+                .no_output_exit_codes
+                .iter()
+                .collect::<HashSet<_>>()
+                .len()
+                != step.no_output_exit_codes.len()
+        {
+            return Err(
+                "Extractor no-output exit codes require up to 16 unique positive integers".into(),
+            );
         }
         if !(1..=600).contains(&step.timeout_seconds) {
             return Err("Extractor command time limits must be between 1 and 600 seconds".into());
@@ -649,6 +665,9 @@ fn execute_recipe(recipe: &ExtractorRecipe, input: RecipeInput<'_>) -> Extractio
                     return failure("engine_failed", "The Extractor command failed.")
                 }
             };
+            if !status.success() && is_expected_no_output_status(step, status.code()) {
+                continue;
+            }
             if !status.success() {
                 let message = if step
                     .executable
@@ -737,6 +756,21 @@ fn execute_recipe(recipe: &ExtractorRecipe, input: RecipeInput<'_>) -> Extractio
             ExtractionOutcome::Produced { text, labels }
         }
     }
+}
+
+fn is_expected_no_output_status(step: &ExtractorCommandStep, code: Option<i32>) -> bool {
+    let Some(code) = code else {
+        return false;
+    };
+    step.no_output_exit_codes.contains(&code)
+        // zbarimg has historically been suggested for QR recipes, and exits 4 when
+        // it successfully scans an input but finds no symbol.
+        || (code == 4
+            && step
+                .executable
+                .discover
+                .iter()
+                .any(|candidate| candidate == "zbarimg"))
 }
 
 fn preserve_llama_cache_environment(command: &mut Command) {
@@ -950,6 +984,7 @@ mod tests {
                 mode: ExtractorStepMode::EachInput,
                 capture: ExtractorCapture::StdoutText,
                 output_extension: None,
+                no_output_exit_codes: Vec::new(),
                 timeout_seconds: 60,
             }],
             resources: Vec::new(),
@@ -967,6 +1002,7 @@ mod tests {
         });
         let parsed: ExtractorRecipe = serde_json::from_value(value).unwrap();
         assert_eq!(parsed.accepted_file_formats, ["*"]);
+        assert!(parsed.steps[0].no_output_exit_codes.is_empty());
         assert!(parsed.post_processing.is_empty());
     }
 
@@ -979,6 +1015,24 @@ mod tests {
         assert!(validate_recipe(&candidate).is_err());
         candidate.accepted_file_formats = vec!["pdf".into(), "wav".into()];
         assert!(validate_recipe(&candidate).is_ok());
+    }
+
+    #[test]
+    fn validates_and_recognizes_expected_no_output_exit_codes() {
+        let mut candidate = recipe();
+        candidate.steps[0].no_output_exit_codes = vec![4];
+        assert!(validate_recipe(&candidate).is_ok());
+        assert!(is_expected_no_output_status(&candidate.steps[0], Some(4)));
+
+        candidate.steps[0].no_output_exit_codes = vec![0];
+        assert!(validate_recipe(&candidate).is_err());
+        candidate.steps[0].no_output_exit_codes = vec![4, 4];
+        assert!(validate_recipe(&candidate).is_err());
+
+        candidate.steps[0].no_output_exit_codes.clear();
+        candidate.steps[0].executable.discover = vec!["zbarimg".into()];
+        assert!(is_expected_no_output_status(&candidate.steps[0], Some(4)));
+        assert!(!is_expected_no_output_status(&candidate.steps[0], Some(1)));
     }
 
     #[test]
@@ -1015,6 +1069,7 @@ mod tests {
                 mode: ExtractorStepMode::EachInput,
                 capture: ExtractorCapture::Ignore,
                 output_extension: Some("wav".into()),
+                no_output_exit_codes: Vec::new(),
                 timeout_seconds: 30,
             },
         );

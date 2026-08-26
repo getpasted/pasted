@@ -236,6 +236,7 @@ pub fn run() {
             commands::clips::versions::restore_clip_version,
             commands::clips::versions::delete_clip_version,
             commands::get_ocr_backfill_status,
+            commands::get_ocr_backfill_clip_ids,
             commands::start_ocr_backfill,
             commands::cancel_ocr_backfill,
             commands::retry_failed_ocr,

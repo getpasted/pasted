@@ -295,6 +295,7 @@ fn bundled_recipe_migration_preserves_the_configured_whisper_model() {
         mode: ExtractorStepMode::EachInput,
         capture: ExtractorCapture::StdoutText,
         output_extension: None,
+        no_output_exit_codes: Vec::new(),
         timeout_seconds: 300,
     }];
 

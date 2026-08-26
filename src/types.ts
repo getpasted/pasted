@@ -106,6 +106,7 @@ export interface ClipItem {
 
 export interface ClipSearchRequest {
   query: string;
+  clipIds?: number[];
   clipTypes?: string[];
   contentTypes?: string[];
   fileFormats?: string[];

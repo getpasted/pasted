@@ -9,7 +9,7 @@ pub fn print() {
 const HELP_LINES: &[&str] = &[
     "  pasted copy <text> [--json] Classify and save content, or pipe stdin",
     "  pasted list [--limit N] [--offset N] [--bin ID|--pinned|--named|--trash] [--json]",
-    "  pasted search [query] [--clip TYPE] [--content TYPE] [--format FORMAT] [--source APP] [--trash] [--limit N] [--offset N] [--json]",
+    "  pasted search [query] [--clip TYPE] [--content TYPE] [--format FORMAT] [--source APP] [--ids ID,...] [--trash] [--limit N] [--offset N] [--json]",
     "  pasted import sources [--json] List supported external-history sources",
     "  pasted import <source> [path] --json Import history from another clipboard manager",
     "  pasted diagnostics --json Show installation diagnostics",

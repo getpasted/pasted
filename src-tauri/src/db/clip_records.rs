@@ -449,9 +449,10 @@ pub(super) fn clip_item_from_row(row: &Row<'_>) -> Result<ClipItem> {
 
 pub const DEFAULT_CLIP_SEARCH_PAGE_SIZE: usize = 100;
 pub const MAX_CLIP_SEARCH_PAGE_SIZE: usize = 500;
-pub(super) const MAX_CLIP_SEARCH_QUERY_BYTES: usize = 4 * 1024;
+pub(super) const MAX_CLIP_SEARCH_QUERY_BYTES: usize = 256 * 1024;
 pub(super) const MAX_CLIP_SEARCH_FILTERS: usize = 32;
 pub(super) const MAX_CLIP_SEARCH_TERMS: usize = 32;
+pub(super) const MAX_CLIP_SEARCH_IDS: usize = 10_000;
 pub(super) const MAX_CLIP_SEARCH_OFFSET: usize = 10_000_000;
 
 /// Authoritative Search request shared by the app, Quick HUD, and CLI.
@@ -459,6 +460,7 @@ pub(super) const MAX_CLIP_SEARCH_OFFSET: usize = 10_000_000;
 #[serde(rename_all = "camelCase", default, deny_unknown_fields)]
 pub struct ClipSearchRequest {
     pub query: String,
+    pub clip_ids: Vec<i64>,
     pub clip_types: Vec<String>,
     pub content_types: Vec<String>,
     pub file_formats: Vec<String>,

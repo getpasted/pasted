@@ -4,6 +4,7 @@ import { parseClipSearch } from '../src/utils/clipSearchGrammar.ts';
 import { appendUniqueSearchPage } from '../src/utils/searchPagination.ts';
 
 interface GrammarFixture {
+  clipIds?: number[];
   query: string;
   sources: string[];
   clipTypes: string[];
@@ -28,6 +29,7 @@ const fixtures = JSON.parse(readFileSync(
 for (const fixture of fixtures) {
   const plan = parseClipSearch(fixture.query);
   assert.deepEqual({
+    clipIds: plan.clipIds,
     sources: plan.sources,
     clipTypes: plan.clipTypes,
     contentTypes: plan.contentTypes,
@@ -42,6 +44,7 @@ for (const fixture of fixtures) {
     regex: plan.regex?.source ?? null,
     regexFallback: plan.regexFallback,
   }, {
+    clipIds: fixture.clipIds ?? [],
     sources: fixture.sources,
     clipTypes: fixture.clipTypes,
     contentTypes: fixture.contentTypes,

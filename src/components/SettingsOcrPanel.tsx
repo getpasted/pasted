@@ -20,7 +20,15 @@ const EMPTY_OCR_STATUS: OcrBackfillStatus = {
   failedCount: 0,
 };
 
-export function SettingsOcrPanel({ extractorRevision }: { extractorRevision: number }) {
+export function SettingsOcrPanel({
+  extractorRevision,
+  searchEnabled,
+  onSearchClips,
+}: {
+  extractorRevision: number;
+  searchEnabled: boolean;
+  onSearchClips: (clipIds: number[]) => void;
+}) {
   const { showToast } = useToast();
   const [status, setStatus] = useState<OcrBackfillStatus>(EMPTY_OCR_STATUS);
   const [extractors, setExtractors] = useState<ContentExtractor[]>([]);
@@ -73,6 +81,15 @@ export function SettingsOcrPanel({ extractorRevision }: { extractorRevision: num
     }
   };
 
+  const showStatusClips = async (group: string) => {
+    try {
+      const clipIds = await invoke<number[]>('get_ocr_backfill_clip_ids', { group });
+      if (clipIds.length > 0) onSearchClips(clipIds);
+    } catch (error) {
+      showToast({ tone: 'error', message: translate('component.settingsOcrPanel.ocrStatusCouldNotBeLoadedValue', { value: String(error) }) });
+    }
+  };
+
   const busy = status.runningCount > 0 || status.queuedCount > 0;
   const actionableCount = actionableOcrCount(status);
   const scan = () => shouldRetryFailedOcr(status)
@@ -98,10 +115,16 @@ export function SettingsOcrPanel({ extractorRevision }: { extractorRevision: num
         />
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
           {OCR_STATUS_CARD_KEYS.map(([label, field]) => (
-            <div key={label} className="theme-card-idle border px-2 py-2 text-center">
+            <button
+              key={label}
+              type="button"
+              disabled={!searchEnabled || status[field] === 0}
+              onClick={() => void showStatusClips(label)}
+              className="ocr-status-card theme-card-idle theme-focusable cursor-pointer border px-2 py-2 text-center disabled:cursor-default"
+            >
               <strong className="theme-title block text-sm tabular-nums">{status[field]}</strong>
               <span className="theme-text-muted text-[9px]">{translate(`component.settingsOcrPanel.status.${label}`)}</span>
-            </div>
+            </button>
           ))}
         </div>
       </div>

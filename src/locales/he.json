@@ -2407,6 +2407,7 @@
   "component.contentExtractorManagerDialog.aiCreatesLocalReviewableRecipe": "הבינה המלאכותית יוצרת את אותו מתכון מקומי וניתן לבדיקה שמוצג תחת מתקדם.",
   "component.contentExtractorManagerDialog.arguments": "ארגומנטים · אחד בכל שורה",
   "component.contentExtractorManagerDialog.versionArguments": "ארגומנטים לגרסה",
+  "component.contentExtractorManagerDialog.noOutputExitCodes": "קודי יציאה ללא תוצאה · מופרדים בפסיקים",
   "component.contentExtractorManagerDialog.capture": "לכידה",
   "component.contentExtractorManagerDialog.chooseInputs": "בחירת קלטים",
   "component.contentExtractorManagerDialog.chooseResource": "בחירת משאב למחלץ",

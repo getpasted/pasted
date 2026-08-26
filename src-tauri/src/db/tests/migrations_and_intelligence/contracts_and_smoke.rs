@@ -4,6 +4,8 @@ use super::super::*;
 #[serde(rename_all = "camelCase")]
 struct SearchGrammarFixture {
     query: String,
+    #[serde(default)]
+    clip_ids: Vec<i64>,
     sources: Vec<String>,
     clip_types: Vec<String>,
     content_types: Vec<String>,
@@ -27,6 +29,7 @@ fn native_and_frontend_search_grammar_share_public_fixtures() {
     .unwrap();
     for fixture in fixtures {
         let parsed = parse_clip_search(&fixture.query);
+        assert_eq!(parsed.clip_ids, fixture.clip_ids, "{}", fixture.query);
         assert_eq!(parsed.sources, fixture.sources, "{}", fixture.query);
         assert_eq!(parsed.clip_types, fixture.clip_types, "{}", fixture.query);
         assert_eq!(

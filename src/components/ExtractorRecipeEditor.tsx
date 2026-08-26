@@ -163,6 +163,10 @@ export function ExtractorRecipeEditor({
                       <input value={step.executable.versionArguments.join(' ')} onChange={(event) => updateStepExecutable(index, { versionArguments: event.target.value.split(/\s+/).map((value) => value.trim()).filter(Boolean) })} className="theme-input ui-field-radius w-full border px-2.5 py-2 font-mono" />
                     </label>
                     <label className="space-y-1">
+                      <span className="theme-text-muted block font-semibold">{translate('component.contentExtractorManagerDialog.noOutputExitCodes')}</span>
+                      <input value={step.noOutputExitCodes.join(', ')} onChange={(event) => updateStep(index, { noOutputExitCodes: event.target.value.split(',').map((value) => Number(value.trim())).filter((value) => Number.isInteger(value) && value > 0) })} placeholder="4" className="theme-input ui-field-radius w-full border px-2.5 py-2 font-mono" />
+                    </label>
+                    <label className="space-y-1">
                       <span className="theme-text-muted block font-semibold">{translate('component.contentExtractorManagerDialog.arguments')}</span>
                       <textarea dir="auto" value={step.arguments.join('\n')} onChange={(event) => updateStep(index, { arguments: event.target.value.split('\n') })} className="theme-input ui-field-radius min-h-20 w-full resize-y border px-2.5 py-2 font-mono" />
                     </label>

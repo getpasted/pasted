@@ -2386,6 +2386,7 @@
   "component.contentExtractorManagerDialog.aiCreatesLocalReviewableRecipe": "AI は「詳細」に表示されるものと同じ、ローカルで確認可能なレシピを作成します。",
   "component.contentExtractorManagerDialog.arguments": "引数 · 1 行に 1 つ",
   "component.contentExtractorManagerDialog.versionArguments": "バージョン引数",
+  "component.contentExtractorManagerDialog.noOutputExitCodes": "出力なしの終了コード · カンマ区切り",
   "component.contentExtractorManagerDialog.capture": "取得",
   "component.contentExtractorManagerDialog.chooseInputs": "入力を選択",
   "component.contentExtractorManagerDialog.chooseResource": "Extractor リソースを選択",

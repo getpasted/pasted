@@ -31,6 +31,7 @@ fn extractor_recipes_preserve_multi_input_authoring_history() {
                     mode: crate::extractor_recipe::ExtractorStepMode::Once,
                     capture: crate::extractor_recipe::ExtractorCapture::PastedJsonV1,
                     output_extension: None,
+                    no_output_exit_codes: Vec::new(),
                     timeout_seconds: 60,
                 }],
                 resources: Vec::new(),
