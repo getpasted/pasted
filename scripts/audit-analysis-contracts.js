@@ -209,6 +209,8 @@ assert.match(readRustModuleTree('src-tauri/src/cli/commands/extractors.rs', 'src
   'GUI and CLI Extractor diagnosis must share the repair service');
 assert.match(read('src/components/ExtractorRecipeEditor.tsx'), /export function ExtractorRecipeEditor/,
   'Advanced Extractor recipe editing must remain in its focused surface');
+assert.doesNotMatch(read('src/components/ExtractorRecipeEditor.tsx'), /minimumVisualLabelConfidence/,
+  'The generic Extractor editor must not expose a Visual Label-only threshold to every recipe');
 assert.match(read('src/components/contentExtractorPolicy.ts'), /export function visibleContentExtractors/,
   'Extractor feature visibility policy must remain independent from its React controller');
 assert.match(read('src/components/contentExtractorPolicy.ts'), /export function canSaveExtractorRecipe/,
