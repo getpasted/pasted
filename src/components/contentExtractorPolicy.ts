@@ -22,6 +22,13 @@ export function canSaveExtractorRecipe(recipe: ExtractorRecipe) {
   return recipe.accepts.length > 0
     && recipe.acceptedFileFormats.length > 0
     && !(recipe.acceptedFileFormats.length > 1 && recipe.acceptedFileFormats.includes('*'))
+    && recipe.postProcessing.length <= 1
+    && recipe.postProcessing.every((operation) => (
+      operation.kind === 'filter_labels_by_confidence'
+      && Number.isInteger(operation.minimumPercent)
+      && operation.minimumPercent >= 0
+      && operation.minimumPercent <= 100
+    ))
     && recipe.steps.length > 0
     && recipe.steps.every((step) => (
       Boolean(step.executable.path || step.executable.discover.length > 0)

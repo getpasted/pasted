@@ -3,6 +3,7 @@ import { FolderOpen, Plus, ScanText, Trash2 } from 'lucide-react';
 
 import { translate } from '../localization/runtime';
 import { AppDialogButton } from './AppDialogLayout';
+import { ExtractorPostProcessingEditor } from './ExtractorPostProcessingEditor';
 import { MenuMultiSelect } from './MenuMultiSelect';
 import { MenuSelect } from './MenuSelect';
 import { SettingsSwitch } from './SettingsSwitch';
@@ -122,6 +123,7 @@ export function ExtractorRecipeEditor({
                     />
                   </label>
                 </div>
+                <ExtractorPostProcessingEditor recipe={recipe} onChange={onChange} />
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
                     <span className="theme-text-muted font-semibold">{translate('component.contentExtractorManagerDialog.commands')}</span>

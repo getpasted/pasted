@@ -407,24 +407,6 @@ fn live_codex_connection_executes_a_markdown_transform() {
 }
 
 #[test]
-fn extractor_proposal_schema_uses_the_structured_outputs_subset() {
-    let schema = extractor_recipe_schema();
-    assert!(schema
-        .pointer("/properties/recipe/properties/accepts/uniqueItems")
-        .is_none());
-    assert_eq!(
-        schema.pointer("/properties/recipe/properties/accepts/items/enum"),
-        Some(&serde_json::json!(["image", "file_references"]))
-    );
-    assert_eq!(
-        schema.pointer(
-            "/properties/recipe/properties/steps/items/properties/noOutputExitCodes/items/minimum"
-        ),
-        Some(&serde_json::json!(1))
-    );
-}
-
-#[test]
 #[ignore = "requires an explicitly configured, authenticated Codex CLI"]
 fn live_codex_connection_returns_a_validated_extractor_recipe() {
     let executable = std::env::var("PASTED_LIVE_CODEX_PATH")

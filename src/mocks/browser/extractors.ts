@@ -1,22 +1,8 @@
 import { appleDefaults, appleImageFormats, appleLabelsDefaults, audioFormats,
   llamaImageFormats, llamaLabelsDefaults, tesseractDefaults, tesseractImageFormats,
   whisperDefaults } from './extractorDefaults';
-
-export type MockExtractorRecipe = {
-  definitionVersion: 1;
-  accepts: Array<'image' | 'file_references'>;
-  acceptedFileFormats: string[];
-  minimumVisualLabelConfidence: number;
-  output: 'searchable_text';
-  steps: Array<{ id: string; executable: { path: string | null; discover: string[]; versionArguments: string[] }; arguments: string[]; mode: 'once' | 'each_input'; capture: 'ignore' | 'stdout_text' | 'file_text' | 'pasted_json_v1'; outputExtension: string | null; noOutputExitCodes: number[]; timeoutSeconds: number }>;
-  resources: Array<{ id: string; label: string; kind: 'file' | 'directory'; required: boolean; path: string | null }>;
-};
-
-export const mockExtractorRecipe = (input: 'image' | 'file_references' | Array<'image' | 'file_references'>, command: string, acceptedFileFormats = ['*'], args = ['{input.path}']): MockExtractorRecipe => ({
-  definitionVersion: 1, accepts: Array.isArray(input) ? input : [input], acceptedFileFormats, minimumVisualLabelConfidence: 80, output: 'searchable_text',
-  steps: [{ id: 'extract', executable: { path: null, discover: [command], versionArguments: ['--version'] }, arguments: args, mode: 'once', capture: 'stdout_text', outputExtension: null, noOutputExitCodes: [], timeoutSeconds: 60 }],
-  resources: [],
-});
+import { mockExtractorRecipe, type MockExtractorRecipe } from './extractorRecipes';
+export { mockExtractorRecipe, type MockExtractorRecipe } from './extractorRecipes';
 
 export type MockExtractor = {
   id: number; stableRef: string; name: string; description: string; engine: string;
@@ -39,9 +25,19 @@ const builtin = (id: number, stableRef: string, defaults: typeof appleDefaults |
       : stableRef === 'extractor:llama-cpp-labels'
         ? 'llama.cpp is not installed. Install llama.cpp, then check again.'
         : 'Whisper.cpp is not installed. Install whisper-cpp, then check again.',
-  recipe: mockExtractorRecipe(stableRef === 'extractor:whisper-transcription' ? 'file_references' : ['image', 'file_references'], command, formats, args),
+  recipe: {
+    ...mockExtractorRecipe(stableRef === 'extractor:whisper-transcription' ? 'file_references' : ['image', 'file_references'], command, formats, args),
+    postProcessing: stableRef.endsWith('-labels')
+      ? [{ kind: 'filter_labels_by_confidence', minimumPercent: 80 }]
+      : [],
+  },
   recipeHash: `mock-${id}`,
-  defaultRecipe: mockExtractorRecipe(stableRef === 'extractor:whisper-transcription' ? 'file_references' : ['image', 'file_references'], command, formats, args),
+  defaultRecipe: {
+    ...mockExtractorRecipe(stableRef === 'extractor:whisper-transcription' ? 'file_references' : ['image', 'file_references'], command, formats, args),
+    postProcessing: stableRef.endsWith('-labels')
+      ? [{ kind: 'filter_labels_by_confidence', minimumPercent: 80 }]
+      : [],
+  },
   defaults: { ...defaults },
 });
 
