@@ -16,13 +16,20 @@
   color: var(--text-subtle);
 }
 
-.theme-accent-text,
-.theme-workflow-text {
+.theme-accent-text {
   color: var(--status-info);
+}
+
+.theme-workflow-text {
+  color: var(--manual-transform-accent-bright);
 }
 
 .theme-note-text {
   color: var(--note-accent);
+}
+
+.theme-smart-bin-text {
+  color: var(--smart-bin-accent);
 }
 
 .theme-queue-text {

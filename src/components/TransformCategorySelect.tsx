@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import { Filter } from 'lucide-react';
 import { MenuSelect, type MenuSelectOption } from './MenuSelect';
 import { translate } from '../localization/runtime';
 
@@ -32,7 +31,7 @@ export function TransformCategorySelect({
       options={options}
       onChange={onChange}
       label={label}
-      leadingIcon={leadingIcon ?? <Filter className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />}
+      leadingIcon={leadingIcon}
       className={`transform-category-select ${accent}`}
       searchable={searchable}
       searchPlaceholder={searchPlaceholder}

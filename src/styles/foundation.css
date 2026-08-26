@@ -112,6 +112,7 @@ html[dir="rtl"] .tracking-widest {
     --checkbox-check-color: var(--accent-primary-contrast);
     --queue-accent: #c084fc;
     --named-accent: #22d3ee;
+    --smart-bin-accent: #facc15;
     --overlay-scrim: rgba(0, 0, 0, 0.62);
     --status-success: #6ee7b7;
     --note-accent: #facc15;
@@ -173,6 +174,9 @@ html[dir="rtl"] .tracking-widest {
     --accent-primary-contrast: #ffffff;
     --queue-accent: #7e22ce;
     --named-accent: #0e7490;
+    --smart-bin-accent: #a16207;
+    --manual-transform-accent: #86198f;
+    --manual-transform-accent-bright: #a21caf;
     --overlay-scrim: rgba(28, 28, 30, 0.28);
     --status-success: #047857;
     --note-accent: #a16207;
@@ -544,6 +548,7 @@ html[dir="rtl"] .tracking-widest {
     --status-success: #63cbc5;
     --note-accent: #ffd447;
     --note-accent-contrast: #211207;
+    --smart-bin-accent: #ffd447;
 
     --material-app: rgba(21, 21, 21, 0.68);
     --material-sidebar: rgba(32, 30, 27, 0.72);
@@ -559,8 +564,8 @@ html[dir="rtl"] .tracking-widest {
     --status-warning: #d97706;
     --status-info: var(--accent-primary);
     --status-danger-contrast: #ffffff;
-    --manual-transform-accent: #1598a8;
-    --manual-transform-accent-bright: #22c7d8;
+    --manual-transform-accent: #c026d3;
+    --manual-transform-accent-bright: #e879f9;
     --operation-accent: #c06a20;
     --operation-accent-bright: #e99a28;
     --shadow-color: #000000;

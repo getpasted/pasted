@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit3, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { Edit3, Funnel, Plus, Trash2 } from 'lucide-react';
 
 import { translate } from '../localization/runtime';
 import type { Bin } from '../types';
@@ -180,7 +180,7 @@ export function SidebarBinsSection({
                   <div className={`flex items-center space-x-1.5 ${isBinHovered && !isDragging ? 'hidden' : ''}`}>
                     {bin.smart_rule && (bin.clip_count ?? 0) > 0 ? (
                       <span title={translate('component.sidebar.smartBinCountMatches', { count: bin.clip_count ?? 0 })} className="sidebar-badge text-[11px] px-1.5 py-0.5 rounded-md font-mono flex items-center space-x-1">
-                        <Sparkles className="theme-note-text w-3 h-3 shrink-0" /><span>{bin.clip_count}</span>
+                        <Funnel className="theme-smart-bin-text w-3 h-3 shrink-0" /><span>{bin.clip_count}</span>
                       </span>
                     ) : !!bin.clip_count && bin.clip_count > 0 && (
                       <span className="sidebar-badge text-[11px] px-1.5 py-0.5 rounded-md font-mono">{bin.clip_count}</span>
