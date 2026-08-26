@@ -1,5 +1,4 @@
 use super::*;
-use crate::extractor_recipe::ExtractorPostProcessing;
 
 pub fn migrate_builtin_recipe_compatibility(
     stable_ref: &str,
@@ -7,15 +6,6 @@ pub fn migrate_builtin_recipe_compatibility(
     legacy_model_path: Option<&str>,
 ) -> ExtractorRecipe {
     let mut migrated = current.clone();
-
-    if let Some(minimum_percent) = migrated.legacy_minimum_visual_label_confidence.take() {
-        if matches!(stable_ref, APPLE_VISION_LABELS_REF | LLAMA_CPP_LABELS_REF)
-            && migrated.post_processing.is_empty()
-        {
-            migrated.post_processing =
-                vec![ExtractorPostProcessing::FilterLabelsByConfidence { minimum_percent }];
-        }
-    }
 
     if stable_ref == APPLE_VISION_OCR_REF {
         for step in &mut migrated.steps {

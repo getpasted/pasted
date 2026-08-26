@@ -91,13 +91,8 @@ assert.equal(canSaveExtractorRecipe({
   })),
   postProcessing: [{ kind: 'filter_labels_by_confidence', minimumPercent: 101 }],
 }), false, 'label confidence must use the same bounded validation in the GUI');
-const legacyConfidenceRecipe = addLabelConfidencePostProcessing({
-  ...validRecipe,
-  minimumVisualLabelConfidence: 65,
-} as ExtractorRecipe & { minimumVisualLabelConfidence: number });
-assert.equal('minimumVisualLabelConfidence' in legacyConfidenceRecipe, false,
-  'editing post-processing must retire the legacy confidence field');
-assert.equal(legacyConfidenceRecipe.postProcessing[0]?.minimumPercent, 80,
+const confidenceRecipe = addLabelConfidencePostProcessing(validRecipe);
+assert.equal(confidenceRecipe.postProcessing[0]?.minimumPercent, 80,
   'custom Extractors must receive the same default confidence as shipped recipes');
 const configuredRecipe: ExtractorRecipe = {
   ...validRecipe,

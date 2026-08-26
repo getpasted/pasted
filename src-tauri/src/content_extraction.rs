@@ -581,7 +581,6 @@ pub fn recipe_for_legacy_definition(input: &ExtractorDefinitionInput) -> Extract
         accepts,
         accepted_file_formats: vec!["*".into()],
         post_processing: Vec::new(),
-        legacy_minimum_visual_label_confidence: None,
         output: ExtractorOutputKind::SearchableText,
         steps,
         resources,

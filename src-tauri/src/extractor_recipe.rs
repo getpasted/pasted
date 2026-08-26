@@ -128,12 +128,6 @@ pub struct ExtractorRecipe {
     pub accepted_file_formats: Vec<String>,
     #[serde(default)]
     pub post_processing: Vec<ExtractorPostProcessing>,
-    #[serde(
-        default,
-        rename = "minimumVisualLabelConfidence",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub legacy_minimum_visual_label_confidence: Option<u8>,
     pub output: ExtractorOutputKind,
     #[serde(default)]
     pub steps: Vec<ExtractorCommandStep>,
@@ -307,12 +301,6 @@ pub fn validate_recipe(recipe: &ExtractorRecipe) -> Result<(), String> {
         return Err("The any-format selector cannot be combined with specific formats".into());
     }
     post_processing::validate(&recipe.post_processing)?;
-    if recipe
-        .legacy_minimum_visual_label_confidence
-        .is_some_and(|minimum| minimum > 100)
-    {
-        return Err("Minimum label confidence must be between 0 and 100".into());
-    }
     if recipe.steps.is_empty() || recipe.steps.len() > MAX_STEPS {
         return Err(format!(
             "Extractor recipes require 1–{MAX_STEPS} command steps"
@@ -752,11 +740,7 @@ fn execute_recipe(recipe: &ExtractorRecipe, input: RecipeInput<'_>) -> Extractio
             }
         }
     }
-    labels = post_processing::apply(
-        &recipe.post_processing,
-        labels,
-        recipe.legacy_minimum_visual_label_confidence,
-    );
+    labels = post_processing::apply(&recipe.post_processing, labels);
     if produced.is_empty() && labels.is_empty() {
         first_input_failure
             .map(|failure| ExtractionOutcome::Failed { failure })
@@ -988,7 +972,6 @@ mod tests {
             ],
             accepted_file_formats: vec!["*".into()],
             post_processing: Vec::new(),
-            legacy_minimum_visual_label_confidence: None,
             output: ExtractorOutputKind::SearchableText,
             steps: vec![ExtractorCommandStep {
                 id: "extract".into(),
@@ -1021,23 +1004,6 @@ mod tests {
         assert_eq!(parsed.accepted_file_formats, ["*"]);
         assert!(parsed.steps[0].no_output_exit_codes.is_empty());
         assert!(parsed.post_processing.is_empty());
-        assert_eq!(parsed.legacy_minimum_visual_label_confidence, None);
-    }
-
-    #[test]
-    fn legacy_visual_label_confidence_deserializes_without_becoming_a_new_operation() {
-        let value = serde_json::json!({
-            "definitionVersion": 1,
-            "accepts": ["image"],
-            "acceptedFileFormats": ["png"],
-            "minimumVisualLabelConfidence": 72,
-            "output": "searchable_text",
-            "steps": recipe().steps,
-            "resources": []
-        });
-        let parsed: ExtractorRecipe = serde_json::from_value(value).unwrap();
-        assert!(parsed.post_processing.is_empty());
-        assert_eq!(parsed.legacy_minimum_visual_label_confidence, Some(72));
     }
 
     #[test]

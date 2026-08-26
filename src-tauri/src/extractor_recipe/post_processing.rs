@@ -48,21 +48,13 @@ pub(super) fn validate(operations: &[ExtractorPostProcessing]) -> Result<(), Str
 pub(super) fn apply(
     operations: &[ExtractorPostProcessing],
     labels: Vec<VisualLabel>,
-    legacy_minimum_percent: Option<u8>,
 ) -> Vec<VisualLabel> {
     let mut labels = crate::content_extraction::normalize_visual_labels(labels);
-    let mut has_declared_confidence_filter = false;
     for operation in operations {
         match operation {
             ExtractorPostProcessing::FilterLabelsByConfidence { minimum_percent } => {
-                has_declared_confidence_filter = true;
                 retain_labels_at_or_above(&mut labels, *minimum_percent);
             }
-        }
-    }
-    if !has_declared_confidence_filter {
-        if let Some(minimum_percent) = legacy_minimum_percent {
-            retain_labels_at_or_above(&mut labels, minimum_percent);
         }
     }
     labels
@@ -105,7 +97,6 @@ mod tests {
                 minimum_percent: 80,
             }],
             labels(),
-            None,
         );
         assert_eq!(
             accepted
@@ -118,11 +109,6 @@ mod tests {
 
     #[test]
     fn recipes_without_a_filter_keep_scored_labels() {
-        assert_eq!(apply(&[], labels(), None).len(), 3);
-    }
-
-    #[test]
-    fn legacy_confidence_filter_remains_compatible() {
-        assert_eq!(apply(&[], labels(), Some(80)).len(), 2);
+        assert_eq!(apply(&[], labels()).len(), 3);
     }
 }

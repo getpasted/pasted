@@ -6,11 +6,7 @@ export function replaceExtractorPostProcessing(
   recipe: ExtractorRecipe,
   postProcessing: ExtractorRecipe['postProcessing'],
 ) {
-  const updated = { ...recipe } as ExtractorRecipe & {
-    minimumVisualLabelConfidence?: number;
-  };
-  delete updated.minimumVisualLabelConfidence;
-  return { ...updated, postProcessing };
+  return { ...recipe, postProcessing };
 }
 
 export function addLabelConfidencePostProcessing(recipe: ExtractorRecipe) {
