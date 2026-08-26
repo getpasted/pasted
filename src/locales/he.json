@@ -2474,6 +2474,7 @@
   "component.helpView.clipHotkeyDescription": "הקצה מקש חם מתצוגת הפרטים כדי להדביק את הקליפ המדויק בכל מקום. ההקצאה מגנה על הקליפ אוטומטית.",
   "registry.extractor.extractorLlamaCppLabels.name": "תוויות llama.cpp",
   "registry.extractor.extractorLlamaCppLabels.description": "מאתר מקומית נושאים ועצמים הניתנים לחיפוש בתמונות באמצעות llama.cpp.",
-  "component.contentExtractorManagerDialog.installLlamaCppWithCommand": "יש להתקין את llama.cpp באמצעות {command}.",
-  "component.contentExtractorManagerDialog.downloadLlamaCppModelWithCommand": "יש להוריד את המודל פעם אחת באמצעות {command}. לאחר מכן החילוץ נשאר לא מקוון."
+  "component.contentExtractorManagerDialog.installDependency": "יש להתקין את {name}.",
+  "component.contentExtractorManagerDialog.downloadConfiguredModel": "יש להוריד את המודל המוגדר פעם אחת. לאחר מכן החילוץ נשאר לא מקוון.",
+  "component.contentExtractorManagerDialog.runEachCommandThenCheckAvailabilityAgain": "יש להפעיל כל פקודה ולאחר מכן לבדוק שוב את הזמינות."
 }

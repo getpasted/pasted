@@ -67,6 +67,8 @@ const extractorManagerFiles = [
   'src/components/ContentExtractorManagerDialog.tsx',
   'src/components/ExtractorAuthoringHistoryDialog.tsx',
   'src/components/ExtractorAiSetupPanel.tsx',
+  'src/components/ExtractorCommandSetupPanel.tsx',
+  'src/components/ExtractorSetupPanel.tsx',
   'src/components/ExtractorRecipeEditor.tsx',
   'src/components/ExtractorRegistryPanel.tsx',
   'src/components/contentExtractorModel.ts',
@@ -189,6 +191,12 @@ assert.match(extractorManager, /value: 'searchable_text',[\s\S]{0,100}translate\
   'Extractor settings must present the searchable-text output contract readably');
 assert.doesNotMatch(extractorManager, />Pass<|>extract<\/strong>/,
   'Extractor settings must not repeat the enclosing Analysis step');
+assert.match(extractorManager, /<code dir="ltr" className="[^"]*select-text/,
+  'Deterministic Extractor setup commands must remain selectable');
+assert.match(extractorManager, /navigator\.clipboard\.writeText\(command\)/,
+  'Deterministic Extractor setup commands must remain individually copyable');
+assert.match(extractorManager, /extractorCommandSetup\(recipe\)[\s\S]*ExtractorCommandSetupPanel/,
+  'Any Extractor with deterministic setup commands must use the shared command rows');
 assert.ok(lineCount('src/components/ContentExtractorManagerDialog.tsx') <= 215,
   'The Extractor manager coordinator must stay within its extracted size boundary');
 assert.match(read('src/hooks/useContentExtractorManager.ts'), /export function useContentExtractorManager/,
