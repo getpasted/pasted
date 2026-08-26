@@ -2389,7 +2389,7 @@
   "transformRequest.startingLabel": "מתחיל {label}",
   "component.contentExtractorManagerDialog.acceptedClipTypes": "סוגי Clip נתמכים",
   "component.contentExtractorManagerDialog.acceptedFileFormats": "תבניות קובץ נתמכות",
-  "component.contentExtractorManagerDialog.minimumVisualLabelConfidence": "סף הביטחון המינימלי לתוויות חזותיות",
+  "component.contentExtractorManagerDialog.minimumVisualLabelConfidence": "ביטחון בתוויות",
   "component.contentExtractorManagerDialog.chooseFileFormats": "בחירת תבניות",
   "component.contentExtractorManagerDialog.anyFileFormat": "כל תבנית קובץ",
   "component.contentExtractorManagerDialog.fileFormatGroup.any": "כל סוג",
