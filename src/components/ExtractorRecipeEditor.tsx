@@ -74,7 +74,7 @@ export function ExtractorRecipeEditor({
             <details className="theme-subtle-surface rounded-xl border p-3 text-[10px]">
               <summary className="theme-text-muted cursor-pointer font-semibold">{translate('component.contentExtractorManagerDialog.advanced')}</summary>
               <div className="mt-3 space-y-4">
-                <div className="grid grid-cols-1 gap-3 @md:grid-cols-4">
+                <div className="grid grid-cols-1 gap-3 @md:grid-cols-3">
                   <label className="space-y-1">
                     <span className="theme-text-muted block font-semibold">{translate('component.contentExtractorManagerDialog.acceptedClipTypes')}</span>
                     <MenuMultiSelect
@@ -120,20 +120,6 @@ export function ExtractorRecipeEditor({
                       className="w-full"
                       options={EXTRACTOR_OUTPUT_OPTIONS.map((option) => ({ value: option.value, label: option.label }))}
                     />
-                  </label>
-                  <label className="space-y-1">
-                    <span className="theme-text-muted block font-semibold">{translate('component.contentExtractorManagerDialog.minimumVisualLabelConfidence')}</span>
-                    <span className="relative block">
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={recipe.minimumVisualLabelConfidence}
-                        onChange={(event) => onChange({ ...recipe, minimumVisualLabelConfidence: Math.min(100, Math.max(0, Number(event.target.value) || 0)) })}
-                        className="theme-input ui-field-radius w-full border px-2.5 py-2 pe-8 font-mono"
-                      />
-                      <span className="theme-text-muted pointer-events-none absolute inset-y-0 end-2.5 flex items-center">%</span>
-                    </span>
                   </label>
                 </div>
                 <div className="space-y-2">
