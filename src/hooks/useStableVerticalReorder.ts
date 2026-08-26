@@ -10,7 +10,7 @@ interface LayoutSnapshot {
 interface StableVerticalReorderOptions {
   itemIds: string[];
   containerRef: RefObject<HTMLElement | null>;
-  onCommit: (orderedIds: string[]) => void;
+  onCommit: (orderedIds: string[]) => void | Promise<void>;
   transitionMs?: number;
   disabled?: boolean;
 }
@@ -24,7 +24,7 @@ interface PointerGesture {
 }
 
 function nearestScrollContainer(element: HTMLElement | null): HTMLElement | null {
-  let ancestor = element?.parentElement ?? null;
+  let ancestor = element;
   while (ancestor) {
     const overflowY = window.getComputedStyle(ancestor).overflowY;
     if (/^(auto|scroll|overlay)$/.test(overflowY) && ancestor.scrollHeight > ancestor.clientHeight) {
@@ -46,6 +46,7 @@ export function useStableVerticalReorder({
   const [offsets, setOffsets] = useState<Record<string, number>>({});
   const [isSettling, setIsSettling] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
+  const [settlingOrder, setSettlingOrder] = useState<string[] | null>(null);
   const itemIdsRef = useRef(itemIds);
   const onCommitRef = useRef(onCommit);
   const activeIdRef = useRef<string | null>(null);
@@ -177,8 +178,20 @@ export function useStableVerticalReorder({
       if (scrollContainer && settledScrollTop !== undefined) scrollContainer.scrollTop = settledScrollTop;
     };
     setIsSettling(true);
-    onCommitRef.current(nextOrder);
+    setSettlingOrder(nextOrder);
     setOffsets({});
+    requestAnimationFrame(() => {
+      preserveScrollPosition();
+      requestAnimationFrame(preserveScrollPosition);
+    });
+    try {
+      await onCommitRef.current(nextOrder);
+    } catch (error) {
+      console.error('Failed to commit reordered items:', error);
+    } finally {
+      if (generationRef.current !== generation) return;
+      setSettlingOrder(null);
+    }
     requestAnimationFrame(() => {
       preserveScrollPosition();
       requestAnimationFrame(() => {
@@ -276,6 +289,7 @@ export function useStableVerticalReorder({
     offsets,
     isSettling,
     isFinishing,
+    settlingOrder,
     beginReorder: begin,
     updateReorder: update,
     finishReorder: finish,

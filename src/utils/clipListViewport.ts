@@ -7,3 +7,19 @@ export function clipCardScrollTop(element: HTMLElement, card: HTMLElement): numb
     element.scrollHeight - element.clientHeight,
   ));
 }
+
+export function orderClipsForStableReorder<T>(
+  items: T[],
+  orderedIds: string[] | null,
+  idForItem: (item: T) => string,
+): T[] {
+  if (!orderedIds) return items;
+  const itemById = new Map(items.map((item) => [idForItem(item), item]));
+  const ordered = orderedIds.flatMap((id) => {
+    const item = itemById.get(id);
+    if (!item) return [];
+    itemById.delete(id);
+    return [item];
+  });
+  return [...ordered, ...itemById.values()];
+}

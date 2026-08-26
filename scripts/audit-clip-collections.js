@@ -30,6 +30,7 @@ const app = [
   read('src/hooks/useAppController.ts'),
   read('src/hooks/useSettledSearchQuery.ts'),
   read('src/components/AppShellView.tsx'),
+  read('src/components/ClipListContent.tsx'),
 ].join('\n');
 const clipListHeader = read('src/components/ClipListHeader.tsx');
 const appNavigation = read('src/utils/appNavigation.ts');

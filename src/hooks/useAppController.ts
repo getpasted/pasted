@@ -241,6 +241,7 @@ export function useAppController() {
     isQueueCollection,
     queueReorder,
     reorderIdsForClip,
+    displayedClipsForRender,
   } = useClipReordering({
     collection: currentCollection,
     selectedBinId,
@@ -467,7 +468,7 @@ export function useAppController() {
       displayedClips, queuedIndexMap, searchTotalCount, searchDisplayQuery, searchFailed,
       retrySearch, currentCollection, clipListRef, handleClipListScroll, isLoadingCurrentCollection,
       pinnedShelfClips, stackedPinnedClipIds, binClipReorder, isBinCollection, isQueueCollection,
-      queueReorder, reorderIdsForClip, binsById, selectedClipViewPolicy, hasRestrictedSelection,
+      queueReorder, reorderIdsForClip, displayedClipsForRender, binsById, selectedClipViewPolicy, hasRestrictedSelection,
       clipHistoryFocus,
     },
     selection: {
