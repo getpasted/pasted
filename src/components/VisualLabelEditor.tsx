@@ -2,6 +2,7 @@ import { Plus, RotateCcw, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { translate } from '../localization/runtime';
+import { ActionButton } from './AppDialogLayout';
 import type { EffectiveVisualLabels } from './clipPreviewModel';
 import { ConfirmationDialog, type ConfirmationDialogRequest } from './ConfirmationDialog';
 
@@ -95,7 +96,7 @@ export function VisualLabelEditor({
             <button
               type="button"
               onClick={() => setAdding(true)}
-              className="theme-icon-button theme-focusable flex h-6 w-6 items-center justify-center rounded-lg border"
+              className="theme-icon-button theme-focusable ui-control-radius flex h-6 w-6 items-center justify-center border"
               aria-label={translate('component.clipPreviewContent.addVisualLabel')}
               title={translate('component.clipPreviewContent.addVisualLabel')}
             >
@@ -106,10 +107,10 @@ export function VisualLabelEditor({
       </ul>
       {!readOnly && visualLabels.hasOverrides && (
         <div className="mt-2 flex justify-end">
-          <button type="button" onClick={requestReset} className="theme-secondary-button theme-focusable flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[10px] font-semibold">
+          <ActionButton onClick={requestReset}>
             <RotateCcw className="h-3 w-3" />
             {translate('common.resetWithEllipsis')}
-          </button>
+          </ActionButton>
         </div>
       )}
     </div>

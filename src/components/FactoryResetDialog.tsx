@@ -106,7 +106,7 @@ export function FactoryResetDialog({
           <div className="flex items-center gap-2">
             <AppDialogButton onClick={requestClose} disabled={isResetting}>{translate('common.cancel')}</AppDialogButton>
             <AppDialogButton
-              variant="danger"
+              variant="solid-danger"
               onClick={() => void reset()}
               disabled={confirmation !== 'RESET' || isResetting}
             >

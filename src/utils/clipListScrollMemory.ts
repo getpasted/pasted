@@ -13,6 +13,10 @@ const TOP_POSITION: ClipListScrollPosition = Object.freeze({
 export class ClipListScrollMemory {
   private readonly positions = new Map<string, ClipListScrollPosition>();
 
+  has(viewKey: string): boolean {
+    return this.positions.has(viewKey);
+  }
+
   remember(viewKey: string, position: ClipListScrollPosition) {
     if (!Number.isFinite(position.scrollTop) || !Number.isFinite(position.anchorOffset)) return;
     this.positions.set(viewKey, { ...position, scrollTop: Math.max(0, position.scrollTop) });

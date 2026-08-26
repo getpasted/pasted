@@ -52,7 +52,7 @@ export function ClipPreviewWorkspace({
         {transformError === 'Power on a provider and try again.' && onOpenIntelligence
           ? <button
             type="button"
-            className="cursor-pointer font-semibold underline underline-offset-2"
+            className="theme-inline-action cursor-pointer font-semibold underline underline-offset-2"
             onClick={onOpenIntelligence}
           >
             {transformError}

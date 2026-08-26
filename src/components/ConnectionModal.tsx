@@ -66,7 +66,7 @@ export function ConnectionModal({ onClose, onCreated }: ConnectionModalProps) {
       onClose={onClose}
       labelledBy="connection-modal-title"
       isDirty={isDirty}
-      panelClassName="theme-panel border rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden"
+      panelClassName="theme-panel border rounded-2xl w-full max-w-2xl overflow-hidden"
     >
       {({ requestClose }) => <>
         <AppDialogHeader onClose={requestClose} closeLabel={translate('component.connectionModal.closeAddConnectionDialog')}>

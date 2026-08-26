@@ -34,7 +34,7 @@ export function AddBlacklistAppModal({ suggestions, onAdd, onClose }: AddBlackli
       onClose={onClose}
       labelledBy="add-blacklist-app-title"
       isDirty={Boolean(appName.trim())}
-      panelClassName="theme-panel border rounded-2xl w-full max-w-md shadow-2xl overflow-hidden"
+      panelClassName="theme-panel border rounded-2xl w-full max-w-md overflow-hidden"
     >
       {({ requestClose }) => (
         <>

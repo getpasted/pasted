@@ -9,14 +9,12 @@ import { AppLockScreen } from "./components/AppLockScreen";
 import { dismissStartupSplash } from "./utils/startupSplash";
 import { LocalizationProvider } from "./localization/LocalizationProvider";
 import { getLocalizationSnapshot } from "./localization/runtime";
+import { restorePendingBackupClientStateBeforeMount } from "./utils/backupClientState";
 
 // Window chrome is native on every desktop platform, but only macOS overlays
 // those controls on top of Pasted's web content. Set this synchronously before
 // React mounts so the first painted frame already has the correct safe area.
 applyDesktopPlatform();
-const initialLocalization = getLocalizationSnapshot();
-document.documentElement.lang = initialLocalization.locale;
-document.documentElement.dir = initialLocalization.direction;
 
 const markWindowActive = () => {
   document.documentElement.removeAttribute('data-window-inactive');
@@ -65,10 +63,26 @@ function ProtectedAppRoot() {
   </>;
 }
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-  <React.StrictMode>
-    <LocalizationProvider>
-      <ProtectedAppRoot />
-    </LocalizationProvider>
-  </React.StrictMode>,
-);
+async function mountApp() {
+  try {
+    // Full Restore stages its backed-up interface state in the restored database.
+    // Apply it before any hook reads localStorage so startup has one stable frame.
+    await restorePendingBackupClientStateBeforeMount();
+  } catch (error) {
+    console.error('Failed to restore backed-up interface state:', error);
+  }
+
+  const initialLocalization = getLocalizationSnapshot();
+  document.documentElement.lang = initialLocalization.locale;
+  document.documentElement.dir = initialLocalization.direction;
+
+  ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+    <React.StrictMode>
+      <LocalizationProvider>
+        <ProtectedAppRoot />
+      </LocalizationProvider>
+    </React.StrictMode>,
+  );
+}
+
+void mountApp();

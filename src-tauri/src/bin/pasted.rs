@@ -228,6 +228,7 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
         "copy" | "add" => cli_commands::history::run_copy(args, db_path, conn)?,
         "list" | "ls" => cli_commands::history::run_list(args, db_path, conn)?,
         "search" | "find" => cli_commands::history::run_search(args, db_path, conn)?,
+        "search-history" | "searches" => cli_commands::search_history::run(&args, db_path, conn)?,
         "clear" => cli_commands::maintenance::run_clear(args, db_path, conn)?,
         "reset" => cli_commands::maintenance::run_reset(args, db_path, conn)?,
         _ => help::print(),

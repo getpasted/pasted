@@ -19,7 +19,7 @@ export function ClipBatchActionBar({
   onClearSelection,
 }: ClipBatchActionBarProps) {
   return (
-    <div className="batch-action-bar absolute bottom-4 left-1/2 -translate-x-1/2 border rounded-2xl px-3 py-1.5 shadow-2xl flex items-center space-x-2 text-[11px] whitespace-nowrap animate-in fade-in slide-in-from-bottom-2 duration-150 max-w-[calc(100%-1.5rem)] select-none">
+    <div className="batch-action-bar absolute bottom-4 left-1/2 -translate-x-1/2 border rounded-2xl px-3 py-1.5 flex items-center space-x-2 text-[11px] whitespace-nowrap animate-in fade-in slide-in-from-bottom-2 duration-150 max-w-[calc(100%-1.5rem)] select-none">
       <span className="batch-action-count font-bold font-mono text-[11px] px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0">
         {selectedCount}
       </span>

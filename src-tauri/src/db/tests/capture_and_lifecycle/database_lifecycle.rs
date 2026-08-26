@@ -112,7 +112,7 @@ fn factory_reset_removes_user_state_and_restores_first_launch_defaults() {
 
     let report = db.factory_reset().unwrap();
     assert_eq!(report.clips_deleted, 1);
-    assert_eq!(report.bins_deleted, 4);
+    assert_eq!(report.bins_deleted, 3);
     assert_eq!(report.transforms_deleted, 3);
     assert_eq!(report.connections_deleted, 1);
     assert_eq!(report.activity_entries_deleted, 3);
@@ -120,21 +120,25 @@ fn factory_reset_removes_user_state_and_restores_first_launch_defaults() {
     assert!(db.get_clips(None, false).unwrap().is_empty());
     assert!(search_test_clips(&db, "Reset me").is_empty());
     let default_bins = db.get_bins().unwrap();
-    assert_eq!(default_bins.len(), 3);
+    assert_eq!(default_bins.len(), 2);
     assert_eq!(
         default_bins
             .iter()
             .map(|bin| bin.name.as_str())
             .collect::<Vec<_>>(),
-        vec!["Images", "Links and Web", "Code Snippets"]
+        vec!["Projects", "From Browsers"]
     );
-    assert_eq!(
-            default_bins[0].smart_rule.as_deref(),
-            Some("{\"version\":1,\"conditions\":[{\"type\":\"clip_type\",\"operator\":\"is\",\"value\":\"image\"}],\"match\":\"any\"}")
-        );
+    assert!(default_bins.iter().all(|bin| bin.color == "#6b7280"));
+    assert_eq!(default_bins[0].smart_rule, None);
+    assert!(default_bins[1]
+        .smart_rule
+        .as_deref()
+        .is_some_and(|rule| rule.contains("Safari")
+            && rule.contains("Firefox")
+            && rule.contains("Brave")));
     assert_eq!(
         default_bins.iter().map(|bin| bin.id).collect::<Vec<_>>(),
-        vec![1, 2, 3]
+        vec![1, 2]
     );
     assert_eq!(db.get_setting("themeMode").unwrap(), None);
     let reset_types = db.get_content_types(true).unwrap();
@@ -172,8 +176,9 @@ fn factory_reset_removes_user_state_and_restores_first_launch_defaults() {
         crate::operation_registry::BUILTIN_OPERATIONS.len()
     );
 
-    let fresh = save_plain_test_clip(&db, "text", "Fresh start", "factory-reset-fresh", "Test");
+    let fresh = save_plain_test_clip(&db, "text", "Fresh start", "factory-reset-fresh", "Safari");
     assert!(fresh.id > 0);
+    assert_eq!(db.get_bins().unwrap()[1].clip_count, Some(1));
 }
 
 #[test]

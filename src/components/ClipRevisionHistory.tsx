@@ -132,7 +132,7 @@ export function ClipRevisionHistory({
                   <OverflowText as="p" text={version.text_content} className="clip-revision-history-preview text-xs font-mono truncate" />
                 </div>
                 {!readOnly && !version.is_current && (
-                  <div className="floating-action-strip clip-revision-history-actions flex items-center gap-1 rounded-lg border p-1 shadow-xl" aria-label={translate('component.clipRevisionHistory.versionActions')}>
+                  <div className="floating-action-strip clip-revision-history-actions flex items-center gap-1 rounded-lg border p-1" aria-label={translate('component.clipRevisionHistory.versionActions')}>
                     <button
                       type="button"
                       disabled={mutationInProgress}

@@ -29,6 +29,8 @@ const labels: Record<GeneralKey, () => string> = {
   trashAgeDays: () => translate('component.settingsGeneralPanel.keepTrashedClipsFor'),
   activityLogCapacity: () => translate('component.settingsGeneralPanel.maximumActivityEntries'),
   activityLogAgeDays: () => translate('component.settingsGeneralPanel.keepActivityFor'),
+  searchHistoryLimit: () => translate('component.settingsGeneralPanel.searchHistory'),
+  searchHistoryAgeDays: () => translate('component.settingsGeneralPanel.keepSearchesFor'),
 };
 
 export function generalSettingsResetChanges(
@@ -78,6 +80,9 @@ function formatValue(key: GeneralKey, value: AppSettings[GeneralKey], locales: r
   if (key === 'analysisAttemptsPerClip') return Number(value) === 0
     ? translate('component.settingsGeneralPanel.unlimited')
     : translate('component.settingsGeneralPanel.valueAnalysisAttempts', { value: Number(value) });
+  if (key === 'searchHistoryLimit') return Number(value) === 0
+    ? translate('component.settingsGeneralPanel.unlimited')
+    : translate('component.settingsGeneralPanel.valueSearches', { value: Number(value) });
   if (key === 'maxClipSizeMb' || key === 'filePreviewMaxMb') return translate('component.settingsResetChanges.megabytes', { count: Number(value) });
   return optionLabel(key, String(value), isMac);
 }

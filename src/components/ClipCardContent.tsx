@@ -56,7 +56,7 @@ export function ClipCardContent({
         placeholderHeightClass={imagePlaceholderHeightClass}
       /> : (clip.content_types ?? [clip.content_type]).includes('color') ? <div className="clip-thumbnail-stage flex items-center space-x-3 p-2 rounded border">
         <div
-          className="theme-divider w-8 h-8 rounded border shadow"
+          className="theme-divider elevation-control w-8 h-8 rounded border"
           style={{ backgroundColor: clip.text_content || '#ffffff' }}
         />
         <span className="clip-note-accent font-mono text-xs">{clip.text_content}</span>

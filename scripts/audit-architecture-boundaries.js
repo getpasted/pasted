@@ -121,6 +121,7 @@ const transformationCommands = read('src-tauri/src/commands/transformations.rs')
 const hotkeyCommands = read('src-tauri/src/commands/hotkeys.rs');
 const hudCommands = read('src-tauri/src/commands/hud.rs');
 const platformCommands = read('src-tauri/src/commands/platform.rs');
+const aboutCommands = read('src-tauri/src/commands/about.rs');
 const retentionCommands = read('src-tauri/src/commands/retention.rs');
 const settingsCommands = read('src-tauri/src/commands/settings.rs');
 const appOverlays = read('src/hooks/useAppOverlays.ts');
@@ -477,8 +478,10 @@ assert.match(settingsCommands, /apply_feature_policy_changes[\s\S]*register_all_
   'Settings runtime changes must coordinate feature shutdown and hotkey refresh in one adapter');
 assert.match(platformCommands, /pub fn perform_titlebar_double_click[\s\S]*titlebar::perform_titlebar_double_click/,
   'Platform shell commands must delegate titlebar behavior to the shared titlebar service');
-assert.match(platformCommands, /pub fn get_installation_diagnostics/,
-  'Installation diagnostics must remain in the platform shell adapter');
+assert.match(aboutCommands, /pub async fn get_installation_diagnostics[\s\S]*spawn_blocking/,
+  'Installation diagnostics must remain in the focused About adapter');
+assert.match(aboutCommands, /pub async fn get_third_party_licenses[\s\S]*spawn_blocking/,
+  'Bundled license parsing and cloning must not block the app command thread');
 assert.doesNotMatch(platformCommands, /#\[tauri::command\]\s*#\[tauri::command\]/,
   'Platform commands must not carry duplicate Tauri command attributes');
 assert.doesNotMatch(commands, /pub fn save_app_setting|pub fn set_linux_native_menu_theme|pub fn open_backing_page/,
@@ -935,6 +938,7 @@ const sizeRatchets = new Map([
   ['src-tauri/src/commands/hotkeys.rs', 371],
   ['src-tauri/src/commands/hud.rs', 170],
   ['src-tauri/src/commands/platform.rs', 175],
+  ['src-tauri/src/commands/about.rs', 80],
   ['src-tauri/src/commands/retention.rs', 54],
   ['src-tauri/src/commands/retention/analysis.rs', 16],
   ['src-tauri/src/commands/retention/revisions.rs', 16],

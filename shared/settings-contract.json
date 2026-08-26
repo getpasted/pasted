@@ -32,6 +32,8 @@
     { "key": "keepClipAgeDays", "owner": "general", "default": 0, "reset": "default", "visibility": "public", "mutation": "direct", "validation": { "type": "integer", "minimum": 0, "maximum": 36500 } },
     { "key": "revisionHistoryLimit", "owner": "general", "default": 10, "reset": "default", "visibility": "public", "mutation": "direct", "validation": { "type": "integer", "minimum": 0, "maximum": 10000 } },
     { "key": "analysisAttemptsPerClip", "owner": "general", "default": 10, "reset": "default", "visibility": "public", "mutation": "direct", "validation": { "type": "integer", "minimum": 0, "maximum": 10000 } },
+    { "key": "searchHistoryLimit", "owner": "general", "default": 100, "reset": "default", "visibility": "public", "mutation": "direct", "validation": { "type": "integer", "minimum": 0, "maximum": 10000 } },
+    { "key": "searchHistoryAgeDays", "owner": "general", "default": 0, "reset": "default", "visibility": "public", "mutation": "direct", "validation": { "type": "integer", "minimum": 0, "maximum": 36500 } },
     { "key": "trashCapacityCount", "owner": "general", "default": 500, "reset": "default", "visibility": "public", "mutation": "direct", "validation": { "type": "integer", "minimum": 0, "maximum": 100000 } },
     { "key": "trashAgeDays", "owner": "general", "default": 0, "reset": "default", "visibility": "public", "mutation": "direct", "validation": { "type": "integer", "minimum": 0, "maximum": 36500 } },
     { "key": "activityLogCapacity", "owner": "general", "default": 1000, "reset": "default", "visibility": "public", "mutation": "direct", "validation": { "type": "integer", "minimum": 0, "maximum": 100000 } },

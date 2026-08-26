@@ -15,18 +15,22 @@ const createStorage = (entries = {}) => {
 };
 
 const source = createStorage({
-  pasted_app_ui_state: '{"route":"activity"}',
+  pasted_app_ui_state: '{"version":2,"currentTab":"activity","sidebarSections":{"clips":false,"bins":true}}',
   pasted_sidebar_width: '284',
+  pasted_list_width: '412',
   pasted_bin_order: '[3,1,2]',
+  pasted_scroll_positions: '{"version":1,"positions":{"activity":{"scrollTop":640}}}',
   unrelated_secret: 'must-not-leave-storage',
 });
 const encoded = collectBackupClientStateFrom(source);
 assert.deepEqual(JSON.parse(encoded), {
   version: 1,
   localStorage: {
-    pasted_app_ui_state: '{"route":"activity"}',
+    pasted_app_ui_state: '{"version":2,"currentTab":"activity","sidebarSections":{"clips":false,"bins":true}}',
     pasted_sidebar_width: '284',
+    pasted_list_width: '412',
     pasted_bin_order: '[3,1,2]',
+    pasted_scroll_positions: '{"version":1,"positions":{"activity":{"scrollTop":640}}}',
   },
 });
 assert.ok(!encoded.includes('unrelated_secret'));
@@ -37,9 +41,11 @@ const destination = createStorage({
 });
 assert.equal(applyBackupClientStateTo(destination, encoded), true);
 assert.deepEqual(destination.snapshot(), {
-  pasted_app_ui_state: '{"route":"activity"}',
+  pasted_app_ui_state: '{"version":2,"currentTab":"activity","sidebarSections":{"clips":false,"bins":true}}',
   pasted_sidebar_width: '284',
+  pasted_list_width: '412',
   pasted_bin_order: '[3,1,2]',
+  pasted_scroll_positions: '{"version":1,"positions":{"activity":{"scrollTop":640}}}',
   unrelated_secret: 'preserved',
 });
 assert.equal(applyBackupClientStateTo(destination, '{"version":2,"localStorage":{}}'), false);

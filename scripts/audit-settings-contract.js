@@ -39,7 +39,7 @@ for (const key of featureKeys) {
 }
 
 for (const [page, expectedCount] of Object.entries({
-  general: 21,
+  general: 23,
   notifications: 5,
   hotkeys: 17,
   'app-exclusions': 3,
@@ -78,6 +78,11 @@ assert.match(read('src-tauri/src/settings_contract.rs'), /include_str!\("\.\.\/\
   'Rust must compile the same settings contract as the frontend');
 assert.match(read('src-tauri/src/settings_service.rs'), /settings_contract::reset_defaults\(page\)/,
   'Direct page resets must use the shared settings contract');
+const searchHistoryRetention = read('src/components/SettingsGeneralSearchHistorySection.tsx');
+assert.match(searchHistoryRetention, /searchHistoryAgeDays[\s\S]*searchHistoryLimit/,
+  'General Search History settings must expose both age and count retention limits');
+assert.match(read('src/hooks/useAppSettings.ts'), /enforce_search_history_retention[\s\S]{0,180}keepCount:[\s\S]{0,120}keepAgeDays:/,
+  'Search History retention enforcement must apply both count and age limits');
 assert.doesNotMatch(read('src/components/SettingsTabs.tsx'), /modified|settings-tab-modified-dot/,
   'Applied Settings changes must not look like pending tab state');
 assert.match(read('src-tauri/src/app_lock.rs'), /settings_contract::dedicated_reset_defaults\([\s\S]{0,40}"security"/,

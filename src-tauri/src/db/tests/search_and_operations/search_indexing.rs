@@ -1,5 +1,8 @@
 use super::super::*;
 
+#[path = "../search_history.rs"]
+mod search_history;
+
 #[test]
 fn test_wal_mode_and_indexing() {
     let db = setup_test_db();

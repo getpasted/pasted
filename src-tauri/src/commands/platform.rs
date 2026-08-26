@@ -1,11 +1,4 @@
-use std::path::PathBuf;
-use std::sync::Arc;
-
-use tauri::{AppHandle, Manager, State};
-
-use crate::db::DbState;
-use crate::installation_diagnostics::InstallationDiagnostics;
-use crate::third_party_licenses::ThirdPartyLicenseDocument;
+use tauri::AppHandle;
 
 #[tauri::command]
 pub fn set_linux_native_menu_theme(app: AppHandle, dark: bool) -> Result<(), String> {
@@ -59,33 +52,6 @@ pub fn set_titlebar_direction(window: tauri::WebviewWindow, rtl: bool) -> Result
     crate::titlebar::set_titlebar_direction(window, rtl)
 }
 
-#[tauri::command]
-pub fn get_installation_diagnostics(
-    app: AppHandle,
-    db: State<'_, Arc<DbState>>,
-) -> Result<InstallationDiagnostics, String> {
-    let executable = std::env::current_exe().map_err(|error| error.to_string())?;
-    let app_path = executable
-        .ancestors()
-        .find(|path| path.extension().is_some_and(|extension| extension == "app"))
-        .map(PathBuf::from)
-        .unwrap_or(executable);
-    let data_path = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| error.to_string())?;
-    Ok(InstallationDiagnostics::collect_with_database(
-        app_path,
-        data_path,
-        db.database_path(),
-    ))
-}
-
-#[tauri::command]
-pub fn get_third_party_licenses() -> ThirdPartyLicenseDocument {
-    crate::third_party_licenses::document().clone()
-}
-
 #[cfg(target_os = "macos")]
 #[tauri::command]
 pub fn play_system_sound(sound_id: Option<u32>) {
@@ -106,41 +72,6 @@ pub fn play_system_sound(_sound_id: Option<u32>) {}
 #[tauri::command]
 pub fn quit_app(app: AppHandle) {
     crate::app_runtime::request_app_exit(&app);
-}
-
-const BACKING_URL: &str = "https://back.getpasted.app";
-
-#[tauri::command]
-pub fn open_backing_page() -> Result<(), String> {
-    #[cfg(target_os = "macos")]
-    let mut command = {
-        let mut command = std::process::Command::new("open");
-        command.arg(BACKING_URL);
-        command
-    };
-
-    #[cfg(target_os = "windows")]
-    let mut command = {
-        let mut command = std::process::Command::new("cmd");
-        command.args(["/c", "start", "", BACKING_URL]);
-        command
-    };
-
-    #[cfg(target_os = "linux")]
-    let mut command = {
-        let mut command = std::process::Command::new("xdg-open");
-        command.arg(BACKING_URL);
-        command
-    };
-
-    #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
-    return command
-        .spawn()
-        .map(|_| ())
-        .map_err(|error| format!("Could not open the backing page: {error}"));
-
-    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-    Err("Opening the backing page is unavailable on this platform".to_string())
 }
 
 #[tauri::command]

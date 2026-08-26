@@ -1,25 +1,15 @@
+#[path = "help/history.rs"]
+mod history;
+
 pub fn print() {
     println!("Pasted CLI Tool (v{})", env!("CARGO_PKG_VERSION"));
     println!("Usage:");
-    for line in HELP_LINES {
+    for line in history::HELP_LINES.iter().chain(HELP_LINES) {
         println!("{line}");
     }
 }
 
 const HELP_LINES: &[&str] = &[
-    "  pasted copy <text> [--json] Classify and save content, or pipe stdin",
-    "  pasted list [--limit N] [--offset N] [--bin ID|--pinned|--named|--trash] [--json]",
-    "  pasted search [query] [--clip TYPE] [--content TYPE] [--format FORMAT] [--source APP] [--ids ID,...] [--trash] [--limit N] [--offset N] [--json]",
-    "  pasted import sources [--json] List supported external-history sources",
-    "  pasted import <source> [path] --json Import history from another clipboard manager",
-    "  pasted diagnostics --json Show installation diagnostics",
-    "  pasted insights summary --json Show aggregate clipboard insights",
-    "  pasted licenses [--json] Show bundled open-source licenses and notices",
-    "  pasted retention [--count N|unlimited] [--days N|forever] [--json]",
-    "                   [--trash-count N|unlimited] [--trash-days N|forever]",
-    "                   [--log-count N|unlimited] [--log-days N|forever]",
-    "                   [--revision-count N|unlimited]",
-    "                   [--analysis-count N|unlimited]",
     "  pasted settings list|get|set|reset [arguments] [--dry-run] [--json]",
     "  pasted private-browsing status|enable|disable|fallback [--json]",
     "  pasted app-lock status|enable|change-passphrase|disable|lock|unlock [--stdin] [--json]",

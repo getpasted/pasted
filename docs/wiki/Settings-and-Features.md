@@ -27,6 +27,7 @@ Changing presets does not erase clips or supporting records. Feature cards with 
 - **Hotkeys:** disabling it immediately unregisters every system-wide Pasted hotkey and hides hotkey configuration without deleting assignments. Re-enabling it restores eligible app, clip, Bin, and Transform hotkeys.
 - **Content Types:** disabling it hides semantic Content Type labels and calculated collections and suspends Content Type Smart Bin matches. Classifiers may still classify clips using the preserved registry. Structural presentation follows the separate Clip Types setting.
 - **Sources:** disabling it hides source metadata and calculated Source collections, stops icon resolution, and suspends Source Smart Bin matches. Attribution remains stored so re-enabling Sources is reversible.
+- **Clip Search:** disabling it stops settled-query recording and hides Search plus the Search History settings page. Existing saved searches remain stored until they are removed after re-enabling Clip Search.
 - **Insights:** disabling it hides library statistics. It does not change Analyzer execution or stored analysis results.
 - **Notifications:** disabling the feature removes capture feedback. Clipboard capture itself continues.
 - **App Lock:** disabling it immediately removes lock enforcement, hides Security, and clears the saved passphrase and authentication preferences. Timing and capture policies remain available when App Lock is enabled again.
@@ -37,12 +38,25 @@ Feature gates control visibility and future behavior. Factory Reset, permanent d
 Other Settings pages cover:
 
 - **General:** layout, zoom, row height, retention, sounds, startup, previews, and OS integration;
+- **Search History:** when Clip Search is enabled, successful settled searches can be rerun, removed individually, or cleared together;
 - **Hotkeys:** when enabled under Functionality, global hotkeys and platform permission status, including a configurable Lock Pasted action when App Lock is available;
 - **Security:** when App Lock is enabled under Functionality, passphrase setup, system authentication, immediate lock, restart and sleep policies, inactivity auto-lock, and capture behavior while locked;
 - **Intelligence:** detected and custom intelligence providers;
 - **App Exclusions:** applications that should block selected text, image, file, or hotkey behavior;
 - **Storage:** database location and detected volume-encryption status, complete backup and restore, preflighted History and Organization transfer, Clip and Activity import/export, migration from supported clipboard managers, and Factory Reset;
 - **About:** version, installation paths, signing, runtime, and CLI installation.
+
+## Scoped resets
+
+General, Notifications, Hotkeys, Security, Analysis, App Exclusions, and Intelligence each provide a confirmed **Reset…** action. The confirmation lists the exact settings that differ from that page's shared defaults before anything is saved. Resetting one page does not reset unrelated pages, clips, Bins, or other library records.
+
+The CLI uses the same setting registry, defaults, validation, sensitive-value policy, and page boundaries. Preview a reset without changing data with:
+
+```sh
+pasted settings reset <page> --dry-run --json
+```
+
+Remove `--dry-run` only after reviewing the returned changes. Factory Reset is a separate destructive workflow under Storage and is never implied by a page reset.
 
 Appearance schemes use semantic theme tokens across the main app, HUD, menus, modals, Settings, and Tools pages.
 

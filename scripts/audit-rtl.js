@@ -63,6 +63,8 @@ const directionalSources = [
   'src/components/AnchoredMenu.tsx',
   'src/components/HelpView.tsx',
   'src/components/SettingsAboutPanel.tsx',
+  'src/components/SettingsNavigationCard.tsx',
+  'src/components/SettingsSearchHistoryPanel.tsx',
   'src/components/Sidebar.tsx',
   'src/components/CollapsedSidebar.tsx',
   'src/components/SidebarBinsSection.tsx',

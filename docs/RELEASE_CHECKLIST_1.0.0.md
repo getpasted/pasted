@@ -36,12 +36,14 @@ Use the exact notarized DMG intended for publication. Do not substitute a develo
 - [ ] New text capture and `pasted classifier run` choose the same Content Type and Classifier. Preview does not mutate; apply and confirmed rescan report the clip mutations they actually commit.
 - [ ] Apple Vision OCR recognizes a high-contrast text image on macOS, returns the same Extractor contract through the GUI and CLI, and makes the stored result searchable after relaunch.
 - [ ] Tesseract OCR is detected from a standard installation, recognizes a high-contrast text image on Linux or macOS, obeys the same output and privacy bounds, and remains explicitly unavailable when it is not installed.
-- [ ] llama.cpp Labels is detected from an official macOS, Windows, or Linux installation; its one-time model-download command is precise; a representative image produces bounded searchable labels through both the GUI and `pasted extractor run extractor:llama-cpp-labels`; and extraction succeeds offline from the cache.
+- [ ] llama.cpp Labels is detected from an official macOS, Windows, or Linux installation; its one-time model-download command is precise and copyable; a representative image produces bounded searchable labels through both the GUI and `pasted extractor run extractor:llama-cpp-labels`; the configured confidence filter removes only lower-scored labels; and extraction succeeds offline from the cache.
 - [ ] Whisper Transcription distinguishes a missing executable from a missing local model, transcribes bounded WAV and M4A fixtures when configured, reports a missing FFmpeg dependency for M4A/AAC preparation, persists searchable text without replacing file references, and never downloads a model implicitly.
 - [ ] Image or file extraction can feed later classification in one bounded run. An unavailable or disabled Extractor fails or skips explicitly without leaving work stuck as running.
+- [ ] An Extractor step configured with a documented no-output exit code reports `no_output` rather than failure, while undeclared nonzero exits remain failures.
 - [ ] File clips report bounded item, extension, availability, size, and optional media facts but never pass file-reference metadata to text Classifiers or Suggestions.
 - [ ] `pasted analyzer`, `inspector`, `extractor`, `classifier`, `suggestion`, and `registry` return version 1 JSON without original text, OCR text, image bytes, credentials, or file paths in participant summaries.
 - [ ] Disabling Clip Types, Sources, OCR, Transcriptions, Content Classification, Content Types, or Transformations hides only its related surfaces, preserves existing data, and leaves unrelated Analysis behavior usable.
+- [ ] Every nonzero OCR status count opens Search with exactly the matching clip IDs; zero counts and all counts while Clip Search is disabled remain noninteractive.
 
 ## Existing library and recovery
 

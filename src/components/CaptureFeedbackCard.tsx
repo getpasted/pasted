@@ -74,7 +74,7 @@ export function CaptureFeedbackCard({
   return (
     <div className={`capture-feedback-slot w-full shrink-0 ${item.collapsing ? 'is-collapsing' : ''}`} style={{ '--capture-feedback-card-height': `${cardHeight}px` } as CSSProperties}>
       <div
-        className={`capture-feedback-card flex h-full w-full flex-col rounded-xl border shadow-xl ${item.entering ? 'is-entering' : ''} ${item.exiting ? 'is-exiting' : ''} ${item.fading ? 'is-auto-fading' : ''} ${item.clip ? 'clip-card-idle is-preview relative' : `theme-status-${feedback.tone}`}`}
+        className={`capture-feedback-card elevation-floating flex h-full w-full flex-col rounded-xl border ${item.entering ? 'is-entering' : ''} ${item.exiting ? 'is-exiting' : ''} ${item.fading ? 'is-auto-fading' : ''} ${item.clip ? 'clip-card-idle is-preview relative' : `theme-status-${feedback.tone}`}`}
         data-feedback-id={item.id}
         style={{ '--capture-feedback-exit-x': `${(item.exitDirection ?? 1) * 24}px` } as CSSProperties}
         onMouseDown={(event) => event.preventDefault()}

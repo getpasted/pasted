@@ -26,6 +26,13 @@ bdi {
   --mac-traffic-shine: rgb(255 255 255 / 58%);
   --mac-traffic-shine-edge: rgb(255 255 255 / 42%);
   --mac-traffic-shadow: rgb(0 0 0 / 24%);
+  --elevation-none: none;
+  --elevation-control: 0 1px 3px color-mix(in srgb, var(--shadow-color) 24%, transparent);
+  --elevation-raised: var(--shadow-card);
+  --elevation-floating: var(--shadow-card-selected);
+  --elevation-modal: 0 18px 48px color-mix(in srgb, var(--shadow-color) 52%, transparent);
+  --elevation-inset: inset 0 1px 3px color-mix(in srgb, var(--shadow-color) 22%, transparent);
+  --elevation-object: 0 12px 30px color-mix(in srgb, var(--shadow-color) 36%, transparent);
 }
 
 html[dir="rtl"] .tracking-tight,
@@ -554,12 +561,8 @@ html[dir="rtl"] .tracking-widest {
     --status-danger-contrast: #ffffff;
     --manual-transform-accent: #1598a8;
     --manual-transform-accent-bright: #22c7d8;
-    --manual-transform-action: #087f8f;
-    --manual-transform-action-hover: #0a7180;
     --operation-accent: #c06a20;
     --operation-accent-bright: #e99a28;
-    --operation-action: #a9520d;
-    --operation-action-hover: #914509;
     --shadow-color: #000000;
     --sidebar-bin-drop-color: var(--accent-primary);
     --pinned-shelf-index: 0;

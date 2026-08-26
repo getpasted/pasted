@@ -226,6 +226,35 @@
   scrollbar-gutter: stable;
 }
 
+.welcome-setup-migration-description {
+  overflow: hidden;
+  max-width: none;
+  font-size: 0.8125rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.welcome-setup-migration-content {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow: hidden;
+}
+
+.welcome-setup-migration-content > :first-child {
+  flex: 0 0 auto;
+}
+
+.welcome-setup-migration-sources {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding-inline-end: 0.35rem;
+  scrollbar-gutter: stable;
+}
+
 .welcome-setup-heading-icon {
   display: flex;
   width: 3rem;

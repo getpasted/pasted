@@ -259,7 +259,7 @@ export const TransformationsView: React.FC<TransformationsViewProps> = ({
       />
 
       {/* Main Scrollable Content */}
-      <div className="tools-scroll-region flex-1 overflow-y-auto p-6 space-y-6">
+      <div data-pasted-scroll-key={`transformations:${activeWorkspace}`} className="tools-scroll-region flex-1 overflow-y-auto p-6 space-y-6">
       {activeWorkspace === 'advanced' ? (
         <OperationsManager
           isEmbedded={true}

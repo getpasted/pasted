@@ -126,7 +126,7 @@ export function BuiltinLifecycleManagerDialog({
       isOpen={isOpen}
       onClose={onClose}
       labelledBy={`${kind}-manager-title`}
-      panelClassName="theme-panel @container flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden border shadow-2xl"
+      panelClassName="theme-panel @container flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden border"
     >
       {({ requestClose }) => <>
         <AppDialogHeader onClose={requestClose} className="shrink-0">

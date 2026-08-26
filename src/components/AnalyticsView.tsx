@@ -23,6 +23,7 @@ import type { ClipContentType } from '../types';
 import { useFeatures } from '../hooks/useFeatures';
 import { useLocalization } from '../localization/LocalizationProvider';
 import { translate } from '../localization/runtime';
+import { ActionButton } from './AppDialogLayout';
 import { localizedContentTypeGroupLabel } from '../localization/presentation';
 import { contentTypeLabel } from '../utils/contentTypes';
 import { APP_EVENTS } from '../utils/appEvents';
@@ -130,9 +131,9 @@ export const AnalyticsView: React.FC = () => {
           {loadError ? <AlertCircle className="theme-danger-text h-7 w-7" /> : <LoaderCircle className="h-7 w-7 animate-spin" />}
           <p>{loadError ?? translate('component.analyticsView.loadingInsights')}</p>
           {loadError && (
-            <button type="button" onClick={() => void loadStats()} className="theme-secondary-button ui-control-radius border px-3 py-1.5 font-semibold">
+            <ActionButton onClick={() => void loadStats()}>
               {translate('component.analyticsView.tryAgain')}
-            </button>
+            </ActionButton>
           )}
         </div>
       </div>
@@ -181,7 +182,7 @@ export const AnalyticsView: React.FC = () => {
         description={translate('component.analyticsView.currentHistoryCompositionAndRecentCaptureTrends')}
       />
 
-      <div className="tools-scroll-region flex-1 overflow-y-auto p-6">
+      <div data-pasted-scroll-key="insights" className="tools-scroll-region flex-1 overflow-y-auto p-6">
 
       {/* Top Stat Cards Grid */}
       <div className={`grid grid-cols-1 gap-4 mb-6 ${features.sources ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>

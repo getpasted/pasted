@@ -3,6 +3,8 @@ import {
   ClipListScrollMemory,
   type ClipListScrollPosition,
 } from '../utils/clipListScrollMemory';
+import { scheduleBackupClientStatePersistence } from '../utils/backupClientState';
+import { readPersistedScrollPosition, scheduleScrollPositionPersistence } from '../utils/scrollPositionState';
 
 function capturePosition(element: HTMLDivElement): ClipListScrollPosition {
   const listRect = element.getBoundingClientRect();
@@ -53,6 +55,14 @@ export function useRememberedClipListScroll(
   useLayoutEffect(() => {
     const element = listRef.current;
     if (!element) return undefined;
+    if (!memoryRef.current!.has(viewKey)) {
+      const persisted = readPersistedScrollPosition(`clips:${viewKey}`);
+      memoryRef.current!.remember(viewKey, {
+        scrollTop: persisted.scrollTop,
+        anchorClipId: persisted.anchorClipId ?? null,
+        anchorOffset: persisted.anchorOffset ?? 0,
+      });
+    }
     const initialPosition = memoryRef.current!.recall(viewKey);
     let restoringInitialLayout = true;
     const finishInitialRestore = window.setTimeout(() => { restoringInitialLayout = false; }, 500);
@@ -81,6 +91,9 @@ export function useRememberedClipListScroll(
   }, [listRef, viewKey]);
 
   return useCallback((element: HTMLDivElement) => {
-    memoryRef.current!.remember(viewKey, capturePosition(element));
+    const position = capturePosition(element);
+    memoryRef.current!.remember(viewKey, position);
+    scheduleScrollPositionPersistence(`clips:${viewKey}`, position);
+    scheduleBackupClientStatePersistence(750);
   }, [viewKey]);
 }

@@ -39,7 +39,7 @@ export function SettingsGeneralAppearanceSection({ settings, onUpdateSettings }:
       <span className="font-medium">
         {translate('component.settingsGeneralPanel.colorScheme')} <strong className="theme-text-muted ms-1">{appearanceModes.find(({ value }) => value === (settings.themeMode || 'system'))?.label}</strong>
       </span>
-      <div className="theme-surface appearance-picker flex items-center p-1 rounded-xl border gap-1" role="group" aria-label={translate('component.settingsGeneralPanel.appearanceScheme')}>
+      <div className="theme-surface appearance-picker ui-card-radius flex items-center gap-1 border p-1" role="group" aria-label={translate('component.settingsGeneralPanel.appearanceScheme')}>
         {appearanceGroups.map((group) => (
           <div key={group.label} className="appearance-picker-group flex items-center gap-1" role="group" aria-label={group.label}>
             {group.values.map((value) => {
@@ -52,7 +52,7 @@ export function SettingsGeneralAppearanceSection({ settings, onUpdateSettings }:
                 aria-label={translate('component.settingsGeneralPanel.labelAppearance', { label: mode.label })}
                 aria-pressed={isActive}
                 onClick={() => onUpdateSettings({ themeMode: value })}
-                className={`appearance-mode-button flex h-8 w-8 items-center justify-center rounded-lg transition-[background-color,color,box-shadow] ${isActive ? 'is-active' : ''}`}
+                className={`appearance-mode-button ui-control-radius flex h-8 w-8 items-center justify-center border border-transparent transition-colors ${isActive ? 'is-active' : ''}`}
               >
                 <mode.Icon className="w-3.5 h-3.5" />
               </button>;

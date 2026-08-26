@@ -16,6 +16,7 @@ const sidebar = [
   'src/hooks/useSidebarFacets.ts',
 ].map(read).join('\n');
 const clipViews = read('src/hooks/useClipViews.ts');
+const searchPagination = read('src/utils/searchPagination.ts');
 const clipsApi = read('src/api/clips.ts');
 const emptyState = read('src/components/EmptyClipList.tsx');
 const viewPolicy = read('src/utils/clipViewPolicy.ts');
@@ -27,6 +28,7 @@ const clipCard = [
 const app = [
   read('src/App.tsx'),
   read('src/hooks/useAppController.ts'),
+  read('src/hooks/useSettledSearchQuery.ts'),
   read('src/components/AppShellView.tsx'),
 ].join('\n');
 const clipListHeader = read('src/components/ClipListHeader.tsx');
@@ -129,14 +131,18 @@ assert.match(
   /isLoadingCurrentCollection && currentCollection\?\.membership !== 'search'/,
   'Search must not reuse the History pagination loading interstitial',
 );
-assert.match(app, /useDeferredValue\(searchQuery\)/,
+assert.match(app, /useDeferredValue\((?:searchQuery|query)\)/,
   'Search result rendering must not compete with controlled input updates');
+assert.match(app, /setTimeout\(\(\) => setSettledQuery\(deferredQuery\), delayMs\)/,
+  'Search requests must wait for the explicit settled-query delay');
 assert.match(clipViews, /startTransition\(\(\) => \{[\s\S]{0,120}setSearchResult/,
   'Authoritative Search results must commit at transition priority');
 assert.doesNotMatch(clipViews, /setTimeout\([\s\S]{0,300}clipsApi\.search/,
   'Search must rely on deferred rendering instead of a fixed debounce');
-assert.match(clipViews, /if \(searchResult\.query === normalizedSearchQuery\) return searchResult\.items;[\s\S]{0,100}return searchResult\.query \? searchResult\.items : allClips/,
-  'Search must synchronously keep mounted clip cards stable before its loading effect runs');
+assert.match(clipViews, /resolveSearchDisplayItems\([\s\S]{0,120}normalizedSearchQuery[\s\S]{0,120}searchResult\.query/,
+  'Search display state must pass through the blank-query guard');
+assert.match(searchPagination, /return normalizedQuery && resultQuery \? resultItems : \[\];/,
+  'Blank and first-pending Search states must never fall back to History clips');
 assert.match(app, /currentCollection\?\.membership === 'search' && Boolean\(searchDisplayQuery\)/,
   'Search must preserve a settled empty state while its replacement query runs');
 assert.match(app, /searchQuery=\{currentTab === 'search' \? searchDisplayQuery : searchQuery\}/,

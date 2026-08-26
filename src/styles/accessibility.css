@@ -39,6 +39,13 @@ html:not(.is-stable-reordering) .cursor-not-allowed {
   cursor: not-allowed;
 }
 
+/* Every keyboard-reachable action receives the same non-layout-shifting focus
+   ring. Purpose-built controls may add color or surface emphasis as well. */
+:where(button, [role="button"], a[href]):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
 html:not(.is-stable-reordering) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
 html:not(.is-stable-reordering) textarea,
 html:not(.is-stable-reordering) [contenteditable="true"] {

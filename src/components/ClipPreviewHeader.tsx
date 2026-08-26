@@ -167,7 +167,7 @@ export function ClipPreviewHeader({
       <button
         type="button"
         onClick={onCopy}
-        className={`clip-preview-action copy-clip-main-btn theme-focusable active:scale-95 transition-[background-color,color,transform] ${copied ? 'is-copied' : ''}`}
+        className={`clip-preview-action copy-clip-main-btn theme-focusable transition-colors ${copied ? 'is-copied' : ''}`}
         title={copied ? UI_COPY.copied : UI_COPY.copy}
         aria-label={copied ? translate('component.clipPreview.clipCopied') : translate('component.clipPreview.copyClip')}
       >
@@ -235,7 +235,7 @@ export function ClipPreviewHeader({
         type="button"
         onClick={onDelete}
         disabled={Boolean(clip.is_protected) && viewPolicy.state !== 'trash'}
-        className={`clip-preview-action preview-delete-btn theme-danger-text theme-focusable active:scale-95 transition-[background-color,color,opacity,transform] ${clip.is_protected && viewPolicy.state !== 'trash' ? 'cursor-not-allowed opacity-45' : ''}`}
+        className={`clip-preview-action preview-delete-btn theme-danger-text theme-focusable transition-[background-color,color,opacity] ${clip.is_protected && viewPolicy.state !== 'trash' ? 'cursor-not-allowed opacity-45' : ''}`}
         title={clip.is_protected && viewPolicy.state !== 'trash'
           ? translate('component.clipPreview.clipIsProtectedUnprotectFirstToDelete')
           : clipDeleteLabel({ trashEnabled, permanent: viewPolicy.state === 'trash' })}

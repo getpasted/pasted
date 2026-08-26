@@ -38,7 +38,7 @@ export function ClipExtractionCards({
       <article key={result.extractorRef} className="theme-surface overflow-hidden rounded-xl border">
         <header className="theme-divider flex min-h-10 items-center justify-between gap-2 border-b px-3 py-2">
           <p className="theme-text-main min-w-0 truncate text-xs font-semibold">{result.extractorName}</p>
-          <button type="button" onClick={() => onCopyFormat(copyLabel, copyValue)} className="theme-icon-button theme-focusable shrink-0 cursor-pointer rounded-lg border p-1.5 transition-colors" title={copiedFormat === copyLabel ? UI_COPY.copied : translate('component.clipPreviewContent.copyExtractedText')}>
+          <button type="button" onClick={() => onCopyFormat(copyLabel, copyValue)} className="theme-icon-button theme-focusable ui-control-radius grid h-8 w-8 shrink-0 place-items-center border transition-colors" title={copiedFormat === copyLabel ? UI_COPY.copied : translate('component.clipPreviewContent.copyExtractedText')}>
             {copiedFormat === copyLabel ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
           </button>
         </header>
@@ -49,7 +49,7 @@ export function ClipExtractionCards({
               {description && <div dir="auto" className="theme-code-surface whitespace-pre-wrap rounded-lg border p-3.5 text-xs leading-relaxed select-text">{description}</div>}
             </div>
           ) : (
-            <div dir="auto" className="theme-code-surface overlay-scroll-region max-h-60 overflow-y-auto whitespace-pre-wrap rounded-lg border p-3.5 font-mono text-xs leading-relaxed shadow-inner select-text">{result.text}</div>
+            <div dir="auto" className="theme-code-surface overlay-scroll-region elevation-inset max-h-60 overflow-y-auto whitespace-pre-wrap rounded-lg border p-3.5 font-mono text-xs leading-relaxed select-text">{result.text}</div>
           )}
         </div>
       </article>

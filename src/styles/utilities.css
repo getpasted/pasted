@@ -183,6 +183,40 @@
   border-radius: var(--radius-field);
 }
 
+.ui-card-radius {
+  border-radius: var(--radius-card);
+}
+
+/* Semantic elevation never participates in layout. Components choose depth by
+   role instead of importing Tailwind's fixed shadow palette. */
+.elevation-none {
+  box-shadow: var(--elevation-none);
+}
+
+.elevation-control {
+  box-shadow: var(--elevation-control);
+}
+
+.elevation-raised {
+  box-shadow: var(--elevation-raised);
+}
+
+.elevation-floating {
+  box-shadow: var(--elevation-floating);
+}
+
+.elevation-modal {
+  box-shadow: var(--elevation-modal);
+}
+
+.elevation-inset {
+  box-shadow: var(--elevation-inset);
+}
+
+.elevation-object {
+  box-shadow: var(--elevation-object);
+}
+
 .column-resizer-line {
   background-color: var(--border-subtle);
   width: 1px;

@@ -1,7 +1,7 @@
 import type { HelpTopic, SettingsTab, TransformWorkspace } from './appUiStateCodec';
 
 const SETTINGS_TABS = new Set<SettingsTab>([
-  'general', 'functionality', 'hotkeys', 'notifications', 'security',
+  'general', 'functionality', 'search-history', 'hotkeys', 'notifications', 'security',
   'app-exclusions', 'storage', 'analysis', 'intelligence', 'about',
 ]);
 const HELP_TOPICS = new Set<HelpTopic>([

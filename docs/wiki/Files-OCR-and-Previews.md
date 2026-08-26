@@ -48,7 +48,7 @@ Visual Labels use the same searchable extraction history without replacing the o
 - The clip Inspector identifies the Extractor that produced the displayed OCR text. This provenance is also available in clip JSON as `ocr_extractor_ref`, `ocr_extractor_name`, and `ocr_engine_version`.
 - Full Backup and History and Organization transfer round trips preserve completed OCR state.
 
-Use **Settings → Analysis** or `pasted ocr status --json` to inspect background progress. Image extraction runs enabled, available `image → searchable_text` Extractors in priority order.
+Use **Settings → Analysis** or `pasted ocr status --json` to inspect background progress. A nonzero status card opens Search for the matching clips; cards remain read-only when Clip Search is disabled. Image extraction runs enabled, available `image → searchable_text` Extractors in priority order.
 
 Manual extraction APIs and `pasted extractor run --apply` use the same hash-safe application result as background OCR. A result reports whether OCR text, file-backed searchable text, and derived classification were actually updated; stale or removed clips are rejected instead of being reported as applied.
 
@@ -56,4 +56,8 @@ Manual extraction APIs and `pasted extractor run --apply` use the same hash-safe
 
 Apple Vision Labels finds searchable subjects and objects locally on macOS. Labels use the same Extractor result, current-result storage, bounded scan history, hash-safe searchable-text application, and GUI/CLI execution paths as OCR. They appear as labels in the clip Inspector and can be matched directly with the `visual_label` Smart Bin condition.
 
+The Inspector distinguishes detected labels from manual edits. Add a label, suppress an unwanted detected label, remove a manual label, or reset the list to the current Extractor result. Each edit updates Search and Smart Bin membership and creates a recoverable Clip Version when Revision History is enabled. Restoring a Version restores its recorded label state; none of these actions changes the original image.
+
 The `pasted_json_v1` recipe protocol also accepts an optional `labels` array of `{ "value", "confidenceBasisPoints" }` objects. This provider-neutral contract lets a local llama.cpp wrapper or another image-recognition executable produce the same searchable, historical, and Smart Bin-compatible result without adding another storage path. Any shipped or custom recipe can add the `filter_labels_by_confidence` post-processing operation and choose its minimum percentage; the shared runner applies it before accepted labels become searchable text.
+
+Use `pasted clip labels list|add|remove|reset <id> [label] [--yes] [--json]` for the same label workflow from a script.

@@ -1,4 +1,4 @@
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { Bin, ClipItem } from '../types';
 import { useLocalization } from '../localization/LocalizationProvider';
 import { useAppData } from './useAppData';
@@ -19,12 +19,13 @@ import {
   useClipReordering,
   useClipSelectionController,
   useCopyQueueController,
+  useSettledSearchQuery,
+  useSoundSettings,
 } from './appControllers';
 import { enabledFeatureRecord } from '../utils/features';
 import { getClipCollection } from '../utils/clipCollections';
 import { getClipViewPolicy } from '../utils/clipViewPolicy';
 import { readAppUiState } from '../utils/appUiState';
-import { soundManager } from '../utils/sound';
 
 export function useAppController() {
   const { catalogReady, direction, locale } = useLocalization();
@@ -38,13 +39,11 @@ export function useAppController() {
     addBlacklistApp: handleAddBlacklistApp,
     removeBlacklistApp: handleRemoveBlacklistApp,
     toggleBlacklistRule: handleToggleBlacklistRule,
-    resetBlacklistApps: handleResetBlacklistApps,
+    resetBlacklistApps: handleResetBlacklistApps, prepareForFactoryReset,
   } = useAppSettings();
   const enabledFeatures = useMemo(() => enabledFeatureRecord(appSettings), [appSettings]);
 
-  useEffect(() => {
-    soundManager.setEnabled(appSettings.enableSounds);
-  }, [appSettings.enableSounds]);
+  useSoundSettings(appSettings.enableSounds);
 
   const {
     allClips,
@@ -116,7 +115,7 @@ export function useAppController() {
     initialDataLoaded,
     selectedClipId: selectedClip?.id ?? null,
   });
-  const deferredSearchQuery = useDeferredValue(searchQuery);
+  const settledSearchQuery = useSettledSearchQuery(searchQuery, currentTab === 'search');
   const {
     contextMenu,
     setContextMenu,
@@ -193,7 +192,7 @@ export function useAppController() {
     bins,
     currentTab,
     selectedBinId,
-    searchQuery: deferredSearchQuery,
+    searchQuery: settledSearchQuery,
     sequentialStatus: seqStatus,
     features: enabledFeatures,
   });
@@ -440,7 +439,7 @@ export function useAppController() {
   const draggedPreviewClip = findDraggedPreviewClip(clipDragPreview, displayedClips, allClips);
   return {
     shell: { direction, enabledFeatures, appSettings, settingsHydrated, initialDataLoaded },
-    settings: { blacklistApps, handleUpdateSettings, handleAddBlacklistApp, handleRemoveBlacklistApp, handleToggleBlacklistRule, handleResetBlacklistApps },
+    settings: { blacklistApps, handleUpdateSettings, handleAddBlacklistApp, handleRemoveBlacklistApp, handleToggleBlacklistRule, handleResetBlacklistApps, prepareForFactoryReset },
     data: {
       allClips, trashedClips, bins, manualTransforms, seqStatus, totalClipCount, totalTrashCount,
       clipCollectionSummary, isClipboardPaused, ignoredAppStatus, fetchClips, fetchTrashedClips,
@@ -448,7 +447,7 @@ export function useAppController() {
       handleToggleClipboardPause, handlePurgeClipPermanently, handleEmptyTrash,
     },
     navigation: {
-      currentTab, activeSettingsTab, setActiveSettingsTab, activeHelpTopic, setActiveHelpTopic,
+      currentTab, setCurrentTab, activeSettingsTab, setActiveSettingsTab, activeHelpTopic, setActiveHelpTopic,
       activeTransformWorkspace, setActiveTransformWorkspace, selectedBinId, setSelectedBinId,
       searchQuery, setSearchQuery, isSidebarCollapsed, setIsSidebarCollapsed, sidebarSections,
       handleSidebarSectionStateChange, navigateToTab, enterSearchView, exitEmptySearch,

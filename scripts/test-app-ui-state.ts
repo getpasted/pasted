@@ -1,5 +1,11 @@
 import assert from 'node:assert/strict';
-import { parseAppUiState } from '../src/utils/appUiStateCodec.ts';
+import {
+  APP_UI_STATE_KEY,
+  DEFAULT_APP_UI_STATE,
+  parseAppUiState,
+  resetPastedClientStorage,
+} from '../src/utils/appUiStateCodec.ts';
+import { parseScrollPositionState } from '../src/utils/scrollPositionState.ts';
 
 const restored = parseAppUiState({
   version: 2,
@@ -44,5 +50,37 @@ assert.equal(invalidBin.selectedBinId, null);
 assert.equal(parseAppUiState({ currentTab: 'content_type-email' }).currentTab, 'content_type-email');
 assert.equal(parseAppUiState({ currentTab: 'file_format-pdf' }).currentTab, 'file_format-pdf');
 assert.equal(parseAppUiState({ currentTab: 'type-email' }).currentTab, 'all');
+
+const storedValues = new Map<string, string>([
+  [APP_UI_STATE_KEY, JSON.stringify({ currentTab: 'settings', settingsTab: 'storage' })],
+  ['pasted_sidebar_width', '330'],
+  ['unrelated_state', 'preserved'],
+]);
+resetPastedClientStorage({
+  get length() { return storedValues.size; },
+  key: (index) => [...storedValues.keys()][index] ?? null,
+  removeItem: (key) => { storedValues.delete(key); },
+  setItem: (key, value) => { storedValues.set(key, value); },
+});
+assert.deepEqual(JSON.parse(storedValues.get(APP_UI_STATE_KEY) ?? ''), DEFAULT_APP_UI_STATE);
+assert.equal(storedValues.has('pasted_sidebar_width'), false);
+assert.equal(storedValues.get('unrelated_state'), 'preserved');
+
+const scrollState = parseScrollPositionState({
+  version: 1,
+  positions: {
+    'clips:section:all': { scrollTop: 480, anchorClipId: 42, anchorOffset: -12 },
+    'settings:storage': { scrollTop: 920 },
+    invalid: { scrollTop: 'far' },
+  },
+});
+assert.deepEqual(scrollState.positions['clips:section:all'], {
+  scrollTop: 480,
+  anchorClipId: 42,
+  anchorOffset: -12,
+});
+assert.equal(scrollState.positions['settings:storage'].scrollTop, 920);
+assert.equal(scrollState.positions.invalid, undefined);
+assert.equal(parseScrollPositionState({ version: 2, positions: {} }).version, 1);
 
 console.log('App UI state route and subpage tests passed.');

@@ -60,7 +60,7 @@ export function AppLockScreen({
       onDoubleClick={handleWindowDragDoubleClick}
       className={`app-lock-screen theme-app fixed inset-0 z-[10000] flex items-center justify-center p-6 font-sans select-none ${unlocking ? 'is-unlocking' : ''}`}
     >
-      <form onSubmit={submit} aria-busy={pending} className="theme-panel w-full max-w-sm space-y-5 rounded-2xl border p-6 shadow-2xl">
+      <form onSubmit={submit} aria-busy={pending} className="theme-panel elevation-modal w-full max-w-sm space-y-5 rounded-2xl border p-6">
         <div className="space-y-2 text-center">
           <span className={`app-lock-mark theme-surface mx-auto flex h-12 w-12 items-center justify-center rounded-xl border ${pending ? 'is-authenticating' : ''}`}>
             <LockKeyhole className="theme-text-main h-5 w-5" />

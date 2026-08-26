@@ -4,6 +4,7 @@ import type { IntelligenceRequestStatus } from '../hooks/useIntelligenceRequestS
 import { translate } from '../localization/runtime';
 import type { ManualTransform, SavedTransform } from '../types';
 import type { SmartActionSuggestion } from './clipPreviewModel';
+import { ActionButton } from './AppDialogLayout';
 import { ClipTransformBar } from './ClipTransformBar';
 import { MenuSelect } from './MenuSelect';
 
@@ -68,7 +69,7 @@ export function ClipPreviewTransformControls({
           return <button
             key={action.transformRef}
             onClick={() => transform ? onPreviewTransform(transform) : onPreviewManualTransform(manualTransform!)}
-            className="smart-action-button px-2 py-0.5 rounded-md border text-[11px] font-medium flex items-center space-x-1 whitespace-nowrap shadow-sm"
+            className="smart-action-button whitespace-nowrap"
             title={translate('component.clipPreview.previewTransformname', { transformName: action.transformName })}
           >
             <span>{action.transformName}</span>
@@ -115,33 +116,30 @@ export function ClipPreviewTransformControls({
           />
         </div>
         {activeManualTransformRef && <div className="flex items-center gap-1.5 shrink-0">
-          <button
-            type="button"
+          <ActionButton
             onClick={() => onManualTransformOutput('copy')}
             disabled={isManualTransformRunning || transformedText === null}
-            className="theme-secondary-button flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
             title={translate('component.clipPreview.copyResult')}
           >
             {pipelineAction === 'copied' ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
             <span>{pipelineAction === 'copied' ? translate('action.copied') : translate('action.copy')}</span>
-          </button>
+          </ActionButton>
           <button
             type="button"
             onClick={() => onManualTransformOutput('paste')}
             disabled={isManualTransformRunning || transformedText === null}
-            className="transform-workspace-action manual-transforms flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+            className="transform-workspace-action manual-transforms"
             title={translate('component.clipPreview.pasteResult')}
           >
             <ClipboardPaste className="h-3.5 w-3.5" />
             <span>{pipelineAction === 'pasted' ? translate('component.clipPreview.pasted') : translate('component.clipPreview.paste')}</span>
           </button>
-          <button
+          <ActionButton
             onClick={onResetTransform}
-            className="preview-filter-reset flex items-center space-x-1 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-colors"
             title={translate('common.reset')}
           >
             <span>{translate('common.reset')}</span>
-          </button>
+          </ActionButton>
         </div>}
       </div>
       {pipelineError && <div role="status" className="theme-status-error mt-2 flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[11px]">

@@ -8,6 +8,8 @@ The release gate checks production dependency licenses, known Rust advisories, p
 
 - Common password managers and sensitive apps are included in App Exclusions by default.
 - Text, image, file, and Pasted hotkey rules can be configured independently under **Settings → App Exclusions**. Blocking every content kind presents as an automatic capture pause; partial rules skip only the selected kinds.
+- **Exclude private browser windows** blocks capture from private or incognito windows in Safari, Chrome, Edge, Firefox, DuckDuckGo, and Brave when the platform can verify that state. It is independent of the per-browser content rules, so ordinary browser windows can remain eligible.
+- If the operating system or browser does not expose enough information to distinguish the window, choose whether Pasted should continue capturing (the default) or exclude that browser entirely. The same fallback is available through `pasted private-browsing fallback <capture|exclude-browser>`.
 - Native Wayland sessions do not expose the globally focused application, so App Exclusions cannot be enforced there.
 - Capture feedback is rendered locally by Pasted. It does not send clip contents, images, file names, or paths through operating-system notifications.
 - Clipboard and IPC inputs are bounded by shared resource limits.

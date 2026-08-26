@@ -23,6 +23,7 @@ const clipPreview = [
 ].map(read).join('\n');
 const sound = read('src/utils/sound.ts');
 const app = [read('src/App.tsx'), read('src/hooks/useAppController.ts')].join('\n');
+const soundSettings = read('src/hooks/useSoundSettings.ts');
 const analytics = read('src/components/AnalyticsView.tsx');
 const database = readRustModuleTree('src-tauri/src/db.rs', 'src-tauri/src/db');
 const operationEditor = read('src/components/OperationEditorModal.tsx');
@@ -111,8 +112,10 @@ assert.doesNotMatch(read('src/components/ClipPreview.tsx'), /features\.transform
   'Advanced Transforms must remain independent from optional Transformations chrome');
 
 assert.match(sound, /setEnabled\(enabled: boolean\)/, 'Interaction sound state must have one global authority');
-assert.match(app, /soundManager\.setEnabled\(appSettings\.enableSounds\)/,
+assert.match(app, /useSoundSettings\(appSettings\.enableSounds\)/,
   'The hydrated setting must configure the global sound authority');
+assert.match(soundSettings, /soundManager\.setEnabled\(enabled\)/,
+  'The sound Settings hook must update the global sound authority');
 assert.doesNotMatch(read('src/components/ClipPreview.tsx'), /play(?:Copy|Paste|Stack)Sound\(true\)/,
   'Clip Preview must not bypass Interaction Sounds');
 

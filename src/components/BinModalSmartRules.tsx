@@ -78,7 +78,7 @@ export function BinModalSmartRules({
                   type="button"
                   onClick={() => removeCondition(condition.id)}
                   disabled={conditions.length <= 1}
-                  className={`theme-icon-button p-1.5 rounded border transition-[background-color,border-color,color,transform] ${conditions.length <= 1 ? 'opacity-40 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
+                  className={`theme-icon-button ui-control-radius grid h-7 w-7 place-items-center border transition-colors ${conditions.length <= 1 ? 'cursor-not-allowed opacity-40' : ''}`}
                   title={translate('component.binModal.removeCondition')}
                 >
                   <Minus className="w-3.5 h-3.5" />
@@ -86,7 +86,7 @@ export function BinModalSmartRules({
                 <button
                   type="button"
                   onClick={addCondition}
-                  className="theme-icon-button p-1.5 rounded border transition-[background-color,border-color,color,transform] hover:scale-105 active:scale-95"
+                  className="theme-icon-button ui-control-radius grid h-7 w-7 place-items-center border transition-colors"
                   title={translate('component.binModal.addCondition')}
                 >
                   <Plus className="w-3.5 h-3.5" />

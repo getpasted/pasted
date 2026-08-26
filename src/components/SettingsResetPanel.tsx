@@ -7,12 +7,15 @@ import { ActionButton } from './AppDialogLayout';
 import { collectBackupClientState } from '../utils/backupClientState';
 import { translate } from '../localization/runtime';
 import { backupApi } from '../api/backup';
+import { resetPastedClientStorage } from '../utils/appUiState';
+import { discardPendingScrollPositionPersistence } from '../utils/scrollPositionState';
 
 interface SettingsResetPanelProps {
   onRefreshBins?: () => void;
   onRefreshManualTransforms?: () => void;
   onRefreshClips?: () => void;
   onRefreshTrashedClips?: () => void;
+  onResetClientState?: (resetInPlace: boolean) => void;
 }
 
 export function SettingsResetPanel({
@@ -20,6 +23,7 @@ export function SettingsResetPanel({
   onRefreshManualTransforms,
   onRefreshClips,
   onRefreshTrashedClips,
+  onResetClientState,
 }: SettingsResetPanelProps) {
   const { showToast } = useToast();
   const [isResetOpen, setIsResetOpen] = useState(false);
@@ -29,21 +33,20 @@ export function SettingsResetPanel({
   };
 
   const handleFactoryReset = async () => {
-    await invoke('factory_reset_app');
-    for (let index = localStorage.length - 1; index >= 0; index -= 1) {
-      const key = localStorage.key(index);
-      if (key?.startsWith('pasted_')) localStorage.removeItem(key);
-    }
-    onRefreshBins?.();
-    onRefreshManualTransforms?.();
-    onRefreshClips?.();
-    onRefreshTrashedClips?.();
-
     const isNative = Boolean((window as typeof window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__);
+    await invoke('factory_reset_app');
+    discardPendingScrollPositionPersistence();
+    resetPastedClientStorage(localStorage);
+    onResetClientState?.(!isNative);
+
     if (isNative && import.meta.env.DEV) {
       window.location.reload();
     } else if (!isNative) {
       // Keep browser previews usable; packaged Pasted restarts natively.
+      onRefreshBins?.();
+      onRefreshManualTransforms?.();
+      onRefreshClips?.();
+      onRefreshTrashedClips?.();
       setIsResetOpen(false);
       showToast({ tone: 'success', get message() { return translate('component.settingsResetPanel.pastedWasResetToItsFirstLaunchState'); } });
     }
@@ -64,7 +67,7 @@ export function SettingsResetPanel({
           </div>
         </div>
         <ActionButton
-          variant="danger"
+          variant="solid-danger"
           onClick={() => setIsResetOpen(true)}
           className="shrink-0 cursor-pointer"
         >

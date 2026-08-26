@@ -23,7 +23,7 @@ export function ExtractorAuthoringHistoryDialog({
     isOpen={sessions !== null}
     onClose={onClose}
     labelledBy="extractor-authoring-history-title"
-    panelClassName="theme-panel flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden border shadow-2xl"
+    panelClassName="theme-panel flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden border"
   >
     {({ requestClose }) => <>
       <AppDialogHeader onClose={requestClose}>

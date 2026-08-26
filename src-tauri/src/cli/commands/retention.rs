@@ -32,6 +32,10 @@ pub(crate) fn run(args: &[String], db_path: PathBuf, conn: Connection) -> Result
         .unwrap_or(setting_i64(&db, "revisionHistoryLimit", 10)?);
     let analysis_count = parse_retention_argument(args, "--analysis-count", "unlimited", 10_000)
         .unwrap_or(setting_i64(&db, "analysisAttemptsPerClip", 10)?);
+    let search_count = parse_retention_argument(args, "--search-count", "unlimited", 10_000)
+        .unwrap_or(setting_i64(&db, "searchHistoryLimit", 100)?);
+    let search_age_days = parse_retention_argument(args, "--search-days", "forever", 36_500)
+        .unwrap_or(setting_i64(&db, "searchHistoryAgeDays", 0)?);
     let history_changed = args
         .iter()
         .any(|argument| argument == "--count" || argument == "--days");
@@ -43,6 +47,9 @@ pub(crate) fn run(args: &[String], db_path: PathBuf, conn: Connection) -> Result
         .any(|argument| argument == "--log-count" || argument == "--log-days");
     let revisions_changed = args.iter().any(|argument| argument == "--revision-count");
     let analysis_changed = args.iter().any(|argument| argument == "--analysis-count");
+    let search_changed = args
+        .iter()
+        .any(|argument| argument == "--search-count" || argument == "--search-days");
     if history_changed {
         db.configure_clip_retention(count, age_days)?;
     }
@@ -57,6 +64,9 @@ pub(crate) fn run(args: &[String], db_path: PathBuf, conn: Connection) -> Result
     }
     if analysis_changed {
         db.enforce_analysis_attempt_retention(analysis_count)?;
+    }
+    if search_changed {
+        db.configure_search_history_retention(search_count, search_age_days)?;
     }
     if args.iter().any(|argument| argument == "--json") {
         println!(
@@ -78,6 +88,10 @@ pub(crate) fn run(args: &[String], db_path: PathBuf, conn: Connection) -> Result
                 "revisionsUnlimited": revision_count == 0,
                 "analyzationsPerClip": analysis_count,
                 "analyzationsUnlimited": analysis_count == 0,
+                "searchHistoryMaximumEntries": search_count,
+                "searchHistoryMaximumEntriesUnlimited": search_count == 0,
+                "searchHistoryMaximumAgeDays": search_age_days,
+                "searchHistoryMaximumAgeForever": search_age_days == 0,
             }))
             .map_err(json_error)?
         );
@@ -93,13 +107,15 @@ pub(crate) fn run(args: &[String], db_path: PathBuf, conn: Connection) -> Result
             format!("{age_days} days")
         };
         println!(
-            "History: {count_label}; {age_label}\nTrash: {}; {}\nActivity: {}; {}\nRevisions: {}\nAnalyzations: {}",
+            "History: {count_label}; {age_label}\nTrash: {}; {}\nActivity: {}; {}\nRevisions: {}\nAnalyzations: {}\nSearch history: {}; {}",
             retention_count_label(trash_count, "clips"),
             retention_age_label(trash_age_days),
             retention_count_label(activity_count, "entries"),
             retention_age_label(activity_age_days),
             retention_count_label(revision_count, "per clip"),
             retention_count_label(analysis_count, "per clip"),
+            retention_count_label(search_count, "entries"),
+            retention_age_label(search_age_days),
         );
     }
     Ok(())

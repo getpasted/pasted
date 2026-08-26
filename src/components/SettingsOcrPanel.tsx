@@ -9,6 +9,7 @@ import { useToast } from './ToastProvider';
 import type { ContentExtractor } from './contentExtractorModel';
 import { translate } from '../localization/runtime';
 import { actionableOcrCount, OCR_STATUS_CARD_KEYS, shouldRetryFailedOcr } from './ocrStatusModel';
+import { SettingsLoadingState } from './SettingsLoadingState';
 
 const EMPTY_OCR_STATUS: OcrBackfillStatus = {
   totalImages: 0,
@@ -32,6 +33,7 @@ export function SettingsOcrPanel({
   const { showToast } = useToast();
   const [status, setStatus] = useState<OcrBackfillStatus>(EMPTY_OCR_STATUS);
   const [extractors, setExtractors] = useState<ContentExtractor[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const refresh = async () => {
     try {
@@ -59,12 +61,16 @@ export function SettingsOcrPanel({
         polling = false;
       }
     };
-    void poll();
-    void analysisApi.listExtractors<ContentExtractor>()
-      .then((loaded) => {
-        if (!cancelled) setExtractors(loaded);
-      })
-      .catch(() => { /* The next user action will surface a concrete error. */ });
+    setLoading(true);
+    void Promise.allSettled([
+      invoke<OcrBackfillStatus>('get_ocr_backfill_status'),
+      analysisApi.listExtractors<ContentExtractor>(),
+    ]).then(([statusResult, extractorsResult]) => {
+      if (cancelled) return;
+      if (statusResult.status === 'fulfilled') setStatus(statusResult.value);
+      if (extractorsResult.status === 'fulfilled') setExtractors(extractorsResult.value);
+      setLoading(false);
+    });
     const timer = window.setInterval(() => void poll(), 1000);
     return () => {
       cancelled = true;
@@ -113,7 +119,9 @@ export function SettingsOcrPanel({
           title={translate('component.settingsOcrPanel.ocr')}
           description={translate('component.settingsOcrPanel.automaticallyMakesTextInImagesSearchable')}
         />
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+        {loading ? (
+          <SettingsLoadingState label={translate('component.settingsOcrPanel.loadingStatus')} className="min-h-16" />
+        ) : <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
           {OCR_STATUS_CARD_KEYS.map(([label, field]) => (
             <button
               key={label}
@@ -126,10 +134,12 @@ export function SettingsOcrPanel({
               <span className="theme-text-muted text-[9px]">{translate(`component.settingsOcrPanel.status.${label}`)}</span>
             </button>
           ))}
-        </div>
+        </div>}
       </div>
       <div className="theme-divider flex items-center justify-between gap-3 border-t px-5 py-3">
-        <p className="theme-text-muted text-[11px] leading-relaxed">{statusText}</p>
+        <p className="theme-text-muted text-[11px] leading-relaxed">
+          {loading ? translate('component.settingsOcrPanel.loadingStatus') : statusText}
+        </p>
         {busy ? (
           <ActionButton onClick={() => void run(() => invoke('cancel_ocr_backfill'))}>
             <Square className="h-3.5 w-3.5" /> {translate('common.cancel')}

@@ -234,7 +234,7 @@ export function SettingsSecurityPanel() {
         labelledBy="app-lock-credentials-title"
         isDirty={Boolean(currentPassphrase || passphrase || confirmation)}
         discardMessage={translate('component.settingsSecurityPanel.discardEnteredPassphrase')}
-        panelClassName="theme-panel w-full max-w-md overflow-hidden border shadow-2xl"
+        panelClassName="theme-panel w-full max-w-md overflow-hidden border"
       >
         {({ requestClose }) => (
           <form onSubmit={credentialMode === 'disable' ? disable : configure}>

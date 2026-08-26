@@ -112,7 +112,7 @@ export const SequentialQueueBar: React.FC<SequentialQueueBarProps> = ({
               type="button"
               onClick={handlePopNext}
               disabled={isPasting || !canPasteAutomatically}
-              className="queue-action-secondary ui-control-radius flex items-center space-x-1 px-2 py-1 border text-[11px] font-semibold transition-colors cursor-pointer"
+              className="queue-action-secondary"
               title={translate('component.sequentialQueueBar.pasteNextX')}
             >
               <ArrowRightCircle className="h-3 w-3 rtl:-scale-x-100" />
@@ -122,7 +122,7 @@ export const SequentialQueueBar: React.FC<SequentialQueueBarProps> = ({
               type="button"
               onClick={handlePasteAll}
               disabled={isPasting || !canPasteAutomatically}
-              className="queue-action-primary ui-control-radius flex items-center space-x-1 px-2 py-1 border text-[11px] font-semibold shadow transition-colors cursor-pointer"
+              className="queue-action-primary"
               title={translate('component.sequentialQueueBar.combineAndPaste')}
             >
               <Layers className="w-3 h-3" />

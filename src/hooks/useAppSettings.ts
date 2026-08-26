@@ -184,6 +184,15 @@ export function useAppSettings() {
   }, [appSettings.activityLogAgeDays, appSettings.activityLogCapacity, appSettings.enableActivityLog, settingsHydrated]);
 
   useEffect(() => {
+    if (settingsHydrated && appSettings.enableSearch) {
+      invoke('enforce_search_history_retention', {
+        keepCount: appSettings.searchHistoryLimit,
+        keepAgeDays: appSettings.searchHistoryAgeDays,
+      }).catch(console.error);
+    }
+  }, [appSettings.enableSearch, appSettings.searchHistoryAgeDays, appSettings.searchHistoryLimit, settingsHydrated]);
+
+  useEffect(() => {
     if (settingsHydrated) invoke('set_dock_visibility', { showDock: appSettings.dockMenubarIcon === 'both' }).catch(console.error);
   }, [appSettings.dockMenubarIcon, settingsHydrated]);
 
@@ -275,6 +284,17 @@ export function useAppSettings() {
     setBlacklistApps(defaultAppExclusions());
   }, []);
 
+  const prepareForFactoryReset = useCallback((resetInPlace: boolean) => {
+    Object.values(saveTimersRef.current).forEach(clearTimeout);
+    saveTimersRef.current = {};
+    pendingSettingsRef.current = {};
+    locallyChangedKeysRef.current.clear();
+    blacklistChangedRef.current = false;
+    if (!resetInPlace) return;
+    setAppSettings({ ...DEFAULT_SETTINGS });
+    setBlacklistApps(defaultAppExclusions());
+  }, []);
+
   return {
     appSettings,
     blacklistApps,
@@ -284,5 +304,6 @@ export function useAppSettings() {
     removeBlacklistApp,
     toggleBlacklistRule,
     resetBlacklistApps,
+    prepareForFactoryReset,
   };
 }

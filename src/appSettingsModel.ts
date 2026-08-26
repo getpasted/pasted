@@ -5,6 +5,7 @@ import { clampAppZoom } from './utils/appZoom';
 import {
   storedRetentionNumber,
 } from './appSettingsRetentionModel';
+import { storedSearchHistoryAgeDays } from './searchHistoryRetention';
 import { DEFAULT_NOTIFICATION_SETTINGS } from './appSettingsSectionDefaults';
 import { DEFAULT_GENERAL_SETTINGS } from './generalSettingsDefaults';
 import { settingDefault } from './settingsContract.ts';
@@ -84,6 +85,8 @@ export function parseSavedSettings(saved: Record<string, string>): AppSettings {
   if (saved.enableActivityLog !== undefined) next.enableActivityLog = saved.enableActivityLog === 'true';
   if (saved.activityLogCapacity !== undefined) next.activityLogCapacity = Math.max(0, numberValue('activityLogCapacity', next.activityLogCapacity ?? 1000));
   if (saved.activityLogAgeDays !== undefined) next.activityLogAgeDays = Math.max(0, numberValue('activityLogAgeDays', next.activityLogAgeDays));
+  if (saved.searchHistoryLimit !== undefined) next.searchHistoryLimit = Math.max(0, Math.min(10_000, numberValue('searchHistoryLimit', next.searchHistoryLimit)));
+  if (saved.searchHistoryAgeDays !== undefined) next.searchHistoryAgeDays = storedSearchHistoryAgeDays(saved, next.searchHistoryAgeDays);
   if (saved.enableTrash !== undefined) next.enableTrash = saved.enableTrash === 'true';
   if (saved.trashCapacityCount !== undefined) next.trashCapacityCount = Math.max(0, numberValue('trashCapacityCount', next.trashCapacityCount ?? 500));
   if (saved.trashAgeDays !== undefined) next.trashAgeDays = Math.max(0, numberValue('trashAgeDays', next.trashAgeDays));

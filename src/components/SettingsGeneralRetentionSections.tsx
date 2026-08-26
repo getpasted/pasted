@@ -85,10 +85,10 @@ export function SettingsGeneralRetentionSections({
                   : translate('component.settingsGeneralPanel.moveAllUnpinnedAndUnprotectedClipsToTrashHoldOptionToPermanently')}
               </p>
             </div>
-            <button type="button" onClick={(event) => onClearHistory?.(event.altKey)} className="theme-status-danger flex shrink-0 items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer">
+            <ActionButton variant="danger" onClick={(event) => onClearHistory?.(event.altKey)} className="shrink-0">
               <Trash2 className="w-3.5 h-3.5" />
               <span>{isAltPressed ? translate('component.settingsGeneralPanel.deleteAllClips2') : translate('component.settingsGeneralPanel.trashAllClips2')}</span>
-            </button>
+            </ActionButton>
           </div>
         </div>
       </div>

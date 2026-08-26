@@ -5,8 +5,9 @@ import { sortClipsChronologically } from '../utils/clipOrder';
 import { clipMatchesSearch, parseClipSearch, type ClipSearchFeaturePolicy } from '../utils/clipSearch';
 import { getClipCollection, parseClipFacetRoute } from '../utils/clipCollections';
 import type { FeatureId } from '../utils/features';
-import { appendUniqueSearchPage } from '../utils/searchPagination';
+import { appendUniqueSearchPage, resolveSearchDisplayItems } from '../utils/searchPagination';
 import { clipsApi } from '../api/clips';
+import { searchHistoryApi } from '../api/searchHistory';
 import {
   CLIP_PROPERTY_ASSOCIATIONS,
   getClipPropertyAssociation,
@@ -167,10 +168,12 @@ export function useClipViews({
   });
   const [searchRevision, setSearchRevision] = useState(0);
   const searchLoadingRef = useRef(false);
+  const recordedSearchRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (currentTab !== 'search' || !normalizedSearchQuery) {
       searchLoadingRef.current = false;
+      recordedSearchRef.current = null;
       setSearchResult((current) => (
         current.query === '' && current.items.length === 0 && current.totalCount === 0
           ? current
@@ -192,6 +195,12 @@ export function useClipViews({
             failed: false,
           });
         });
+        if (recordedSearchRef.current !== normalizedSearchQuery) {
+          recordedSearchRef.current = normalizedSearchQuery;
+          void searchHistoryApi.record({ query: normalizedSearchQuery }, result.totalCount).catch((error) => {
+            console.error('Failed to record Search history:', error);
+          });
+        }
       }
     }).catch((error) => {
       console.error('Failed to search clips:', error);
@@ -260,9 +269,11 @@ export function useClipViews({
     }
 
     if (collection?.membership === 'search') {
-      if (!normalizedSearchQuery) return allClips;
-      if (searchResult.query === normalizedSearchQuery) return searchResult.items;
-      return searchResult.query ? searchResult.items : allClips;
+      return resolveSearchDisplayItems(
+        normalizedSearchQuery,
+        searchResult.query,
+        searchResult.items,
+      );
     }
 
     let clips = collection?.membership === 'trash' ? trashedClips : allClips;

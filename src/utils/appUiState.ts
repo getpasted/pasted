@@ -1,9 +1,7 @@
 import { scheduleBackupClientStatePersistence } from './backupClientState';
-import { DEFAULT_APP_UI_STATE, parseAppUiState, type AppUiState } from './appUiStateCodec';
+import { APP_UI_STATE_KEY, DEFAULT_APP_UI_STATE, parseAppUiState, type AppUiState } from './appUiStateCodec';
 
 export * from './appUiStateCodec';
-
-export const APP_UI_STATE_KEY = 'pasted_app_ui_state';
 
 export function readAppUiState(): AppUiState {
   try {

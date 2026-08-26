@@ -1,5 +1,7 @@
 use super::support::*;
 
+#[path = "search_history.rs"]
+mod search_history;
 mod version_support;
 mod versions;
 

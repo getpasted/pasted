@@ -16,6 +16,7 @@ pub(super) mod portability;
 pub(super) mod private_browsing;
 pub(super) mod registry;
 pub(super) mod retention;
+pub(super) mod search_history;
 pub(super) mod settings;
 pub(super) mod storage;
 pub(super) mod suggestions;

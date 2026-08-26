@@ -13,6 +13,8 @@ export const DEFAULT_GENERAL_SETTINGS = {
   analysisAttemptsPerClip: settingDefault('analysisAttemptsPerClip'), trashCapacityCount: settingDefault('trashCapacityCount'),
   trashAgeDays: settingDefault('trashAgeDays'), activityLogCapacity: settingDefault('activityLogCapacity'),
   activityLogAgeDays: settingDefault('activityLogAgeDays'),
+  searchHistoryLimit: settingDefault('searchHistoryLimit'),
+  searchHistoryAgeDays: settingDefault('searchHistoryAgeDays'),
 } as const satisfies Partial<AppSettings>;
 
 export function generalDefaultUpdates(): Partial<AppSettings> {

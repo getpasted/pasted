@@ -48,6 +48,29 @@ assert.match(cli, /"restore" =>[\s\S]*?--yes/, 'CLI Full Restore must require ex
 assert.match(reset, /backupApi\.exportFull/, 'Factory Reset must offer a truthful Full Backup safeguard through the Backup client');
 assert.match(backupApi, /export_full_backup_file/, 'The Backup client must expose Full Backup creation');
 assert.match(clientState, /BACKED_UP_LOCAL_STORAGE_KEYS/, 'Full Backup must carry meaningful interface state');
+assert.match(clientState, /pasted_scroll_positions/, 'Full Backup must carry major-surface scroll positions');
+assert.match(
+  read('src/main.tsx'),
+  /await restorePendingBackupClientStateBeforeMount\(\)[\s\S]*?ReactDOM\.createRoot/,
+  'Full Restore must apply backed-up interface state before React mounts',
+);
+assert.match(
+  read('src/hooks/useAppNavigation.ts'),
+  /wasBackupClientStateRestoredBeforeMount\(\)[\s\S]*?startupView === 'clip_history' && !preserveRestoredViewRef\.current/,
+  'The restored page must win over Startup View for the first post-restore launch',
+);
+for (const [file, surface] of [
+  ['src/components/SettingsModal.tsx', 'settings:'],
+  ['src/components/HelpView.tsx', 'help:'],
+  ['src/components/TransformationsView.tsx', 'transformations:'],
+  ['src/components/AnalyticsView.tsx', 'insights'],
+  ['src/components/ActivityLogView.tsx', 'activity'],
+  ['src/components/Sidebar.tsx', 'sidebar:expanded'],
+]) {
+  assert.ok(read(file).includes(surface), `Full Backup must retain the ${surface} scroll surface`);
+}
+assert.match(read('src/hooks/useRememberedClipListScroll.ts'), /anchorClipId[\s\S]*scheduleScrollPositionPersistence/,
+  'Clip-list scroll restore must retain a stable Clip anchor');
 assert.match(database, /preflight_library_archive\(&payload\)/, 'Portable transfer must complete preflight before opening a write transaction');
 assert.match(database, /inspect_library_archive_json/, 'Portable-transfer preflight must be independently testable');
 assert.match(database, /library_archive_reimport_updates_stable_identities_without_duplicates/, 'Portable transfer must retain an idempotence regression test');

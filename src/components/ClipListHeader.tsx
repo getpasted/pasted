@@ -1,8 +1,11 @@
-import { Clipboard, Disc, Pause, Search, Square, Trash2 } from 'lucide-react';
+import { Clipboard, Disc, Pause, Search, Square } from 'lucide-react';
+import { useState } from 'react';
 import type { SequentialStatus } from '../types';
 import type { ClipCollectionDefinition } from '../utils/clipCollections';
 import { handleWindowDragDoubleClick, startWindowDrag } from '../utils/windowDrag';
 import { translate } from '../localization/runtime';
+import { ActionButton } from './AppDialogLayout';
+import { ConfirmationDialog, type ConfirmationDialogRequest } from './ConfirmationDialog';
 import { OverflowText } from './OverflowText';
 
 interface ClipListHeaderProps {
@@ -11,7 +14,7 @@ interface ClipListHeaderProps {
   searchTotalCount: number;
   ignoredAppStatus: { app_name: string; timestamp: number } | null;
   trashIsEmpty: boolean;
-  onEmptyTrash: () => void;
+  onEmptyTrash: () => void | Promise<void>;
   clipboardPaused: boolean;
   onToggleClipboardPause: () => void;
   queueEnabled: boolean;
@@ -32,7 +35,20 @@ export function ClipListHeader({
   queueStatus,
   onToggleQueue,
 }: ClipListHeaderProps) {
+  const [emptyTrashRequest, setEmptyTrashRequest] = useState<ConfirmationDialogRequest | null>(null);
+  const requestEmptyTrash = () => setEmptyTrashRequest({
+    title: translate('app.emptyTrashConfirmation'),
+    description: translate('app.emptyTrashDescription'),
+    confirmLabel: translate('app.emptyTrash'),
+    tone: 'danger',
+    onConfirm: async () => {
+      await onEmptyTrash();
+      setEmptyTrashRequest(null);
+    },
+  });
+
   return (
+    <>
     <div
       onMouseDown={startWindowDrag}
       onDoubleClick={handleWindowDragDoubleClick}
@@ -60,25 +76,25 @@ export function ClipListHeader({
           </span>
         )}
         {collection?.membership === 'trash' && (
-          <button
-            onClick={onEmptyTrash}
+          <ActionButton
+            variant="danger"
+            onClick={requestEmptyTrash}
             disabled={trashIsEmpty}
-            className="theme-status-danger px-2 py-1 rounded-lg border text-xs font-semibold disabled:opacity-40 transition-colors cursor-pointer flex items-center space-x-1"
+            className="shrink-0"
           >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span>{translate('app.emptyTrash')}</span>
-          </button>
+            <span>{translate('app.emptyTrashEllipsis')}</span>
+          </ActionButton>
         )}
         <button
           onClick={onToggleClipboardPause}
-          className={`list-toolbar-button w-7 h-7 flex items-center justify-center rounded-lg border transition-[background-color,border-color,color] cursor-pointer ${clipboardPaused ? 'is-warning shadow-sm' : ''}`}
+          className={`list-toolbar-button ui-control-radius flex h-7 w-7 items-center justify-center border transition-colors ${clipboardPaused ? 'is-warning' : ''}`}
           title={clipboardPaused ? translate('app.resumeHistory') : translate('app.pauseHistory')}
         >
           <Pause className={`w-4 h-4 ${clipboardPaused ? 'fill-current animate-pulse' : ''}`} strokeWidth={2.5} />
         </button>
         {queueEnabled && <button
           onClick={onToggleQueue}
-          className={`list-toolbar-button w-7 h-7 flex items-center justify-center rounded-lg border transition-[background-color,border-color,color] cursor-pointer ${queueStatus?.is_active ? 'is-queue-active shadow-sm' : ''}`}
+          className={`list-toolbar-button ui-control-radius flex h-7 w-7 items-center justify-center border transition-colors ${queueStatus?.is_active ? 'is-queue-active' : ''}`}
           title={queueStatus?.is_active
             ? translate('app.stopQueueCount', { count: queueStatus.queue.length })
             : translate('app.startQueue')}
@@ -89,5 +105,7 @@ export function ClipListHeader({
         </button>}
       </div>
     </div>
+    <ConfirmationDialog request={emptyTrashRequest} onCancel={() => setEmptyTrashRequest(null)} />
+    </>
   );
 }

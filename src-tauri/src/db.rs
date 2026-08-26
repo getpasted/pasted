@@ -23,12 +23,14 @@ pub mod clip_visual_labels;
 mod content_type_registry;
 mod contracts;
 mod extractors;
+mod factory_reset;
 mod full_backups;
 mod helpers;
 mod intelligence_connections;
 mod lifecycle;
 mod maintenance;
 mod operations;
+mod search_history;
 mod search_indexes;
 mod source_queries;
 pub use clip_names::clip_name_input_limit;
@@ -90,6 +92,11 @@ use schema::{
 };
 #[cfg(test)]
 use schema::{migrate_legacy_semantic_clip_types, migrate_pipelines_to_saved_transforms};
+pub use search_history::{
+    SearchHistoryEntry, SearchHistoryPage, DEFAULT_SEARCH_HISTORY_AGE_DAYS,
+    DEFAULT_SEARCH_HISTORY_LIMIT, MAX_SEARCH_HISTORY_AGE_DAYS, MAX_SEARCH_HISTORY_LIMIT,
+    MAX_SEARCH_HISTORY_PAGE_SIZE,
+};
 pub use search_indexes::{SearchIndexEntry, SearchIndexStatus};
 pub use stored_analysis::{
     AnalysisClassification, AnalysisFailureClass, ClipSearchableText, ExtractionAttemptContext,
