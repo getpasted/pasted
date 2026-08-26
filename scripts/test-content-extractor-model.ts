@@ -12,6 +12,7 @@ import type {
   ExtractorRecipe,
 } from '../src/components/contentExtractorModel.ts';
 import { EXTRACTOR_FILE_FORMAT_GROUPS } from '../src/components/extractorFileFormats.ts';
+import { addLabelConfidencePostProcessing } from '../src/components/extractorPostProcessingModel.ts';
 import { groupSelectionState, initialMultiSelectScrollKey, toggleMultiSelectGroup } from '../src/components/menuMultiSelectModel.ts';
 
 const extractor = (stableRef: string) => ({ stableRef } as ContentExtractor);
@@ -49,6 +50,7 @@ const validRecipe: ExtractorRecipe = {
   definitionVersion: 1,
   accepts: ['image'],
   acceptedFileFormats: ['*'],
+  postProcessing: [],
   output: 'searchable_text',
   steps: [{
     id: 'extract',
@@ -76,6 +78,26 @@ assert.equal(canSaveExtractorRecipe({ ...validRecipe, acceptedFileFormats: [] })
   'a recipe without accepted file formats must not save');
 assert.equal(canSaveExtractorRecipe({ ...validRecipe, acceptedFileFormats: ['*', 'pdf'] }), false,
   'the any-format selector cannot be combined with a specific format');
+assert.equal(canSaveExtractorRecipe({
+  ...validRecipe,
+  postProcessing: [{ kind: 'filter_labels_by_confidence', minimumPercent: 80 }],
+}), false, 'post-processing must not bypass command validation');
+assert.equal(canSaveExtractorRecipe({
+  ...validRecipe,
+  steps: validRecipe.steps.map((step) => ({
+    ...step,
+    executable: { ...step.executable, discover: ['extractor'] },
+  })),
+  postProcessing: [{ kind: 'filter_labels_by_confidence', minimumPercent: 101 }],
+}), false, 'label confidence must use the same bounded validation in the GUI');
+const legacyConfidenceRecipe = addLabelConfidencePostProcessing({
+  ...validRecipe,
+  minimumVisualLabelConfidence: 65,
+} as ExtractorRecipe & { minimumVisualLabelConfidence: number });
+assert.equal('minimumVisualLabelConfidence' in legacyConfidenceRecipe, false,
+  'editing post-processing must retire the legacy confidence field');
+assert.equal(legacyConfidenceRecipe.postProcessing[0]?.minimumPercent, 80,
+  'custom Extractors must receive the same default confidence as shipped recipes');
 const configuredRecipe: ExtractorRecipe = {
   ...validRecipe,
   steps: validRecipe.steps.map((step) => ({

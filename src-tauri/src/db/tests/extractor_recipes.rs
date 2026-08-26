@@ -18,8 +18,8 @@ fn extractor_recipes_preserve_multi_input_authoring_history() {
                     crate::extractor_recipe::ExtractorInputKind::FileReferences,
                 ],
                 accepted_file_formats: vec!["pdf".into(), "png".into()],
-                minimum_visual_label_confidence:
-                    crate::extractor_recipe::DEFAULT_MINIMUM_VISUAL_LABEL_CONFIDENCE,
+                post_processing: Vec::new(),
+                legacy_minimum_visual_label_confidence: None,
                 output: crate::extractor_recipe::ExtractorOutputKind::SearchableText,
                 steps: vec![crate::extractor_recipe::ExtractorCommandStep {
                     id: "extract".into(),

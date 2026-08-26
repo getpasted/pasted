@@ -49,7 +49,7 @@ pub(super) fn extractor_recipe_schema() -> serde_json::Value {
             "recipe": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["definitionVersion", "accepts", "acceptedFileFormats", "output", "steps", "resources"],
+                "required": ["definitionVersion", "accepts", "acceptedFileFormats", "postProcessing", "output", "steps", "resources"],
                 "properties": {
                     "definitionVersion": { "type": "integer", "enum": [1] },
                     "accepts": {
@@ -121,20 +121,25 @@ pub(super) fn extractor_recipe_schema() -> serde_json::Value {
         .get_mut("required")
         .and_then(serde_json::Value::as_array_mut)
         .expect("recipe required fields")
-        .push(serde_json::Value::String(
-            "minimumVisualLabelConfidence".into(),
-        ));
+        .push(serde_json::Value::String("postProcessing".into()));
     recipe
         .get_mut("properties")
         .and_then(serde_json::Value::as_object_mut)
         .expect("recipe properties")
         .insert(
-            "minimumVisualLabelConfidence".into(),
+            "postProcessing".into(),
             serde_json::json!({
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 100,
-                "default": 80
+                "type": "array",
+                "maxItems": 1,
+                "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["kind", "minimumPercent"],
+                    "properties": {
+                        "kind": { "type": "string", "enum": ["filter_labels_by_confidence"] },
+                        "minimumPercent": { "type": "integer", "minimum": 0, "maximum": 100 }
+                    }
+                }
             }),
         );
     schema

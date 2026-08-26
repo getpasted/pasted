@@ -2,12 +2,16 @@ import { translate } from '../localization/runtime';
 
 export type ExtractorInputKind = 'image' | 'file_references';
 export type ExtractorCapture = 'ignore' | 'stdout_text' | 'file_text' | 'pasted_json_v1';
+export type ExtractorPostProcessing = {
+  kind: 'filter_labels_by_confidence';
+  minimumPercent: number;
+};
 
 export interface ExtractorRecipe {
   definitionVersion: 1;
   accepts: ExtractorInputKind[];
   acceptedFileFormats: string[];
-  minimumVisualLabelConfidence: number;
+  postProcessing: ExtractorPostProcessing[];
   output: 'searchable_text';
   steps: Array<{
     id: string;
@@ -104,7 +108,7 @@ export const emptyRecipe = (): ExtractorRecipe => ({
   definitionVersion: 1,
   accepts: ['image'],
   acceptedFileFormats: ['*'],
-  minimumVisualLabelConfidence: 80,
+  postProcessing: [],
   output: 'searchable_text',
   steps: [{
     id: 'extract',

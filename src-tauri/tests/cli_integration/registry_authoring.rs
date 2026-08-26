@@ -8,6 +8,7 @@ fn extractor_recipes_have_cli_authoring_and_execution_parity() {
     let recipe = serde_json::json!({
         "definitionVersion": 1,
         "accepts": ["file_references"],
+        "postProcessing": [{ "kind": "filter_labels_by_confidence", "minimumPercent": 73 }],
         "output": "searchable_text",
         "steps": [{
             "id": "extract",
@@ -44,6 +45,7 @@ fn extractor_recipes_have_cli_authoring_and_execution_parity() {
     );
     assert_eq!(created["engine"], "recipe-v1");
     assert_eq!(created["recipe"]["accepts"][0], "file_references");
+    assert_eq!(created["recipe"]["postProcessing"][0]["minimumPercent"], 73);
     assert_eq!(
         created["recipe"]["acceptedFileFormats"],
         serde_json::json!(["*"])

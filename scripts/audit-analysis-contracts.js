@@ -211,6 +211,12 @@ assert.match(read('src/components/ExtractorRecipeEditor.tsx'), /export function 
   'Advanced Extractor recipe editing must remain in its focused surface');
 assert.doesNotMatch(read('src/components/ExtractorRecipeEditor.tsx'), /minimumVisualLabelConfidence/,
   'The generic Extractor editor must not expose a Visual Label-only threshold to every recipe');
+assert.match(read('src/components/ExtractorPostProcessingEditor.tsx'), /filter_labels_by_confidence[\s\S]*minimumPercent/,
+  'Custom Extractors must be able to declare the same label-confidence processor as shipped recipes');
+assert.doesNotMatch(read('src/components/ExtractorPostProcessingEditor.tsx'), /apple|llama|isBuiltin|stableRef/i,
+  'Extractor post-processing controls must not depend on shipped Extractor identity');
+assert.doesNotMatch(read('src-tauri/src/extractor_recipe/post_processing.rs'), /apple|llama|stable_ref/i,
+  'The shared post-processing runtime must not depend on shipped Extractor identity');
 assert.match(read('src/components/contentExtractorPolicy.ts'), /export function visibleContentExtractors/,
   'Extractor feature visibility policy must remain independent from its React controller');
 assert.match(read('src/components/contentExtractorPolicy.ts'), /export function canSaveExtractorRecipe/,
