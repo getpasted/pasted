@@ -31,7 +31,7 @@ Every public Analysis result carries the same explicit `formatVersion`, policy, 
 
 ## Extractors
 
-Extractors create searchable representations from clip content without replacing the original. Every shipped and custom Extractor stores the same editable `recipe-v1` definition: accepted inputs, local commands, direct argv tokens, step artifacts, output capture, resources, time limits, priority, and enabled state. Apple Vision, llama.cpp Labels, Tesseract, and Whisper are shipped recipes. The settings header reports current local readiness.
+Extractors create searchable representations from clip content without replacing the original. Every shipped and custom Extractor stores the same editable `recipe-v1` definition: accepted inputs, local commands, direct argv tokens, step artifacts, output capture, resources, time limits, post-processing, priority, and enabled state. Apple Vision, llama.cpp Labels, Tesseract, and Whisper are shipped recipes. The settings header reports current local readiness. Any recipe returning scored labels through Pasted JSON can declare the same minimum-confidence post-processing operation used by the shipped label Extractors.
 
 Disabling **OCR** hides the shipped Apple Vision and Tesseract recipes. Disabling **Transcriptions** hides Whisper. User-defined image and file recipes remain manageable, so unrelated tools such as QR and PDF readers are not coupled to those switches.
 

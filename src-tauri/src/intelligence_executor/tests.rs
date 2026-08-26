@@ -416,6 +416,13 @@ fn extractor_proposal_schema_uses_the_structured_outputs_subset() {
         schema.pointer("/properties/recipe/properties/accepts/items/enum"),
         Some(&serde_json::json!(["image", "file_references"]))
     );
+    assert_eq!(
+        schema.pointer("/properties/recipe/properties/postProcessing/items/properties/kind/enum"),
+        Some(&serde_json::json!(["filter_labels_by_confidence"]))
+    );
+    assert!(schema
+        .pointer("/properties/recipe/properties/minimumVisualLabelConfidence")
+        .is_none());
 }
 
 #[test]

@@ -23,7 +23,7 @@ pub const EXTRACTOR_PRESETS: &[ExtractorPreset] = &[
         input_contract: RepresentationKind::ImageBytes.stable_name(),
         output_contract: RepresentationKind::SearchableText.stable_name(),
         priority: 15,
-        revision: 3,
+        revision: 4,
     },
     ExtractorPreset {
         stable_ref: LLAMA_CPP_LABELS_REF,
@@ -35,7 +35,7 @@ pub const EXTRACTOR_PRESETS: &[ExtractorPreset] = &[
         input_contract: RepresentationKind::ImageBytes.stable_name(),
         output_contract: RepresentationKind::SearchableText.stable_name(),
         priority: 20,
-        revision: 1,
+        revision: 2,
     },
     ExtractorPreset {
         stable_ref: TESSERACT_OCR_REF,

@@ -6,11 +6,15 @@ use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
 mod llama_labels;
+#[cfg(test)]
+mod post_processing_tests;
 mod presets;
+mod recipe_compatibility;
 mod visual_labels;
 
 use self::outcome::normalize as normalize_extraction_outcome;
 pub use self::presets::EXTRACTOR_PRESETS;
+pub use self::recipe_compatibility::migrate_builtin_recipe_compatibility;
 pub(crate) use self::visual_labels::normalize as normalize_visual_labels;
 pub use self::visual_labels::VisualLabel;
 pub(crate) use self::visual_labels::{
@@ -571,8 +575,8 @@ pub fn recipe_for_legacy_definition(input: &ExtractorDefinitionInput) -> Extract
         definition_version: EXTRACTOR_RECIPE_VERSION,
         accepts,
         accepted_file_formats: vec!["*".into()],
-        minimum_visual_label_confidence:
-            crate::extractor_recipe::DEFAULT_MINIMUM_VISUAL_LABEL_CONFIDENCE,
+        post_processing: Vec::new(),
+        legacy_minimum_visual_label_confidence: None,
         output: ExtractorOutputKind::SearchableText,
         steps,
         resources,
@@ -624,6 +628,11 @@ impl ExtractorPreset {
         }
         if self.stable_ref == APPLE_VISION_LABELS_REF {
             recipe.steps[0].arguments[1] = "apple-vision-labels".into();
+            recipe.post_processing = vec![
+                crate::extractor_recipe::ExtractorPostProcessing::FilterLabelsByConfidence {
+                    minimum_percent: crate::extractor_recipe::DEFAULT_LABEL_CONFIDENCE_PERCENT,
+                },
+            ];
         }
         if matches!(
             self.stable_ref,
@@ -637,70 +646,6 @@ impl ExtractorPreset {
         recipe.accepted_file_formats = format_defaults::for_builtin(self.stable_ref);
         recipe
     }
-}
-
-pub fn migrate_builtin_recipe_compatibility(
-    stable_ref: &str,
-    current: &ExtractorRecipe,
-    legacy_model_path: Option<&str>,
-) -> ExtractorRecipe {
-    let mut migrated = current.clone();
-
-    if stable_ref == APPLE_VISION_OCR_REF {
-        for step in &mut migrated.steps {
-            let uses_bundled_helper = step
-                .arguments
-                .windows(2)
-                .any(|arguments| arguments == ["--pasted-extractor-helper-v1", "apple-vision-ocr"]);
-            if uses_bundled_helper && step.executable.discover == ["pasted"] {
-                step.executable.discover = vec![BUNDLED_EXTRACTOR_EXECUTABLE.into()];
-                step.executable.version_arguments.clear();
-            }
-        }
-    }
-
-    if stable_ref == WHISPER_TRANSCRIPTION_REF {
-        let model_path = migrated
-            .resources
-            .iter()
-            .find(|resource| resource.id == "model")
-            .and_then(|resource| resource.path.clone())
-            .or_else(|| legacy_model_path.map(str::to_string));
-        let interim_recipe = migrated.steps.len() == 1
-            && migrated.steps[0].executable.discover == ["whisper-cli"]
-            && migrated.steps[0].arguments
-                == [
-                    "--model",
-                    "{resource.model.path}",
-                    "--file",
-                    "{input.path}",
-                    "--no-timestamps",
-                ];
-        if interim_recipe {
-            let whisper_path = migrated.steps[0].executable.path.clone();
-            migrated = EXTRACTOR_PRESETS
-                .iter()
-                .find(|preset| preset.stable_ref == WHISPER_TRANSCRIPTION_REF)
-                .expect("shipped Whisper Extractor")
-                .recipe();
-            if let Some(step) = migrated
-                .steps
-                .iter_mut()
-                .find(|step| step.id == "transcribe")
-            {
-                step.executable.path = whisper_path;
-            }
-        }
-        if let Some(resource) = migrated
-            .resources
-            .iter_mut()
-            .find(|resource| resource.id == "model" && resource.path.is_none())
-        {
-            resource.path = model_path;
-        }
-    }
-
-    migrated
 }
 
 pub fn merge_shipped_definition(

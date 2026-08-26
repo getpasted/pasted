@@ -10,16 +10,17 @@ use crate::content_extraction::{ExtractionFailure, ExtractionOutcome};
 
 mod diagnostics;
 mod local_configuration;
+mod post_processing;
 mod runtime_status;
 pub use diagnostics::{
     diagnose, ExtractorDiagnosticCode, ExtractorDiagnosticIssue, ExtractorDiagnosticReport,
 };
 pub use local_configuration::{reset_preserving_local_paths, without_local_paths};
+pub use post_processing::{ExtractorPostProcessing, DEFAULT_LABEL_CONFIDENCE_PERCENT};
 pub use runtime_status::{runtime_status, runtime_status_summary};
 
 pub const EXTRACTOR_RECIPE_VERSION: u32 = 1;
 pub const EXTRACTOR_AUTHORING_VERSION: u32 = 1;
-pub const DEFAULT_MINIMUM_VISUAL_LABEL_CONFIDENCE: u8 = 80;
 const MAX_ARGUMENTS: usize = 128;
 const MAX_ARGUMENT_BYTES: usize = 4_096;
 const MAX_STEPS: usize = 16;
@@ -122,8 +123,14 @@ pub struct ExtractorRecipe {
     pub accepts: Vec<ExtractorInputKind>,
     #[serde(default = "default_accepted_file_formats")]
     pub accepted_file_formats: Vec<String>,
-    #[serde(default = "default_minimum_visual_label_confidence")]
-    pub minimum_visual_label_confidence: u8,
+    #[serde(default)]
+    pub post_processing: Vec<ExtractorPostProcessing>,
+    #[serde(
+        default,
+        rename = "minimumVisualLabelConfidence",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub legacy_minimum_visual_label_confidence: Option<u8>,
     pub output: ExtractorOutputKind,
     #[serde(default)]
     pub steps: Vec<ExtractorCommandStep>,
@@ -133,10 +140,6 @@ pub struct ExtractorRecipe {
 
 fn default_accepted_file_formats() -> Vec<String> {
     vec!["*".into()]
-}
-
-const fn default_minimum_visual_label_confidence() -> u8 {
-    DEFAULT_MINIMUM_VISUAL_LABEL_CONFIDENCE
 }
 
 impl ExtractorRecipe {
@@ -300,8 +303,12 @@ pub fn validate_recipe(recipe: &ExtractorRecipe) -> Result<(), String> {
     {
         return Err("The any-format selector cannot be combined with specific formats".into());
     }
-    if recipe.minimum_visual_label_confidence > 100 {
-        return Err("Minimum Visual Label confidence must be between 0 and 100".into());
+    post_processing::validate(&recipe.post_processing)?;
+    if recipe
+        .legacy_minimum_visual_label_confidence
+        .is_some_and(|minimum| minimum > 100)
+    {
+        return Err("Minimum label confidence must be between 0 and 100".into());
     }
     if recipe.steps.is_empty() || recipe.steps.len() > MAX_STEPS {
         return Err(format!(
@@ -726,7 +733,11 @@ fn execute_recipe(recipe: &ExtractorRecipe, input: RecipeInput<'_>) -> Extractio
             }
         }
     }
-    labels = visual_labels_meeting_confidence(labels, recipe.minimum_visual_label_confidence);
+    labels = post_processing::apply(
+        &recipe.post_processing,
+        labels,
+        recipe.legacy_minimum_visual_label_confidence,
+    );
     if produced.is_empty() && labels.is_empty() {
         first_input_failure
             .map(|failure| ExtractionOutcome::Failed { failure })
@@ -759,21 +770,6 @@ fn preserve_llama_cache_environment(command: &mut Command) {
             command.env(name, value);
         }
     }
-}
-
-fn visual_labels_meeting_confidence(
-    labels: Vec<crate::content_extraction::VisualLabel>,
-    minimum_confidence_percent: u8,
-) -> Vec<crate::content_extraction::VisualLabel> {
-    let minimum_confidence = u16::from(minimum_confidence_percent) * 100;
-    crate::content_extraction::normalize_visual_labels(labels)
-        .into_iter()
-        .filter(|label| {
-            label
-                .confidence_basis_points
-                .is_none_or(|confidence| confidence >= minimum_confidence)
-        })
-        .collect()
 }
 
 fn step_runs<'a>(step: &ExtractorCommandStep, input_paths: &'a [PathBuf]) -> Vec<Option<&'a Path>> {
@@ -957,7 +953,8 @@ mod tests {
                 ExtractorInputKind::FileReferences,
             ],
             accepted_file_formats: vec!["*".into()],
-            minimum_visual_label_confidence: DEFAULT_MINIMUM_VISUAL_LABEL_CONFIDENCE,
+            post_processing: Vec::new(),
+            legacy_minimum_visual_label_confidence: None,
             output: ExtractorOutputKind::SearchableText,
             steps: vec![ExtractorCommandStep {
                 id: "extract".into(),
@@ -987,39 +984,24 @@ mod tests {
         });
         let parsed: ExtractorRecipe = serde_json::from_value(value).unwrap();
         assert_eq!(parsed.accepted_file_formats, ["*"]);
-        assert_eq!(
-            parsed.minimum_visual_label_confidence,
-            DEFAULT_MINIMUM_VISUAL_LABEL_CONFIDENCE
-        );
+        assert!(parsed.post_processing.is_empty());
+        assert_eq!(parsed.legacy_minimum_visual_label_confidence, None);
     }
 
     #[test]
-    fn visual_label_confidence_defaults_to_a_conservative_floor() {
-        let labels = vec![
-            crate::content_extraction::VisualLabel {
-                value: "dog".into(),
-                confidence_basis_points: Some(8_000),
-            },
-            crate::content_extraction::VisualLabel {
-                value: "terrier".into(),
-                confidence_basis_points: Some(7_999),
-            },
-            crate::content_extraction::VisualLabel {
-                value: "favorite".into(),
-                confidence_basis_points: None,
-            },
-        ];
-
-        let accepted =
-            visual_labels_meeting_confidence(labels, DEFAULT_MINIMUM_VISUAL_LABEL_CONFIDENCE);
-
-        assert_eq!(
-            accepted
-                .iter()
-                .map(|label| label.value.as_str())
-                .collect::<Vec<_>>(),
-            ["dog", "favorite"]
-        );
+    fn legacy_visual_label_confidence_deserializes_without_becoming_a_new_operation() {
+        let value = serde_json::json!({
+            "definitionVersion": 1,
+            "accepts": ["image"],
+            "acceptedFileFormats": ["png"],
+            "minimumVisualLabelConfidence": 72,
+            "output": "searchable_text",
+            "steps": recipe().steps,
+            "resources": []
+        });
+        let parsed: ExtractorRecipe = serde_json::from_value(value).unwrap();
+        assert!(parsed.post_processing.is_empty());
+        assert_eq!(parsed.legacy_minimum_visual_label_confidence, Some(72));
     }
 
     #[test]

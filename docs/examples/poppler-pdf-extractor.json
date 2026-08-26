@@ -3,6 +3,10 @@
   "accepts": [
     "file_references"
   ],
+  "acceptedFileFormats": [
+    "pdf"
+  ],
+  "postProcessing": [],
   "output": "searchable_text",
   "steps": [
     {
@@ -22,6 +26,7 @@
       ],
       "mode": "each_input",
       "capture": "stdout_text",
+      "outputExtension": null,
       "timeoutSeconds": 30
     }
   ],

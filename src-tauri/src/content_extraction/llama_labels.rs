@@ -1,4 +1,5 @@
 use super::*;
+use crate::extractor_recipe::{ExtractorPostProcessing, DEFAULT_LABEL_CONFIDENCE_PERCENT};
 
 const MODEL_REPOSITORY: &str = "ggml-org/SmolVLM-500M-Instruct-GGUF";
 const LABEL_PROMPT: &str = "Identify the visible subjects, objects, animals, foods, places, and other useful searchable concepts. Return concise plain-language labels, no duplicates, and a confidenceBasisPoints value from 0 to 10000 for each label.";
@@ -9,8 +10,10 @@ pub(super) fn recipe() -> ExtractorRecipe {
         definition_version: EXTRACTOR_RECIPE_VERSION,
         accepts: vec![ExtractorInputKind::Image],
         accepted_file_formats: format_defaults::for_builtin(LLAMA_CPP_LABELS_REF),
-        minimum_visual_label_confidence:
-            crate::extractor_recipe::DEFAULT_MINIMUM_VISUAL_LABEL_CONFIDENCE,
+        post_processing: vec![ExtractorPostProcessing::FilterLabelsByConfidence {
+            minimum_percent: DEFAULT_LABEL_CONFIDENCE_PERCENT,
+        }],
+        legacy_minimum_visual_label_confidence: None,
         output: ExtractorOutputKind::SearchableText,
         steps: vec![ExtractorCommandStep {
             id: "label".into(),
@@ -59,7 +62,12 @@ mod tests {
     #[test]
     fn recipe_uses_official_multimodal_model_and_bounded_json() {
         let recipe = recipe();
-        assert_eq!(recipe.minimum_visual_label_confidence, 80);
+        assert_eq!(
+            recipe.post_processing,
+            [ExtractorPostProcessing::FilterLabelsByConfidence {
+                minimum_percent: 80,
+            }]
+        );
         assert_eq!(recipe.steps[0].executable.discover, ["llama-cli"]);
         assert!(recipe.steps[0]
             .arguments
