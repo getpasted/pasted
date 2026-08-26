@@ -2453,6 +2453,7 @@
   "component.helpView.clipHotkeyDescription": "Asigne una tecla rápida desde la vista de detalles para pegar ese clip en cualquier lugar. Al asignarla, el clip se protege automáticamente.",
   "registry.extractor.extractorLlamaCppLabels.name": "Etiquetas de llama.cpp",
   "registry.extractor.extractorLlamaCppLabels.description": "Encuentra localmente sujetos y objetos buscables en imágenes con llama.cpp.",
-  "component.contentExtractorManagerDialog.installLlamaCppWithCommand": "Instala llama.cpp con {command}.",
-  "component.contentExtractorManagerDialog.downloadLlamaCppModelWithCommand": "Descarga el modelo una vez con {command}. Después, la extracción permanece sin conexión."
+  "component.contentExtractorManagerDialog.installDependency": "Instala {name}.",
+  "component.contentExtractorManagerDialog.downloadConfiguredModel": "Descarga una vez el modelo configurado. Después, la extracción permanece sin conexión.",
+  "component.contentExtractorManagerDialog.runEachCommandThenCheckAvailabilityAgain": "Ejecuta cada comando y vuelve a comprobar la disponibilidad."
 }

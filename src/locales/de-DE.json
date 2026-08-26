@@ -2453,6 +2453,7 @@
   "component.helpView.clipHotkeyDescription": "Weisen Sie in der Detailansicht einen Hotkey zu, um genau diesen Clip überall einzufügen. Die Zuweisung schützt den Clip automatisch.",
   "registry.extractor.extractorLlamaCppLabels.name": "llama.cpp-Labels",
   "registry.extractor.extractorLlamaCppLabels.description": "Findet lokal mit llama.cpp durchsuchbare Motive und Objekte in Bildern.",
-  "component.contentExtractorManagerDialog.installLlamaCppWithCommand": "llama.cpp mit {command} installieren.",
-  "component.contentExtractorManagerDialog.downloadLlamaCppModelWithCommand": "Das Modell einmalig mit {command} herunterladen. Die Extraktion bleibt danach offline."
+  "component.contentExtractorManagerDialog.installDependency": "{name} installieren.",
+  "component.contentExtractorManagerDialog.downloadConfiguredModel": "Das konfigurierte Modell einmalig herunterladen. Die Extraktion bleibt danach offline.",
+  "component.contentExtractorManagerDialog.runEachCommandThenCheckAvailabilityAgain": "Jeden Befehl ausführen und die Verfügbarkeit erneut prüfen."
 }

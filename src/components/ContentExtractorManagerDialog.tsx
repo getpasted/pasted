@@ -1,4 +1,4 @@
-import { CircleAlert, CircleCheck, RotateCcw, ScanText } from 'lucide-react';
+import { RotateCcw, ScanText } from 'lucide-react';
 import { AppDialog } from './AppDialog';
 import { AppDialogBody, AppDialogButton, AppDialogFooter, AppDialogHeader, AppDialogHeading, SaveButtonContent } from './AppDialogLayout';
 import { ConfirmationDialog } from './ConfirmationDialog';
@@ -8,9 +8,10 @@ import { RegistryPanelHeader } from './RegistryPanelHeader';
 import { translate } from '../localization/runtime';
 import { ExtractorAuthoringHistoryDialog } from './ExtractorAuthoringHistoryDialog';
 import { ExtractorAiAuthoringPanel } from './ExtractorAiAuthoringPanel';
-import { ExtractorAiSetupPanel } from './ExtractorAiSetupPanel';
+import { ExtractorAvailabilityBadge } from './ExtractorAvailabilityBadge';
 import { ExtractorRecipeEditor } from './ExtractorRecipeEditor';
 import { ExtractorRegistryPanel } from './ExtractorRegistryPanel';
+import { ExtractorSetupPanel } from './ExtractorSetupPanel';
 import { useContentExtractorManager } from '../hooks/useContentExtractorManager';
 
 export function ContentExtractorManagerDialog({
@@ -115,19 +116,13 @@ export function ContentExtractorManagerDialog({
         <section className="theme-surface flex min-w-0 flex-col overflow-hidden rounded-xl border">
           <RegistryPanelHeader
             title={translate('component.contentExtractorManagerDialog.extractorSettings')}
-            actions={<span
+            actions={<ExtractorAvailabilityBadge
+              selectedId={selectedId}
+              runtimeConfigurationChanged={runtimeConfigurationChanged}
+              available={selected?.isAvailable}
               title={availabilityTitle}
-              className={`${selectedId !== 'new' && !runtimeConfigurationChanged && selected?.isAvailable
-                ? 'theme-status-success-text'
-                : selectedId !== 'new' && !runtimeConfigurationChanged
-                  ? 'theme-status-warning-text'
-                  : 'theme-text-muted'} flex min-w-0 max-w-[70%] shrink items-center gap-1.5 text-[10px] font-semibold`}
-            >
-              {selectedId !== 'new' && !runtimeConfigurationChanged && selected?.isAvailable
-                ? <CircleCheck className="h-3.5 w-3.5 shrink-0" />
-                : <CircleAlert className="h-3.5 w-3.5 shrink-0" />}
-              <span className="truncate">{availabilityLabel}</span>
-            </span>}
+              label={availabilityLabel}
+            />}
           />
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
             <div className="grid grid-cols-1 gap-3 @md:grid-cols-[minmax(0,1fr)_110px_auto] @md:items-end">
@@ -154,7 +149,8 @@ export function ContentExtractorManagerDialog({
               onPromptChange={setAuthoringPrompt} onGenerate={() => void generateRecipe()}
               onOpenIntelligence={onOpenIntelligence}
             />
-            <ExtractorAiSetupPanel
+            <ExtractorSetupPanel
+              recipe={recipeDraft}
               visible={aiSetup.visible}
               hasIntelligence={hasIntelligence}
               repairing={repairing}

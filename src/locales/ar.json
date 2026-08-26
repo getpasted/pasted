@@ -2537,6 +2537,7 @@
   "component.helpView.clipHotkeyDescription": "عيّن مفتاح اختصار من عرض تفاصيل المقطع للصق ذلك المقطع بعينه في أي مكان. يؤدي التعيين إلى حماية المقطع تلقائيًا.",
   "registry.extractor.extractorLlamaCppLabels.name": "تسميات llama.cpp",
   "registry.extractor.extractorLlamaCppLabels.description": "يعثر محليًا على العناصر والموضوعات القابلة للبحث في الصور باستخدام llama.cpp.",
-  "component.contentExtractorManagerDialog.installLlamaCppWithCommand": "ثبّت llama.cpp باستخدام {command}.",
-  "component.contentExtractorManagerDialog.downloadLlamaCppModelWithCommand": "نزّل النموذج مرة واحدة باستخدام {command}. يبقى الاستخراج بلا اتصال بعد ذلك."
+  "component.contentExtractorManagerDialog.installDependency": "ثبّت {name}.",
+  "component.contentExtractorManagerDialog.downloadConfiguredModel": "نزّل النموذج المُعدّ مرة واحدة. يبقى الاستخراج بلا اتصال بعد ذلك.",
+  "component.contentExtractorManagerDialog.runEachCommandThenCheckAvailabilityAgain": "شغّل كل أمر، ثم تحقّق من التوفّر مرة أخرى."
 }

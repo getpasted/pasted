@@ -2453,6 +2453,7 @@
   "component.helpView.clipHotkeyDescription": "詳細ビューでホットキーを割り当てると、そのクリップをどこにでも貼り付けられます。割り当てたクリップは自動的に保護されます。",
   "registry.extractor.extractorLlamaCppLabels.name": "llama.cpp ラベル",
   "registry.extractor.extractorLlamaCppLabels.description": "llama.cpp を使用して、画像内の検索可能な被写体や物体をローカルで検出します。",
-  "component.contentExtractorManagerDialog.installLlamaCppWithCommand": "{command} で llama.cpp をインストールします。",
-  "component.contentExtractorManagerDialog.downloadLlamaCppModelWithCommand": "{command} でモデルを一度ダウンロードします。その後の抽出はオフラインで行われます。"
+  "component.contentExtractorManagerDialog.installDependency": "{name} をインストールします。",
+  "component.contentExtractorManagerDialog.downloadConfiguredModel": "設定済みモデルを一度ダウンロードします。その後の抽出はオフラインで行われます。",
+  "component.contentExtractorManagerDialog.runEachCommandThenCheckAvailabilityAgain": "各コマンドを実行してから、利用可能か再確認します。"
 }
