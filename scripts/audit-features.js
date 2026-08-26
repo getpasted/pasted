@@ -50,6 +50,8 @@ const clipPreview = [
   'src/hooks/useClipPreviewTransforms.ts',
 ].map(read).join('\n');
 const clipNameDialog = read('src/components/ClipNameDialog.tsx');
+const appDialogLayout = read('src/components/AppDialogLayout.tsx');
+const clipPreviewBanner = read('src/components/ClipPreviewBanner.tsx');
 const quickHud = read('src/components/QuickHudWindow.tsx');
 const hudEntry = read('src/hud-main.tsx');
 const settingsHotkeys = read('src/components/SettingsHotkeysPanel.tsx');
@@ -252,6 +254,16 @@ assert.match(
   clipNameDialog,
   /AppDialogButton type="submit" variant="primary"/,
   'The clip Name dialog Save action must remain primary',
+);
+assert.doesNotMatch(
+  appDialogLayout,
+  /\bSave\b[^\n]*from 'lucide-react'|<Save\b/,
+  'Shared labeled Save buttons must not add a disk icon to every dialog flow',
+);
+assert.match(
+  clipPreviewBanner,
+  /floating-action-strip[\s\S]*?<X \/>[\s\S]*?<Save \/>/,
+  'The icon-only preview actions must retain their neighboring Cancel and Save icons',
 );
 assert.match(
   cli,

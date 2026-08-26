@@ -4,7 +4,7 @@ import type {
   MouseEventHandler,
   ReactNode,
 } from 'react';
-import { Check, LoaderCircle, Save, X } from 'lucide-react';
+import { Check, LoaderCircle, X } from 'lucide-react';
 import { translate } from '../localization/runtime';
 
 function joinClasses(...classes: Array<string | undefined | false>) {
@@ -117,5 +117,5 @@ export function SaveButtonContent({
 }) {
   if (isSaving) return <><LoaderCircle className="h-3.5 w-3.5 animate-spin" /><span>{translate('common.saving')}</span></>;
   if (isSaved) return <><Check className="h-3.5 w-3.5" /><span>{translate('common.saved')}</span></>;
-  return <><Save className="h-3.5 w-3.5" /><span>{translate('common.save')}</span></>;
+  return <span>{translate('common.save')}</span>;
 }
