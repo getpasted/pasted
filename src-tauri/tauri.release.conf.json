@@ -2,5 +2,8 @@
   "bundle": {
     "createUpdaterArtifacts": true,
     "externalBin": ["binaries/pasted"]
+  },
+  "plugins": {
+    "updater": {}
   }
 }
