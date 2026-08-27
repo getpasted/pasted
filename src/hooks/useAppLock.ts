@@ -88,7 +88,10 @@ function waitForAppContentReady() {
   });
 }
 
-export function useAppLock({ animateUnlock = true }: { animateUnlock?: boolean } = {}) {
+export function useAppLock({
+  animateUnlock = true,
+  trackIdle = false,
+}: { animateUnlock?: boolean; trackIdle?: boolean } = {}) {
   const [status, setStatus] = useState(cachedStatus);
   const [hydrated, setHydrated] = useState(cachedHydrated);
   const [unlockingSuccess, setUnlockingSuccess] = useState(false);
@@ -173,7 +176,7 @@ export function useAppLock({ animateUnlock = true }: { animateUnlock?: boolean }
   }, [acceptStatus]);
 
   useEffect(() => {
-    if (!hydrated || !status.enabled || status.locked || status.idleMinutes === 0) return undefined;
+    if (!trackIdle || !hydrated || !status.enabled || status.locked || status.idleMinutes === 0) return undefined;
     const deadline = createIdleDeadline({
       delayMs: status.idleMinutes * 60_000,
       onElapsed: () => void lock().catch(console.error),
@@ -183,7 +186,7 @@ export function useAppLock({ animateUnlock = true }: { animateUnlock?: boolean }
       deadline.dispose();
       APP_LOCK_ACTIVITY_EVENTS.forEach((event) => window.removeEventListener(event, deadline.markActivity, true));
     };
-  }, [hydrated, lock, status.enabled, status.idleMinutes, status.locked]);
+  }, [hydrated, lock, status.enabled, status.idleMinutes, status.locked, trackIdle]);
 
   const apply = useCallback(async (request: Promise<AppLockStatus>) => {
     const next = await request;
