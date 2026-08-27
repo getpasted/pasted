@@ -426,6 +426,7 @@ jobs:
             --strict \
             --verbose=2 \
             src-tauri/target/universal-apple-darwin/release/pasted
+          npm run stage:cli-sidecar:macos-universal
       - uses: actions/upload-artifact@v7.0.1
         with:
           name: Pasted-macOS-universal-CLI
@@ -443,7 +444,7 @@ jobs:
             --verbose=2 \
             src-tauri/target/universal-apple-darwin/release/pasted
       - name: Build unnotarized macOS test DMG
-        run: npm run tauri -- build --target universal-apple-darwin --bundles dmg
+        run: npm run tauri -- build --target universal-apple-darwin --bundles dmg --config src-tauri/tauri.cli-sidecar.conf.json
       - name: Verify macOS test package
         run: |
           dmg_path="$(find src-tauri/target/universal-apple-darwin/release/bundle/dmg -name 'Pasted_*.dmg' -type f -print -quit)"

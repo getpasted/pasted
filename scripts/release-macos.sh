@@ -85,7 +85,8 @@ cargo build \
   --no-default-features \
   --features cli \
   --bin pasted
-npm run tauri -- build --bundles dmg
+npm run stage:cli-sidecar
+npm run tauri -- build --bundles dmg --config src-tauri/tauri.cli-sidecar.conf.json
 
 dmg_path="$(find src-tauri/target/release/bundle/dmg -maxdepth 1 -name 'Pasted_*.dmg' -type f -print | sort | tail -n 1)"
 if [[ -z "$dmg_path" ]]; then

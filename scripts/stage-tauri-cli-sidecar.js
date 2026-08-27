@@ -42,6 +42,15 @@ export function stageCliSidecar({
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const staged = stageCliSidecar();
+  const argumentValue = (name) => {
+    const index = process.argv.indexOf(name);
+    return index >= 0 ? process.argv[index + 1] : undefined;
+  };
+  const targetDir = argumentValue('--target-dir');
+  const staged = stageCliSidecar({
+    targetDir: targetDir ? path.resolve(process.cwd(), targetDir) : undefined,
+    targetTriple: argumentValue('--target-triple'),
+    platform: argumentValue('--platform'),
+  });
   console.log(`Staged ${staged.source} for Tauri as ${staged.destination}`);
 }
