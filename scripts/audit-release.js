@@ -427,8 +427,8 @@ assert.equal(
 );
 assert.match(
   releaseWorkflow,
-  /codesign[\s\S]*universal-apple-darwin\/release\/pasted[\s\S]*stage:cli-sidecar:macos-universal[\s\S]*tauri -- build --target universal-apple-darwin --bundles dmg --config src-tauri\/tauri\.release\.conf\.json/,
-  'The hosted macOS release must stage the signed universal CLI before bundling the app',
+  /codesign[\s\S]*universal-apple-darwin\/release\/pasted[\s\S]*stage:cli-sidecar:macos-universal[\s\S]*tauri -- build --target universal-apple-darwin --bundles app,dmg --config src-tauri\/tauri\.release\.conf\.json/,
+  'The hosted macOS release must stage the signed universal CLI and emit both updater and DMG bundles',
 );
 assert.equal(
   (releaseWorkflow.match(/TAURI_SIGNING_PRIVATE_KEY: \$\{\{ secrets\.TAURI_SIGNING_PRIVATE_KEY \}\}/g) ?? []).length,
@@ -457,7 +457,7 @@ assert.match(
 );
 assert.match(
   fs.readFileSync('scripts/release-macos.sh', 'utf8'),
-  /tauri_config="src-tauri\/tauri\.cli-sidecar\.conf\.json"[\s\S]*tauri_config="src-tauri\/tauri\.release\.conf\.json"[\s\S]*stage:cli-sidecar[\s\S]*tauri -- build --bundles dmg --config "\$tauri_config"/,
+  /tauri_config="src-tauri\/tauri\.cli-sidecar\.conf\.json"[\s\S]*bundle_targets="dmg"[\s\S]*tauri_config="src-tauri\/tauri\.release\.conf\.json"[\s\S]*bundle_targets="app,dmg"[\s\S]*stage:cli-sidecar[\s\S]*tauri -- build --bundles "\$bundle_targets" --config "\$tauri_config"/,
   'Local macOS rehearsals must bundle the CLI, while distributable builds also emit signed updates',
 );
 const macosVerifier = fs.readFileSync('scripts/verify-macos-release.sh', 'utf8');
