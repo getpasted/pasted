@@ -42,6 +42,7 @@ import { SettingsSectionHeading } from './SettingsSectionHeading';
 import { SettingsSwitch } from './SettingsSwitch';
 import { InfoPopover } from './InfoPopover';
 import { SettingsPanelNote } from './SettingsPanelNote';
+import { LocalizedInlineCode } from './LocalizedInlineCode';
 import { translate, type TranslationKey } from '../localization/runtime';
 import { useLocalization } from '../localization/LocalizationProvider';
 
@@ -193,7 +194,11 @@ export function SettingsFeaturesPanel({ settings, onUpdateSettings }: SettingsFe
                               </span>
                             )}
                           </div>
-                          <p className="theme-text-muted mt-1 text-[11px] leading-relaxed">{translate(keys.description)}</p>
+                          <p className="theme-text-muted mt-1 text-[11px] leading-relaxed">
+                            {feature.id === 'cli'
+                              ? <LocalizedInlineCode message={translate(keys.description, { command: 'pasted' })} code="pasted" />
+                              : translate(keys.description)}
+                          </p>
                         </div>
                       </div>
                       <SettingsSwitch
