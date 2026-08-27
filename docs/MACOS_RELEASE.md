@@ -77,7 +77,7 @@ Do this with the exact DMG intended for release, preferably on a second Mac or a
 
 Complete the expanded [`RELEASE_CHECKLIST_1.0.0.md`](RELEASE_CHECKLIST_1.0.0.md) before publishing the 1.0 artifact.
 
-Pasted 1.0 uses manual DMG updates. A future automatic updater must have a permanent HTTPS feed, a separately protected updater signing key, rollback-safe metadata, and an exercised failure path before it replaces this policy.
+Pasted 1.0 checks its signed update channel from **Settings → About**. Installation is always user-confirmed. The updater rejects payloads that do not match the public key embedded in the release build, and replacing the application leaves the local library untouched. Keep the updater private key separate from the Apple Developer ID identity and exercise successful and tampered-signature paths before publication.
 
 The local build host is Apple Silicon, so a plain local Tauri build is arm64-only. The release workflow installs both Rust targets and produces one universal Apple Silicon/Intel DMG; only that verified universal artifact may be advertised as the 1.0 macOS download.
 

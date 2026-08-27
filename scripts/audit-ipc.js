@@ -30,7 +30,7 @@ const invokedCommands = matches(
 );
 const registeredCommands = matches(
   handlerBlock,
-  /commands::(?:[a-zA-Z0-9_]+::)*([a-zA-Z0-9_]+)/g,
+  /(?:commands::(?:[a-zA-Z0-9_]+::)*|app_updates::)([a-zA-Z0-9_]+)/g,
 );
 const mockedCommands = new Set([
   ...matches(tauriBridge, /case ['"]([a-zA-Z0-9_]+)['"]:/g),

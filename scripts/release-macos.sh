@@ -20,8 +20,16 @@ fi
 
 if $local_build; then
   export APPLE_SIGNING_IDENTITY="-"
+  tauri_config="src-tauri/tauri.cli-sidecar.conf.json"
   echo "Building a local ad-hoc signed DMG. Gatekeeper will reject this artifact on other Macs."
 else
+  tauri_config="src-tauri/tauri.release.conf.json"
+  for name in TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD PASTED_UPDATER_PUBLIC_KEY; do
+    if [[ -z "${!name:-}" ]]; then
+      echo "Missing updater release credential: ${name}" >&2
+      exit 1
+    fi
+  done
   identity="${APPLE_SIGNING_IDENTITY:-}"
   if [[ -z "$identity" ]]; then
     identity="$(security find-identity -v -p codesigning | sed -n 's/.*"\(Developer ID Application:.*\)"/\1/p' | head -n 1)"
@@ -86,7 +94,7 @@ cargo build \
   --features cli \
   --bin pasted
 npm run stage:cli-sidecar
-npm run tauri -- build --bundles dmg --config src-tauri/tauri.cli-sidecar.conf.json
+npm run tauri -- build --bundles dmg --config "$tauri_config"
 
 dmg_path="$(find src-tauri/target/release/bundle/dmg -maxdepth 1 -name 'Pasted_*.dmg' -type f -print | sort | tail -n 1)"
 if [[ -z "$dmg_path" ]]; then
@@ -106,3 +114,11 @@ if $local_build; then
   verify_args+=("--local")
 fi
 bash scripts/verify-macos-release.sh "${verify_args[@]}"
+
+if ! $local_build; then
+  updater_path="$(find src-tauri/target/release/bundle/macos -maxdepth 1 -name '*.app.tar.gz' -type f -print | sort | tail -n 1)"
+  if [[ -z "$updater_path" || ! -f "${updater_path}.sig" ]]; then
+    echo "Tauri did not produce a signed macOS updater artifact." >&2
+    exit 1
+  fi
+fi

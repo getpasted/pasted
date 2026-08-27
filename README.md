@@ -110,7 +110,7 @@ npm run test:all
 
 ## Releases and updates
 
-Pasted 1.0 uses verified manual DMG updates for now. Download a newer signed DMG, and replace the application in `/Applications`.
+Release builds check a signed stable or prerelease feed from **Settings → About**. An available update is downloaded only after confirmation, its updater signature is verified before installation, and Pasted restarts without replacing the local library. The CLI can check the same channel with `pasted update check --json`; installation remains in the running app so consent and restart stay visible.
 
 Maintainers should follow [the macOS release guide](docs/MACOS_RELEASE.md) and the [1.0 release-candidate checklist](docs/RELEASE_CHECKLIST_1.0.0.md).
 

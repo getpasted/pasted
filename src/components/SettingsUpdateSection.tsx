@@ -2,7 +2,7 @@ import { CheckCircle2, Download, Loader2, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { translate } from '../localization/runtime';
-import type { AppUpdateStatus, AvailableAppUpdate } from '../types';
+import type { AppUpdateStatus, AvailableAppUpdate } from '../updateTypes';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { ActionButton } from './AppDialogLayout';
 import { ConfirmationDialog, type ConfirmationDialogRequest } from './ConfirmationDialog';
@@ -18,7 +18,15 @@ export function SettingsUpdateSection() {
 
   useEffect(() => {
     invoke<AppUpdateStatus>('get_app_update_status')
-      .then(setStatus)
+      .then((nextStatus) => {
+        setStatus(nextStatus);
+        if (!nextStatus.configured) return;
+        setChecking(true);
+        return invoke<AvailableAppUpdate>('check_for_app_update')
+          .then(setUpdate)
+          .catch((reason) => setError(String(reason)))
+          .finally(() => setChecking(false));
+      })
       .catch((reason) => setError(String(reason)));
   }, []);
 
