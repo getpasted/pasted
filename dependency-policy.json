@@ -50,9 +50,13 @@
     "hyper",
     "reqwest",
     "surf",
+    "tauri-plugin-updater",
     "ureq"
   ],
-  "approvedNetworkDependencies": [],
+  "approvedNetworkDependencies": [
+    "reqwest",
+    "tauri-plugin-updater"
+  ],
   "ignoredRustAdvisories": [
     {
       "id": "RUSTSEC-2024-0370",

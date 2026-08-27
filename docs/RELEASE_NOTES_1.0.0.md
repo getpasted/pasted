@@ -18,6 +18,7 @@ Pasted 1.0 is the first direct-download release of the local, privacy-first clip
 - A shared versioned Settings contract now keeps GUI defaults, CLI validation, scoped resets, sensitive-value visibility, and factory-reset coverage synchronized
 - `pasted settings reset <page> --dry-run --json` previews a page reset without saving changes
 - Bundled `pasted` with shared native data and mutation contracts
+- Signed, user-confirmed updates with separate stable and prerelease channels
 - Signed, notarized, stapled, and Gatekeeper-verified DMG
 - Release-blocking dependency license, advisory, mission-policy, and SPDX SBOM verification
 
@@ -29,7 +30,7 @@ Production dependencies are checked against reviewed open-source license and sou
 
 ## Updates
 
-Version 1.0 uses manual DMG updates. Installing a newer Pasted application keeps the existing local library.
+Open **Settings → About** to check the signed update channel. Pasted asks before downloading and installing, verifies the updater signature, preserves the existing local library, and restarts into the new version. `pasted update check --json` exposes the same availability check for scripts.
 
 ## Platform support
 

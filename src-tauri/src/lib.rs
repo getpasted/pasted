@@ -108,7 +108,7 @@ use tauri::Manager;
 pub fn run() {
     let hotkey_manager = Arc::new(hotkey_manager::HotkeyManager::new());
 
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default()
         .manage(hotkey_manager.clone())
         .manage(app_updates::PendingUpdate(std::sync::Mutex::new(None)))
         .on_menu_event(app_menu::handle_menu_event)
@@ -119,12 +119,17 @@ pub fn run() {
                 .with_state_flags(app_windows::main_window_state_flags())
                 .build(),
         )
-        .plugin(tauri_plugin_dialog::init())
-        .plugin(
+        .plugin(tauri_plugin_dialog::init());
+
+    if app_updates::updater_is_configured() {
+        builder = builder.plugin(
             tauri_plugin_updater::Builder::new()
                 .pubkey(app_updates::updater_public_key())
                 .build(),
-        )
+        );
+    }
+
+    builder
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             app_runtime::handle_single_instance(app, &args);
         }))
