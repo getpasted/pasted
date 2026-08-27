@@ -30,7 +30,7 @@ window.addEventListener('focus', markWindowActive);
 window.addEventListener('pointerdown', markWindowActive, { capture: true });
 
 function ProtectedAppRoot() {
-  const appLock = useAppLock();
+  const appLock = useAppLock({ trackIdle: true });
   const lastLockedStatus = React.useRef<AppLockStatus | null>(null);
   if (appLock.status.locked) lastLockedStatus.current = appLock.status;
 
