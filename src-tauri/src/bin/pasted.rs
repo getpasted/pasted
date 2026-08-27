@@ -114,10 +114,6 @@ fn main() -> Result<()> {
         }
         return Ok(());
     }
-    if matches!(command, "update" | "updates") {
-        return cli_commands::updates::run(&args);
-    }
-
     let db_path = get_db_path();
     let migration_db = match DbState::new(db_path.clone()) {
         Ok(db) => db,
@@ -126,6 +122,10 @@ fn main() -> Result<()> {
             std::process::exit(1);
         }
     };
+    if matches!(command, "update" | "updates") {
+        cli_commands::require_feature(&migration_db, Feature::Updates);
+        return cli_commands::updates::run(&args);
+    }
     drop(migration_db);
     let conn = match open_pasted_database(&db_path) {
         Ok(c) => c,

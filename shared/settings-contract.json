@@ -93,6 +93,7 @@
     { "key": "enableSearch", "owner": "functionality", "default": true, "reset": "preserve", "visibility": "public", "mutation": "direct", "validation": { "type": "boolean" } },
     { "key": "enableCli", "owner": "functionality", "default": true, "reset": "preserve", "visibility": "public", "mutation": "direct", "validation": { "type": "boolean" } },
     { "key": "enableHelp", "owner": "functionality", "default": true, "reset": "preserve", "visibility": "public", "mutation": "direct", "validation": { "type": "boolean" } },
+    { "key": "enableUpdateChecks", "owner": "functionality", "default": true, "reset": "preserve", "visibility": "public", "mutation": "direct", "validation": { "type": "boolean" } },
 
     { "key": "appLockEnabled", "owner": "security", "default": false, "reset": "preserve", "visibility": "public", "mutation": "dedicated", "validation": { "type": "boolean" } },
     { "key": "appLockVerifier", "owner": "security", "reset": "preserve", "visibility": "private", "mutation": "dedicated", "validation": { "type": "string", "maximumBytes": 4096 } },

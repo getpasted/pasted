@@ -24,6 +24,7 @@ export function invokeUpdateBrowserMock<T>(cmd: string): T | typeof unhandledVal
     case 'get_app_update_status':
       return {
         configured: false,
+        enabled: true,
         currentVersion: '1.0.0',
         channel: 'stable',
       } as unknown as T;

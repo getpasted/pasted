@@ -25,6 +25,7 @@ import {
   FileType2,
   FilePenLine,
   Search,
+  RefreshCw,
 } from 'lucide-react';
 import type { AppSettings } from '../types';
 import {
@@ -78,6 +79,7 @@ const FEATURE_KEYS: Record<FeatureId, { label: TranslationKey; description: Tran
   search: { label: 'feature.search.label', description: 'feature.search.description' },
   cli: { label: 'feature.cli.label', description: 'feature.cli.description' },
   help: { label: 'feature.help.label', description: 'feature.help.description' },
+  updates: { label: 'feature.updates.label', description: 'feature.updates.description' },
 };
 
 const FEATURE_PRESET_KEYS: Record<FeaturePreset, TranslationKey> = {
@@ -113,6 +115,7 @@ const FEATURE_ICONS = {
   search: Search,
   cli: Command,
   help: HelpCircle,
+  updates: RefreshCw,
 } satisfies Record<FeatureId, typeof Activity>;
 
 interface SettingsFeaturesPanelProps {

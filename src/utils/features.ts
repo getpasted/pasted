@@ -26,7 +26,8 @@ export type FeatureId =
   | 'sources'
   | 'search'
   | 'cli'
-  | 'help';
+  | 'help'
+  | 'updates';
 
 export type FeatureSettingKey =
   | 'enableAnalytics'
@@ -54,7 +55,8 @@ export type FeatureSettingKey =
   | 'enableSources'
   | 'enableSearch'
   | 'enableCli'
-  | 'enableHelp';
+  | 'enableHelp'
+  | 'enableUpdateChecks';
 
 export type FeatureGroupId = 'library' | 'discovery' | 'workflow' | 'app';
 
@@ -143,6 +145,7 @@ export const FEATURE_DEFINITIONS: readonly FeatureDefinition[] = [
   { id: 'activityLog', group: 'app', settingKey: 'enableActivityLog', label: 'Activity', description: 'Record and inspect important app events.', simple: false },
   { id: 'cli', group: 'app', settingKey: 'enableCli', label: 'Command-Line Interface', description: 'Use pasted to automate clipboard workflows.', simple: false },
   { id: 'help', group: 'app', settingKey: 'enableHelp', label: 'Help', description: 'Show in-app documentation and its navigation entry.', simple: true },
+  { id: 'updates', group: 'app', settingKey: 'enableUpdateChecks', label: 'Software Updates', description: 'Check GitHub for signed software updates.', simple: true },
 ] as const;
 
 export const FEATURE_SETTING_KEYS = FEATURE_DEFINITIONS.map(({ settingKey }) => settingKey);

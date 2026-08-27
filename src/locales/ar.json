@@ -2061,6 +2061,8 @@
   "feature.group.workflow.label": "أدوات سير العمل",
   "feature.help.description": "اعرض الوثائق داخل التطبيق ومعجم التنقل الخاص به.",
   "feature.help.label": "مساعدة",
+  "feature.updates.description": "تحقق من GitHub بحثًا عن تحديثات برامج موقّعة.",
+  "feature.updates.label": "تحديثات البرامج",
   "feature.hud.description": "افتح نافذة النسخ واللصق الصغيرة التي تعمل بلوحة المفاتيح.",
   "feature.hud.label": "HUD",
   "feature.hotkeys.description": "عيّن واستخدم اختصارات على مستوى النظام للإجراءات والمقاطع وBins والتحويلات.",
