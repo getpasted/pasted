@@ -2512,5 +2512,20 @@
   "component.settingsSearchHistoryPanel.showingRange": "{count} 件中 {start}～{end} 件を表示",
   "component.settingsSearchHistoryPanel.previousPage": "前へ",
   "component.settingsSearchHistoryPanel.nextPage": "次へ",
-  "component.helpView.listAndManageSavedSearchHistory": "保存された検索履歴の一覧表示と管理"
+  "component.helpView.listAndManageSavedSearchHistory": "保存された検索履歴の一覧表示と管理",
+  "component.settingsUpdateSection.softwareUpdates": "ソフトウェアアップデート",
+  "component.settingsUpdateSection.channelDescription": "{channel}からの署名済みアップデートです。",
+  "component.settingsUpdateSection.signedUpdates": "このインストール用の署名済みアップデートです。",
+  "component.settingsUpdateSection.checking": "確認中…",
+  "component.settingsUpdateSection.checkForUpdates": "アップデートを確認…",
+  "component.settingsUpdateSection.unavailableInThisBuild": "このビルドでは自動アップデートを利用できません。",
+  "component.settingsUpdateSection.upToDate": "Pasted {version} は最新です。",
+  "component.settingsUpdateSection.versionAvailable": "Pasted {version} を利用できます。",
+  "component.settingsUpdateSection.installing": "インストール中…",
+  "component.settingsUpdateSection.installAndRestart": "インストールして再起動",
+  "component.settingsUpdateSection.installVersion": "Pasted {version} をインストールしますか？",
+  "component.settingsUpdateSection.installDescription": "署名済みアップデートをダウンロードしてインストールし、Pasted を再起動します。",
+  "component.settingsUpdateSection.libraryPreserved": "ライブラリと設定はそのまま保持されます。",
+  "component.settingsUpdateSection.prereleaseChannel": "プレリリースチャンネル",
+  "component.settingsUpdateSection.stableChannel": "安定版チャンネル"
 }

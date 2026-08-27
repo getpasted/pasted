@@ -338,6 +338,21 @@ export interface InstallationDiagnostics {
   cliPath: string | null;
 }
 
+export interface AppUpdateStatus {
+  configured: boolean;
+  currentVersion: string;
+  channel: 'stable' | 'prerelease';
+}
+
+export interface AvailableAppUpdate {
+  currentVersion: string;
+  channel: 'stable' | 'prerelease';
+  available: boolean;
+  version: string | null;
+  notes: string | null;
+  pubDate: string | null;
+}
+
 export interface ThirdPartyComponent {
   ecosystem: 'cargo' | 'npm';
   name: string;

@@ -10,6 +10,7 @@ pub fn print() {
 }
 
 const HELP_LINES: &[&str] = &[
+    "  pasted update check [--json] Check the signed release channel",
     "  pasted settings list|get|set|reset [arguments] [--dry-run] [--json]",
     "  pasted private-browsing status|enable|disable|fallback [--json]",
     "  pasted app-lock status|enable|change-passphrase|disable|lock|unlock [--stdin] [--json]",

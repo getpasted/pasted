@@ -2515,5 +2515,20 @@
   "component.settingsSearchHistoryPanel.showingRange": "Showing {start}–{end} of {count}",
   "component.settingsSearchHistoryPanel.previousPage": "Previous",
   "component.settingsSearchHistoryPanel.nextPage": "Next",
-  "component.helpView.listAndManageSavedSearchHistory": "List and manage saved Search history"
+  "component.helpView.listAndManageSavedSearchHistory": "List and manage saved Search history",
+  "component.settingsUpdateSection.softwareUpdates": "Software updates",
+  "component.settingsUpdateSection.channelDescription": "Signed updates from the {channel}.",
+  "component.settingsUpdateSection.signedUpdates": "Signed updates for this installation.",
+  "component.settingsUpdateSection.checking": "Checking…",
+  "component.settingsUpdateSection.checkForUpdates": "Check for updates…",
+  "component.settingsUpdateSection.unavailableInThisBuild": "Automatic updates are unavailable in this build.",
+  "component.settingsUpdateSection.upToDate": "Pasted {version} is up to date.",
+  "component.settingsUpdateSection.versionAvailable": "Pasted {version} is available.",
+  "component.settingsUpdateSection.installing": "Installing…",
+  "component.settingsUpdateSection.installAndRestart": "Install and restart",
+  "component.settingsUpdateSection.installVersion": "Install Pasted {version}?",
+  "component.settingsUpdateSection.installDescription": "Pasted will download a signed update, install it, and restart.",
+  "component.settingsUpdateSection.libraryPreserved": "The library and settings remain in place.",
+  "component.settingsUpdateSection.prereleaseChannel": "prerelease channel",
+  "component.settingsUpdateSection.stableChannel": "stable channel"
 }

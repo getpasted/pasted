@@ -10,6 +10,7 @@ import { CopycatHeadMark } from './CopycatMark';
 import { translate } from '../localization/runtime';
 import { SettingsLoadingState } from './SettingsLoadingState';
 import { SettingsNavigationCard } from './SettingsNavigationCard';
+import { SettingsUpdateSection } from './SettingsUpdateSection';
 
 function fileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -175,6 +176,8 @@ export function SettingsAboutPanel() {
         ) : null}
         {error && <div className="theme-status-danger rounded-xl border px-3 py-2 text-xs">{error}</div>}
       </section>
+
+      <SettingsUpdateSection />
 
       <section className="theme-surface rounded-2xl border p-3">
         <SettingsNavigationCard

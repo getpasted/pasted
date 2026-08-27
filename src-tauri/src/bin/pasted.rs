@@ -114,6 +114,9 @@ fn main() -> Result<()> {
         }
         return Ok(());
     }
+    if matches!(command, "update" | "updates") {
+        return cli_commands::updates::run(&args);
+    }
 
     let db_path = get_db_path();
     let migration_db = match DbState::new(db_path.clone()) {
