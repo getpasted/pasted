@@ -16,6 +16,7 @@ const manualTransformEditor = [
   'src/components/ManualTransformStepEditor.tsx',
 ].map(read).join('\n');
 const reorderHook = read('src/hooks/useStableVerticalReorder.ts');
+const rememberedClipListScroll = read('src/hooks/useRememberedClipListScroll.ts');
 const sidebarComponent = [
   'src/components/Sidebar.tsx',
   'src/components/CollapsedSidebar.tsx',
@@ -160,6 +161,14 @@ assert.match(reorderBody, /cursor:\s*grabbing;/);
 assert.match(reorderBody, /user-select:\s*none;/);
 assert.match(reorderHook, /classList\.add\('is-stable-reordering'\)/);
 assert.match(reorderHook, /classList\.remove\('is-stable-reordering'\)/);
+assert.match(reorderHook, /let ancestor = element;/,
+  'Clip reordering must preserve a container that is itself scrollable');
+assert.match(reorderHook, /setSettlingOrder\(nextOrder\)/,
+  'Clip reordering must retain its committed visual order through persistence');
+assert.match(sidebar, /\.is-settling-pinned-reorder \[data-clip-list\][\s\S]{0,100}overflow-anchor:\s*none;/,
+  'The clip list must disable browser scroll anchoring during reorder commits');
+assert.match(rememberedClipListScroll, /if \(reorderCommitInProgress\(element\)\) return;/,
+  'Remembered clip positions must not fight an in-progress reorder commit');
 
 // Bin reordering restores the JS-managed hover immediately after settling;
 // clip dragging keeps its separate post-drag suppression behavior.

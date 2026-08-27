@@ -44,6 +44,11 @@ function restorePosition(element: HTMLDivElement, position: ClipListScrollPositi
   element.scrollTop = position.scrollTop;
 }
 
+function reorderCommitInProgress(element: HTMLDivElement) {
+  return document.documentElement.classList.contains('is-stable-reordering')
+    || Boolean(element.closest('.is-settling-pinned-reorder'));
+}
+
 export function useRememberedClipListScroll(
   viewKey: string,
   listRef: RefObject<HTMLDivElement | null>,
@@ -67,6 +72,7 @@ export function useRememberedClipListScroll(
     let restoringInitialLayout = true;
     const finishInitialRestore = window.setTimeout(() => { restoringInitialLayout = false; }, 500);
     const scheduleRestore = () => {
+      if (reorderCommitInProgress(element)) return;
       if (restoreFrameRef.current !== null) cancelAnimationFrame(restoreFrameRef.current);
       restoreFrameRef.current = requestAnimationFrame(() => {
         restoreFrameRef.current = null;

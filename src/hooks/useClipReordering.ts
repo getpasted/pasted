@@ -1,6 +1,7 @@
 import { useCallback, useMemo, type RefObject } from 'react';
 import type { ClipItem, SequentialStatus } from '../types';
 import type { ClipCollectionDefinition } from '../utils/clipCollections';
+import { orderClipsForStableReorder } from '../utils/clipListViewport';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { useStableVerticalReorder } from './useStableVerticalReorder';
 
@@ -34,9 +35,12 @@ export function useClipReordering({
     [isQueueCollection, sequentialStatus?.item_ids],
   );
   const commitQueueOrder = useCallback((orderedIds: string[]) => {
-    void invoke('reorder_sequential_items', { itemIds: orderedIds.map(Number) })
+    return invoke('reorder_sequential_items', { itemIds: orderedIds.map(Number) })
       .then(fetchSequentialStatus)
-      .catch((error) => console.error('Failed to reorder Copy Queue:', error));
+      .catch((error) => {
+        console.error('Failed to reorder Copy Queue:', error);
+        return fetchSequentialStatus();
+      });
   }, [fetchSequentialStatus]);
   const queueReorder = useStableVerticalReorder({
     itemIds: queueReorderIds,
@@ -51,7 +55,7 @@ export function useClipReordering({
   );
   const commitBinOrder = useCallback((orderedIds: string[]) => {
     if (selectedBinId === null) return;
-    void invoke('reorder_bin_clips', {
+    return invoke('reorder_bin_clips', {
       binId: selectedBinId,
       clipIds: orderedIds.map(Number),
     })
@@ -71,11 +75,17 @@ export function useClipReordering({
       || binReorderIds.length < 2,
   });
 
-  const reorderIdsForClip = useCallback((clip: ClipItem, index: number) => {
-    const queueId = isQueueCollection ? sequentialStatus?.item_ids[index]?.toString() : undefined;
+  const reorderIdsForClip = useCallback((clip: ClipItem, _index: number) => {
+    const queueId = isQueueCollection ? String(-clip.id) : undefined;
     const binId = isBinCollection ? String(clip.id) : undefined;
     return { queueId, binId, stableId: queueId ?? binId };
-  }, [isBinCollection, isQueueCollection, sequentialStatus?.item_ids]);
+  }, [isBinCollection, isQueueCollection]);
+  const settlingOrder = queueReorder.settlingOrder ?? binClipReorder.settlingOrder;
+  const displayedClipsForRender = useMemo(() => orderClipsForStableReorder(
+    displayedClips,
+    settlingOrder,
+    (clip) => String(isQueueCollection ? -clip.id : clip.id),
+  ), [displayedClips, isQueueCollection, settlingOrder]);
 
   return {
     binClipReorder,
@@ -83,5 +93,6 @@ export function useClipReordering({
     isQueueCollection,
     queueReorder,
     reorderIdsForClip,
+    displayedClipsForRender,
   };
 }

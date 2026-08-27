@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Check, ChevronDown, Folder, FolderX, Sparkles } from 'lucide-react';
+import { Check, ChevronDown, Folder, FolderX, Funnel } from 'lucide-react';
 import type { Bin } from '../types';
 import { binTextColor } from '../utils/binColor';
 import { formatEmojiIcon } from '../utils/emoji';
@@ -51,7 +51,7 @@ export function ClipBinPicker({ bins, selectedBinIds, viewedBinId, onClear, onTo
           className="bidi-interface-align min-w-0 flex-1 truncate"
           style={{ color: binTextColor(bin.color) }}
         />
-        {smart && <Sparkles className="theme-intelligence-text h-3 w-3 shrink-0" aria-hidden="true" />}
+        {smart && <Funnel className="theme-smart-bin-text h-3 w-3 shrink-0" aria-hidden="true" />}
         <span className="grid h-3.5 w-3.5 shrink-0 place-items-center" aria-hidden="true">
           {active && <Check className="h-3.5 w-3.5" />}
         </span>
@@ -113,7 +113,7 @@ export function ClipBinPicker({ bins, selectedBinIds, viewedBinId, onClear, onTo
             <>
               <MenuDivider />
               <div className="theme-text-subtle flex items-center gap-1.5 px-2.5 pb-1 pt-1 text-[10px] font-bold uppercase tracking-wider">
-                <Sparkles className="h-3 w-3" aria-hidden="true" />
+                <Funnel className="theme-smart-bin-text h-3 w-3" aria-hidden="true" />
                 {translate('component.clipBinPicker.smartBinsAutomatic')}
               </div>
               {smartBins.map((bin) => renderBin(bin, true))}

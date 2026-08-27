@@ -582,6 +582,10 @@
   transition-property: background-color, border-color, box-shadow, opacity;
 }
 
+.is-settling-pinned-reorder [data-clip-list] {
+  overflow-anchor: none;
+}
+
 .is-settling-stable-reorder [data-stable-reorder-id] {
   transition-property: background-color, border-color, box-shadow, opacity, color;
 }

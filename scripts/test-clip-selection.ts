@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { clipCollectionViewKey, clipIdsForSelectAll, isSelectAllShortcut, pendingClipFocusId, selectionIdsForContextMenu } from '../src/utils/clipSelection.ts';
 import { concealedClipMask } from '../src/utils/concealedClipMask.ts';
 import { ClipListScrollMemory } from '../src/utils/clipListScrollMemory.ts';
+import { orderClipsForStableReorder } from '../src/utils/clipListViewport.ts';
 
 assert.equal(clipCollectionViewKey('all', null), 'section:all');
 assert.equal(clipCollectionViewKey('bin', 7), 'bin:7');
@@ -13,6 +14,15 @@ assert.deepEqual(scrollMemory.recall('section:all'), {
 }, 'History must retain its visible clip anchor as well as its raw scroll position');
 assert.equal(scrollMemory.recall('bin:7').scrollTop, 125, 'Each Bin must retain an independent scroll position');
 assert.equal(scrollMemory.recall('section:trash').scrollTop, 0, 'A newly visited collection must start at the top');
+
+const clips = [{ id: 1 }, { id: 2 }, { id: 3 }];
+assert.deepEqual(
+  orderClipsForStableReorder(clips, ['3', '1', '2'], (clip) => String(clip.id)).map((clip) => clip.id),
+  [3, 1, 2],
+  'the optimistic render order must match the committed drag order',
+);
+assert.strictEqual(orderClipsForStableReorder(clips, null, (clip) => String(clip.id)), clips,
+  'settled lists must retain their canonical array identity');
 
 const multiSelection = new Set([2, 4, 6]);
 assert.equal(
