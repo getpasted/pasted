@@ -46,11 +46,17 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     const index = process.argv.indexOf(name);
     return index >= 0 ? process.argv[index + 1] : undefined;
   };
+  const argumentValues = (name) => process.argv.flatMap((argument, index) => (
+    argument === name && process.argv[index + 1] ? [process.argv[index + 1]] : []
+  ));
   const targetDir = argumentValue('--target-dir');
-  const staged = stageCliSidecar({
-    targetDir: targetDir ? path.resolve(process.cwd(), targetDir) : undefined,
-    targetTriple: argumentValue('--target-triple'),
-    platform: argumentValue('--platform'),
-  });
-  console.log(`Staged ${staged.source} for Tauri as ${staged.destination}`);
+  const targetTriples = argumentValues('--target-triple');
+  for (const targetTriple of targetTriples.length > 0 ? targetTriples : [undefined]) {
+    const staged = stageCliSidecar({
+      targetDir: targetDir ? path.resolve(process.cwd(), targetDir) : undefined,
+      targetTriple,
+      platform: argumentValue('--platform'),
+    });
+    console.log(`Staged ${staged.source} for Tauri as ${staged.destination}`);
+  }
 }
