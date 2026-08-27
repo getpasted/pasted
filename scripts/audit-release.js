@@ -106,6 +106,16 @@ assert.match(
   /allow-dependencies-licenses:\s*pkg:githubactions\/Swatinem\/rust-cache/,
   'The CI-only rust-cache license exception must stay scoped to that Action',
 );
+assert.match(
+  desktopBuildWorkflow,
+  /allow-dependencies-licenses:[^\n]*pkg:cargo\/webpki-root-certs/,
+  'The target-specific root-certificate dataset license exception must stay scoped to that crate',
+);
+assert.doesNotMatch(
+  desktopBuildWorkflow,
+  /allow-licenses:[^\n]*CDLA-Permissive-2\.0/,
+  'The unshipped root-certificate dataset must not broaden the general product license allowlist',
+);
 assert.doesNotMatch(
   desktopBuildWorkflow,
   /allow-licenses:[^\n]*LGPL/,
