@@ -6,6 +6,15 @@ Notable user-facing changes to Pasted are recorded here. The project follows sem
 
 No changes yet.
 
+## 1.0.0-rc.6 — 2026-08-27
+
+This release candidate establishes the first signed-update baseline and expands local intelligence:
+
+- added Apple Intelligence as a first-class on-device Transform provider on supported Macs, with shared GUI and CLI availability, execution, fallback, timeout, cancellation, and privacy-safe error behavior;
+- added provider-independent structured-output contracts using a bounded JSON Schema subset, rejecting unsupported schemas before execution and validating every provider response before it can be used;
+- corrected the shipped Extractor schema contract and added cross-provider tests for objects, arrays, enums, bounds, patterns, nullability, required properties, and additional-property handling; and
+- added signed, user-confirmed stable and prerelease update channels. RC6 is the manually installed baseline for the end-to-end RC6-to-later-candidate updater test required before stable 1.0.
+
 ## 1.0.0-rc.5 — 2026-08-26
 
 This release candidate expands organization, recovery, local Analysis, and automation while hardening the shared contracts intended for 1.0:

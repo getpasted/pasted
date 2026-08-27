@@ -11,7 +11,8 @@ Pasted 1.0 is the first direct-download release of the local, privacy-first clip
 - Guided Extractor setup with copyable commands, reusable output post-processing, explicit expected no-output handling, and clickable OCR status counts
 - Separate Clip Type, byte-verified File Format, and Content Type summaries in Insights
 - Persistent Copy Queue with target-aware Paste Next and Paste All
-- Reusable deterministic and intelligence-assisted Transforms
+- Reusable deterministic and intelligence-assisted Transforms, including first-class on-device Apple Intelligence on supported Macs
+- Fail-closed structured Transform output with shared JSON Schema validation across intelligence providers
 - Configurable feature gates—including a reversible global Hotkeys switch—plus retention, previews, content classification, and appearance
 - Built-in private-browser capture exclusion for Safari, Chrome, Edge, Firefox, DuckDuckGo, and Brave, with an explicit fallback when detection is unavailable
 - Consistent confirmed Reset actions across General, Notifications, Hotkeys, Security, Analysis, App Exclusions, and Intelligence, with exact change previews, protected data, and matching `pasted settings reset <page> --json` commands
