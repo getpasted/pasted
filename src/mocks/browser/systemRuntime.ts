@@ -46,6 +46,23 @@ export async function invokeSystemBrowserMock<T>(
         notarizationStatus: 'Not expected for development builds',
         cliPath: '/Applications/Pasted.app/Contents/MacOS/pasted',
       } as unknown as T;
+    case 'get_app_update_status':
+      return {
+        configured: false,
+        currentVersion: '1.0.0',
+        channel: 'stable',
+      } as unknown as T;
+    case 'check_for_app_update':
+      return {
+        currentVersion: '1.0.0',
+        channel: 'stable',
+        available: false,
+        version: null,
+        notes: null,
+        pubDate: null,
+      } as unknown as T;
+    case 'install_app_update':
+      return undefined as unknown as T;
     case 'get_third_party_licenses':
       return {
         schemaVersion: 1,

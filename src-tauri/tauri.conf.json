@@ -101,5 +101,10 @@
         }
       }
     }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "overridden-by-the-release-build"
+    }
   }
 }

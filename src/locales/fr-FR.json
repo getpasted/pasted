@@ -2515,5 +2515,20 @@
   "component.settingsSearchHistoryPanel.showingRange": "Affichage de {start} à {end} sur {count}",
   "component.settingsSearchHistoryPanel.previousPage": "Précédent",
   "component.settingsSearchHistoryPanel.nextPage": "Suivant",
-  "component.helpView.listAndManageSavedSearchHistory": "Afficher et gérer l’historique de recherche enregistré"
+  "component.helpView.listAndManageSavedSearchHistory": "Afficher et gérer l’historique de recherche enregistré",
+  "component.settingsUpdateSection.softwareUpdates": "Mises à jour logicielles",
+  "component.settingsUpdateSection.channelDescription": "Mises à jour signées du {channel}.",
+  "component.settingsUpdateSection.signedUpdates": "Mises à jour signées pour cette installation.",
+  "component.settingsUpdateSection.checking": "Recherche…",
+  "component.settingsUpdateSection.checkForUpdates": "Rechercher des mises à jour…",
+  "component.settingsUpdateSection.unavailableInThisBuild": "Les mises à jour automatiques ne sont pas disponibles dans cette version.",
+  "component.settingsUpdateSection.upToDate": "Pasted {version} est à jour.",
+  "component.settingsUpdateSection.versionAvailable": "Pasted {version} est disponible.",
+  "component.settingsUpdateSection.installing": "Installation…",
+  "component.settingsUpdateSection.installAndRestart": "Installer et redémarrer",
+  "component.settingsUpdateSection.installVersion": "Installer Pasted {version} ?",
+  "component.settingsUpdateSection.installDescription": "Pasted téléchargera une mise à jour signée, l’installera, puis redémarrera.",
+  "component.settingsUpdateSection.libraryPreserved": "La bibliothèque et les réglages resteront en place.",
+  "component.settingsUpdateSection.prereleaseChannel": "canal des préversions",
+  "component.settingsUpdateSection.stableChannel": "canal stable"
 }
