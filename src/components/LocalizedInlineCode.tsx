@@ -14,5 +14,5 @@ export function LocalizedInlineCode({ message, code }: LocalizedInlineCodeProps)
     after = after.slice(1);
   }
 
-  return <>{before}<code dir="ltr" className="font-mono">{code}</code>{after}</>;
+  return <>{before}<code dir="ltr" className="theme-code-surface inline-block rounded border px-1 py-px align-baseline font-mono text-[1.05em] font-semibold leading-[1.25]">{code}</code>{after}</>;
 }

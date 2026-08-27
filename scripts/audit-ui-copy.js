@@ -225,8 +225,8 @@ assert.equal(englishCatalog['feature.cli.description'], 'Use {command} to automa
 assert.match(settingsFeatures, /<LocalizedInlineCode message=\{translate\(keys\.description, \{ command: 'pasted' \}\)\} code="pasted" \/>/,
   'The Command-Line Interface card must render the pasted executable as inline code');
 const localizedInlineCode = fs.readFileSync('src/components/LocalizedInlineCode.tsx', 'utf8');
-assert.match(localizedInlineCode, /<code dir="ltr" className="font-mono">\{code\}<\/code>/,
-  'Localized inline code must remain monospaced and LTR');
+assert.match(localizedInlineCode, /<code dir="ltr" className="[^"]*theme-code-surface[^"]*border[^"]*font-mono[^"]*">\{code\}<\/code>/,
+  'Localized inline code must remain an explicitly styled, monospaced, LTR code badge');
 for (const [menuId, topic, catalogKey, label] of [
   ['help.getting_started', 'getting-started', 'native.help.gettingStarted', 'Getting Started'],
   ['help.shortcuts', 'shortcuts-hud', 'native.help.shortcuts', 'Hotkeys and HUD'],
