@@ -21,9 +21,11 @@ fi
 if $local_build; then
   export APPLE_SIGNING_IDENTITY="-"
   tauri_config="src-tauri/tauri.cli-sidecar.conf.json"
+  bundle_targets="dmg"
   echo "Building a local ad-hoc signed DMG. Gatekeeper will reject this artifact on other Macs."
 else
   tauri_config="src-tauri/tauri.release.conf.json"
+  bundle_targets="app,dmg"
   for name in TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD PASTED_UPDATER_PUBLIC_KEY; do
     if [[ -z "${!name:-}" ]]; then
       echo "Missing updater release credential: ${name}" >&2
@@ -94,7 +96,7 @@ cargo build \
   --features cli \
   --bin pasted
 npm run stage:cli-sidecar
-npm run tauri -- build --bundles dmg --config "$tauri_config"
+npm run tauri -- build --bundles "$bundle_targets" --config "$tauri_config"
 
 dmg_path="$(find src-tauri/target/release/bundle/dmg -maxdepth 1 -name 'Pasted_*.dmg' -type f -print | sort | tail -n 1)"
 if [[ -z "$dmg_path" ]]; then
