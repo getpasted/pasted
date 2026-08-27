@@ -385,16 +385,56 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          mapfile -d '' assets < <(find release-assets -type f -print0 | sort -z)
+          declare -A asset_by_name=()
+          assets=()
+          while IFS= read -r -d '' asset; do
+            asset_name="${asset##*/}"
+            existing_asset="${asset_by_name[$asset_name]:-}"
+            if [[ -n "$existing_asset" ]]; then
+              if cmp -s "$existing_asset" "$asset"; then
+                continue
+              fi
+              echo "Conflicting release assets share the name $asset_name." >&2
+              exit 1
+            fi
+            asset_by_name[$asset_name]="$asset"
+            assets+=("$asset")
+          done < <(find release-assets -type f -print0 | sort -z)
+
+          if (( ${#assets[@]} == 0 )); then
+            echo "No release assets were downloaded." >&2
+            exit 1
+          fi
+
           version="${{ needs.metadata.outputs.version }}"
           if [[ "$version" =~ ^(.+)-rc\.([0-9]+)$ ]]; then
             release_title="Pasted ${BASH_REMATCH[1]} RC${BASH_REMATCH[2]}"
           else
             release_title="Pasted $version"
           fi
-          gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
+
+          existing_draft="$(
+            gh release view "$GITHUB_REF_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --json isDraft \
+              --jq '.isDraft' 2>/dev/null || true
+          )"
+          if [[ -z "$existing_draft" ]]; then
+            gh release create "$GITHUB_REF_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --verify-tag \
+              --draft \
+              --title "$release_title" \
+              --generate-notes
+          elif [[ "$existing_draft" == "true" ]]; then
+            gh release edit "$GITHUB_REF_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$release_title"
+          else
+            echo "Refusing to replace a published release for $GITHUB_REF_NAME." >&2
+            exit 1
+          fi
+
+          gh release upload "$GITHUB_REF_NAME" "${assets[@]}" \
             --repo "$GITHUB_REPOSITORY" \
-            --verify-tag \
-            --draft \
-            --title "$release_title" \
-            --generate-notes
+            --clobber
