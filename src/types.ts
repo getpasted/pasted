@@ -324,7 +324,7 @@ export interface DetectedIntelligenceConnection {
 
 export interface InstallationDiagnostics {
   appVersion: string;
-  buildKind: string;
+  buildKind: 'development' | 'prerelease' | 'release';
   platform: string;
   architecture: string;
   bundleIdentifier: string;

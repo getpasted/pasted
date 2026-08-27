@@ -60,7 +60,7 @@ const ALLOWED_COPY = [
   // Literal packaged-app paths used by CLI installation instructions.
   ['src/components/helpCliCatalog.ts', '/Applications/Pasted.app/Contents/MacOS/pasted'],
   // About and installation diagnostics intentionally identify the product.
-  ['src/components/SettingsAboutPanel.tsx', '`Pasted ${details.appVersion} (${details.buildKind})`'],
+  ['src/components/SettingsAboutPanel.tsx', '`Pasted ${details.appVersion} (${buildKind})`'],
 ];
 
 const allowedByFile = new Map();
