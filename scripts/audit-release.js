@@ -6,6 +6,7 @@ const packageJson = readJson('package.json');
 const packageLock = readJson('package-lock.json');
 const tauriConfig = readJson('src-tauri/tauri.conf.json');
 const tauriCliSidecarConfig = readJson('src-tauri/tauri.cli-sidecar.conf.json');
+const tauriReleaseConfig = readJson('src-tauri/tauri.release.conf.json');
 const cargoToml = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
 const cargoBuildScript = fs.readFileSync('src-tauri/build.rs', 'utf8');
 const installationDiagnostics = fs.readFileSync('src-tauri/src/installation_diagnostics.rs', 'utf8');
@@ -29,6 +30,7 @@ const movingActionExceptions = new Set(['dtolnay/rust-toolchain@stable']);
 const linuxDockerfile = fs.readFileSync('packaging/linux/Dockerfile', 'utf8');
 const dependabotConfig = fs.readFileSync('.github/dependabot.yml', 'utf8');
 const releaseWorkflow = fs.readFileSync('.github/workflows/desktop-release.yml', 'utf8');
+const updaterFeedWorkflow = fs.readFileSync('.github/workflows/updater-feed.yml', 'utf8');
 const desktopBuildWorkflow = fs.readFileSync('.github/workflows/desktop-builds.yml', 'utf8');
 const macosPackageJob = desktopBuildWorkflow.match(
   /\n  package-macos:\n[\s\S]*?(?=\n  package-macos-artifact:)/,
@@ -220,6 +222,16 @@ assert.deepEqual(
   ['binaries/pasted'],
   'Desktop installers must bundle the staged headless CLI',
 );
+assert.deepEqual(
+  tauriReleaseConfig.bundle?.externalBin,
+  ['binaries/pasted'],
+  'Release installers must bundle the staged headless CLI',
+);
+assert.equal(
+  tauriReleaseConfig.bundle?.createUpdaterArtifacts,
+  true,
+  'Release installers must emit signed updater artifacts',
+);
 assert.equal(
   packageScripts['stage:cli-sidecar'],
   'node scripts/stage-tauri-cli-sidecar.js',
@@ -394,14 +406,34 @@ assert.equal(
   'Every desktop release must stage its headless CLI into the installer',
 );
 assert.equal(
-  (releaseWorkflow.match(/--config src-tauri\/tauri\.cli-sidecar\.conf\.json/g) ?? []).length,
+  (releaseWorkflow.match(/--config src-tauri\/tauri\.release\.conf\.json/g) ?? []).length,
   3,
-  'Every desktop release must activate CLI sidecar bundling',
+  'Every desktop release must activate CLI sidecar and updater bundling',
 );
 assert.match(
   releaseWorkflow,
-  /codesign[\s\S]*universal-apple-darwin\/release\/pasted[\s\S]*stage:cli-sidecar:macos-universal[\s\S]*tauri -- build --target universal-apple-darwin --bundles dmg --config src-tauri\/tauri\.cli-sidecar\.conf\.json/,
+  /codesign[\s\S]*universal-apple-darwin\/release\/pasted[\s\S]*stage:cli-sidecar:macos-universal[\s\S]*tauri -- build --target universal-apple-darwin --bundles dmg --config src-tauri\/tauri\.release\.conf\.json/,
   'The hosted macOS release must stage the signed universal CLI before bundling the app',
+);
+assert.equal(
+  (releaseWorkflow.match(/TAURI_SIGNING_PRIVATE_KEY: \$\{\{ secrets\.TAURI_SIGNING_PRIVATE_KEY \}\}/g) ?? []).length,
+  3,
+  'Every desktop release must receive the updater signing key',
+);
+assert.equal(
+  (releaseWorkflow.match(/PASTED_UPDATER_PUBLIC_KEY: \$\{\{ secrets\.PASTED_UPDATER_PUBLIC_KEY \}\}/g) ?? []).length,
+  3,
+  'Every desktop release must embed the matching updater public key',
+);
+assert.match(
+  releaseWorkflow,
+  /\.app\.tar\.gz[\s\S]*\.AppImage\.sig[\s\S]*-setup\.exe\.sig/,
+  'The draft release must include signed updater payloads for every desktop platform',
+);
+assert.match(
+  updaterFeedWorkflow,
+  /release:\s*\n\s*types:\s*\[published\][\s\S]*updater-prerelease[\s\S]*updater-stable/,
+  'Published releases must refresh prerelease and stable updater feeds',
 );
 assert.match(
   macosPackageJob,
@@ -410,8 +442,8 @@ assert.match(
 );
 assert.match(
   fs.readFileSync('scripts/release-macos.sh', 'utf8'),
-  /stage:cli-sidecar[\s\S]*tauri -- build --bundles dmg --config src-tauri\/tauri\.cli-sidecar\.conf\.json/,
-  'The local macOS release must bundle its host CLI explicitly',
+  /tauri_config="src-tauri\/tauri\.cli-sidecar\.conf\.json"[\s\S]*tauri_config="src-tauri\/tauri\.release\.conf\.json"[\s\S]*stage:cli-sidecar[\s\S]*tauri -- build --bundles dmg --config "\$tauri_config"/,
+  'Local macOS rehearsals must bundle the CLI, while distributable builds also emit signed updates',
 );
 const macosVerifier = fs.readFileSync('scripts/verify-macos-release.sh', 'utf8');
 assert.match(

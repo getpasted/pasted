@@ -12,6 +12,7 @@ Use the exact notarized DMG intended for publication. Do not substitute a develo
 - [ ] The notarization ticket is stapled to the DMG.
 - [ ] `scripts/verify-macos-release.sh` passes code-signing, Gatekeeper, ticket, and disk-image checks.
 - [ ] The printed SHA-256 checksum is saved with the published release.
+- [ ] Every platform release includes its updater payload and detached signature, and the published `latest.json` points only to immutable assets from that release.
 
 ## Clean installation
 
@@ -20,6 +21,8 @@ Use the exact notarized DMG intended for publication. Do not substitute a develo
 - [ ] Gatekeeper opens Pasted without an unidentified-developer warning.
 - [ ] The Dock icon, menu-bar icon, application menus, About page, and installation diagnostics are present.
 - [ ] Quit and relaunch preserves window geometry and settings.
+- [ ] A build on the prerelease channel finds a newer test release, asks before installation, restarts successfully, and preserves its library.
+- [ ] A tampered updater payload or signature is rejected without changing the installed application.
 
 ## Fresh library
 
@@ -70,6 +73,6 @@ Use the exact notarized DMG intended for publication. Do not substitute a develo
 ## Publication
 
 - [ ] Publish the DMG, SHA-256 checksum, source and platform artifact SPDX SBOMs, system requirements, privacy summary, and `RELEASE_NOTES_1.0.0.md` together.
-- [ ] State that 1.0 supports macOS 13+ on Apple Silicon and Intel with manual DMG updates.
+- [ ] State that 1.0 supports macOS 13+ on Apple Silicon and Intel with signed, user-confirmed updates.
 - [ ] Label the Linux AppImage as a preview and Windows packages as unsigned experimental downloads.
 - [ ] Preserve the notarization submission identifier and final release commit in the release record.

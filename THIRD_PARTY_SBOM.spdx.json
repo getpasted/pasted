@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "Pasted-1.0.0-rc.5-distributed-components",
-  "documentNamespace": "https://getpasted.app/sbom/1.0.0-rc.5/0e29f840cef7ab05d8a9d690aa3d51e7b58e423d2e1888852697457b137f7794",
+  "documentNamespace": "https://getpasted.app/sbom/1.0.0-rc.5/102f82ef63edfc1e5476c3d123bc64d0b5d75fb9d9b50cbaef31e633b904d470",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
@@ -1865,6 +1865,23 @@
       ]
     },
     {
+      "SPDXID": "SPDXRef-cargo-4536bbbd70c0fce5",
+      "name": "filetime",
+      "versionInfo": "0.2.29",
+      "downloadLocation": "https://github.com/alexcrichton/filetime",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/filetime@0.2.29"
+        }
+      ]
+    },
+    {
       "SPDXID": "SPDXRef-cargo-9e2239076601ee62",
       "name": "fixedbitset",
       "versionInfo": "0.5.7",
@@ -2116,6 +2133,23 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/futures-macro@0.3.34"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-24a9418fc17e34b7",
+      "name": "futures-sink",
+      "versionInfo": "0.3.34",
+      "downloadLocation": "https://github.com/rust-lang/futures-rs",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/futures-sink@0.3.34"
         }
       ]
     },
@@ -2698,6 +2732,57 @@
       ]
     },
     {
+      "SPDXID": "SPDXRef-cargo-5833318cb2f63899",
+      "name": "http-body",
+      "versionInfo": "1.1.0",
+      "downloadLocation": "https://github.com/hyperium/http-body",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/http-body@1.1.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-e73202a687e82cd4",
+      "name": "http-body-util",
+      "versionInfo": "0.1.5",
+      "downloadLocation": "https://github.com/hyperium/http-body",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/http-body-util@0.1.5"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-55b51ab51c5ed929",
+      "name": "httparse",
+      "versionInfo": "1.10.1",
+      "downloadLocation": "https://github.com/seanmonstar/httparse",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/httparse@1.10.1"
+        }
+      ]
+    },
+    {
       "SPDXID": "SPDXRef-cargo-ae73905dbacb1680",
       "name": "hybrid-array",
       "versionInfo": "0.4.14",
@@ -2711,6 +2796,57 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/hybrid-array@0.4.14"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-60213808930a43fe",
+      "name": "hyper",
+      "versionInfo": "1.11.0",
+      "downloadLocation": "https://github.com/hyperium/hyper",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/hyper@1.11.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-ac63b75478dcdcbe",
+      "name": "hyper-rustls",
+      "versionInfo": "0.27.9",
+      "downloadLocation": "https://github.com/rustls/hyper-rustls",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0 OR ISC OR MIT",
+      "licenseDeclared": "Apache-2.0 OR ISC OR MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/hyper-rustls@0.27.9"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-e9623afe71a45df5",
+      "name": "hyper-util",
+      "versionInfo": "0.1.20",
+      "downloadLocation": "https://github.com/hyperium/hyper-util",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/hyper-util@0.1.20"
         }
       ]
     },
@@ -3000,6 +3136,23 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/infer@0.22.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-d807f6bced359e5d",
+      "name": "ipnet",
+      "versionInfo": "2.12.1",
+      "downloadLocation": "https://github.com/krisprice/ipnet",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/ipnet@2.12.1"
         }
       ]
     },
@@ -3361,6 +3514,23 @@
       ]
     },
     {
+      "SPDXID": "SPDXRef-cargo-38f3b894c26937c1",
+      "name": "minisign-verify",
+      "versionInfo": "0.2.5",
+      "downloadLocation": "https://github.com/jedisct1/rust-minisign-verify",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/minisign-verify@0.2.5"
+        }
+      ]
+    },
+    {
       "SPDXID": "SPDXRef-cargo-8c9b7ff41bc04911",
       "name": "miniz_oxide",
       "versionInfo": "0.8.9",
@@ -3633,6 +3803,23 @@
       ]
     },
     {
+      "SPDXID": "SPDXRef-cargo-174d6024b56f5e5e",
+      "name": "objc2-osa-kit",
+      "versionInfo": "0.3.2",
+      "downloadLocation": "https://github.com/madsmtm/objc2",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Zlib OR Apache-2.0 OR MIT",
+      "licenseDeclared": "Zlib OR Apache-2.0 OR MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/objc2-osa-kit@0.3.2"
+        }
+      ]
+    },
+    {
       "SPDXID": "SPDXRef-cargo-d2ff8d8d504431bf",
       "name": "objc2-quartz-core",
       "versionInfo": "0.3.2",
@@ -3684,6 +3871,23 @@
       ]
     },
     {
+      "SPDXID": "SPDXRef-cargo-dc51b3586a9718ac",
+      "name": "openssl-probe",
+      "versionInfo": "0.2.1",
+      "downloadLocation": "https://github.com/rustls/openssl-probe",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/openssl-probe@0.2.1"
+        }
+      ]
+    },
+    {
       "SPDXID": "SPDXRef-cargo-9e4cb3c2ba50dd5a",
       "name": "option-ext",
       "versionInfo": "0.2.0",
@@ -3731,6 +3935,23 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/os_pipe@1.2.3"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-8bcc19dce4a11b43",
+      "name": "osakit",
+      "versionInfo": "0.3.1",
+      "downloadLocation": "https://github.com/mdevils/rust-osakit",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/osakit@0.3.1"
         }
       ]
     },
@@ -4347,6 +4568,23 @@
       ]
     },
     {
+      "SPDXID": "SPDXRef-cargo-e0fe3d7d90fc8c50",
+      "name": "reqwest",
+      "versionInfo": "0.13.4",
+      "downloadLocation": "https://github.com/seanmonstar/reqwest",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/reqwest@0.13.4"
+        }
+      ]
+    },
+    {
       "SPDXID": "SPDXRef-cargo-6cd3e592c629c2f6",
       "name": "rfd",
       "versionInfo": "0.16.0",
@@ -4360,6 +4598,23 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/rfd@0.16.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-f9602d4d4bbcf46e",
+      "name": "ring",
+      "versionInfo": "0.17.14",
+      "downloadLocation": "https://github.com/briansmith/ring",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0 AND ISC",
+      "licenseDeclared": "Apache-2.0 AND ISC",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/ring@0.17.14"
         }
       ]
     },
@@ -4449,6 +4704,91 @@
       ]
     },
     {
+      "SPDXID": "SPDXRef-cargo-e2cdbfdc2c901457",
+      "name": "rustls",
+      "versionInfo": "0.23.43",
+      "downloadLocation": "https://github.com/rustls/rustls",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0 OR ISC OR MIT",
+      "licenseDeclared": "Apache-2.0 OR ISC OR MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/rustls@0.23.43"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-60e9a57c2ee858b5",
+      "name": "rustls-native-certs",
+      "versionInfo": "0.8.4",
+      "downloadLocation": "https://github.com/rustls/rustls-native-certs",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0 OR ISC OR MIT",
+      "licenseDeclared": "Apache-2.0 OR ISC OR MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/rustls-native-certs@0.8.4"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-fb52c41c63401328",
+      "name": "rustls-pki-types",
+      "versionInfo": "1.15.1",
+      "downloadLocation": "https://github.com/rustls/pki-types",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/rustls-pki-types@1.15.1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-8cef6c2d8381a0f9",
+      "name": "rustls-platform-verifier",
+      "versionInfo": "0.7.0",
+      "downloadLocation": "https://github.com/rustls/rustls-platform-verifier",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/rustls-platform-verifier@0.7.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-b6baeddb76fcacbe",
+      "name": "rustls-webpki",
+      "versionInfo": "0.103.15",
+      "downloadLocation": "https://github.com/rustls/webpki",
+      "filesAnalyzed": false,
+      "licenseConcluded": "ISC",
+      "licenseDeclared": "ISC",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/rustls-webpki@0.103.15"
+        }
+      ]
+    },
+    {
       "SPDXID": "SPDXRef-cargo-5d0378dd0eb244f5",
       "name": "same-file",
       "versionInfo": "1.0.6",
@@ -4462,6 +4802,23 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/same-file@1.0.6"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-e2aa8216986074ab",
+      "name": "schannel",
+      "versionInfo": "0.1.29",
+      "downloadLocation": "https://github.com/steffengy/schannel-rs",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/schannel@0.1.29"
         }
       ]
     },
@@ -4513,6 +4870,40 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/scopeguard@1.2.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-c1cf0ddeadab307e",
+      "name": "security-framework",
+      "versionInfo": "3.7.0",
+      "downloadLocation": "https://github.com/kornelski/rust-security-framework",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/security-framework@3.7.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-1658dc6e7b28f088",
+      "name": "security-framework-sys",
+      "versionInfo": "2.17.0",
+      "downloadLocation": "https://github.com/kornelski/rust-security-framework",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/security-framework-sys@2.17.0"
         }
       ]
     },
@@ -5095,6 +5486,23 @@
       ]
     },
     {
+      "SPDXID": "SPDXRef-cargo-b057f42d8a26753b",
+      "name": "sync_wrapper",
+      "versionInfo": "1.0.2",
+      "downloadLocation": "https://github.com/Actyx/sync_wrapper",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/sync_wrapper@1.0.2"
+        }
+      ]
+    },
+    {
       "SPDXID": "SPDXRef-cargo-e9f19e50018a2ccb",
       "name": "synstructure",
       "versionInfo": "0.13.2",
@@ -5125,6 +5533,23 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/tao@0.35.3"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-887675614cbed0c4",
+      "name": "tar",
+      "versionInfo": "0.4.46",
+      "downloadLocation": "https://github.com/composefs/tar-rs",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/tar@0.4.46"
         }
       ]
     },
@@ -5261,6 +5686,23 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/tauri-plugin-single-instance@2.4.3"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-218a0e8072fd0ccc",
+      "name": "tauri-plugin-updater",
+      "versionInfo": "2.10.1",
+      "downloadLocation": "https://github.com/tauri-apps/plugins-workspace",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0 OR MIT",
+      "licenseDeclared": "Apache-2.0 OR MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/tauri-plugin-updater@2.10.1"
         }
       ]
     },
@@ -5571,6 +6013,40 @@
       ]
     },
     {
+      "SPDXID": "SPDXRef-cargo-090a5dc147ddac99",
+      "name": "tokio-rustls",
+      "versionInfo": "0.26.4",
+      "downloadLocation": "https://github.com/rustls/tokio-rustls",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/tokio-rustls@0.26.4"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-026dd3ba6abe5a5e",
+      "name": "tokio-util",
+      "versionInfo": "0.7.19",
+      "downloadLocation": "https://github.com/tokio-rs/tokio",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/tokio-util@0.7.19"
+        }
+      ]
+    },
+    {
       "SPDXID": "SPDXRef-cargo-60b7c1d71bc851e3",
       "name": "toml",
       "versionInfo": "1.1.4+spec-1.1.0",
@@ -5707,6 +6183,74 @@
       ]
     },
     {
+      "SPDXID": "SPDXRef-cargo-8846790eedc42410",
+      "name": "tower",
+      "versionInfo": "0.5.3",
+      "downloadLocation": "https://github.com/tower-rs/tower",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/tower@0.5.3"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-6156bb90eff3a980",
+      "name": "tower-http",
+      "versionInfo": "0.6.11",
+      "downloadLocation": "https://github.com/tower-rs/tower-http",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/tower-http@0.6.11"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-33f9ef1ce58fb01e",
+      "name": "tower-layer",
+      "versionInfo": "0.3.3",
+      "downloadLocation": "https://github.com/tower-rs/tower",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/tower-layer@0.3.3"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-b422666234d4d2ef",
+      "name": "tower-service",
+      "versionInfo": "0.3.3",
+      "downloadLocation": "https://github.com/tower-rs/tower",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/tower-service@0.3.3"
+        }
+      ]
+    },
+    {
       "SPDXID": "SPDXRef-cargo-83f638588f576179",
       "name": "tracing",
       "versionInfo": "0.1.44",
@@ -5788,6 +6332,23 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/tree_magic_mini@3.2.2"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-61a31fbeecaa54fe",
+      "name": "try-lock",
+      "versionInfo": "0.2.5",
+      "downloadLocation": "https://github.com/seanmonstar/try-lock",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/try-lock@0.2.5"
         }
       ]
     },
@@ -5979,6 +6540,23 @@
       ]
     },
     {
+      "SPDXID": "SPDXRef-cargo-a23a91ca621a4bd8",
+      "name": "untrusted",
+      "versionInfo": "0.9.0",
+      "downloadLocation": "https://github.com/briansmith/untrusted",
+      "filesAnalyzed": false,
+      "licenseConcluded": "ISC",
+      "licenseDeclared": "ISC",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/untrusted@0.9.0"
+        }
+      ]
+    },
+    {
       "SPDXID": "SPDXRef-cargo-9910231023bb6bef",
       "name": "url",
       "versionInfo": "2.5.8",
@@ -6060,6 +6638,23 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/walkdir@2.5.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-f7ed439bbd240e7a",
+      "name": "want",
+      "versionInfo": "0.3.1",
+      "downloadLocation": "https://github.com/seanmonstar/want",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/want@0.3.1"
         }
       ]
     },
@@ -7084,6 +7679,23 @@
       ]
     },
     {
+      "SPDXID": "SPDXRef-cargo-714d4160f03f9a33",
+      "name": "xattr",
+      "versionInfo": "1.6.1",
+      "downloadLocation": "https://github.com/Stebalien/xattr",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/xattr@1.6.1"
+        }
+      ]
+    },
+    {
       "SPDXID": "SPDXRef-cargo-e59d0b2adb846938",
       "name": "xkeysym",
       "versionInfo": "0.2.1",
@@ -7271,6 +7883,23 @@
       ]
     },
     {
+      "SPDXID": "SPDXRef-cargo-67ce57e0531df43c",
+      "name": "zeroize",
+      "versionInfo": "1.9.0",
+      "downloadLocation": "https://github.com/RustCrypto/utils",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0 OR MIT",
+      "licenseDeclared": "Apache-2.0 OR MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/zeroize@1.9.0"
+        }
+      ]
+    },
+    {
       "SPDXID": "SPDXRef-cargo-ccedf7d4ee7f5241",
       "name": "zerotrie",
       "versionInfo": "0.2.5",
@@ -7318,6 +7947,23 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/zerovec-derive@0.11.6"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-6e25a8a6e5467a4b",
+      "name": "zip",
+      "versionInfo": "4.6.1",
+      "downloadLocation": "https://github.com/zip-rs/zip2.git",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/zip@4.6.1"
         }
       ]
     },
@@ -8143,6 +8789,11 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-4536bbbd70c0fce5"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-9e2239076601ee62"
     },
     {
@@ -8214,6 +8865,11 @@
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-1401623cb416bc0f"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-24a9418fc17e34b7"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -8388,7 +9044,37 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-5833318cb2f63899"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-e73202a687e82cd4"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-55b51ab51c5ed929"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-ae73905dbacb1680"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-60213808930a43fe"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-ac63b75478dcdcbe"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-e9623afe71a45df5"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -8474,6 +9160,11 @@
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-c5b527d421e9cc0e"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-d807f6bced359e5d"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -8583,6 +9274,11 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-38f3b894c26937c1"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-8c9b7ff41bc04911"
     },
     {
@@ -8663,6 +9359,11 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-174d6024b56f5e5e"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-d2ff8d8d504431bf"
     },
     {
@@ -8678,6 +9379,11 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-dc51b3586a9718ac"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-9e4cb3c2ba50dd5a"
     },
     {
@@ -8689,6 +9395,11 @@
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-34c9c8baeae7d77a"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-8bcc19dce4a11b43"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -8873,7 +9584,17 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-e0fe3d7d90fc8c50"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-6cd3e592c629c2f6"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-f9602d4d4bbcf46e"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -8903,7 +9624,37 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-e2cdbfdc2c901457"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-60e9a57c2ee858b5"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-fb52c41c63401328"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-8cef6c2d8381a0f9"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-b6baeddb76fcacbe"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-5d0378dd0eb244f5"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-e2aa8216986074ab"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -8919,6 +9670,16 @@
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-2781c420fa3e2551"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-c1cf0ddeadab307e"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-1658dc6e7b28f088"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -9093,12 +9854,22 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-b057f42d8a26753b"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-e9f19e50018a2ccb"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-944ea9faf937707e"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-887675614cbed0c4"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -9139,6 +9910,11 @@
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-1e6dc404aa588ff7"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-218a0e8072fd0ccc"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -9233,6 +10009,16 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-090a5dc147ddac99"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-026dd3ba6abe5a5e"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-60b7c1d71bc851e3"
     },
     {
@@ -9273,6 +10059,26 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-8846790eedc42410"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-6156bb90eff3a980"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-33f9ef1ce58fb01e"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-b422666234d4d2ef"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-83f638588f576179"
     },
     {
@@ -9294,6 +10100,11 @@
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-bcd1e1481fb3fe76"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-61a31fbeecaa54fe"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -9353,6 +10164,11 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-a23a91ca621a4bd8"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-9910231023bb6bef"
     },
     {
@@ -9374,6 +10190,11 @@
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-abc5528b43000a14"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-f7ed439bbd240e7a"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -9678,6 +10499,11 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-714d4160f03f9a33"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-e59d0b2adb846938"
     },
     {
@@ -9733,6 +10559,11 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-67ce57e0531df43c"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-ccedf7d4ee7f5241"
     },
     {
@@ -9744,6 +10575,11 @@
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-d782280de4dfde3d"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-6e25a8a6e5467a4b"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
