@@ -23,9 +23,14 @@ function fileSize(bytes: number) {
   return `${value.toFixed(value >= 10 ? 0 : 1)} ${unit}`;
 }
 
+function buildKindLabel(buildKind: InstallationDiagnostics['buildKind']) {
+  return translate(`component.settingsAboutPanel.buildKind.${buildKind}`);
+}
+
 function installationSummary(details: InstallationDiagnostics) {
+  const buildKind = buildKindLabel(details.buildKind);
   return [
-    `Pasted ${details.appVersion} (${details.buildKind})`,
+    `Pasted ${details.appVersion} (${buildKind})`,
     translate('component.settingsAboutPanel.diagnosticPlatform', { platform: details.platform, architecture: details.architecture }),
     translate('component.settingsAboutPanel.diagnosticBundleIdentifier', { value: details.bundleIdentifier }),
     translate('component.settingsAboutPanel.diagnosticApplication', { value: details.appPath }),
@@ -86,7 +91,7 @@ export function SettingsAboutPanel() {
           {translate('component.settingsAboutPanel.copycatsArePeopleScriptsAutomationsAndAgentsTheyShareOnePrivateWorkspace')}
         </p>
         <span className="theme-badge mt-4 rounded-full border px-3 py-1 font-mono text-[10px] font-semibold">
-          {installation ? translate('component.settingsAboutPanel.versionAppversionBuildkind', { appVersion: installation.appVersion, buildKind: installation.buildKind }) : translate('component.settingsAboutPanel.loadingVersion')}
+          {installation ? translate('component.settingsAboutPanel.versionAppversionBuildkind', { appVersion: installation.appVersion, buildKind: buildKindLabel(installation.buildKind) }) : translate('component.settingsAboutPanel.loadingVersion')}
         </span>
       </section>
 
@@ -143,7 +148,7 @@ export function SettingsAboutPanel() {
         {installation ? (
           <div className="grid gap-2 sm:grid-cols-2">
             {[
-              { icon: HardDrive, get label() { return translate('component.settingsAboutPanel.version'); }, value: translate('component.settingsAboutPanel.appversionBuildkind', { appVersion: installation.appVersion, buildKind: installation.buildKind }) },
+              { icon: HardDrive, get label() { return translate('component.settingsAboutPanel.version'); }, value: translate('component.settingsAboutPanel.appversionBuildkind', { appVersion: installation.appVersion, buildKind: buildKindLabel(installation.buildKind) }) },
               { icon: ShieldCheck, get label() { return translate('component.settingsAboutPanel.verification'); }, value: translate('component.settingsAboutPanel.signingstatusNotarizationstatus', { signingStatus: installation.signingStatus, notarizationStatus: installation.notarizationStatus }) },
               { icon: Database, get label() { return translate('component.settingsAboutPanel.database'); }, value: fileSize(installation.databaseSizeBytes) },
               { icon: TerminalSquare, get label() { return translate('component.settingsAboutPanel.commandLine'); }, value: installation.cliPath ? translate('component.settingsAboutPanel.installed') : translate('component.settingsAboutPanel.notInstalledBesidePasted') },

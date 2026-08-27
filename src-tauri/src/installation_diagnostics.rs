@@ -3,11 +3,43 @@ use std::path::{Path, PathBuf};
 
 pub const APP_IDENTIFIER: &str = "software.jjj.pasted";
 
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum BuildKind {
+    Development,
+    Prerelease,
+    Release,
+}
+
+impl BuildKind {
+    fn for_version(version: &str, debug_assertions: bool) -> Self {
+        if debug_assertions {
+            Self::Development
+        } else if version
+            .split_once('+')
+            .map_or(version, |(core, _)| core)
+            .contains('-')
+        {
+            Self::Prerelease
+        } else {
+            Self::Release
+        }
+    }
+
+    fn display_name(self) -> &'static str {
+        match self {
+            Self::Development => "Development",
+            Self::Prerelease => "Prerelease",
+            Self::Release => "Release",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct InstallationDiagnostics {
     pub app_version: String,
-    pub build_kind: String,
+    pub build_kind: BuildKind,
     pub platform: String,
     pub architecture: String,
     pub bundle_identifier: String,
@@ -36,13 +68,10 @@ impl InstallationDiagnostics {
         let cli_path = sibling_cli_path(&app_path).map(|path| display_path(&path));
         let signature = inspect_signature(&app_path);
 
+        let app_version = env!("CARGO_PKG_VERSION").to_string();
         Self {
-            app_version: env!("CARGO_PKG_VERSION").to_string(),
-            build_kind: if cfg!(debug_assertions) {
-                "Development".to_string()
-            } else {
-                "Release".to_string()
-            },
+            build_kind: BuildKind::for_version(&app_version, cfg!(debug_assertions)),
+            app_version,
             platform: std::env::consts::OS.to_string(),
             architecture: std::env::consts::ARCH.to_string(),
             bundle_identifier: APP_IDENTIFIER.to_string(),
@@ -59,7 +88,11 @@ impl InstallationDiagnostics {
 
     pub fn plain_text(&self) -> String {
         let mut lines = vec![
-            format!("Pasted {} ({})", self.app_version, self.build_kind),
+            format!(
+                "Pasted {} ({})",
+                self.app_version,
+                self.build_kind.display_name()
+            ),
             format!("Platform: {} ({})", self.platform, self.architecture),
             format!("Bundle identifier: {}", self.bundle_identifier),
             format!("Application: {}", self.app_path),
@@ -201,7 +234,7 @@ mod tests {
     fn plain_text_contains_public_installation_fields() {
         let details = InstallationDiagnostics {
             app_version: "1.0.0".into(),
-            build_kind: "Release".into(),
+            build_kind: BuildKind::Release,
             platform: "macos".into(),
             architecture: "aarch64".into(),
             bundle_identifier: APP_IDENTIFIER.into(),
@@ -219,6 +252,34 @@ mod tests {
         assert!(text.contains(APP_IDENTIFIER));
         assert!(text.contains("Signing team: ABCDE12345"));
         assert!(!text.contains("clipboard"));
+    }
+
+    #[test]
+    fn classifies_development_prerelease_and_release_builds() {
+        assert_eq!(
+            BuildKind::for_version("1.0.0-rc.5", true),
+            BuildKind::Development
+        );
+        assert_eq!(
+            BuildKind::for_version("1.0.0-rc.5", false),
+            BuildKind::Prerelease
+        );
+        assert_eq!(
+            BuildKind::for_version("1.0.0-rc.5+build.9", false),
+            BuildKind::Prerelease
+        );
+        assert_eq!(
+            BuildKind::for_version("1.0.0+build.9", false),
+            BuildKind::Release
+        );
+    }
+
+    #[test]
+    fn serializes_build_kind_as_stable_identifiers() {
+        assert_eq!(
+            serde_json::to_string(&BuildKind::Prerelease).unwrap(),
+            "\"prerelease\""
+        );
     }
 
     #[cfg(target_os = "macos")]
