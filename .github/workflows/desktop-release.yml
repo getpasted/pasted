@@ -119,7 +119,8 @@ jobs:
             --strict \
             --verbose=2 \
             src-tauri/target/universal-apple-darwin/release/pasted
-          npm run tauri -- build --target universal-apple-darwin --bundles dmg
+          npm run stage:cli-sidecar:macos-universal
+          npm run tauri -- build --target universal-apple-darwin --bundles dmg --config src-tauri/tauri.cli-sidecar.conf.json
           dmg_path="$(find src-tauri/target/universal-apple-darwin/release/bundle/dmg -name 'Pasted_*.dmg' -type f -print -quit)"
           if [[ -z "$dmg_path" ]]; then
             echo 'Tauri did not produce a universal macOS DMG.' >&2

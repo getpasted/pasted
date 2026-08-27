@@ -14,6 +14,7 @@ assert.equal(executableExtension('darwin'), '');
 assert.equal(executableExtension('win32'), '.exe');
 assert.equal(sidecarFilename('x86_64-unknown-linux-gnu', 'linux'), 'pasted-x86_64-unknown-linux-gnu');
 assert.equal(sidecarFilename('x86_64-pc-windows-msvc', 'win32'), 'pasted-x86_64-pc-windows-msvc.exe');
+assert.equal(sidecarFilename('universal-apple-darwin', 'darwin'), 'pasted-universal-apple-darwin');
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pasted-sidecar-test-'));
 const targetDir = path.join(root, 'custom-target');
@@ -31,5 +32,17 @@ const staged = stageCliSidecar({
 assert.equal(staged.destination, path.join(root, 'src-tauri', 'binaries', 'pasted-x86_64-unknown-linux-gnu'));
 assert.equal(fs.readFileSync(staged.destination, 'utf8'), 'headless-cli');
 assert.ok((fs.statSync(staged.destination).mode & 0o111) !== 0, 'Unix sidecar must remain executable');
+
+const universalStaged = stageCliSidecar({
+  root,
+  targetDir,
+  targetTriple: 'universal-apple-darwin',
+  platform: 'darwin',
+});
+assert.equal(
+  universalStaged.destination,
+  path.join(root, 'src-tauri', 'binaries', 'pasted-universal-apple-darwin'),
+);
+assert.ok((fs.statSync(universalStaged.destination).mode & 0o111) !== 0, 'Universal macOS sidecar must remain executable');
 
 console.log('Tauri CLI sidecar staging tests passed.');
