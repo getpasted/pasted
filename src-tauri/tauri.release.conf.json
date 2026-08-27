@@ -4,6 +4,8 @@
     "externalBin": ["binaries/pasted"]
   },
   "plugins": {
-    "updater": {}
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM1Mzc4MUNDNzIyQkNCNgpSV1MydkNMSEhIaFRETXp5MENFV1ljSC93cXJUTzdiUm1HZHFMT1J0SXVwNm9tMGVzcm04RU80cAo="
+    }
   }
 }
