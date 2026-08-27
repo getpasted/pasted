@@ -242,10 +242,10 @@ assert.equal(
   true,
   'Release installers must emit signed updater artifacts',
 );
-assert.deepEqual(
-  tauriReleaseConfig.plugins?.updater,
-  {},
-  'Release builds must retain the updater plugin configuration required for artifact signing',
+assert.equal(
+  tauriReleaseConfig.plugins?.updater?.pubkey,
+  'dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM1Mzc4MUNDNzIyQkNCNgpSV1MydkNMSEhIaFRETXp5MENFV1ljSC93cXJUTzdiUm1HZHFMT1J0SXVwNm9tMGVzcm04RU80cAo=',
+  'Release builds must use the updater public key paired with the signing identity',
 );
 assert.equal(
   packageScripts['stage:cli-sidecar'],
