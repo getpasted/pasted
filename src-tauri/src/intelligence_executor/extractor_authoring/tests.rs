@@ -3,6 +3,7 @@ use super::extractor_recipe_schema;
 #[test]
 fn proposal_schema_uses_the_structured_outputs_subset() {
     let schema = extractor_recipe_schema();
+    crate::structured_output::validate_schema(&schema).unwrap();
     assert!(schema
         .pointer("/properties/recipe/properties/accepts/uniqueItems")
         .is_none());

@@ -51,6 +51,31 @@ trait IntelligenceProviderAdapter: Sync {
 
 struct CodexCliAdapter;
 
+#[cfg(target_os = "macos")]
+struct AppleFoundationModelsAdapter;
+
+#[cfg(target_os = "macos")]
+impl IntelligenceProviderAdapter for AppleFoundationModelsAdapter {
+    fn id(&self) -> &'static str {
+        crate::apple_intelligence::ADAPTER_ID
+    }
+
+    fn supports(&self, connection: &IntelligenceConnection) -> bool {
+        connection.provider_kind == "cli"
+            && connection.endpoint.as_deref()
+                == Some(crate::apple_intelligence::CONNECTION_ENDPOINT)
+    }
+
+    fn execute(
+        &self,
+        _connection: &IntelligenceConnection,
+        request: ProviderRequest<'_>,
+        cancellation: Option<&AtomicBool>,
+    ) -> Result<ProviderResponse, IntelligenceExecutionError> {
+        crate::apple_intelligence::execute(request, cancellation)
+    }
+}
+
 impl IntelligenceProviderAdapter for CodexCliAdapter {
     fn id(&self) -> &'static str {
         "codex_cli"
@@ -240,6 +265,12 @@ fn file_size(path: &Path) -> u64 {
 }
 
 static CODEX_CLI: CodexCliAdapter = CodexCliAdapter;
+#[cfg(target_os = "macos")]
+static APPLE_FOUNDATION_MODELS: AppleFoundationModelsAdapter = AppleFoundationModelsAdapter;
+#[cfg(target_os = "macos")]
+static ADAPTERS: [&'static dyn IntelligenceProviderAdapter; 2] =
+    [&APPLE_FOUNDATION_MODELS, &CODEX_CLI];
+#[cfg(not(target_os = "macos"))]
 static ADAPTERS: [&'static dyn IntelligenceProviderAdapter; 1] = [&CODEX_CLI];
 
 pub fn supports_adapter_id(adapter_id: &str) -> bool {
@@ -268,13 +299,24 @@ pub fn execute(
     request: ProviderRequest<'_>,
     cancellation: Option<&AtomicBool>,
 ) -> Result<ProviderResponse, IntelligenceExecutionError> {
+    let output_schema = request.output_schema;
+    if let Some(schema) = output_schema {
+        crate::structured_output::validate_schema(schema)
+            .map_err(|message| IntelligenceExecutionError::new("invalid_plan_schema", message))?;
+    }
     let adapter = adapter_for(connection).ok_or_else(|| {
         IntelligenceExecutionError::new(
             "connection_unavailable",
             "No provider adapter supports this connection",
         )
     })?;
-    adapter.execute(connection, request, cancellation)
+    let response = adapter.execute(connection, request, cancellation)?;
+    if let Some(schema) = output_schema {
+        crate::structured_output::validate_output(schema, &response.output).map_err(|message| {
+            IntelligenceExecutionError::new("invalid_provider_output", message)
+        })?;
+    }
+    Ok(response)
 }
 
 struct TemporaryWorkspace(PathBuf);
@@ -400,6 +442,13 @@ mod tests {
         );
         assert!(adapter_for(&connection("/usr/local/bin/claude")).is_none());
         assert!(adapter_for(&connection("/usr/local/bin/ollama")).is_none());
+        #[cfg(target_os = "macos")]
+        assert_eq!(
+            adapter_for(&connection(crate::apple_intelligence::CONNECTION_ENDPOINT))
+                .unwrap()
+                .id(),
+            crate::apple_intelligence::ADAPTER_ID
+        );
     }
 
     #[test]
@@ -432,8 +481,86 @@ mod tests {
     }
 
     #[test]
+    fn unsupported_schema_constraints_fail_before_provider_launch() {
+        let connection = IntelligenceConnection {
+            id: "invalid-schema".to_string(),
+            name: "Codex CLI".to_string(),
+            provider_kind: "cli".to_string(),
+            endpoint: Some("/definitely/missing/codex".to_string()),
+            model: None,
+            credential_ref: None,
+            enabled: true,
+            priority: 0,
+            created_at: String::new(),
+            updated_at: String::new(),
+        };
+        let schema = serde_json::json!({ "type": "string", "format": "email" });
+        let error = execute(
+            &connection,
+            ProviderRequest {
+                prompt: "Do not launch",
+                output_schema: Some(&schema),
+                cancellation_message: "cancelled",
+            },
+            None,
+        )
+        .unwrap_err();
+
+        assert_eq!(error.code, "invalid_plan_schema");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn structured_provider_output_is_validated_after_generation() {
+        let (executable, directory) = fake_codex_executable(
+            r#"result=''
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = '--output-last-message' ]; then shift; result="$1"; fi
+  shift
+done
+cat >/dev/null
+printf '%s' '{"sentiment":"surprised"}' > "$result""#,
+        );
+        let connection = IntelligenceConnection {
+            id: "invalid-output".to_string(),
+            name: "Codex CLI".to_string(),
+            provider_kind: "cli".to_string(),
+            endpoint: Some(executable.to_string_lossy().into_owned()),
+            model: None,
+            credential_ref: None,
+            enabled: true,
+            priority: 0,
+            created_at: String::new(),
+            updated_at: String::new(),
+        };
+        let schema = serde_json::json!({
+            "type": "object",
+            "properties": {
+                "sentiment": { "type": "string", "enum": ["positive", "negative"] }
+            },
+            "required": ["sentiment"],
+            "additionalProperties": false
+        });
+        let error = execute(
+            &connection,
+            ProviderRequest {
+                prompt: "Classify",
+                output_schema: Some(&schema),
+                cancellation_message: "cancelled",
+            },
+            None,
+        )
+        .unwrap_err();
+
+        assert_eq!(error.code, "invalid_provider_output");
+        let _ = fs::remove_dir_all(directory);
+    }
+
+    #[test]
     fn adapter_registry_reports_discovery_support_by_stable_id() {
         assert!(supports_adapter_id("codex_cli"));
+        #[cfg(target_os = "macos")]
+        assert!(supports_adapter_id(crate::apple_intelligence::ADAPTER_ID));
         assert!(!supports_adapter_id("claude_cli"));
         assert!(!supports_adapter_id("ollama"));
     }

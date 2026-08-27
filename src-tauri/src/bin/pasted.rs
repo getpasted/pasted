@@ -98,6 +98,9 @@ fn main() -> Result<()> {
     if let Some(code) = pasted_lib::content_extraction::run_bundled_extractor_helper(&args) {
         std::process::exit(code);
     }
+    if let Some(code) = pasted_lib::apple_intelligence::run_helper(&args) {
+        std::process::exit(code);
+    }
     let command = args.get(1).map(|s| s.as_str()).unwrap_or("help");
 
     // Legal notices must remain available even when the app database does not

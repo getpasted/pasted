@@ -50,7 +50,12 @@ pub(super) fn select_connections(
 pub(super) fn is_retryable_provider_error(error: &IntelligenceExecutionError) -> bool {
     matches!(
         error.code,
-        "connection_failed" | "connection_timeout" | "provider_failed"
+        "connection_failed"
+            | "connection_timeout"
+            | "provider_failed"
+            | "model_not_ready"
+            | "apple_intelligence_not_enabled"
+            | "device_not_eligible"
     )
 }
 

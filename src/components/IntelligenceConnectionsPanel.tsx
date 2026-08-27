@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { BrainCircuit, Cloud, Cpu, Plus, Power, Terminal, Trash2 } from 'lucide-react';
+import { BrainCircuit, Cloud, Cpu, Plus, Power, Sparkles, Terminal, Trash2 } from 'lucide-react';
 import type { DetectedIntelligenceConnection, IntelligenceConnection } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { useStableVerticalReorder } from '../hooks/useStableVerticalReorder';
@@ -153,7 +153,8 @@ export function IntelligenceConnectionsPanel() {
               {connections.map((connection, index) => {
                 const detected = detectionForConnection(connection);
                 const isLocal = ['ollama', 'lm_studio', 'cli'].includes(connection.providerKind);
-                const Icon = connection.providerKind === 'cli' ? Terminal : isLocal ? Cpu : Cloud;
+                const isAppleIntelligence = detected?.adapterId === 'apple_foundation_models';
+                const Icon = isAppleIntelligence ? Sparkles : connection.providerKind === 'cli' ? Terminal : isLocal ? Cpu : Cloud;
                 const isDragging = activeConnectionId === connection.id;
                 const offset = connectionOffsets[connection.id] ?? 0;
                 const isInteractiveOnly = detected?.capabilities.includes('interactive_chat') && !detected.capabilities.includes('structured_output');
