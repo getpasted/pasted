@@ -11,7 +11,7 @@
     "test:wcag": "node scripts/audit-wcag.js && node scripts/audit-theme-tokens.js",
     "test:css": "node scripts/audit-css.js && node scripts/test-interaction-css.js",
     "test:security": "node --experimental-strip-types scripts/test-safe-raster-image.js && node scripts/audit-security.js",
-    "test:release": "node scripts/test-tauri-cli-sidecar.js && node scripts/test-updater-manifest.js && node scripts/audit-release.js",
+    "test:release": "node scripts/test-tauri-cli-sidecar.js && node scripts/test-updater-manifest.js && node scripts/test-release-assets.js && node scripts/audit-release.js",
     "licenses:generate": "node scripts/generate-third-party-licenses.js",
     "licenses:check": "node scripts/generate-third-party-licenses.js --check",
     "dependencies:check": "node scripts/audit-dependency-policy.js",
