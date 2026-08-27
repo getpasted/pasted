@@ -226,6 +226,19 @@ fn detect_version(path: &Path) -> Option<String> {
 }
 
 pub fn detect_intelligence_connections() -> Vec<DetectedIntelligenceConnection> {
+    let apple = crate::apple_intelligence::probe().map(|probe| DetectedIntelligenceConnection {
+        adapter_id: crate::apple_intelligence::ADAPTER_ID,
+        name: "Apple Intelligence",
+        provider_kind: "cli",
+        executable_path: Some(crate::apple_intelligence::CONNECTION_ENDPOINT.to_string()),
+        default_endpoint: None,
+        version: Some(probe.version),
+        capabilities: vec!["local", "on_device", "structured_output", "no_credentials"],
+        execution_supported: probe.available
+            && crate::intelligence_provider::supports_adapter_id(
+                crate::apple_intelligence::ADAPTER_ID,
+            ),
+    });
     let directories = candidate_directories();
     let candidates = ADAPTERS
         .iter()
@@ -235,7 +248,7 @@ pub fn detect_intelligence_connections() -> Vec<DetectedIntelligenceConnection> 
         })
         .collect::<Vec<_>>();
 
-    std::thread::scope(|scope| {
+    let mut detected = std::thread::scope(|scope| {
         candidates
             .into_iter()
             .map(|(adapter, path)| {
@@ -255,8 +268,12 @@ pub fn detect_intelligence_connections() -> Vec<DetectedIntelligenceConnection> 
             .collect::<Vec<_>>()
             .into_iter()
             .filter_map(|probe| probe.join().ok())
-            .collect()
-    })
+            .collect::<Vec<_>>()
+    });
+    if let Some(apple) = apple {
+        detected.insert(0, apple);
+    }
+    detected
 }
 
 #[cfg(test)]

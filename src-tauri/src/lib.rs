@@ -17,6 +17,7 @@ mod app_tray;
 mod app_updates;
 #[cfg(feature = "gui")]
 mod app_windows;
+pub mod apple_intelligence;
 pub mod application_error;
 pub mod bin_assignment;
 pub mod classification_execution;
@@ -91,6 +92,7 @@ pub mod settings_contract;
 pub mod settings_service;
 pub mod smart_bins;
 pub mod storage_protection;
+pub mod structured_output;
 pub mod suggestion_execution;
 pub mod third_party_licenses;
 #[cfg(feature = "gui")]

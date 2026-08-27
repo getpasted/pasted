@@ -155,6 +155,8 @@ pasted connection order <id>... [--json]
 
 `--apply` requires `--clip ID` so the expected input can be validated and a revision created. `--replace` remains an alias for compatibility. Intent planning uses the same bounded provider selection, credential references, and fallback behavior as the graphical composer. Operations are experimental in 1.0.
 
+On supported Macs, `pasted connection detect --json` reports the on-device Apple Intelligence connection and whether its `SystemLanguageModel` is ready for execution.
+
 ## Content Analysis
 
 ```text

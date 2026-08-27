@@ -1,4 +1,5 @@
 export const detectedIntelligenceConnections = [
+  { adapterId: 'apple_foundation_models', name: 'Apple Intelligence', providerKind: 'cli', executablePath: 'pasted://apple-foundation-models', defaultEndpoint: null, version: 'SystemLanguageModel', capabilities: ['local', 'on_device', 'structured_output', 'no_credentials'], executionSupported: true },
   { adapterId: 'codex_cli', name: 'Codex CLI', providerKind: 'cli', executablePath: '/opt/homebrew/bin/codex', defaultEndpoint: null, version: 'codex-cli', capabilities: ['structured_output', 'json_events', 'local_models'], executionSupported: true },
   { adapterId: 'claude_cli', name: 'Claude CLI', providerKind: 'cli', executablePath: '/opt/homebrew/bin/claude', defaultEndpoint: null, version: 'claude', capabilities: ['non_interactive', 'structured_output'], executionSupported: false },
   { adapterId: 'ollama', name: 'Ollama', providerKind: 'ollama', executablePath: '/opt/homebrew/bin/ollama', defaultEndpoint: 'http://127.0.0.1:11434', version: 'ollama', capabilities: ['local', 'openai_compatible'], executionSupported: false },

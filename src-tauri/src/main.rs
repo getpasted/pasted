@@ -44,6 +44,9 @@ fn main() {
     if let Some(code) = pasted_lib::content_extraction::run_bundled_extractor_helper(&arguments) {
         std::process::exit(code);
     }
+    if let Some(code) = pasted_lib::apple_intelligence::run_helper(&arguments) {
+        std::process::exit(code);
+    }
     #[cfg(target_os = "linux")]
     configure_appimage_wayland_compatibility();
     pasted_lib::run()

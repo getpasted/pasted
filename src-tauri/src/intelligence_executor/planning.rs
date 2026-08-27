@@ -187,3 +187,11 @@ pub(crate) fn plan_intent_with_cancellation(
     }
     unreachable!("connection selection returns at least one candidate")
 }
+
+#[cfg(test)]
+mod schema_tests {
+    #[test]
+    fn plan_schema_matches_the_shared_structured_output_contract() {
+        crate::structured_output::validate_schema(&super::plan_schema()).unwrap();
+    }
+}

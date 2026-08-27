@@ -13,6 +13,10 @@ Not every Transform uses AI. Pasted records which Transform ran, whether intelli
 
 **Settings → Intelligence** detects supported local tools without reading their credentials. Enable and order connections to define priority and fallback. Pasted stores connection metadata and credential references, not API keys.
 
+On compatible Macs, discovery also includes Apple Intelligence through the on-device `SystemLanguageModel`. It requires no endpoint or credential, keeps requests on the device, and remains unavailable until macOS reports the model assets ready.
+
+Structured provider results use Pasted's bounded JSON Schema 2020-12 subset: objects, arrays, strings, numbers, integers, booleans, nullability, enumerations, required properties, closed objects, item-count limits, and numeric ranges. Unsupported constraints fail before execution, and every provider's result is validated against the original schema before Pasted accepts it.
+
 ## Running a Transform
 
 Transforms can be previewed from the clip Workflow menu, run in the Playground, invoked from a Bin, or run through the CLI. Replacing clip content creates a revision when Revision History is enabled.

@@ -84,11 +84,6 @@ pub(super) fn extractor_recipe_schema() -> serde_json::Value {
         .and_then(serde_json::Value::as_object_mut)
         .expect("recipe schema object");
     recipe
-        .get_mut("required")
-        .and_then(serde_json::Value::as_array_mut)
-        .expect("recipe required fields")
-        .push(serde_json::Value::String("postProcessing".into()));
-    recipe
         .get_mut("properties")
         .and_then(serde_json::Value::as_object_mut)
         .expect("recipe properties")
