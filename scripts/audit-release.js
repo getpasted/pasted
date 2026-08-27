@@ -390,13 +390,34 @@ assert.equal(
 );
 assert.equal(
   (releaseWorkflow.match(/stage:cli-sidecar/g) ?? []).length,
-  2,
-  'Linux and Windows releases must stage their headless CLIs into the installers',
+  3,
+  'Every desktop release must stage its headless CLI into the installer',
 );
 assert.equal(
   (releaseWorkflow.match(/--config src-tauri\/tauri\.cli-sidecar\.conf\.json/g) ?? []).length,
-  2,
-  'Only Linux and Windows packaging commands may activate CLI sidecar bundling',
+  3,
+  'Every desktop release must activate CLI sidecar bundling',
+);
+assert.match(
+  releaseWorkflow,
+  /codesign[\s\S]*universal-apple-darwin\/release\/pasted[\s\S]*stage:cli-sidecar:macos-universal[\s\S]*tauri -- build --target universal-apple-darwin --bundles dmg --config src-tauri\/tauri\.cli-sidecar\.conf\.json/,
+  'The hosted macOS release must stage the signed universal CLI before bundling the app',
+);
+assert.match(
+  macosPackageJob,
+  /stage:cli-sidecar:macos-universal[\s\S]*tauri -- build --target universal-apple-darwin --bundles dmg --config src-tauri\/tauri\.cli-sidecar\.conf\.json/,
+  'The post-merge macOS package must exercise the bundled universal CLI path',
+);
+assert.match(
+  fs.readFileSync('scripts/release-macos.sh', 'utf8'),
+  /stage:cli-sidecar[\s\S]*tauri -- build --bundles dmg --config src-tauri\/tauri\.cli-sidecar\.conf\.json/,
+  'The local macOS release must bundle its host CLI explicitly',
+);
+const macosVerifier = fs.readFileSync('scripts/verify-macos-release.sh', 'utf8');
+assert.match(
+  macosVerifier,
+  /Contents\/MacOS\/pasted[\s\S]*-verify_arch[\s\S]*codesign --verify --strict/,
+  'macOS release verification must require an architecture-matched signed bundled CLI',
 );
 assert.match(
   linuxReleaseScript,

@@ -29,6 +29,8 @@ trap cleanup EXIT
 
 diskutil image attach --readOnly --mountOptions nobrowse --mountPoint "$mount_dir" "$dmg_path" >/dev/null
 app_path="$mount_dir/Pasted.app"
+app_executable="$app_path/Contents/MacOS/pasted-app"
+cli_path="$app_path/Contents/MacOS/pasted"
 
 for presentation_asset in \
   "$mount_dir/.DS_Store" \
@@ -47,6 +49,21 @@ fi
 
 echo "Branded DMG background, Finder layout, volume icon, and Applications link verified."
 
+if [[ ! -x "$cli_path" ]]; then
+  echo "The packaged app is missing its executable pasted CLI at $cli_path." >&2
+  exit 1
+fi
+
+for architecture in $(lipo "$app_executable" -archs); do
+  if ! lipo "$cli_path" -verify_arch "$architecture"; then
+    echo "The packaged CLI is missing the app's $architecture architecture." >&2
+    exit 1
+  fi
+done
+
+codesign --verify --strict --verbose=2 "$cli_path"
+echo "Bundled CLI presence, executable mode, architectures, and signature verified."
+
 codesign --verify --deep --strict --verbose=2 "$app_path"
 
 if [[ "$mode" == "--local" ]]; then
@@ -60,6 +77,11 @@ else
   codesign_details="$(codesign -dvv "$app_path" 2>&1)"
   if [[ "$codesign_details" != *"Authority=Developer ID Application:"* ]]; then
     echo "The packaged app is not signed with a Developer ID Application certificate." >&2
+    exit 1
+  fi
+  cli_codesign_details="$(codesign -dvv "$cli_path" 2>&1)"
+  if [[ "$cli_codesign_details" != *"Authority=Developer ID Application:"* ]]; then
+    echo "The packaged CLI is not signed with a Developer ID Application certificate." >&2
     exit 1
   fi
   spctl --assess --type execute --verbose=2 "$app_path"
