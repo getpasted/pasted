@@ -8,7 +8,7 @@ Pasted keeps its build workflows in this repository so the packaging definition 
 - **Dependency policy** runs every Monday after the Dependabot update windows and on manual dispatch. It re-evaluates RustSec data, advisory-exception expiry dates, licenses, notices, sources, mission policy, and source-SBOM freshness even when no repository change triggers the ordinary build.
 - **Refresh Dependabot compliance artifacts** runs only for same-repository Dependabot changes to npm or Cargo manifests and lockfiles. It installs npm packages without lifecycle scripts, regenerates the checked-in notices and source SBOM, and commits only those three canonical artifacts back to the update branch. The writable workflow rejects any other pull-request or generated file before it acts.
 - **Desktop release** is the only source of an installable macOS DMG. Its `Pasted-release-macOS` artifact is Developer ID signed, submitted to Apple, stapled, verified, extracted for an artifact-level SBOM, and audited before upload. It runs manually as a packaging rehearsal or from a `vX.Y.Z` tag; tag runs preserve per-platform checksums and SPDX SBOMs, include signed updater payloads, include explicitly experimental unsigned Windows packages, and assemble one draft GitHub Release for final human review.
-- **Updater feed** runs only after a versioned GitHub Release is published. It verifies the release's detached updater signatures and renders one static manifest from immutable versioned assets. Every release advances the prerelease channel; a stable version also advances the stable channel. Drafts can therefore be acceptance-tested without becoming discoverable.
+- **Updater feed** runs only after a versioned GitHub Release is published. It verifies the release's detached updater signatures and renders one static manifest from immutable versioned assets. Every release advances the prerelease channel; a stable version also advances the stable channel. Draft artifacts can be tested manually without becoming discoverable, but an end-to-end channel update necessarily uses a published prerelease.
 
 ## Protected `main` workflow
 
@@ -74,7 +74,7 @@ Unsigned Windows packages are available from **Desktop builds** for compatibilit
 3. Create and push an annotated version tag, for example `git tag -a v1.0.0-rc.1 -m "Pasted 1.0.0 RC 1"` followed by `git push origin v1.0.0-rc.1`.
 4. Approve protected GitHub Environments if prompted.
 5. Download and clean-install test the exact draft-release artifacts.
-6. Exercise a signed update from the previous channel build and verify that a tampered signature is rejected.
+6. Exercise a signed update from the previous published channel build and verify that a tampered signature is rejected. Because RC5 has no updater, manually install the first updater-bearing RC and prove it can update to a later RC or final candidate before publishing stable 1.0.
 7. Replace the generated changelog-only body with complete release notes, then publish the draft as a pre-release for an RC tag or a full release for a final tag. Publication advances the matching updater feed.
 
 Every published release must be useful without following another link. Include a short introduction, user-facing highlights, the supported download matrix, verification or signing expectations, the issue-reporting link, and the full changelog link. The changelog link supplements these details; it never replaces them.
