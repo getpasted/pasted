@@ -242,6 +242,11 @@ assert.equal(
   true,
   'Release installers must emit signed updater artifacts',
 );
+assert.deepEqual(
+  tauriReleaseConfig.plugins?.updater,
+  {},
+  'Release builds must retain the updater plugin configuration required for artifact signing',
+);
 assert.equal(
   packageScripts['stage:cli-sidecar'],
   'node scripts/stage-tauri-cli-sidecar.js',
