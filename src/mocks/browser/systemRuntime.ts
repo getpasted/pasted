@@ -33,7 +33,7 @@ export async function invokeSystemBrowserMock<T>(
     case 'get_installation_diagnostics':
       return {
         appVersion: '1.0.0',
-        buildKind: 'Development',
+        buildKind: 'development',
         platform: 'macos',
         architecture: 'aarch64',
         bundleIdentifier: 'software.jjj.pasted',
