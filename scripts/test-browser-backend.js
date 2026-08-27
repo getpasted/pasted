@@ -36,6 +36,10 @@ try {
     'the dispatcher must route storage mutations into the System runtime');
   assert.equal((await safeInvoke('restore_default_library_location')).location.path, originalLocation.path);
 
+  const diagnostics = await safeInvoke('get_installation_diagnostics');
+  assert.equal(diagnostics.buildKind, 'development',
+    'browser diagnostics must use the localized build-kind contract, not its display label');
+
   const firstPin = await safeInvoke('batch_pin_clips', { ids: [101], pinState: true });
   assert.deepEqual(firstPin, {
     action: 'pin', requestedCount: 1, changedCount: 1, skippedCount: 0, clipIds: [101],
