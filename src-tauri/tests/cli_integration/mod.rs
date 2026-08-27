@@ -1,7 +1,7 @@
 mod analysis;
-mod app_lock_policy;
 mod extractor_diagnostics;
 mod lifecycle_policy;
+mod policy;
 mod portability_library;
 mod private_browsing;
 mod registry_authoring;

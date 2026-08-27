@@ -1,4 +1,4 @@
-use super::support::*;
+use super::super::support::*;
 
 #[test]
 fn app_lock_policy_has_a_stable_cli_contract() {

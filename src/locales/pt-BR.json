@@ -2025,6 +2025,8 @@
   "feature.group.workflow.label": "Ferramentas de Fluxo de Trabalho",
   "feature.help.description": "Mostre a documentação dentro do aplicativo e sua entrada de navegação.",
   "feature.help.label": "Ajuda",
+  "feature.updates.description": "Buscar atualizações de software assinadas no GitHub.",
+  "feature.updates.label": "Atualizações de software",
   "feature.hud.description": "Abra a janela compacta da área de transferência controlada por teclado.",
   "feature.hud.label": "HUD",
   "feature.hotkeys.description": "Atribua e use atalhos globais para ações, clipes, coleções e Transformações.",

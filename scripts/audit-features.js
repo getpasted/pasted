@@ -4,7 +4,10 @@ import { readRustModuleTree } from './audit-source-trees.js';
 
 const read = (path) => fs.readFileSync(path, 'utf8');
 const frontendRegistry = read('src/utils/features.ts');
-const settingsType = read('src/appSettingsTypes.ts');
+const settingsType = [
+  'src/appSettingsTypes.ts',
+  'src/appSettingsTypes/functionality.ts',
+].map(read).join('\n');
 const settingsHook = read('src/hooks/useAppSettings.ts');
 const settingsModel = read('src/appSettingsModel.ts');
 const settingsContract = JSON.parse(read('shared/settings-contract.json'));
@@ -56,6 +59,7 @@ const quickHud = read('src/components/QuickHudWindow.tsx');
 const hudEntry = read('src/hud-main.tsx');
 const settingsHotkeys = read('src/components/SettingsHotkeysPanel.tsx');
 const cli = readRustModuleTree('src-tauri/src/bin/pasted.rs', 'src-tauri/src/cli');
+const appUpdates = read('src-tauri/src/app_updates.rs');
 const frontendDefinitions = frontendRegistry.match(/export const FEATURE_DEFINITIONS[\s\S]*?\n\] as const;/)?.[0] ?? '';
 
 const frontendKeys = [...frontendRegistry.matchAll(/settingKey:\s*'(enable[A-Za-z]+)'/g)]
@@ -63,7 +67,7 @@ const frontendKeys = [...frontendRegistry.matchAll(/settingKey:\s*'(enable[A-Za-
 const nativeKeys = [...nativePolicy.matchAll(/=>\s*"(enable[A-Za-z]+)"/g)]
   .map((match) => match[1]);
 
-assert.equal(frontendKeys.length, 26, 'The frontend feature registry must include every supported capability');
+assert.equal(frontendKeys.length, 27, 'The frontend feature registry must include every supported capability');
 const frontendGroups = [...frontendRegistry.matchAll(/group:\s*'([A-Za-z]+)'/g)]
   .map((match) => match[1]);
 assert.equal(frontendGroups.length, frontendKeys.length, 'Every feature must belong to a Functionality group');
@@ -76,7 +80,7 @@ const expectedFeatureLayout = {
   library: ['bins', 'naming', 'notes', 'pinning', 'protection', 'concealment', 'trash', 'revisions'],
   discovery: ['clipTypes', 'types', 'contentClassification', 'fileFormats', 'ocr', 'transcriptions', 'sources', 'search', 'analytics'],
   workflow: ['queue', 'transformations', 'hud', 'hotkeys'],
-  app: ['notifications', 'appLock', 'activityLog', 'cli', 'help'],
+  app: ['notifications', 'appLock', 'activityLog', 'cli', 'help', 'updates'],
 };
 for (const [group, expectedIds] of Object.entries(expectedFeatureLayout)) {
   const actualIds = [...frontendDefinitions.matchAll(new RegExp(
@@ -169,6 +173,16 @@ assert.match(
   cli,
   /fn run_search[\s\S]{0,1800}Feature::Search/,
   'The explicit CLI search command must honor the Clip Search feature gate',
+);
+assert.match(
+  cli,
+  /matches!\(command, "update" \| "updates"\)[\s\S]{0,200}Feature::Updates/,
+  'CLI update checks must honor the Software Updates feature gate before contacting GitHub',
+);
+assert.match(
+  appUpdates,
+  /check_for_app_update[\s\S]{0,500}features::require\(&db, Feature::Updates\)/,
+  'GUI update checks must honor the Software Updates feature gate before contacting GitHub',
 );
 assert.match(
   nativeMenu,

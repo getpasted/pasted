@@ -28,10 +28,11 @@ pub enum Feature {
     Search,
     Cli,
     Help,
+    Updates,
 }
 
 impl Feature {
-    pub const ALL: [Feature; 26] = [
+    pub const ALL: [Feature; 27] = [
         Feature::Insights,
         Feature::Bins,
         Feature::ClipTypes,
@@ -58,6 +59,7 @@ impl Feature {
         Feature::Search,
         Feature::Cli,
         Feature::Help,
+        Feature::Updates,
     ];
 
     pub const fn setting_key(self) -> &'static str {
@@ -88,6 +90,7 @@ impl Feature {
             Feature::Search => "enableSearch",
             Feature::Cli => "enableCli",
             Feature::Help => "enableHelp",
+            Feature::Updates => "enableUpdateChecks",
         }
     }
 
@@ -125,6 +128,7 @@ impl Feature {
             Feature::Search => "Clip Search",
             Feature::Cli => "CLI",
             Feature::Help => "Help",
+            Feature::Updates => "Software Updates",
         }
     }
 }
@@ -171,7 +175,7 @@ mod tests {
 
     #[test]
     fn frontend_and_native_setting_keys_are_stable() {
-        assert_eq!(Feature::ALL.len(), 26);
+        assert_eq!(Feature::ALL.len(), 27);
         for feature in Feature::ALL {
             assert_eq!(
                 Feature::from_setting_key(feature.setting_key()),
@@ -192,6 +196,7 @@ mod tests {
 
         assert!(is_enabled(&db, Feature::Bins));
         assert!(is_enabled(&db, Feature::Hotkeys));
+        assert!(is_enabled(&db, Feature::Updates));
         let values = HashMap::from([
             (Feature::Bins.setting_key().to_string(), "false".to_string()),
             (
@@ -202,11 +207,16 @@ mod tests {
                 Feature::Hotkeys.setting_key().to_string(),
                 "false".to_string(),
             ),
+            (
+                Feature::Updates.setting_key().to_string(),
+                "false".to_string(),
+            ),
         ]);
         db.save_settings(&values).unwrap();
         assert!(!is_enabled(&db, Feature::Bins));
         assert!(!is_enabled(&db, Feature::Notes));
         assert!(!is_enabled(&db, Feature::Hotkeys));
+        assert!(!is_enabled(&db, Feature::Updates));
         assert!(is_enabled(&db, Feature::Pinning));
 
         drop(db);

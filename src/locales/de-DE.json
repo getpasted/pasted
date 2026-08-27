@@ -2025,6 +2025,8 @@
   "feature.group.workflow.label": "Workflow-Werkzeuge",
   "feature.help.description": "Zeigt die integrierte Dokumentation und ihren Navigationseintrag.",
   "feature.help.label": "Hilfe",
+  "feature.updates.description": "Auf GitHub nach signierten Softwareupdates suchen.",
+  "feature.updates.label": "Softwareupdates",
   "feature.hud.description": "Öffnet das kompakte, tastaturgesteuerte Zwischenablagefenster.",
   "feature.hud.label": "Benutzeroberfläche",
   "feature.hotkeys.description": "Systemweite Tastenkürzel für Aktionen, Clips, Sammlungen und Transformationen zuweisen und verwenden.",

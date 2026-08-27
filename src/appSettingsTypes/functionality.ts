@@ -1,0 +1,29 @@
+export interface FunctionalitySettings {
+  enableActivityLog: boolean;
+  enableAnalytics: boolean;
+  enableAppLock: boolean;
+  enableBins: boolean;
+  enableCli: boolean;
+  enableClipTypes: boolean;
+  enableConcealment: boolean;
+  enableContentClassification: boolean;
+  enableFileFormats: boolean;
+  enableHelp: boolean;
+  enableHotkeys: boolean;
+  enableHud: boolean;
+  enableNaming: boolean;
+  enableNotes: boolean;
+  enableNotifications: boolean;
+  enableOcr: boolean;
+  enablePinning: boolean;
+  enableProtection: boolean;
+  enableQueue: boolean;
+  enableRevisions: boolean;
+  enableSearch: boolean;
+  enableSources: boolean;
+  enableTranscriptions: boolean;
+  enableTransformations: boolean;
+  enableTrash: boolean;
+  enableTypes: boolean;
+  enableUpdateChecks: boolean;
+}

@@ -2034,6 +2034,8 @@
   "feature.group.workflow.label": "כלים לזרימת עבודה",
   "feature.help.description": "הצג תיעוד פני האפליקציה ונקודות הכניסה שלו.",
   "feature.help.label": "עזרה",
+  "feature.updates.description": "בדיקת עדכוני תוכנה חתומים ב-GitHub.",
+  "feature.updates.label": "עדכוני תוכנה",
   "feature.hud.description": "פתח את חלון הלוח הקטן המופעל על ידי מקשים.",
   "feature.hud.label": "HUD",
   "feature.hotkeys.description": "הקצה והשתמש בקיצורי דרך כלל־מערכתיים לפעולות, לקליפים, ל-Bins ולהמרות.",

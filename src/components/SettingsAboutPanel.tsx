@@ -45,7 +45,7 @@ function installationSummary(details: InstallationDiagnostics) {
   ].join('\n');
 }
 
-export function SettingsAboutPanel() {
+export function SettingsAboutPanel({ updateChecksEnabled }: { updateChecksEnabled: boolean }) {
   const [installation, setInstallation] = useState<InstallationDiagnostics | null>(null);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
@@ -91,9 +91,12 @@ export function SettingsAboutPanel() {
         <p className="theme-text-muted mt-2 max-w-lg text-xs leading-relaxed">
           {translate('component.settingsAboutPanel.copycatsArePeopleScriptsAutomationsAndAgentsTheyShareOnePrivateWorkspace')}
         </p>
-        <span className="theme-badge mt-4 rounded-full border px-3 py-1 font-mono text-[10px] font-semibold">
-          {installation ? translate('component.settingsAboutPanel.versionAppversionBuildkind', { appVersion: installation.appVersion, buildKind: buildKindLabel(installation.buildKind) }) : translate('component.settingsAboutPanel.loadingVersion')}
-        </span>
+        <SettingsUpdateSection
+          enabled={updateChecksEnabled}
+          versionLabel={installation
+            ? translate('component.settingsAboutPanel.versionAppversionBuildkind', { appVersion: installation.appVersion, buildKind: buildKindLabel(installation.buildKind) })
+            : translate('component.settingsAboutPanel.loadingVersion')}
+        />
       </section>
 
       <section className="theme-surface rounded-2xl border p-5 space-y-4">
@@ -181,8 +184,6 @@ export function SettingsAboutPanel() {
         ) : null}
         {error && <div className="theme-status-danger rounded-xl border px-3 py-2 text-xs">{error}</div>}
       </section>
-
-      <SettingsUpdateSection />
 
       <section className="theme-surface rounded-2xl border p-3">
         <SettingsNavigationCard

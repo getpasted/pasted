@@ -1,6 +1,7 @@
+import type { FunctionalitySettings } from './appSettingsTypes/functionality';
 import type { RetentionSettings } from './appSettingsTypes/retention';
 
-export interface AppSettings extends RetentionSettings {
+export interface AppSettings extends FunctionalitySettings, RetentionSettings {
   onboardingVersion: number;
   language: string;
   textSize: number;
@@ -22,32 +23,6 @@ export interface AppSettings extends RetentionSettings {
   rowHeight: 'small' | 'medium' | 'large';
   startupView: 'last_active' | 'clip_history';
   themeMode: 'system' | 'dark' | 'cool' | 'warm' | '2894' | 'sauced' | 'vampire' | 'flux' | '808';
-  enableActivityLog: boolean;
-  enableTrash: boolean;
-  enableAnalytics: boolean;
-  enableBins: boolean;
-  enableClipTypes: boolean;
-  enableFileFormats: boolean;
-  enableContentClassification: boolean;
-  enableConcealment: boolean;
-  enableNaming: boolean;
-  enableNotes: boolean;
-  enableNotifications: boolean;
-  enableAppLock: boolean;
-  enableOcr: boolean;
-  enableTranscriptions: boolean;
-  enablePinning: boolean;
-  enableProtection: boolean;
-  enableQueue: boolean;
-  enableRevisions: boolean;
-  enableHud: boolean;
-  enableHotkeys: boolean;
-  enableTransformations: boolean;
-  enableTypes: boolean;
-  enableSources: boolean;
-  enableSearch: boolean;
-  enableCli: boolean;
-  enableHelp: boolean;
   hudHotkey?: string;
   seqToggleHotkey?: string;
   seqPopHotkey?: string;

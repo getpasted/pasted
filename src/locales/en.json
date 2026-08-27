@@ -2025,6 +2025,8 @@
   "feature.group.workflow.label": "Workflow Tools",
   "feature.help.description": "Show in-app documentation and its navigation entry.",
   "feature.help.label": "Help",
+  "feature.updates.description": "Check GitHub for signed software updates.",
+  "feature.updates.label": "Software Updates",
   "feature.hud.description": "Open the compact keyboard-driven clipboard window.",
   "feature.hud.label": "HUD",
   "feature.hotkeys.description": "Assign and use system-wide hotkeys for actions, clips, Bins, and Transforms.",

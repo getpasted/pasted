@@ -2025,6 +2025,8 @@
   "feature.group.workflow.label": "Outils de flux de travail",
   "feature.help.description": "Affichez la documentation intégrée et son point d'entrée de navigation.",
   "feature.help.label": "Aide",
+  "feature.updates.description": "Rechercher sur GitHub des mises à jour logicielles signées.",
+  "feature.updates.label": "Mises à jour logicielles",
   "feature.hud.description": "Ouvrez la fenêtre compacte de presse-papiers pilotée par le clavier.",
   "feature.hud.label": "HUD",
   "feature.hotkeys.description": "Attribuez et utilisez des raccourcis système pour les actions, Clips, collections et transformations.",

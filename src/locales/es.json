@@ -2025,6 +2025,8 @@
   "feature.group.workflow.label": "Herramientas de flujo de trabajo",
   "feature.help.description": "Muestre la documentación dentro de la aplicación y su entrada de navegación.",
   "feature.help.label": "Ayuda",
+  "feature.updates.description": "Busca actualizaciones de software firmadas en GitHub.",
+  "feature.updates.label": "Actualizaciones de software",
   "feature.hud.description": "Abra la ventana compacta del portapapeles controlada por teclado.",
   "feature.hud.label": "HUD",
   "feature.hotkeys.description": "Asigna y usa atajos del sistema para acciones de Pasted, clips, colecciones y transformaciones.",

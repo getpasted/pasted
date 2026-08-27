@@ -41,6 +41,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   enableSearch: settingDefault('enableSearch'),
   enableCli: settingDefault('enableCli'),
   enableHelp: settingDefault('enableHelp'),
+  enableUpdateChecks: settingDefault('enableUpdateChecks'),
   hudHotkey: settingDefault('hudHotkey'),
   seqToggleHotkey: settingDefault('seqToggleHotkey'),
   seqPopHotkey: settingDefault('seqPopHotkey'),
@@ -96,7 +97,7 @@ export function parseSavedSettings(saved: Record<string, string>): AppSettings {
     'enableNotifications', 'enableAppLock', 'enableOcr', 'enableTranscriptions',
     'enablePinning', 'enableProtection', 'enableQueue', 'enableRevisions', 'enableHud',
     'enableHotkeys', 'enableTransformations', 'enableTypes', 'enableSources',
-    'enableSearch', 'enableCli', 'enableHelp',
+    'enableSearch', 'enableCli', 'enableHelp', 'enableUpdateChecks',
   ] as const) {
     if (saved[key] !== undefined) next[key] = saved[key] === 'true';
   }

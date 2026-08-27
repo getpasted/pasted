@@ -1,5 +1,6 @@
 export interface AppUpdateStatus {
   configured: boolean;
+  enabled: boolean;
   currentVersion: string;
   channel: 'stable' | 'prerelease';
 }

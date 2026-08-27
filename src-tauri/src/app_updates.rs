@@ -1,10 +1,12 @@
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use serde::Serialize;
 use tauri::{AppHandle, State};
 use tauri_plugin_updater::{Update, UpdaterExt};
 
+use crate::db::DbState;
+use crate::features::{self, Feature};
 use crate::update_manifest::{channel_for_version, UpdateChannel};
 
 pub struct PendingUpdate(pub Mutex<Option<Update>>);
@@ -13,6 +15,7 @@ pub struct PendingUpdate(pub Mutex<Option<Update>>);
 #[serde(rename_all = "camelCase")]
 pub struct AppUpdateStatus {
     pub configured: bool,
+    pub enabled: bool,
     pub current_version: String,
     pub channel: UpdateChannel,
 }
@@ -37,10 +40,14 @@ pub fn updater_is_configured() -> bool {
 }
 
 #[tauri::command]
-pub fn get_app_update_status(app: AppHandle) -> Result<AppUpdateStatus, String> {
+pub fn get_app_update_status(
+    app: AppHandle,
+    db: State<'_, Arc<DbState>>,
+) -> Result<AppUpdateStatus, String> {
     let current_version = app.package_info().version.to_string();
     Ok(AppUpdateStatus {
         configured: updater_is_configured(),
+        enabled: features::is_enabled(&db, Feature::Updates),
         channel: channel_for_version(&current_version)?,
         current_version,
     })
@@ -50,7 +57,9 @@ pub fn get_app_update_status(app: AppHandle) -> Result<AppUpdateStatus, String> 
 pub async fn check_for_app_update(
     app: AppHandle,
     pending: State<'_, PendingUpdate>,
+    db: State<'_, Arc<DbState>>,
 ) -> Result<AvailableAppUpdate, String> {
+    features::require(&db, Feature::Updates)?;
     if !updater_is_configured() {
         return Err("Automatic updates are unavailable in this build".to_string());
     }
@@ -97,7 +106,9 @@ pub async fn check_for_app_update(
 pub async fn install_app_update(
     app: AppHandle,
     pending: State<'_, PendingUpdate>,
+    db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
+    features::require(&db, Feature::Updates)?;
     let update = pending
         .0
         .lock()

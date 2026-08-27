@@ -202,7 +202,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </>
         )}
 
-        {activeTab === 'about' && <SettingsAboutPanel />}
+        {activeTab === 'about' && <SettingsAboutPanel updateChecksEnabled={settings.enableUpdateChecks} />}
         </div>
       </div>
     </div>

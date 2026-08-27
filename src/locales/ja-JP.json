@@ -2025,6 +2025,8 @@
   "feature.group.workflow.label": "ワークフローツール",
   "feature.help.description": "アプリケーション内のドキュメントとナビゲーションエントリを表示します。",
   "feature.help.label": "ヘルプ",
+  "feature.updates.description": "GitHub で署名済みのソフトウェアアップデートを確認します。",
+  "feature.updates.label": "ソフトウェアアップデート",
   "feature.hud.description": "コンパクトキーボード駆動のクリップボードウィンドウを開きます。",
   "feature.hud.label": "HUD (ヘッドアップディスプレイ)",
   "feature.hotkeys.description": "操作、クリップ、コレクション、変換にシステム全体のショートカットを割り当てて使用します。",
