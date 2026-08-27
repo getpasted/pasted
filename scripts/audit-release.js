@@ -503,6 +503,21 @@ assert.match(
 );
 assert.match(
   releaseWorkflow,
+  /declare -A asset_by_name[\s\S]*cmp -s "\$existing_asset" "\$asset"[\s\S]*Conflicting release assets share the name/,
+  'The release workflow must deduplicate identical flat asset names and reject conflicting files',
+);
+assert.match(
+  releaseWorkflow,
+  /gh release view "\$GITHUB_REF_NAME"[\s\S]*--json isDraft[\s\S]*gh release edit "\$GITHUB_REF_NAME"[\s\S]*Refusing to replace a published release/,
+  'The release workflow must safely resume a partially assembled draft without replacing a published release',
+);
+assert.match(
+  releaseWorkflow,
+  /gh release upload "\$GITHUB_REF_NAME" "\$\{assets\[@\]\}"[\s\S]*--clobber/,
+  'The release workflow must idempotently upload the complete asset set',
+);
+assert.match(
+  releaseWorkflow,
   /windows:[\s\S]*runs-on: windows-latest[\s\S]*tauri -- build --bundles nsis/,
   'The tagged release must build its experimental Windows NSIS installer on Windows',
 );
