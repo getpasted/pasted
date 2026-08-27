@@ -125,6 +125,42 @@ const app = [
 const appNavigation = fs.readFileSync('src/utils/appNavigation.ts', 'utf8');
 const nativeMenu = fs.readFileSync('src-tauri/src/app_menu.rs', 'utf8');
 const englishCatalog = JSON.parse(fs.readFileSync('src/locales/en.json', 'utf8'));
+const localeManifest = JSON.parse(fs.readFileSync('src/locales/manifest.json', 'utf8'));
+const intentionalProductNameKeys = new Set([
+  // “Pasted” is the past-tense action result here, not the product name.
+  'component.activityLogView.hudPasted',
+  'component.activityLogView.queuePasted',
+  'component.clipPreview.pasted',
+  'component.transformationOutputActions.pasted',
+  // Destructive actions name their concrete scope.
+  'component.factoryResetDialog.resetPasted',
+  'component.factoryResetDialog.resetPasted2',
+  'component.settingsResetPanel.resetPasted',
+  'component.settingsResetPanel.resetPasted2',
+  // Product identity, literal operating-system labels, and named technical formats.
+  'component.settingsAboutPanel.aboutPasted',
+  'component.settingsAboutPanel.pasted',
+  'component.settingsHotkeysPanel.pasted',
+  'component.contentExtractorManagerDialog.pastedJson',
+  'native.app.about',
+  'native.file.quit',
+  'native.tray.quit',
+  'native.tray.show',
+  'native.window.show',
+]);
+for (const { code, catalog } of localeManifest.locales) {
+  const messages = JSON.parse(fs.readFileSync(`src/locales/${catalog}`, 'utf8'));
+  const redundantProductNames = Object.entries(messages)
+    .filter(([key, value]) => typeof value === 'string' && /\bPasted\b/.test(value) && !intentionalProductNameKeys.has(key))
+    .map(([key, value]) => `${code}:${key}: ${value}`);
+  assert.deepEqual(redundantProductNames, [],
+    `Localized in-app copy must not narrate from outside the product:\n${redundantProductNames.join('\n')}`);
+}
+const firstPersonCatalogCopy = Object.entries(englishCatalog)
+  .filter(([, value]) => typeof value === 'string' && /\b(?:we|our|ours|us)\b/i.test(value))
+  .map(([key, value]) => `${key}: ${value}`);
+assert.deepEqual(firstPersonCatalogCopy, [],
+  `English in-app copy must use neutral phrasing instead of first-person pronouns:\n${firstPersonCatalogCopy.join('\n')}`);
 const localizedValueIsUsed = (source, expected) => Object.entries(englishCatalog)
   .some(([key, value]) => value === expected && source.includes(`'${key}'`));
 const canonicalAnalysisCopyFiles = [
@@ -184,6 +220,13 @@ assert.match(settingsFeatures, /translate\('component\.settingsFeaturesPanel\.ch
   'Functionality must keep its header description concise');
 assert.match(settingsFeatures, /<SettingsPanelNote>[\s\S]*translate\('component\.settingsFeaturesPanel\.simpleEnablesEssentialClipboardToolsFullEnablesEveryFeatureDisablingAFeature'\)[\s\S]*<\/SettingsPanelNote>/,
   'Functionality must move preset and preservation guidance into the shared Settings note well');
+assert.equal(englishCatalog['feature.cli.description'], 'Use {command} to automate clipboard workflows.',
+  'The Command-Line Interface card must keep the literal command in a localizable placeholder');
+assert.match(settingsFeatures, /<LocalizedInlineCode message=\{translate\(keys\.description, \{ command: 'pasted' \}\)\} code="pasted" \/>/,
+  'The Command-Line Interface card must render the pasted executable as inline code');
+const localizedInlineCode = fs.readFileSync('src/components/LocalizedInlineCode.tsx', 'utf8');
+assert.match(localizedInlineCode, /<code dir="ltr" className="font-mono">\{code\}<\/code>/,
+  'Localized inline code must remain monospaced and LTR');
 for (const [menuId, topic, catalogKey, label] of [
   ['help.getting_started', 'getting-started', 'native.help.gettingStarted', 'Getting Started'],
   ['help.shortcuts', 'shortcuts-hud', 'native.help.shortcuts', 'Hotkeys and HUD'],
