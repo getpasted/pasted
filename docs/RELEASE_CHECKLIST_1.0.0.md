@@ -23,6 +23,7 @@ Use the exact notarized DMG intended for publication. Do not substitute a develo
 - [ ] Quit and relaunch preserves window geometry and settings.
 - [ ] A build on the prerelease channel finds a newer test release, asks before installation, restarts successfully, and preserves its library.
 - [ ] A tampered updater payload or signature is rejected without changing the installed application.
+- [ ] RC5 is manually replaced by the first updater-bearing RC; that RC then updates through the signed prerelease channel to a later RC or final candidate before stable 1.0 is published.
 
 ## Fresh library
 
