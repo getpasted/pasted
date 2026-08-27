@@ -14,6 +14,8 @@ mod app_runtime;
 #[cfg(feature = "gui")]
 mod app_tray;
 #[cfg(feature = "gui")]
+mod app_updates;
+#[cfg(feature = "gui")]
 mod app_windows;
 pub mod application_error;
 pub mod bin_assignment;
@@ -95,6 +97,7 @@ pub mod third_party_licenses;
 mod titlebar;
 pub mod transformation_intent;
 pub mod transformation_service;
+pub mod update_manifest;
 
 #[cfg(feature = "gui")]
 use std::sync::Arc;
@@ -105,8 +108,9 @@ use tauri::Manager;
 pub fn run() {
     let hotkey_manager = Arc::new(hotkey_manager::HotkeyManager::new());
 
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default()
         .manage(hotkey_manager.clone())
+        .manage(app_updates::PendingUpdate(std::sync::Mutex::new(None)))
         .on_menu_event(app_menu::handle_menu_event)
         .plugin(
             tauri_plugin_window_state::Builder::default()
@@ -115,7 +119,17 @@ pub fn run() {
                 .with_state_flags(app_windows::main_window_state_flags())
                 .build(),
         )
-        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_dialog::init());
+
+    if app_updates::updater_is_configured() {
+        builder = builder.plugin(
+            tauri_plugin_updater::Builder::new()
+                .pubkey(app_updates::updater_public_key())
+                .build(),
+        );
+    }
+
+    builder
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             app_runtime::handle_single_instance(app, &args);
         }))
@@ -293,6 +307,9 @@ pub fn run() {
             commands::get_intelligence_scheduler_snapshot,
             commands::about::get_installation_diagnostics,
             commands::about::get_third_party_licenses,
+            app_updates::get_app_update_status,
+            app_updates::check_for_app_update,
+            app_updates::install_app_update,
             commands::storage::get_library_location,
             commands::storage::get_storage_protection,
             commands::storage::move_library,

@@ -2614,5 +2614,20 @@
   "component.settingsSearchHistoryPanel.showingRange": "عرض {start}–{end} من {count}",
   "component.settingsSearchHistoryPanel.previousPage": "السابق",
   "component.settingsSearchHistoryPanel.nextPage": "التالي",
-  "component.helpView.listAndManageSavedSearchHistory": "عرض سجل البحث المحفوظ وإدارته"
+  "component.helpView.listAndManageSavedSearchHistory": "عرض سجل البحث المحفوظ وإدارته",
+  "component.settingsUpdateSection.softwareUpdates": "تحديثات البرنامج",
+  "component.settingsUpdateSection.channelDescription": "تحديثات موقّعة من {channel}.",
+  "component.settingsUpdateSection.signedUpdates": "تحديثات موقّعة لهذا التثبيت.",
+  "component.settingsUpdateSection.checking": "جارٍ التحقق…",
+  "component.settingsUpdateSection.checkForUpdates": "التحقق من وجود تحديثات…",
+  "component.settingsUpdateSection.unavailableInThisBuild": "التحديثات التلقائية غير متاحة في هذا الإصدار.",
+  "component.settingsUpdateSection.upToDate": "Pasted {version} محدّث.",
+  "component.settingsUpdateSection.versionAvailable": "Pasted {version} متاح.",
+  "component.settingsUpdateSection.installing": "جارٍ التثبيت…",
+  "component.settingsUpdateSection.installAndRestart": "التثبيت وإعادة التشغيل",
+  "component.settingsUpdateSection.installVersion": "تثبيت Pasted {version}؟",
+  "component.settingsUpdateSection.installDescription": "سينزّل Pasted تحديثًا موقّعًا ويثبّته ثم يعيد التشغيل.",
+  "component.settingsUpdateSection.libraryPreserved": "ستبقى المكتبة والإعدادات في مكانها.",
+  "component.settingsUpdateSection.prereleaseChannel": "قناة الإصدارات التجريبية",
+  "component.settingsUpdateSection.stableChannel": "القناة المستقرة"
 }

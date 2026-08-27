@@ -44,7 +44,8 @@ jobs:
           fail-on-severity: moderate
           allow-licenses: 0BSD, Apache-2.0, BSD-2-Clause, BSD-3-Clause, BSL-1.0, CC0-1.0, ISC, MIT, MIT-0, MPL-2.0, Unicode-3.0, Unlicense, Zlib
           # rust-cache runs only as CI tooling and is never linked into or distributed with Pasted.
-          allow-dependencies-licenses: pkg:githubactions/Swatinem/rust-cache
+          # webpki-root-certs is an unshipped target-specific root dataset under CDLA-Permissive-2.0.
+          allow-dependencies-licenses: pkg:githubactions/Swatinem/rust-cache, pkg:cargo/webpki-root-certs
           comment-summary-in-pr: on-failure
 
   dependency-policy:

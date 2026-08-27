@@ -3,6 +3,7 @@ import { mockManualTransforms } from './manualTransforms';
 import { getMockSavedTransforms } from './intelligenceRuntime';
 import { unhandledValue } from './result';
 import { invokeRetentionBrowserMock } from './retentionRuntime';
+import { invokeUpdateBrowserMock } from './updateRuntime';
 
 let mockLibraryLocation = {
   path: '/mock/Pasted/pasted.db',
@@ -18,6 +19,8 @@ export async function invokeSystemBrowserMock<T>(
 ): Promise<T | typeof unhandledValue> {
   const retention = await invokeRetentionBrowserMock<T>(cmd);
   if (retention !== unhandledValue) return retention;
+  const update = invokeUpdateBrowserMock<T>(cmd);
+  if (update !== unhandledValue) return update;
   switch (cmd) {
     case 'get_hotkey_capability_status':
       return {
@@ -29,39 +32,6 @@ export async function invokeSystemBrowserMock<T>(
         configured_count: 0,
         registered_count: 0,
         issues: [],
-      } as unknown as T;
-    case 'get_installation_diagnostics':
-      return {
-        appVersion: '1.0.0',
-        buildKind: 'development',
-        platform: 'macos',
-        architecture: 'aarch64',
-        bundleIdentifier: 'software.jjj.pasted',
-        appPath: '/Applications/Pasted.app',
-        dataPath: '/Users/example/Library/Application Support/software.jjj.pasted',
-        databaseSizeBytes: 2_457_600,
-        signingStatus: 'Ad hoc',
-        signingIdentity: null,
-        signingTeamId: null,
-        notarizationStatus: 'Not expected for development builds',
-        cliPath: '/Applications/Pasted.app/Contents/MacOS/pasted',
-      } as unknown as T;
-    case 'get_third_party_licenses':
-      return {
-        schemaVersion: 1,
-        componentCount: 2,
-        components: [
-          { ecosystem: 'cargo', name: 'tauri', version: '2.x', license: 'MIT OR Apache-2.0', repository: 'https://github.com/tauri-apps/tauri', noticeIds: ['development'] },
-          { ecosystem: 'npm', name: 'react', version: '19.x', license: 'MIT', repository: 'https://github.com/facebook/react', noticeIds: ['development'] },
-        ],
-        noticeText: [
-          'Pasted Third-Party Software Notices',
-          '',
-          'Development preview',
-          '',
-          'Production builds embed the complete generated component inventory and license text.',
-          'Run `pasted licenses` or open this dialog in the native app to inspect that document.',
-        ].join('\n'),
       } as unknown as T;
     case 'get_ocr_backfill_status':
       return {

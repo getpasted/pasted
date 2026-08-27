@@ -190,7 +190,7 @@ function buildInventory(rawCargo) {
     notice.spdx.length > 0 ? `License identifier: ${notice.spdx.join(', ')}` : '',
     `Used by: ${usersByNotice.get(notice.id).join(', ')}`,
     '--------------------------------------------------------------------------------',
-    notice.text.trim(),
+    notice.text.trim().replace(/[ \t]+$/gm, ''),
   ].filter(Boolean).join('\n'));
 
   const noticeText = [

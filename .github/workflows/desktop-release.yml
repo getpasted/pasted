@@ -67,6 +67,9 @@ jobs:
       APPLE_ID: ${{ secrets.APPLE_ID }}
       APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      PASTED_UPDATER_PUBLIC_KEY: ${{ secrets.PASTED_UPDATER_PUBLIC_KEY }}
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-node@v7.0.0
@@ -82,7 +85,7 @@ jobs:
       - run: npm ci
       - name: Require Apple release credentials
         run: |
-          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD KEYCHAIN_PASSWORD APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD KEYCHAIN_PASSWORD APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD PASTED_UPDATER_PUBLIC_KEY; do
             if [[ -z "${!name:-}" ]]; then
               echo "Missing release-macos secret: ${name}" >&2
               exit 1
@@ -120,7 +123,7 @@ jobs:
             --verbose=2 \
             src-tauri/target/universal-apple-darwin/release/pasted
           npm run stage:cli-sidecar:macos-universal
-          npm run tauri -- build --target universal-apple-darwin --bundles dmg --config src-tauri/tauri.cli-sidecar.conf.json
+          npm run tauri -- build --target universal-apple-darwin --bundles dmg --config src-tauri/tauri.release.conf.json
           dmg_path="$(find src-tauri/target/universal-apple-darwin/release/bundle/dmg -name 'Pasted_*.dmg' -type f -print -quit)"
           if [[ -z "$dmg_path" ]]; then
             echo 'Tauri did not produce a universal macOS DMG.' >&2
@@ -165,6 +168,13 @@ jobs:
           bash scripts/verify-macos-release.sh "$dmg_path"
           mkdir -p release-assets
           cp "$dmg_path" "release-assets/Pasted_${RELEASE_VERSION}_universal.dmg"
+          updater_path="$(find src-tauri/target/universal-apple-darwin/release/bundle/macos -name '*.app.tar.gz' -type f -print -quit)"
+          if [[ -z "$updater_path" || ! -f "${updater_path}.sig" ]]; then
+            echo 'Tauri did not produce a signed universal macOS updater.' >&2
+            exit 1
+          fi
+          cp "$updater_path" release-assets/
+          cp "${updater_path}.sig" release-assets/
           cp src-tauri/target/universal-apple-darwin/release/pasted release-assets/pasted-macos-universal
           cp THIRD_PARTY_NOTICES.txt release-assets/
           cp THIRD_PARTY_SBOM.spdx.json "release-assets/Pasted_${RELEASE_VERSION}_source.spdx.json"
@@ -182,6 +192,10 @@ jobs:
     needs: [metadata, dependency-policy]
     runs-on: ubuntu-22.04
     environment: release-linux
+    env:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      PASTED_UPDATER_PUBLIC_KEY: ${{ secrets.PASTED_UPDATER_PUBLIC_KEY }}
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-node@v7.0.0
@@ -201,11 +215,19 @@ jobs:
             librsvg2-dev \
             patchelf
       - run: npm ci
+      - name: Require updater signing credentials
+        run: |
+          for name in TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD PASTED_UPDATER_PUBLIC_KEY; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Missing release-linux secret: ${name}" >&2
+              exit 1
+            fi
+          done
       - name: Build headless CLI
         run: cargo build --manifest-path src-tauri/Cargo.toml --locked --release --no-default-features --features cli --bin pasted
       - name: Stage CLI for AppImage
         run: npm run stage:cli-sidecar
-      - run: npm run tauri -- build --bundles appimage --config src-tauri/tauri.cli-sidecar.conf.json
+      - run: npm run tauri -- build --bundles appimage --config src-tauri/tauri.release.conf.json
       - name: Extract Linux AppImage payload for SBOM
         run: |
           appimage="$(find src-tauri/target/release/bundle/appimage -name '*.AppImage' -type f -print -quit)"
@@ -237,6 +259,7 @@ jobs:
         run: |
           mkdir -p release-assets
           cp src-tauri/target/release/bundle/appimage/*.AppImage release-assets/
+          cp src-tauri/target/release/bundle/appimage/*.AppImage.sig release-assets/
           cp src-tauri/target/release/pasted release-assets/pasted-linux-x86_64
           cp THIRD_PARTY_NOTICES.txt release-assets/
           cp "$ARTIFACT_SBOM_PATH" "release-assets/Pasted_${RELEASE_VERSION}_linux.artifact.spdx.json"
@@ -252,6 +275,11 @@ jobs:
     name: Windows x86_64 experimental installer
     needs: [metadata, dependency-policy]
     runs-on: windows-latest
+    environment: release-windows
+    env:
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      PASTED_UPDATER_PUBLIC_KEY: ${{ secrets.PASTED_UPDATER_PUBLIC_KEY }}
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-node@v7.0.0
@@ -263,12 +291,20 @@ jobs:
         with:
           workspaces: src-tauri
       - run: npm ci
+      - name: Require updater signing credentials
+        shell: pwsh
+        run: |
+          foreach ($name in @('TAURI_SIGNING_PRIVATE_KEY', 'TAURI_SIGNING_PRIVATE_KEY_PASSWORD', 'PASTED_UPDATER_PUBLIC_KEY')) {
+            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
+              throw "Missing release-windows secret: $name"
+            }
+          }
       - name: Build headless CLI
         run: cargo build --manifest-path src-tauri/Cargo.toml --locked --release --no-default-features --features cli --bin pasted
       - name: Stage CLI for Windows installer
         run: npm run stage:cli-sidecar
       - name: Build unsigned Windows installer
-        run: npm run tauri -- build --bundles nsis --config src-tauri/tauri.cli-sidecar.conf.json
+        run: npm run tauri -- build --bundles nsis --config src-tauri/tauri.release.conf.json
       - name: Extract Windows installer payload for SBOM
         shell: pwsh
         run: |
@@ -298,6 +334,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force release-assets | Out-Null
           Copy-Item src-tauri/target/release/bundle/nsis/*-setup.exe release-assets/
+          Copy-Item src-tauri/target/release/bundle/nsis/*-setup.exe.sig release-assets/
           Copy-Item src-tauri/target/release/pasted.exe release-assets/pasted-windows-x86_64.exe
           Copy-Item THIRD_PARTY_NOTICES.txt release-assets/
           Copy-Item $env:ARTIFACT_SBOM_PATH "release-assets/Pasted_${env:RELEASE_VERSION}_windows.artifact.spdx.json"

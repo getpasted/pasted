@@ -1,0 +1,66 @@
+name: Publish updater feed
+
+on:
+  release:
+    types: [published]
+
+concurrency:
+  group: updater-feed
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    if: startsWith(github.event.release.tag_name, 'v')
+    runs-on: ubuntu-22.04
+    environment: release-publish
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - name: Download immutable version assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: gh release download "$RELEASE_TAG" --dir release-assets --repo "$GITHUB_REPOSITORY"
+      - name: Render signed update manifest
+        env:
+          RELEASE_BODY: ${{ github.event.release.body }}
+          RELEASE_VERSION: ${{ github.event.release.tag_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_PUBLISHED_AT: ${{ github.event.release.published_at }}
+        run: |
+          node -e "require('node:fs').writeFileSync(process.argv[1], process.env.RELEASE_BODY || '')" "$RUNNER_TEMP/release-notes.md"
+          node scripts/render-updater-manifest.js \
+            --version "$RELEASE_VERSION" \
+            --tag "$RELEASE_TAG" \
+            --asset-root release-assets \
+            --output "$RUNNER_TEMP/latest.json" \
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
+            --published-at "$RELEASE_PUBLISHED_AT"
+      - name: Advance protected channel pointers
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          channels=(updater-prerelease)
+          if [[ "$RELEASE_TAG" != *-* ]]; then
+            channels+=(updater-stable)
+          fi
+          for channel in "${channels[@]}"; do
+            if gh release view "$channel" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              gh release upload "$channel" "$RUNNER_TEMP/latest.json#latest.json" \
+                --clobber \
+                --repo "$GITHUB_REPOSITORY"
+            else
+              gh release create "$channel" "$RUNNER_TEMP/latest.json#latest.json" \
+                --target "$GITHUB_SHA" \
+                --prerelease \
+                --latest=false \
+                --title "Pasted updater channel" \
+                --notes "Machine-readable signed update channel. Install Pasted from a versioned release." \
+                --repo "$GITHUB_REPOSITORY"
+            fi
+          done

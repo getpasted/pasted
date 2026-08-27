@@ -21,6 +21,7 @@ pub(super) mod settings;
 pub(super) mod storage;
 pub(super) mod suggestions;
 pub(super) mod transforms;
+pub(super) mod updates;
 
 mod app_lock_support;
 mod common;

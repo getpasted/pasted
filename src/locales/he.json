@@ -2542,5 +2542,20 @@
   "component.settingsSearchHistoryPanel.showingRange": "מציג {start}–{end} מתוך {count}",
   "component.settingsSearchHistoryPanel.previousPage": "הקודם",
   "component.settingsSearchHistoryPanel.nextPage": "הבא",
-  "component.helpView.listAndManageSavedSearchHistory": "הצגה וניהול של היסטוריית החיפוש השמורה"
+  "component.helpView.listAndManageSavedSearchHistory": "הצגה וניהול של היסטוריית החיפוש השמורה",
+  "component.settingsUpdateSection.softwareUpdates": "עדכוני תוכנה",
+  "component.settingsUpdateSection.channelDescription": "עדכונים חתומים מתוך {channel}.",
+  "component.settingsUpdateSection.signedUpdates": "עדכונים חתומים להתקנה זו.",
+  "component.settingsUpdateSection.checking": "מתבצעת בדיקה…",
+  "component.settingsUpdateSection.checkForUpdates": "בדיקת עדכונים…",
+  "component.settingsUpdateSection.unavailableInThisBuild": "עדכונים אוטומטיים אינם זמינים בגרסה זו.",
+  "component.settingsUpdateSection.upToDate": "Pasted {version} מעודכן.",
+  "component.settingsUpdateSection.versionAvailable": "Pasted {version} זמין.",
+  "component.settingsUpdateSection.installing": "מתבצעת התקנה…",
+  "component.settingsUpdateSection.installAndRestart": "התקנה והפעלה מחדש",
+  "component.settingsUpdateSection.installVersion": "להתקין את Pasted {version}?",
+  "component.settingsUpdateSection.installDescription": "Pasted יוריד עדכון חתום, יתקין אותו ויופעל מחדש.",
+  "component.settingsUpdateSection.libraryPreserved": "הספרייה וההגדרות יישארו במקומן.",
+  "component.settingsUpdateSection.prereleaseChannel": "ערוץ גרסאות קדם־הפצה",
+  "component.settingsUpdateSection.stableChannel": "הערוץ היציב"
 }
