@@ -98,7 +98,7 @@ export function VirtualClipList({
       observer.disconnect();
       element.removeEventListener('scroll', update);
     };
-  }, [disabled, scrollRef]);
+  }, [disabled, layout.totalSize, scrollRef]);
 
   const measureClip = useCallback((clipId: number, height: number) => {
     const previous = measuredSizesRef.current.get(clipId);
