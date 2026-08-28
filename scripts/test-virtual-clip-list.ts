@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import {
   createVirtualClipLayout,
@@ -32,5 +33,12 @@ assert.deepEqual(
 );
 assert.ok(estimatedClipCardHeight('small') < estimatedClipCardHeight('medium'));
 assert.ok(estimatedClipCardHeight('medium') < estimatedClipCardHeight('large'));
+
+const componentSource = readFileSync(new URL('../src/components/VirtualClipList.tsx', import.meta.url), 'utf8');
+assert.match(
+  componentSource,
+  /\[disabled, layout\.totalSize, scrollRef\]/,
+  'the viewport must resync after measurements or loaded batches clamp the real scroll offset',
+);
 
 console.log('Virtual clip list tests passed.');
