@@ -77,13 +77,16 @@ Unsigned Windows packages are available from **Desktop builds** for compatibilit
 4. Approve protected GitHub Environments if prompted.
 5. Download and clean-install test the exact draft-release artifacts.
 6. Exercise a signed update from the previous published channel build and verify that a tampered signature is rejected. Because RC5 has no updater, manually install the first updater-bearing RC and prove it can update to a later RC or final candidate before publishing stable 1.0.
-7. Replace the generated changelog-only body with complete release notes, then publish the draft as a pre-release for an RC tag or a full release for a final tag. Publication advances the matching updater feed.
+7. For a stable release, update `docs/RELEASE_ANNOUNCEMENT.md` with a concise standalone announcement in Pasted's marketing voice and replace its `pasted-release` marker with the exact version tag. RC releases do not publish Discussions.
+8. Replace the generated changelog-only body with complete release notes, then publish the draft as a pre-release for an RC tag or a full release for a final tag. Publication advances the matching updater feed. Stable publication also creates the version-matched post in the GitHub Discussions **Announcements** category.
 
 Every published release must be useful without following another link. Include a short introduction, user-facing highlights, the supported download matrix, verification or signing expectations, the issue-reporting link, and the full changelog link. The changelog link supplements these details; it never replaces them.
 
 Use human-friendly release titles such as `Pasted 1.0.0 RC4`. Keep SemVer identifiers such as `v1.0.0-rc.4`, package versions, and generated artifact filenames in their machine-friendly lowercase form.
 
 Publishing also exposes the generated `pasted.rb` release asset. The separate Homebrew tap pulls that public asset on its next scheduled run; see [Homebrew distribution](HOMEBREW.md). No release credential is shared with the tap.
+
+Stable announcement publication is fail-closed and idempotent. The workflow requires `docs/RELEASE_ANNOUNCEMENT.md` to contain exactly one marker matching the published tag, such as `<!-- pasted-release:v1.1.0 -->`; a missing or stale marker fails the job. A rerun finds that marker in recent Discussions and reuses the existing post instead of creating a duplicate. Keep the announcement useful on its own, retain the site's concise and lightly irreverent voice, and link to the immutable versioned release.
 
 Manual dispatch of **Desktop release** exercises native signing and packaging but intentionally does not create a GitHub Release because it has no immutable version tag.
 
