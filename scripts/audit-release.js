@@ -31,6 +31,9 @@ const linuxDockerfile = fs.readFileSync('packaging/linux/Dockerfile', 'utf8');
 const dependabotConfig = fs.readFileSync('.github/dependabot.yml', 'utf8');
 const releaseWorkflow = fs.readFileSync('.github/workflows/desktop-release.yml', 'utf8');
 const updaterFeedWorkflow = fs.readFileSync('.github/workflows/updater-feed.yml', 'utf8');
+const releaseAnnouncementPublisher = fs.readFileSync('scripts/publish-release-announcement.js', 'utf8');
+const releaseAnnouncement = fs.readFileSync('docs/RELEASE_ANNOUNCEMENT.md', 'utf8');
+const releaseAutomationGuide = fs.readFileSync('docs/RELEASE_AUTOMATION.md', 'utf8');
 const desktopBuildWorkflow = fs.readFileSync('.github/workflows/desktop-builds.yml', 'utf8');
 const macosPackageJob = desktopBuildWorkflow.match(
   /\n  package-macos:\n[\s\S]*?(?=\n  package-macos-artifact:)/,
@@ -380,7 +383,9 @@ for (const path of [
   '.github/workflows/desktop-builds.yml',
   '.github/workflows/desktop-release.yml',
   'scripts/render-homebrew-cask.js',
+  'scripts/publish-release-announcement.js',
   'docs/HOMEBREW.md',
+  'docs/RELEASE_ANNOUNCEMENT.md',
 ]) {
   assert.equal(fs.existsSync(path), true, `Missing release asset: ${path}`);
 }
@@ -454,6 +459,33 @@ assert.match(
   updaterFeedWorkflow,
   /release:\s*\n\s*types:\s*\[published\][\s\S]*updater-prerelease[\s\S]*updater-stable/,
   'Published releases must refresh prerelease and stable updater feeds',
+);
+assert.match(
+  updaterFeedWorkflow,
+  /permissions:\s*\n\s*contents:\s*write\s*\n\s*discussions:\s*write/,
+  'The updater workflow must grant only the repository permissions needed to publish feeds and Discussions',
+);
+assert.match(
+  updaterFeedWorkflow,
+  /Publish stable release announcement[\s\S]*if:.*!contains\(github\.event\.release\.tag_name, '-'\)[\s\S]*publish-release-announcement\.js[\s\S]*docs\/RELEASE_ANNOUNCEMENT\.md/,
+  'Stable releases must publish their checked-in Announcement while prereleases skip it',
+);
+assert.match(
+  releaseAnnouncementPublisher,
+  /stableReleaseTag[\s\S]*pasted-release:\$\{tag\}[\s\S]*findExistingAnnouncement[\s\S]*slug === 'announcements'[\s\S]*createDiscussion/,
+  'Release announcement publication must validate stable tags, enforce version markers, and avoid duplicates',
+);
+if (!packageJson.version.includes('-')) {
+  assert.match(
+    releaseAnnouncement,
+    new RegExp(`<!-- pasted-release:v${packageJson.version.replaceAll('.', '\\.')} -->`),
+    'The checked-in stable announcement marker must match the package version',
+  );
+}
+assert.match(
+  releaseAutomationGuide,
+  /RELEASE_ANNOUNCEMENT\.md[\s\S]*Announcements[\s\S]*fail-closed and idempotent/,
+  'The release guide must document stable Announcement preparation and publication safeguards',
 );
 assert.doesNotMatch(
   updaterFeedWorkflow,

@@ -10,6 +10,7 @@ concurrency:
 
 permissions:
   contents: write
+  discussions: write
 
 jobs:
   publish:
@@ -66,3 +67,15 @@ jobs:
                 --repo "$GITHUB_REPOSITORY"
             fi
           done
+      - name: Publish stable release announcement
+        if: ${{ !contains(github.event.release.tag_name, '-') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_NAME: ${{ github.event.release.name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          node scripts/publish-release-announcement.js \
+            --repository "$GITHUB_REPOSITORY" \
+            --tag "$RELEASE_TAG" \
+            --title "$RELEASE_NAME. Copy irresponsibly." \
+            --body-file docs/RELEASE_ANNOUNCEMENT.md
