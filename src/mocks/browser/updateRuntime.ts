@@ -17,11 +17,35 @@ const developmentInstallationDiagnostics = {
   cliPath: '/Applications/Pasted.app/Contents/MacOS/pasted',
 } satisfies InstallationDiagnostics;
 
+const previewUpdate = {
+  currentVersion: '1.0.0-rc.7',
+  channel: 'prerelease',
+  available: true,
+  version: '1.0.0-rc.8',
+  notes: [
+    'Pasted 1.0.0 RC8 polishes the signed update experience.',
+    '',
+    '## Highlights',
+    '',
+    '- Presents GitHub-flavored release notes in a focused dialog.',
+    '- Explains signature verification before installation.',
+    '- Keeps the update preview available for browser-based acceptance testing.',
+  ].join('\n'),
+  pubDate: '2026-08-27T12:00:00Z',
+} as const;
+
+function isUpdatePreviewEnabled() {
+  return new URLSearchParams(window.location.search).has('preview-update');
+}
+
 export function invokeUpdateBrowserMock<T>(cmd: string): T | typeof unhandledValue {
   switch (cmd) {
     case 'get_installation_diagnostics':
       return developmentInstallationDiagnostics as unknown as T;
     case 'get_app_update_status':
+      if (isUpdatePreviewEnabled()) {
+        return { configured: true, enabled: true, ...previewUpdate } as unknown as T;
+      }
       return {
         configured: false,
         enabled: true,
@@ -29,6 +53,7 @@ export function invokeUpdateBrowserMock<T>(cmd: string): T | typeof unhandledVal
         channel: 'stable',
       } as unknown as T;
     case 'check_for_app_update':
+      if (isUpdatePreviewEnabled()) return previewUpdate as unknown as T;
       return {
         currentVersion: '1.0.0',
         channel: 'stable',

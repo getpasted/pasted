@@ -1,11 +1,15 @@
-import { CheckCircle2, Download, Loader2, RefreshCw } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { CheckCircle2, Download, Loader2, RefreshCw, ShieldCheck } from 'lucide-react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 
 import { translate } from '../localization/runtime';
 import type { AppUpdateStatus, AvailableAppUpdate } from '../updateTypes';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { ActionButton } from './AppDialogLayout';
 import { ConfirmationDialog, type ConfirmationDialogRequest } from './ConfirmationDialog';
+
+const ReleaseNotesDialog = lazy(() => import('./ReleaseNotesDialog').then((module) => ({
+  default: module.ReleaseNotesDialog,
+})));
 
 export function SettingsUpdateSection({
   enabled,
@@ -20,6 +24,7 @@ export function SettingsUpdateSection({
   const [installing, setInstalling] = useState(false);
   const [error, setError] = useState('');
   const [confirmation, setConfirmation] = useState<ConfirmationDialogRequest | null>(null);
+  const [showReleaseNotes, setShowReleaseNotes] = useState(false);
 
   useEffect(() => {
     invoke<AppUpdateStatus>('get_app_update_status')
@@ -66,8 +71,19 @@ export function SettingsUpdateSection({
     setConfirmation({
       title: translate('component.settingsUpdateSection.installVersion', { version: update.version }),
       description: translate('component.settingsUpdateSection.installDescription'),
-      details: translate('component.settingsUpdateSection.libraryPreserved'),
+      details: (
+        <div className="theme-surface space-y-2 rounded-xl border p-3">
+          <ul className="list-disc space-y-1 ps-4">
+            <li>{translate('component.settingsUpdateSection.libraryPreserved')}</li>
+            <li>{translate('component.settingsUpdateSection.updateDownloadedAndSignatureVerified')}</li>
+            <li>{translate('component.settingsUpdateSection.signatureMismatchRejected')}</li>
+            <li>{translate('component.settingsUpdateSection.installationCompletesAndRestarts')}</li>
+          </ul>
+        </div>
+      ),
       confirmLabel: translate('component.settingsUpdateSection.installAndRestart'),
+      icon: <ShieldCheck />,
+      tone: 'info',
       onConfirm: installUpdate,
     });
   };
@@ -116,13 +132,21 @@ export function SettingsUpdateSection({
               <div className="theme-title text-sm font-bold">
                 {translate('component.settingsUpdateSection.versionAvailable', { version: update.version })}
               </div>
-              {update.notes && <p className="theme-text-muted mt-1 whitespace-pre-wrap text-xs leading-relaxed">{update.notes}</p>}
+              {update.notes && (
+                <button
+                  type="button"
+                  className="theme-inline-action theme-text-muted mt-1 cursor-pointer text-xs font-semibold underline decoration-transparent underline-offset-2"
+                  onClick={() => setShowReleaseNotes(true)}
+                >
+                  {translate('component.settingsUpdateSection.viewChanges')}
+                </button>
+              )}
             </div>
             <ActionButton variant="solid-primary" disabled={installing} onClick={requestInstall} className="shrink-0">
               {installing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               {installing
                 ? translate('component.settingsUpdateSection.installing')
-                : translate('component.settingsUpdateSection.installAndRestart')}
+                : translate('component.settingsUpdateSection.installAndRestartPrompt')}
             </ActionButton>
           </div>
         </div>
@@ -132,5 +156,13 @@ export function SettingsUpdateSection({
     </div>
 
     <ConfirmationDialog request={confirmation} onCancel={() => setConfirmation(null)} />
+    <Suspense fallback={null}>
+      <ReleaseNotesDialog
+        isOpen={showReleaseNotes && Boolean(update?.notes && update.version)}
+        notes={update?.notes ?? ''}
+        version={update?.version ?? ''}
+        onClose={() => setShowReleaseNotes(false)}
+      />
+    </Suspense>
   </>;
 }
