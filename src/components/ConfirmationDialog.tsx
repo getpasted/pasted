@@ -16,7 +16,8 @@ export interface ConfirmationDialogRequest {
   details?: ReactNode;
   confirmLabel: string;
   confirmDisabled?: boolean;
-  tone?: 'warning' | 'danger';
+  icon?: ReactNode;
+  tone?: 'info' | 'warning' | 'danger';
   onConfirm: () => void | Promise<void>;
 }
 
@@ -31,6 +32,7 @@ export function ConfirmationDialog({
   if (!request) return null;
 
   const tone = request.tone ?? 'warning';
+  const confirmVariant = tone === 'info' ? 'solid-primary' : tone;
   return (
     <AppDialog
       isOpen
@@ -44,7 +46,7 @@ export function ConfirmationDialog({
             id={titleId}
             title={request.title}
             description={request.description}
-            icon={<AlertTriangle />}
+            icon={request.icon ?? <AlertTriangle />}
             tone={tone}
           />
         </AppDialogHeader>
@@ -59,7 +61,7 @@ export function ConfirmationDialog({
         )}
         <AppDialogFooter>
           <AppDialogButton onClick={requestClose} autoFocus>{translate('common.cancel')}</AppDialogButton>
-          <AppDialogButton variant={tone} onClick={request.onConfirm} disabled={request.confirmDisabled}>{request.confirmLabel}</AppDialogButton>
+          <AppDialogButton variant={confirmVariant} onClick={request.onConfirm} disabled={request.confirmDisabled}>{request.confirmLabel}</AppDialogButton>
         </AppDialogFooter>
       </>}
     </AppDialog>
