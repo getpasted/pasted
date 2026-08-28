@@ -450,6 +450,11 @@ assert.match(
   /release:\s*\n\s*types:\s*\[published\][\s\S]*updater-prerelease[\s\S]*updater-stable/,
   'Published releases must refresh prerelease and stable updater feeds',
 );
+assert.doesNotMatch(
+  updaterFeedWorkflow,
+  /gh release create[\s\S]*?--target "\$GITHUB_SHA"/,
+  'Updater channel releases must not target an older release commit with workflow-file differences',
+);
 assert.match(
   macosPackageJob,
   /stage:cli-sidecar:macos-universal[\s\S]*tauri -- build --target universal-apple-darwin --bundles dmg --config src-tauri\/tauri\.cli-sidecar\.conf\.json/,
