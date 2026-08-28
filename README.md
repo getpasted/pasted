@@ -1,5 +1,11 @@
 # Pasted
 
+[![Desktop builds](https://github.com/getpasted/pasted/actions/workflows/desktop-builds.yml/badge.svg?branch=main)](https://github.com/getpasted/pasted/actions/workflows/desktop-builds.yml)
+[![CodeQL](https://github.com/getpasted/pasted/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/getpasted/pasted/actions/workflows/codeql.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+[getpasted.app](https://getpasted.app/)
+
 Pasted is the private, local clipboard workspace for copycats: humans, scripts, automations, and agents working from one shared library.
 
 **No cloud account. No off-device telemetry. No subscription.**
