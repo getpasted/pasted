@@ -53,6 +53,7 @@ function isCompleteClipEvent(payload: ClipItem | { id: number }): payload is Cli
 }
 
 function mergeClipSummary(clips: ClipItem[], incoming: ClipItem) {
+  if (incoming.is_trashed) return clips.filter((clip) => clip.id !== incoming.id);
   const summary = { ...incoming, html_content: null, image_base64: null };
   const existingIndex = clips.findIndex((clip) => clip.id === summary.id);
   const next = existingIndex === -1
@@ -307,7 +308,8 @@ export function useAppData() {
         });
         void fetchClipCollectionSummary();
       } else {
-        // OCR currently emits only an ID after updating the stored clip.
+        // Background processing emits only an ID so this fetch remains
+        // authoritative if the clip was trashed while the event was in flight.
         void fetchClips();
       }
       soundManager.playCopySound();

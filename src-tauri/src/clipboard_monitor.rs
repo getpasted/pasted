@@ -67,7 +67,11 @@ pub fn start_clipboard_monitor(
         };
 
         let mut last_hash = String::new();
-        let mut last_processed_change_marker = None;
+        // The clipboard contents that predate this process are not a new copy.
+        // Baseline the native generation so restarting Pasted cannot revive a
+        // matching clip that the user already moved to Trash.
+        let mut last_processed_change_marker = clipboard_change_marker();
+        let mut initial_snapshot_pending = last_processed_change_marker.is_none();
         let mut auto_paused_app: Option<String> = None;
         let mut recent_image_capture: Option<RecentImageCapture> = None;
 
@@ -233,7 +237,7 @@ pub fn start_clipboard_monitor(
                     active_app: active_app_opt.as_deref(),
                     active_exclusion,
                     source: capture_source.unwrap_or("System Clipboard"),
-                    suppressed: capture_suppressed,
+                    suppressed: capture_suppressed || initial_snapshot_pending,
                 };
                 let coalesced_image = coalesce_with_recent_image
                     .then(|| {
@@ -243,6 +247,7 @@ pub fn start_clipboard_monitor(
                     })
                     .flatten();
                 ingest_files(&context, paths, hash, &mut last_hash, coalesced_image);
+                initial_snapshot_pending = false;
                 continue;
             }
 
@@ -263,7 +268,7 @@ pub fn start_clipboard_monitor(
                         active_app: active_app_opt.as_deref(),
                         active_exclusion,
                         source: capture_source.unwrap_or("System Clipboard"),
-                        suppressed: capture_suppressed,
+                        suppressed: capture_suppressed || initial_snapshot_pending,
                     };
                     ingest_text(
                         &context,
@@ -272,6 +277,7 @@ pub fn start_clipboard_monitor(
                         &mut last_hash,
                         configured_capture_bytes(&db_state),
                     );
+                    initial_snapshot_pending = false;
                     continue;
                 }
             }
@@ -286,7 +292,7 @@ pub fn start_clipboard_monitor(
                     active_app: active_app_opt.as_deref(),
                     active_exclusion,
                     source: capture_source.unwrap_or("System Clipboard"),
-                    suppressed: capture_suppressed,
+                    suppressed: capture_suppressed || initial_snapshot_pending,
                 };
                 let reattribute_source = (is_pasted_source(active_app_opt.as_deref())
                     && recent_image_capture
@@ -303,6 +309,7 @@ pub fn start_clipboard_monitor(
                     configured_capture_bytes(&db_state),
                 );
             }
+            initial_snapshot_pending = false;
         }
     });
 
