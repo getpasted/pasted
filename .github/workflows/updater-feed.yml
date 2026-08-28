@@ -55,8 +55,10 @@ jobs:
                 --clobber \
                 --repo "$GITHUB_REPOSITORY"
             else
+              # Let GitHub target the current default branch. Targeting an older
+              # release commit whose workflows differ from main requires a
+              # Workflows permission that GITHUB_TOKEN cannot receive.
               gh release create "$channel" "$RUNNER_TEMP/latest.json#latest.json" \
-                --target "$GITHUB_SHA" \
                 --prerelease \
                 --latest=false \
                 --title "Pasted updater channel" \
