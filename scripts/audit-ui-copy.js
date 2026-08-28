@@ -262,7 +262,7 @@ for (const [file, labels] of Object.entries({
   'src/components/SettingsGeneralRetentionSections.tsx': ['Delete All Clips…', 'Trash All Clips…'],
   'src/components/SettingsSyncLibrarySection.tsx': ['Move…'],
   'src/components/SettingsSyncExportSection.tsx': ['Export…'],
-  'src/components/SettingsSyncImportSection.tsx': ['Choose File…', 'Recover…'],
+  'src/components/SettingsSyncImportSection.tsx': ['Import…', 'Recover…'],
   'src/components/SettingsResetPanel.tsx': ['Reset Pasted…'],
   'src/components/FactoryResetDialog.tsx': ['Create Full Backup…'],
 })) {

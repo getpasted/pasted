@@ -138,6 +138,8 @@ assert.match(privateBrowserSource, /SettingsSwitch/,
   'The built-in private-browser exclusion must remain independently configurable');
 assert.match(privateBrowserSource, /privateBrowserUnavailablePolicy/,
   'The settings UI must expose the unavailable-detection policy');
+assert.match(privateBrowserSource, /platform-linux-only[^>]*>[\s\S]{0,160}nativeWaylandMayNotExposeTheFocusedBrowser/,
+  'The Wayland App Exclusions note must only be visible on Linux');
 assert.match(pasteTargetSource, /QueryFullProcessImageNameW/,
   'Windows App Exclusions must match the focused executable rather than its changing window title');
 assert.match(pasteTargetSource, /getwindowclassname/,

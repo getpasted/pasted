@@ -100,7 +100,7 @@ export function PrivateBrowserExclusionSection({
             })}
           />
         </div>
-        <p className="theme-text-subtle mt-3 text-[10px] leading-relaxed">
+        <p className="platform-linux-only theme-text-subtle mt-3 text-[10px] leading-relaxed">
           {translate('component.settingsBlacklistPanel.nativeWaylandMayNotExposeTheFocusedBrowser')}
         </p>
       </div>
