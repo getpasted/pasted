@@ -12,6 +12,7 @@ const monitorSource = readRustModuleTree(
   'src-tauri/src/clipboard_monitor.rs',
   'src-tauri/src/clipboard_ingestion',
 );
+const appDataSource = fs.readFileSync('src/hooks/useAppData.ts', 'utf8');
 const exclusionsNativeSource = fs.readFileSync('src-tauri/src/app_exclusions.rs', 'utf8');
 const privateBrowserNativeSource = fs.readFileSync('src-tauri/src/private_browsing.rs', 'utf8');
 const hotkeySource = readRustModuleTree(
@@ -173,6 +174,22 @@ assert.doesNotMatch(
   'Capture feedback must never wait for an animation frame before showing its hidden WebView',
 );
 assert.doesNotMatch(overlaySource, /clip-added/);
+
+assert.match(
+  monitorSource,
+  /last_processed_change_marker = clipboard_change_marker\(\)/,
+  'Clipboard monitoring must baseline the startup generation instead of recapturing stale contents',
+);
+assert.match(
+  monitorSource,
+  /if updated\.is_trashed \{\s*return;\s*\}[\s\S]{0,240}serde_json::json!\(\{ "id": updated\.id \}\)/,
+  'Post-capture processing must not publish trashed clips or stale active snapshots',
+);
+assert.match(
+  appDataSource,
+  /if \(incoming\.is_trashed\) return clips\.filter\(\(clip\) => clip\.id !== incoming\.id\)/,
+  'Active History must defensively discard trashed clip snapshots',
+);
 
 assert.match(monitorSource, /serde_json::json!\(\{ "kind": kind, "clip_id": clip_id \}\)/);
 assert.doesNotMatch(

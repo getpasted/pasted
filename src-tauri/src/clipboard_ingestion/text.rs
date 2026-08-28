@@ -77,7 +77,15 @@ fn apply_smart_bin_transforms(
             );
         }
         if let Ok(updated) = db.get_clip_by_id(clip.id) {
-            let _ = app.emit("clip-added", updated);
+            // The user can move the clip to Trash from capture feedback while
+            // post-capture processing is still running. Do not publish that
+            // stale completion back into the active History collection.
+            if updated.is_trashed {
+                return;
+            }
+            // Reconcile from the database instead of sending a snapshot that
+            // can become active-looking while the event is in flight.
+            let _ = app.emit("clip-added", serde_json::json!({ "id": updated.id }));
         }
     });
 }
