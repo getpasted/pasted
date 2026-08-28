@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, History, LoaderCircle, Play, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LoaderCircle, Play, Search, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { searchHistoryApi } from '../api/searchHistory';
 import { useLocalization } from '../localization/LocalizationProvider';
@@ -84,7 +84,7 @@ export function SettingsSearchHistoryPanel({
   return <>
     <div className="space-y-5 text-xs">
       <SettingsPanelHeader
-        icon={History}
+        icon={Search}
         title={translate('component.settingsSearchHistoryPanel.searchHistory')}
         description={translate('component.settingsSearchHistoryPanel.reviewRerunAndRemoveSearches')}
       />

@@ -38,7 +38,7 @@ export function SettingsSyncImportSection({
       description={translate('component.settingsSyncPanel.chooseAFileToInspectBeforeAnythingChanges')}
       actions={<ActionButton onClick={onChooseFile} disabled={isInspecting || isImporting || isRestoring} className="disabled:opacity-50">
         <Upload className="h-4 w-4" />
-        {inspection ? translate('component.settingsSyncPanel.chooseAnother') : translate('component.settingsSyncPanel.chooseFile')}
+        {inspection ? translate('component.settingsSyncPanel.chooseAnother') : translate('component.settingsSyncPanel.import2')}
       </ActionButton>}
     />
     <div className="theme-surface overflow-hidden rounded-xl border">

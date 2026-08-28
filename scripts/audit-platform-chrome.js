@@ -109,6 +109,7 @@ assert.ok(
   'Platform safe areas must be applied before the first React render',
 );
 assert.match(chromeCss, /html\[data-platform="macos"\] \.platform-macos-only/);
+assert.match(chromeCss, /html\[data-platform="linux"\] \.platform-linux-only/);
 assert.match(chromeCss, /html:not\(\[data-platform="macos"\]\) \.platform-framed-only/);
 const macWindowControlRule = chromeCss.match(/\.mac-window-control \{([\s\S]*?)\n\}/)?.[1] ?? '';
 const activeMacWindowControlRule = chromeCss.match(/\.mac-window-control:active \{([\s\S]*?)\n\}/)?.[1] ?? '';

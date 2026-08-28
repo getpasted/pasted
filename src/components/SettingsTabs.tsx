@@ -1,4 +1,4 @@
-import { Sliders, Command, Shield, Database, Cable, Blocks, Info, Bell, ScanSearch, LockKeyhole, History } from 'lucide-react';
+import { Sliders, Command, Shield, Database, Cable, Blocks, Info, Bell, ScanSearch, LockKeyhole, Search } from 'lucide-react';
 import { translate } from '../localization/runtime';
 import type { SettingsTab } from '../utils/appUiState';
 
@@ -18,7 +18,7 @@ const TABS = [
   { id: 'general', get label() { return translate('component.settingsTabs.general'); }, Icon: Sliders },
   { id: 'security', get label() { return translate('component.settingsTabs.security'); }, Icon: LockKeyhole },
   { id: 'functionality', get label() { return translate('component.settingsTabs.functionality'); }, Icon: Blocks },
-  { id: 'search-history', get label() { return translate('component.settingsTabs.searchHistory'); }, Icon: History },
+  { id: 'search-history', get label() { return translate('component.settingsTabs.searchHistory'); }, Icon: Search },
   { id: 'hotkeys', get label() { return translate('component.settingsTabs.hotkeys'); }, Icon: Command },
   { id: 'notifications', get label() { return translate('component.settingsTabs.notifications'); }, Icon: Bell },
   { id: 'app-exclusions', get label() { return translate('component.settingsTabs.appExclusions'); }, Icon: Shield },

@@ -31,12 +31,17 @@
 
 /* Structural Layout Columns */
 .platform-macos-only,
+.platform-linux-only,
 .platform-framed-only {
   display: none;
 }
 
 html[data-platform="macos"] .platform-macos-only {
   display: flex;
+}
+
+html[data-platform="linux"] .platform-linux-only {
+  display: block;
 }
 
 html:not([data-platform="macos"]) .platform-framed-only {
