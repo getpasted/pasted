@@ -38,6 +38,7 @@ export function SettingsUpdateSection({
   const checkForUpdate = async () => {
     if (!enabled || !status?.enabled) return;
     setChecking(true);
+    setUpdate(null);
     setError('');
     try {
       setUpdate(await invoke<AvailableAppUpdate>('check_for_app_update'));
@@ -71,6 +72,8 @@ export function SettingsUpdateSection({
     });
   };
 
+  const isUpToDate = !checking && update?.available === false;
+
   if (!enabled || status?.enabled === false) {
     return (
       <span className="theme-badge mt-4 rounded-full border px-3 py-1 font-mono text-[10px] font-semibold">
@@ -82,26 +85,26 @@ export function SettingsUpdateSection({
   return <>
     <div className="mt-4 flex w-full max-w-lg flex-col items-center gap-2">
       <ActionButton
+        variant={isUpToDate ? 'success' : 'secondary'}
         aria-label={translate('component.settingsUpdateSection.checkForUpdates')}
-        title={translate('component.settingsUpdateSection.checkForUpdates')}
+        title={isUpToDate
+          ? translate('component.settingsUpdateSection.upToDate', { version: update.currentVersion })
+          : translate('component.settingsUpdateSection.checkForUpdates')}
         disabled={!status?.configured || checking || installing}
         onClick={() => void checkForUpdate()}
         className="theme-badge rounded-full px-3 font-mono text-[10px] disabled:opacity-40"
       >
-        {checking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+        {checking
+          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          : isUpToDate
+            ? <CheckCircle2 className="h-3.5 w-3.5" />
+            : <RefreshCw className="h-3.5 w-3.5" />}
         {versionLabel}
       </ActionButton>
 
       {status && !status.configured && (
         <div className="theme-text-muted text-[10px] leading-relaxed">
           {translate('component.settingsUpdateSection.unavailableInThisBuild')}
-        </div>
-      )}
-
-      {update && !update.available && (
-        <div className="theme-status-success flex items-center gap-2 rounded-xl border px-3 py-2 text-xs">
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
-          {translate('component.settingsUpdateSection.upToDate', { version: update.currentVersion })}
         </div>
       )}
 

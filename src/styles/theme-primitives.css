@@ -1318,6 +1318,12 @@ option {
   color: var(--accent-primary);
 }
 
+.app-dialog-button.is-success {
+  background-color: color-mix(in srgb, var(--status-success) 10%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--status-success) 58%, var(--border-subtle));
+  color: var(--status-success);
+}
+
 .app-dialog-button.is-warning {
   background-color: transparent;
   border-color: color-mix(in srgb, var(--status-warning) 58%, var(--border-input));
@@ -1333,6 +1339,11 @@ option {
 .app-dialog-button.is-primary:hover:not(:disabled) {
   background-color: color-mix(in srgb, var(--accent-primary) 14%, var(--bg-surface));
   border-color: color-mix(in srgb, var(--accent-primary) 82%, var(--border-subtle));
+}
+
+.app-dialog-button.is-success:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--status-success) 16%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--status-success) 82%, var(--border-subtle));
 }
 
 .app-dialog-button.is-warning:hover:not(:disabled) {
