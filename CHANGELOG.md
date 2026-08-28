@@ -6,6 +6,30 @@ Notable user-facing changes to Pasted are recorded here. The project follows sem
 
 No changes yet.
 
+## 1.0.0 — 2026-08-27
+
+Pasted 1.0 is the first stable release of the local, privacy-first clipboard manager for macOS, with preview builds for Linux and experimental unsigned builds for Windows.
+
+- added searchable clipboard history for text, images, screenshots, PDFs, and copied files, with Bins, Smart Bins, pinning, protection, notes, Trash, revisions, Activity, and a persistent Copy Queue;
+- added local Analysis with structural and media inspection, OCR, transcription, visual labels, editable Content Types and Classifiers, and explicit Smart Action suggestions;
+- added deterministic and intelligence-assisted Transforms, including on-device Apple Intelligence on supported Macs and fail-closed structured-output validation across providers;
+- added complete Full Backup and Restore, portable History and Organization transfer, external clipboard-manager imports, and safe database relocation;
+- added shared GUI and CLI domain contracts, stable structured output, scoped Settings resets, and a bundled `pasted` command;
+- added eight complete locales, RTL support, accessible themes, configurable feature gates, App Lock, private-browser exclusions, and bounded privacy-safe diagnostics;
+- added signed, user-confirmed stable and prerelease updates; and
+- added signed, notarized, stapled, and Gatekeeper-verified universal macOS distribution with checksums, dependency policy enforcement, third-party notices, and source plus platform artifact SPDX SBOMs.
+
+See the complete [1.0 release notes](docs/RELEASE_NOTES_1.0.0.md).
+
+## 1.0.0-rc.8 — 2026-08-27
+
+This release candidate completes the signed-update acceptance experience before the stable release:
+
+- moved release notes behind a concise `View changes…` control and rendered them as GitHub-flavored Markdown in a focused dialog;
+- clarified the installation confirmation with signature-verification, mismatch-rejection, library-preservation, and restart expectations;
+- added the initiating ellipsis to `Install and restart…` while keeping the final confirmation action immediate; and
+- localized the complete update experience across every shipped locale and added a repeatable browser preview for acceptance testing.
+
 ## 1.0.0-rc.7 — 2026-08-27
 
 This release candidate exercises the signed prerelease updater introduced in RC6 and tightens final release behavior:

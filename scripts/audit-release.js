@@ -287,6 +287,11 @@ assert.equal(
   'The macOS installer must retain its branded DMG background',
 );
 assert.equal(
+  tauriConfig.bundle?.macOS?.minimumSystemVersion,
+  '13.0',
+  'The macOS bundle must enforce the advertised macOS 13 minimum',
+);
+assert.equal(
   fs.existsSync('src-tauri/dmg/background.png'),
   true,
   'The branded DMG background must exist',
