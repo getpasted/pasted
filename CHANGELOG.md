@@ -6,6 +6,15 @@ Notable user-facing changes to Pasted are recorded here. The project follows sem
 
 No changes yet.
 
+## 1.0.0-rc.7 — 2026-08-27
+
+This release candidate exercises the signed prerelease updater introduced in RC6 and tightens final release behavior:
+
+- repaired cross-platform updater packaging, release-asset assembly, embedded signing configuration, and the mutable prerelease channel so RC6 can discover and install RC7 from immutable signed artifacts;
+- combined the About version and update status control while preserving explicit, user-confirmed update checks;
+- prevented startup clipboard snapshots and delayed post-capture processing from returning trashed clips to active History; and
+- limited the Wayland App Exclusions note to Linux, gave Search History a distinct magnifying-glass icon, and clarified the Storage import action.
+
 ## 1.0.0-rc.6 — 2026-08-27
 
 This release candidate establishes the first signed-update baseline and expands local intelligence:
