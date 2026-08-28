@@ -503,8 +503,8 @@ assert.match(
 );
 assert.match(
   releaseWorkflow,
-  /declare -A asset_by_name[\s\S]*cmp -s "\$existing_asset" "\$asset"[\s\S]*Conflicting release assets share the name/,
-  'The release workflow must deduplicate identical flat asset names and reject conflicting files',
+  /prepare-release-assets\.js release-assets release-assets-flat[\s\S]*find release-assets-flat -type f/,
+  'The release workflow must normalize and validate flat asset names before upload',
 );
 assert.match(
   releaseWorkflow,
