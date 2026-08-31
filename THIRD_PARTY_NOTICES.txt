@@ -529,7 +529,7 @@ Component inventory (586)
 - is-hexadecimal 2.0.1 [npm; MIT] — wooorm/is-hexadecimal
 - is-plain-obj 4.1.0 [npm; MIT] — sindresorhus/is-plain-obj
 - longest-streak 3.1.0 [npm; MIT] — wooorm/longest-streak
-- lucide-react 1.34.0 [npm; ISC] — https://github.com/lucide-icons/lucide
+- lucide-react 1.35.0 [npm; ISC] — https://github.com/lucide-icons/lucide
 - markdown-table 3.0.4 [npm; MIT] — wooorm/markdown-table
 - mdast-util-find-and-replace 3.0.2 [npm; MIT] — syntax-tree/mdast-util-find-and-replace
 - mdast-util-from-markdown 2.0.3 [npm; MIT] — syntax-tree/mdast-util-from-markdown
@@ -8612,7 +8612,7 @@ THIS SOFTWARE.
 ================================================================================
 lucide-react — LICENSE
 License identifier: ISC
-Used by: lucide-react 1.34.0 (npm)
+Used by: lucide-react 1.35.0 (npm)
 --------------------------------------------------------------------------------
 ISC License
 
