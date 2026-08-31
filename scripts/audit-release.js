@@ -584,7 +584,7 @@ assert.match(
   'The release must publish the deterministic dependency-graph SBOM',
 );
 assert.equal(
-  (releaseWorkflow.match(/anchore\/sbom-action@e22c389904149dbc22b58101806040fa8d37a610/g) ?? []).length,
+  (releaseWorkflow.match(/anchore\/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26/g) ?? []).length,
   3,
   'Every release platform must generate an exact-artifact SBOM with the reviewed action revision',
 );
