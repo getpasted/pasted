@@ -39,7 +39,7 @@ for (const key of featureKeys) {
 }
 
 for (const [page, expectedCount] of Object.entries({
-  general: 23,
+  general: 25,
   notifications: 5,
   hotkeys: 17,
   'app-exclusions': 3,

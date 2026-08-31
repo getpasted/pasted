@@ -23,6 +23,8 @@ export interface AppSettings extends FunctionalitySettings, RetentionSettings {
   rowHeight: 'small' | 'medium' | 'large';
   startupView: 'last_active' | 'clip_history';
   themeMode: 'system' | 'dark' | 'cool' | 'warm' | '2894' | 'sauced' | 'vampire' | 'flux' | '808';
+  windowTransparency: number;
+  windowBlur: number;
   hudHotkey?: string;
   seqToggleHotkey?: string;
   seqPopHotkey?: string;

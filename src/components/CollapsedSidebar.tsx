@@ -61,7 +61,7 @@ export function CollapsedSidebar({
       onPointerEnter={onPointerEnter}
       onPointerMove={onPointerMove}
       onPointerLeave={onPointerLeave}
-      className={`w-[100px] col-sidebar h-screen flex flex-col items-center border-e backdrop-blur-xl select-none ${isHoverMuted ? 'suppress-sidebar-hover' : ''}`}
+      className={`w-[100px] col-sidebar h-screen flex flex-col items-center border-e select-none ${isHoverMuted ? 'suppress-sidebar-hover' : ''}`}
     >
       <div
         onMouseDown={startWindowDrag}

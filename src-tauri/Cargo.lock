@@ -3003,6 +3003,7 @@ dependencies = [
  "infer 0.22.0",
  "objc",
  "objc2",
+ "objc2-app-kit",
  "once_cell",
  "parking_lot",
  "plist",
@@ -3358,7 +3359,7 @@ dependencies = [
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

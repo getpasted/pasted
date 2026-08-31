@@ -137,25 +137,25 @@ html:not([data-platform="macos"]) .platform-sidebar-header {
 }
 
 .col-sidebar {
-  background-color: var(--material-sidebar);
+  background-color: color-mix(in srgb, var(--material-sidebar), var(--bg-sidebar) var(--window-opacity));
   border-color: var(--border-subtle);
   color: var(--text-main);
 }
 
 .col-list {
-  background-color: var(--material-list);
+  background-color: color-mix(in srgb, var(--material-list), var(--bg-list) var(--window-opacity));
   border-color: var(--border-subtle);
 }
 
 .col-list-header {
-  background-color: var(--material-toolbar);
+  background-color: color-mix(in srgb, var(--material-toolbar), var(--bg-app) var(--window-opacity));
   border-color: var(--border-subtle);
   color: var(--text-title);
 }
 
 .col-preview-header {
   position: relative;
-  background-color: var(--material-toolbar);
+  background-color: color-mix(in srgb, var(--material-toolbar), var(--bg-app) var(--window-opacity));
   color: var(--text-title);
 }
 
@@ -171,7 +171,7 @@ html:not([data-platform="macos"]) .platform-sidebar-header {
 }
 
 .col-preview {
-  background-color: var(--material-preview);
+  background-color: color-mix(in srgb, var(--material-preview), var(--bg-preview) var(--window-opacity));
   border-color: var(--border-subtle);
   color: var(--text-main);
 }

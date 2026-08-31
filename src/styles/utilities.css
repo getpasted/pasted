@@ -8,10 +8,8 @@
    TOOLS PAGES — SHARED LIGHT/DARK SURFACE CONTRACT
    ======================================================= */
 .tools-page {
-  background-color: var(--material-app);
+  background-color: color-mix(in srgb, var(--material-app), var(--bg-app) var(--window-opacity));
   color: var(--text-main);
-  -webkit-backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturation));
-  backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturation));
 }
 
 /* Transient scroll regions use overlay scrolling where WebKit supports it. */

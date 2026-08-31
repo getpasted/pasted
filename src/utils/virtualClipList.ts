@@ -55,8 +55,9 @@ export function virtualClipIndexes(
 ): number[] {
   const { positions } = layout;
   if (positions.length === 0) return [];
-  const start = firstItemEndingAfter(positions, Math.max(0, scrollTop - overscan));
-  const endOffset = scrollTop + viewportHeight + overscan;
+  const boundedScrollTop = Math.min(Math.max(0, scrollTop), Math.max(0, layout.totalSize - viewportHeight));
+  const start = firstItemEndingAfter(positions, Math.max(0, boundedScrollTop - overscan));
+  const endOffset = boundedScrollTop + viewportHeight + overscan;
   let end = start;
   while (end < positions.length && positions[end].start <= endOffset) end += 1;
   const indexes = new Set<number>();

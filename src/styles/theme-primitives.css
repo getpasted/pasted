@@ -280,7 +280,7 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
 }
 
 .theme-toolbar {
-  background-color: var(--material-toolbar);
+  background-color: color-mix(in srgb, var(--material-toolbar), var(--bg-app) var(--window-opacity));
   border-color: var(--border-subtle);
   color: var(--text-main);
 }
@@ -736,17 +736,16 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   outline-offset: 2px;
 }
 
-/* The native Tauri window supplies the underlying macOS material. These
-   structural surfaces tint it per scheme without stacking blur on every card. */
+/* macOS 26+ supplies one native Liquid Glass container around the webview.
+   Structural surfaces tint it without adding independently composited blur. */
 .app-shell {
-  background-color: var(--material-app);
+  background-color: color-mix(in srgb, var(--material-app), var(--bg-app) var(--window-opacity));
 }
 
-.col-sidebar,
-.col-list,
-.col-preview {
-  -webkit-backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturation));
-  backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturation));
+html[data-platform="macos"][data-window-blur="active"] .app-shell {
+  -webkit-backdrop-filter: blur(var(--window-blur)) saturate(var(--material-saturation));
+  backdrop-filter: blur(var(--window-blur)) saturate(var(--material-saturation));
+  will-change: backdrop-filter;
 }
 
 @media (prefers-reduced-transparency: reduce) {
@@ -757,13 +756,6 @@ html:not(.is-stable-reordering) .connection-priority-card:hover {
   .col-list-header,
   .col-preview-header,
   .theme-toolbar { background-color: var(--bg-app); }
-
-  .col-sidebar,
-  .col-list,
-  .col-preview {
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
 
   .info-popover-content::before {
     background-color: var(--bg-surface);

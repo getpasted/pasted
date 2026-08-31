@@ -30,6 +30,11 @@ assert.deepEqual(
   [0, 1, 2, 4],
   'selected and pinned cards may remain mounted outside the viewport',
 );
+assert.deepEqual(
+  virtualClipIndexes(layout, 10_000, 100, 0),
+  [4],
+  'a stale scroll offset beyond a shrunken layout must still render the visible end of the list',
+);
 assert.ok(estimatedClipCardHeight('small') < estimatedClipCardHeight('medium'));
 assert.ok(estimatedClipCardHeight('medium') < estimatedClipCardHeight('large'));
 

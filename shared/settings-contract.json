@@ -17,6 +17,8 @@
 
     { "key": "language", "owner": "general", "default": "system", "reset": "default", "visibility": "public", "mutation": "direct", "validation": { "type": "language" } },
     { "key": "themeMode", "owner": "general", "default": "system", "reset": "default", "visibility": "public", "mutation": "direct", "validation": { "type": "choice", "values": ["system", "cool", "dark", "warm", "2894", "sauced", "vampire", "flux", "808"] } },
+    { "key": "windowTransparency", "owner": "general", "default": 40, "reset": "default", "visibility": "public", "mutation": "direct", "validation": { "type": "integer", "minimum": 0, "maximum": 100 } },
+    { "key": "windowBlur", "owner": "general", "default": 4, "reset": "default", "visibility": "public", "mutation": "direct", "validation": { "type": "integer", "minimum": 0, "maximum": 30 } },
     { "key": "textSize", "owner": "general", "default": 16, "reset": "default", "visibility": "public", "mutation": "direct", "validation": { "type": "integer", "minimum": 12, "maximum": 24 } },
     { "key": "rowHeight", "owner": "general", "default": "medium", "reset": "default", "visibility": "public", "mutation": "direct", "validation": { "type": "choice", "values": ["small", "medium", "large"] } },
     { "key": "startupView", "owner": "general", "default": "last_active", "reset": "default", "visibility": "public", "mutation": "direct", "validation": { "type": "choice", "values": ["last_active", "clip_history"] } },
