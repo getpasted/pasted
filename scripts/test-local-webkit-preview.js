@@ -12,6 +12,7 @@ const help = spawnSync('bash', [scriptPath, '--help'], { encoding: 'utf8' });
 assert.equal(help.status, 0, help.stderr);
 assert.match(help.stdout, /WebKitBuild\/Release/);
 assert.match(help.stdout, /vmmap confirms/);
+assert.match(help.stdout, /temporary, seeded/);
 
 for (const variable of [
   'DYLD_FRAMEWORK_PATH',
@@ -23,8 +24,13 @@ for (const variable of [
 }
 
 assert.match(source, /cargo build --locked/, 'The preview must build from the reviewed Rust lockfile');
+assert.match(source, /--no-default-features --features cli --bin pasted/, 'The preview must build the CLI used to seed its isolated database');
 assert.match(source, /npm run dev -- --host 127\.0\.0\.1/, 'The preview must bind Vite to loopback');
 assert.match(source, /vmmap "\$app_pid"/, 'The preview must inspect the launched Pasted process');
+assert.match(source, /mktemp -d/, 'The preview must isolate its demonstration database in a temporary directory');
+assert.match(source, /PASTED_PREVIEW_DATABASE_PATH="\$preview_database"/, 'The GUI must use the isolated preview database');
+assert.match(source, /PASTED_DATABASE_PATH="\$preview_database"/, 'The CLI must seed the same isolated preview database');
+assert.match(source, /rm -rf -- "\$preview_root"/, 'The temporary preview database must be removed during cleanup');
 assert.match(source, /kill "\$app_pid"/, 'Interrupted previews must stop the launched application');
 assert.match(source, /kill "\$vite_pid"/, 'Interrupted previews must stop the Vite server');
 
