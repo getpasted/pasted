@@ -2,8 +2,8 @@
   "spdxVersion": "SPDX-2.3",
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
-  "name": "Pasted-1.0.0-distributed-components",
-  "documentNamespace": "https://getpasted.app/sbom/1.0.0/b1bbe603c4af3b3b812eb3c534db393b64f89d8c4994407d268c99ce7725bf3a",
+  "name": "Pasted-1.0.1-distributed-components",
+  "documentNamespace": "https://getpasted.app/sbom/1.0.1/b1bbe603c4af3b3b812eb3c534db393b64f89d8c4994407d268c99ce7725bf3a",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
