@@ -181,7 +181,7 @@ export const QuickHudWindow: React.FC = () => {
         className={`quick-hud-caret ${hudAnchor.flipped ? 'is-bottom' : 'is-top'}`}
         style={{ left: `${hudAnchor.x}px` }}
       />
-      <div className={`quick-hud-shell elevation-floating flex-1 rounded-xl border flex flex-col overflow-hidden no-drag ${hudAnchor.flipped ? 'mb-2' : 'mt-2'}`}>
+      <div className={`quick-hud-shell flex-1 rounded-xl border flex flex-col overflow-hidden no-drag ${hudAnchor.flipped ? 'mb-2' : 'mt-2'}`}>
         {/* Header Bar */}
         <div className="quick-hud-header p-2.5 border-b flex items-center space-x-2 no-drag">
           {features.search && <div className="relative flex-1">
