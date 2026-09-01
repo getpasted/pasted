@@ -101,10 +101,10 @@ jobs:
       security-events: write
     steps:
       - uses: actions/checkout@v7.0.1
-      - uses: github/codeql-action/init@v4.37.8
+      - uses: github/codeql-action/init@v4.37.9
         with:
           languages: actions
-      - uses: github/codeql-action/analyze@v4.37.8
+      - uses: github/codeql-action/analyze@v4.37.9
         with:
           category: /language:actions
 
@@ -119,10 +119,10 @@ jobs:
       security-events: write
     steps:
       - uses: actions/checkout@v7.0.1
-      - uses: github/codeql-action/init@v4.37.8
+      - uses: github/codeql-action/init@v4.37.9
         with:
           languages: javascript-typescript
-      - uses: github/codeql-action/analyze@v4.37.8
+      - uses: github/codeql-action/analyze@v4.37.9
         with:
           category: /language:javascript-typescript
 
@@ -137,11 +137,11 @@ jobs:
       security-events: write
     steps:
       - uses: actions/checkout@v7.0.1
-      - uses: github/codeql-action/init@v4.37.8
+      - uses: github/codeql-action/init@v4.37.9
         with:
           languages: rust
           build-mode: none
-      - uses: github/codeql-action/analyze@v4.37.8
+      - uses: github/codeql-action/analyze@v4.37.9
         with:
           category: /language:rust
 
