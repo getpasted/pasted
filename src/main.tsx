@@ -56,7 +56,7 @@ function ProtectedAppRoot() {
       />
     )}
     {showApp && (
-      <div className={`h-screen w-screen ${appLock.unlockAnimationActive ? 'app-unlock-content' : ''}`}>
+      <div className="h-screen w-screen">
         <ToastProvider><ContentTypeProvider><App /></ContentTypeProvider></ToastProvider>
       </div>
     )}

@@ -23,6 +23,7 @@ const rustLibSource = fs.readFileSync('src-tauri/src/lib.rs', 'utf8');
 const appWindowsSource = fs.readFileSync('src-tauri/src/app_windows.rs', 'utf8');
 const rtlWindowControlsSource = fs.readFileSync('src/components/MacRtlWindowControls.tsx', 'utf8');
 const appLockScreenSource = fs.readFileSync('src/components/AppLockScreen.tsx', 'utf8');
+const appLockCss = fs.readFileSync('src/styles/app-lock.css', 'utf8');
 const hudWindowSource = fs.readFileSync('src-tauri/src/hud_window.rs', 'utf8');
 const hudCommandSource = fs.readFileSync('src-tauri/src/commands/hud.rs', 'utf8');
 const viteSource = fs.readFileSync('vite.config.ts', 'utf8');
@@ -200,6 +201,11 @@ assert.match(
   appLockScreenSource,
   /onDoubleClick=\{handleWindowDragDoubleClick\}/,
   'The locked window must preserve the configured macOS title-bar double-click action',
+);
+assert.doesNotMatch(
+  `${mainSource}\n${appLockCss}`,
+  /app-unlock-content/,
+  'Unlocking must not transform the application shell because WebKit drops its backdrop blur while compositing that layer',
 );
 assert.match(titlebarSource, /AppleActionOnDoubleClick/);
 assert.match(titlebarSource, /TitlebarDoubleClickAction::Minimize/);

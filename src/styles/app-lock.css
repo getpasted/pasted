@@ -10,12 +10,6 @@
   animation: app-lock-screen-exit 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.app-unlock-content {
-  animation: app-unlock-content-enter 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  transform-origin: 50% 50%;
-  will-change: opacity, transform;
-}
-
 .app-lock-mark {
   transform-origin: 50% 60%;
 }
@@ -81,23 +75,10 @@
   100% { opacity: 0; transform: translateZ(0) scale(1.07); }
 }
 
-@keyframes app-unlock-content-enter {
-  from { opacity: 0.18; transform: translateZ(0) scale(0.975); }
-  to { opacity: 1; transform: translateZ(0) scale(1); }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .app-lock-screen.is-unlocking,
-  .app-unlock-content {
-    animation-duration: 180ms;
-  }
-
   .app-lock-screen.is-unlocking {
+    animation-duration: 180ms;
     animation-name: app-lock-reduced-fade;
-  }
-
-  .app-unlock-content {
-    animation-name: app-unlock-reduced-enter;
   }
 
   .app-lock-mark.is-authenticating,
@@ -109,9 +90,4 @@
 @keyframes app-lock-reduced-fade {
   from { opacity: 1; }
   to { opacity: 0; }
-}
-
-@keyframes app-unlock-reduced-enter {
-  from { opacity: 0; }
-  to { opacity: 1; }
 }
