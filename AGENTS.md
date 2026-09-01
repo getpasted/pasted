@@ -44,6 +44,13 @@ Pasted aims to make its meaningful clipboard-management capabilities available t
 - Recheck ratchets after every formatter, generator, test-fixture expansion, or follow-up fix that can change a governed file's measurement. Before committing or pushing, run `npm run test:architecture` and confirm every changed governed file remains within its existing threshold; a previously passing result from before the latest edit does not count.
 - Before opening or updating a pull request or enabling auto-merge, run the same aggregate validation commands used by the applicable CI scopes—currently `npm run test:frontend` for frontend/audit changes and `npm run test:native` for Rust/native changes. Do not substitute a hand-picked subset or describe the branch as ready based only on narrower checks.
 
+## Rust build artifact maintenance
+
+- During substantial Tauri or Rust work, occasionally check the size of `src-tauri/target`; do not clean it after every routine build.
+- If `src-tauri/target` exceeds 20 GiB, or the host is under meaningful disk pressure, run `cargo clean` from `src-tauri` after active builds and tests have finished.
+- Treat the target directory as regenerable build output. Never include source, configuration, release artifacts outside `target`, Cargo registries, or unrelated project caches in this cleanup.
+- Report that the next Rust build will require a full recompile and include the actual disk-space change when cleanup was prompted by disk pressure.
+
 ## Time and timestamp handling
 
 - Store persisted instants as canonical UTC RFC 3339 strings ending in `Z`. Treat legacy SQLite `YYYY-MM-DD HH:MM:SS` values as UTC during a bounded migration; do not silently reinterpret them as local time.
