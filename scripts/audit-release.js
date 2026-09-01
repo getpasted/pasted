@@ -580,6 +580,11 @@ assert.match(
 );
 assert.match(
   releaseWorkflow,
+  /Copy-Item THIRD_PARTY_NOTICES\.txt release-assets\/[\s\S]*?\.Replace\("`r`n", "`n"\)[\s\S]*?WriteAllText\([\s\S]*?UTF8Encoding[\s\S]*?Get-FileHash/,
+  'The Windows checksum manifest must hash the same canonical LF notice uploaded by release assembly',
+);
+assert.match(
+  releaseWorkflow,
   /THIRD_PARTY_SBOM\.spdx\.json.*Pasted_\$\{RELEASE_VERSION\}_source\.spdx\.json/,
   'The release must publish the deterministic dependency-graph SBOM',
 );

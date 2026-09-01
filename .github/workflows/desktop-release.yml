@@ -338,6 +338,9 @@ jobs:
           Copy-Item src-tauri/target/release/pasted.exe release-assets/pasted-windows-x86_64.exe
           Copy-Item THIRD_PARTY_NOTICES.txt release-assets/
           Copy-Item $env:ARTIFACT_SBOM_PATH "release-assets/Pasted_${env:RELEASE_VERSION}_windows.artifact.spdx.json"
+          $noticePath = Join-Path (Resolve-Path release-assets) 'THIRD_PARTY_NOTICES.txt'
+          $noticeContent = [IO.File]::ReadAllText($noticePath).Replace("`r`n", "`n")
+          [IO.File]::WriteAllText($noticePath, $noticeContent, [Text.UTF8Encoding]::new($false))
           $checksumLines = Get-ChildItem release-assets -File | ForEach-Object {
             "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name
           }
