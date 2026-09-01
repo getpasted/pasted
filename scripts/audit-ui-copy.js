@@ -145,8 +145,6 @@ const intentionalProductNameKeys = new Set([
   'native.app.about',
   'native.file.quit',
   'native.tray.quit',
-  'native.tray.show',
-  'native.window.show',
 ]);
 for (const { code, catalog } of localeManifest.locales) {
   const messages = JSON.parse(fs.readFileSync(`src/locales/${catalog}`, 'utf8'));
