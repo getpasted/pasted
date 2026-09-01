@@ -3,7 +3,7 @@
 - `app-icon.png` is the canonical transparent 1024px fallback icon.
 - `app-icon-source.png` retains the generated master before chroma removal.
 - `icons/tray-icon.svg` is the canonical monochrome tray mark.
-- `icons/tray-icon-copycat.svg` documents the optional monochrome Copycat tray mark mirrored by the icon generator.
+- `icons/tray-icon-copycat.svg` is the optional monochrome Copycat tray mark, derived from the head artwork shown on the About page.
 - `Pasted.icon` contains clean layered source artwork for Apple's Icon Composer.
 
 Run `npm run icons:generate` after changing either canonical fallback asset. This

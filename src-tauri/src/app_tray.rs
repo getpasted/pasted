@@ -64,9 +64,9 @@ fn build_menu(app: &tauri::AppHandle, db: &Arc<DbState>) -> tauri::Result<Menu<t
         builder = builder.item(&hud);
     }
     if crate::features::is_enabled(db, crate::features::Feature::Queue) {
-        builder = builder.item(&queue);
+        builder = builder.separator().item(&queue);
     }
-    builder.item(&quit).build()
+    builder.separator().item(&quit).build()
 }
 
 pub(crate) fn refresh_menu(app: &tauri::AppHandle, db: &Arc<DbState>) {
