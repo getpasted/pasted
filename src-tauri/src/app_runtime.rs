@@ -6,16 +6,6 @@ use tauri::{Emitter, Manager};
 
 static EXIT_REQUESTED: AtomicBool = AtomicBool::new(false);
 
-#[cfg(debug_assertions)]
-fn preview_database_path() -> Option<std::path::PathBuf> {
-    std::env::var_os("PASTED_PREVIEW_DATABASE_PATH").map(Into::into)
-}
-
-#[cfg(not(debug_assertions))]
-fn preview_database_path() -> Option<std::path::PathBuf> {
-    None
-}
-
 pub(crate) fn exit_requested() -> bool {
     EXIT_REQUESTED.load(Ordering::SeqCst)
 }
@@ -78,7 +68,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         .path()
         .app_data_dir()
         .unwrap_or_else(|_| std::path::PathBuf::from("./pasted_data"));
-    let preview_database_path = preview_database_path();
+    let preview_database_path = crate::local_webkit_preview::database_path();
     let db_path = preview_database_path
         .clone()
         .unwrap_or_else(|| crate::library_storage::resolve_database_path(&app_dir));

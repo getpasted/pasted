@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 
 const scriptPath = 'scripts/run-with-local-webkit.sh';
 const source = fs.readFileSync(scriptPath, 'utf8');
+const previewSource = fs.readFileSync('src-tauri/src/local_webkit_preview.rs', 'utf8');
 
 const syntax = spawnSync('bash', ['-n', scriptPath], { encoding: 'utf8' });
 assert.equal(syntax.status, 0, syntax.stderr);
@@ -33,5 +34,7 @@ assert.match(source, /PASTED_DATABASE_PATH="\$preview_database"/, 'The CLI must 
 assert.match(source, /rm -rf -- "\$preview_root"/, 'The temporary preview database must be removed during cleanup');
 assert.match(source, /kill "\$app_pid"/, 'Interrupted previews must stop the launched application');
 assert.match(source, /kill "\$vite_pid"/, 'Interrupted previews must stop the Vite server');
+assert.match(previewSource, /#\[cfg\(debug_assertions\)\][\s\S]*PASTED_PREVIEW_DATABASE_PATH/, 'Only debug builds may honor the preview database override');
+assert.match(previewSource, /#\[cfg\(not\(debug_assertions\)\)\][\s\S]*None/, 'Release builds must ignore the preview database override');
 
 console.log('Local WebKit preview launcher checks passed.');
