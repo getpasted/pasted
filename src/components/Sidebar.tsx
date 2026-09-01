@@ -201,7 +201,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
       onPointerEnter={handleSidebarPointerEnter}
       onPointerMove={handleSidebarPointerMove}
       onPointerLeave={handleSidebarPointerLeave}
-      className={`col-sidebar shrink-0 h-screen flex flex-col justify-between backdrop-blur-xl select-none ${isSidebarHoverMuted ? 'suppress-sidebar-hover' : ''}`}
+      className={`col-sidebar shrink-0 h-screen flex flex-col justify-between select-none ${isSidebarHoverMuted ? 'suppress-sidebar-hover' : ''}`}
     >
       <div
         onMouseDown={isClipDragging ? undefined : startWindowDrag}

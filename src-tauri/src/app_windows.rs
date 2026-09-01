@@ -58,7 +58,7 @@ pub(crate) fn configure_initial_windows(
         let _ = main_window.outer_size();
         #[cfg(target_os = "macos")]
         {
-            setup_window_vibrancy(&main_window);
+            setup_window_liquid_glass(&main_window);
             crate::titlebar::install_focus_observers(&main_window)?;
         }
     }
@@ -90,14 +90,23 @@ pub(crate) fn handle_window_event(window: &tauri::Window, event: &tauri::WindowE
 }
 
 #[cfg(target_os = "macos")]
-fn setup_window_vibrancy(window: &tauri::WebviewWindow) {
-    use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial, NSVisualEffectState};
-    let _ = apply_vibrancy(
-        window,
-        NSVisualEffectMaterial::UnderWindowBackground,
-        Some(NSVisualEffectState::Active),
-        Some(12.0),
-    );
+fn setup_window_liquid_glass(window: &tauri::WebviewWindow) {
+    use objc2_app_kit::NSView;
+    use window_vibrancy::{apply_liquid_glass, LiquidGlassOptions, NSGlassEffectViewStyle};
+
+    let glass_window = window.clone();
+    let result = window.with_webview(move |webview| unsafe {
+        let content_view = &*(webview.inner() as *const NSView);
+        let options = LiquidGlassOptions::new(NSGlassEffectViewStyle::Clear)
+            .opaque(false)
+            .content_view(content_view);
+        if let Err(error) = apply_liquid_glass(&glass_window, options) {
+            eprintln!("Could not apply macOS Liquid Glass: {error}");
+        }
+    });
+    if let Err(error) = result {
+        eprintln!("Could not access the macOS webview for Liquid Glass: {error}");
+    }
 }
 
 #[cfg(target_os = "macos")]

@@ -43,6 +43,15 @@ fn contract_is_unique_complete_and_self_validating() {
         default_u64("appLockIdleMinutes"),
         Some(u64::from(crate::app_lock::DEFAULT_IDLE_MINUTES))
     );
+    assert_eq!(default_u64("windowTransparency"), Some(40));
+    assert_eq!(default_u64("windowBlur"), Some(4));
+    assert!(validate_direct_value("windowTransparency", "0").is_ok());
+    assert!(validate_direct_value("windowTransparency", "100").is_ok());
+    assert!(validate_direct_value("windowTransparency", "-1").is_err());
+    assert!(validate_direct_value("windowTransparency", "101").is_err());
+    assert!(validate_direct_value("windowBlur", "0").is_ok());
+    assert!(validate_direct_value("windowBlur", "30").is_ok());
+    assert!(validate_direct_value("windowBlur", "31").is_err());
 }
 
 #[test]

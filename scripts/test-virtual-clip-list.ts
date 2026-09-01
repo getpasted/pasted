@@ -31,13 +31,18 @@ assert.deepEqual(
   [0, 1, 2, 4],
   'selected and pinned cards may remain mounted outside the viewport',
 );
+assert.deepEqual(
+  virtualClipIndexes(layout, 10_000, 100, 0),
+  [4],
+  'a stale scroll offset beyond a shrunken layout must still render the visible end of the list',
+);
 assert.ok(estimatedClipCardHeight('small') < estimatedClipCardHeight('medium'));
 assert.ok(estimatedClipCardHeight('medium') < estimatedClipCardHeight('large'));
 
-const componentSource = readFileSync(new URL('../src/components/VirtualClipList.tsx', import.meta.url), 'utf8');
+const viewportSource = readFileSync(new URL('../src/hooks/useVirtualClipViewport.ts', import.meta.url), 'utf8');
 assert.match(
-  componentSource,
-  /\[disabled, layout\.totalSize, scrollRef\]/,
+  viewportSource,
+  /\[disabled, layoutSize, scrollRef\]/,
   'the viewport must resync after measurements or loaded batches clamp the real scroll offset',
 );
 

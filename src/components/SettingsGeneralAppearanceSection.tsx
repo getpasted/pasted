@@ -1,8 +1,9 @@
 import { Building2, Coffee, Droplet, Drum, Laptop, Moon, Pizza, Snowflake, Zap } from 'lucide-react';
-import { useLocalization } from '../localization/LocalizationProvider';
 import { translate } from '../localization/runtime';
 import type { AppSettings } from '../types';
-import { MenuSelect } from './MenuSelect';
+import { MacWindowTransparencySetting } from './MacWindowTransparencySetting';
+import { SettingsGeneralLocaleSection } from './SettingsGeneralLocaleSection';
+import { SettingsGeneralZoomSetting } from './SettingsGeneralZoomSetting';
 import { SettingsSubsectionHeader } from './SettingsSubsectionHeader';
 const appearanceModes = [
   { value: 'system', get label() { return translate('common.system'); }, Icon: Laptop },
@@ -28,12 +29,12 @@ interface SettingsGeneralAppearanceSectionProps {
 }
 
 export function SettingsGeneralAppearanceSection({ settings, onUpdateSettings }: SettingsGeneralAppearanceSectionProps) {
-  const { t, locales } = useLocalization();
-
   return <div className="space-y-4">
+    <SettingsGeneralLocaleSection settings={settings} onUpdateSettings={onUpdateSettings} />
+    <div className="theme-divider border-t" />
     <SettingsSubsectionHeader
       title={translate('component.settingsGeneralPanel.appearance')}
-      description={translate('component.settingsGeneralPanel.chooseAColorSchemeAndDisplayScale')}
+      description={translate('component.settingsGeneralPanel.chooseAColorSchemeDisplayScaleAndWindowEffects')}
     />
     <div className="flex items-center justify-between pb-1">
       <span className="font-medium">
@@ -61,21 +62,7 @@ export function SettingsGeneralAppearanceSection({ settings, onUpdateSettings }:
         ))}
       </div>
     </div>
-    <div className="flex items-start justify-between gap-4">
-      <div className="min-w-0 flex-1 pe-4">
-        <span className="font-semibold theme-text-main block">{t('settings.general.language.label')}</span>
-        <p className="text-[11px] theme-text-muted leading-normal mt-0.5">{t('settings.general.language.description')}</p>
-      </div>
-      <MenuSelect
-        value={settings.language}
-        options={[
-          { value: 'system', label: t('common.automatic') },
-          ...locales.map(({ code, nativeName }, index) => ({ value: code, label: nativeName, dividerBefore: index === 0 })),
-        ]}
-        onChange={(value) => onUpdateSettings({ language: value })}
-        label={t('settings.general.language.ariaLabel')}
-        className="settings-menu-select shrink-0"
-      />
-    </div>
+    <SettingsGeneralZoomSetting settings={settings} onChange={onUpdateSettings} />
+    <MacWindowTransparencySetting settings={settings} onChange={onUpdateSettings} />
   </div>;
 }

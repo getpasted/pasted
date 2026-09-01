@@ -83,6 +83,8 @@ export function parseSavedSettings(saved: Record<string, string>): AppSettings {
   if (['small', 'medium', 'large'].includes(saved.rowHeight)) next.rowHeight = saved.rowHeight as AppSettings['rowHeight'];
   if (['last_active', 'clip_history'].includes(saved.startupView)) next.startupView = saved.startupView as AppSettings['startupView'];
   if (['system', 'cool', 'dark', 'warm', '2894', 'sauced', 'vampire', 'flux', '808'].includes(saved.themeMode)) next.themeMode = saved.themeMode as AppSettings['themeMode'];
+  if (saved.windowTransparency !== undefined) next.windowTransparency = Math.max(0, Math.min(100, numberValue('windowTransparency', next.windowTransparency)));
+  if (saved.windowBlur !== undefined) next.windowBlur = Math.max(0, Math.min(30, numberValue('windowBlur', next.windowBlur)));
   if (saved.enableActivityLog !== undefined) next.enableActivityLog = saved.enableActivityLog === 'true';
   if (saved.activityLogCapacity !== undefined) next.activityLogCapacity = Math.max(0, numberValue('activityLogCapacity', next.activityLogCapacity ?? 1000));
   if (saved.activityLogAgeDays !== undefined) next.activityLogAgeDays = Math.max(0, numberValue('activityLogAgeDays', next.activityLogAgeDays));

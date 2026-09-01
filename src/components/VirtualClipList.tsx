@@ -1,5 +1,6 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 
+import { useVirtualClipViewport } from '../hooks/useVirtualClipViewport';
 import type { ClipItem } from '../types';
 import {
   createVirtualClipLayout,
@@ -66,39 +67,18 @@ export function VirtualClipList({
 }: VirtualClipListProps) {
   const measuredSizesRef = useRef(new Map<number, number>());
   const [measurementRevision, setMeasurementRevision] = useState(0);
-  const [viewport, setViewport] = useState({ height: 800, scrollTop: 0 });
   const clipIds = useMemo(() => clips.map((clip) => clip.id), [clips]);
   const estimatedSize = estimatedClipCardHeight(rowHeight);
   const layout = useMemo(
     () => createVirtualClipLayout(clipIds, measuredSizesRef.current, estimatedSize, CLIP_GAP),
     [clipIds, estimatedSize, measurementRevision],
   );
+  const viewport = useVirtualClipViewport(scrollRef, disabled, layout.totalSize);
 
   useLayoutEffect(() => {
     measuredSizesRef.current.clear();
     setMeasurementRevision((revision) => revision + 1);
   }, [rowHeight]);
-
-  useLayoutEffect(() => {
-    const element = scrollRef.current;
-    if (!element || disabled) return undefined;
-    let frame = 0;
-    const update = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        setViewport({ height: element.clientHeight, scrollTop: element.scrollTop });
-      });
-    };
-    update();
-    element.addEventListener('scroll', update, { passive: true });
-    const observer = new ResizeObserver(update);
-    observer.observe(element);
-    return () => {
-      cancelAnimationFrame(frame);
-      observer.disconnect();
-      element.removeEventListener('scroll', update);
-    };
-  }, [disabled, layout.totalSize, scrollRef]);
 
   const measureClip = useCallback((clipId: number, height: number) => {
     const previous = measuredSizesRef.current.get(clipId);

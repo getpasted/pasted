@@ -11,6 +11,8 @@ const sidebarSource = [
   'src/components/CollapsedSidebar.tsx',
 ].map((path) => fs.readFileSync(path, 'utf8')).join('\n');
 const chromeCss = fs.readFileSync('src/styles/layout-chrome.css', 'utf8');
+const themePrimitivesCss = fs.readFileSync('src/styles/theme-primitives.css', 'utf8');
+const utilitiesCss = fs.readFileSync('src/styles/utilities.css', 'utf8');
 const cargoManifest = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
 const rustMainSource = fs.readFileSync('src-tauri/src/main.rs', 'utf8');
 const settingsSource = fs.readFileSync('src/hooks/useAppSettings.ts', 'utf8');
@@ -144,6 +146,11 @@ assert.match(mainSource, /markWindowActive[\s\S]*removeAttribute\('data-window-i
 assert.match(mainSource, /addEventListener\('pointerdown', markWindowActive/);
 assert.match(mainSource, /addEventListener\('blur',[\s\S]*setAttribute\('data-window-inactive', ''\)/);
 assert.match(sidebarSource, /sidebar-titlebar-leading/);
+assert.doesNotMatch(
+  sidebarSource,
+  /backdrop-blur/,
+  'The Sidebar must tint the native glass without adding a separate WebKit blur layer',
+);
 assert.match(
   sidebarSource,
   /platform-macos-only h-\[60px\]/,
@@ -204,12 +211,37 @@ assert.match(titlebarSource, /STANDARD_ZOOM_HEIGHT: f64 = 640\.0/);
 assert.match(titlebarSource, /setFrame: next display: 1i8 animate: 0i8/);
 assert.match(titlebarSource, /TitlebarDoubleClickAction::Fill => visible/);
 assert.match(rustLibSource, /commands::platform::perform_titlebar_double_click/);
+assert.doesNotMatch(
+  appWindowsSource,
+  /apply_vibrancy|NSVisualEffectMaterial|backdrop-filter/,
+  'The macOS main window must not restore the legacy vibrancy layer that flickers during window overview animations',
+);
 assert.match(
   appWindowsSource,
-  /NSVisualEffectState::Active/,
-  'macOS vibrancy must not retint the app when the native active-state calculation changes',
+  /LiquidGlassOptions::new\(NSGlassEffectViewStyle::Clear\)[\s\S]*?\.content_view\(content_view\)/,
+  'The macOS webview must be nested inside the modern Liquid Glass content container',
 );
-assert.doesNotMatch(appWindowsSource, /NSVisualEffectState::FollowsWindowActiveState/);
+const baseAppShellRule = themePrimitivesCss.match(/^\.app-shell\s*\{([^}]*)\}/m)?.[1] ?? '';
+assert.doesNotMatch(
+  baseAppShellRule,
+  /backdrop-filter/,
+  'The default application shell must not compete with the native Liquid Glass container',
+);
+assert.match(
+  themePrimitivesCss,
+  /html\[data-platform="macos"\]\[data-window-blur="active"\] \.app-shell\s*\{[^}]*backdrop-filter/,
+  'CSS blur must remain macOS-only and removable at zero',
+);
+assert.doesNotMatch(
+  themePrimitivesCss,
+  /\.col-sidebar,\s*\.col-list,\s*\.col-preview\s*\{[^}]*backdrop-filter/,
+  'Structural columns must tint the native material without independent WebKit backdrop layers',
+);
+assert.doesNotMatch(
+  utilitiesCss,
+  /\.tools-page\s*\{[^}]*backdrop-filter/,
+  'Tools pages must reuse the application-shell material instead of adding a full-panel blur layer',
+);
 assert.match(appWindowsSource, /MAIN_PAGE_LOADED/);
 assert.match(appWindowsSource, /STARTUP_SETUP_READY/);
 assert.match(rustLibSource, /PageLoadEvent::Finished/);

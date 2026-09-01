@@ -3,6 +3,8 @@ import { settingDefault } from './settingsContract.ts';
 
 export const DEFAULT_GENERAL_SETTINGS = {
   language: settingDefault('language'), themeMode: settingDefault('themeMode'),
+  windowTransparency: settingDefault('windowTransparency'),
+  windowBlur: settingDefault('windowBlur'),
   textSize: settingDefault('textSize'), rowHeight: settingDefault('rowHeight'),
   startupView: settingDefault('startupView'), enableSounds: settingDefault('enableSounds'),
   openAtLogin: settingDefault('openAtLogin'), dockMenubarIcon: settingDefault('dockMenubarIcon'),

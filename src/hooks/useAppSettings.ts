@@ -138,6 +138,24 @@ export function useAppSettings() {
   }, [appSettings.textSize]);
 
   useEffect(() => {
+    const root = document.documentElement;
+    const transparency = root.dataset.platform === 'macos'
+      ? Math.max(0, Math.min(100, appSettings.windowTransparency))
+      : 0;
+    root.style.setProperty('--window-transparency', `${transparency}%`);
+  }, [appSettings.windowTransparency]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const blur = root.dataset.platform === 'macos'
+      ? Math.max(0, Math.min(30, appSettings.windowBlur))
+      : 0;
+    root.style.setProperty('--window-blur', `${blur}px`);
+    if (blur > 0) root.dataset.windowBlur = 'active';
+    else delete root.dataset.windowBlur;
+  }, [appSettings.windowBlur]);
+
+  useEffect(() => {
     setConfiguredLanguage(appSettings.language);
   }, [appSettings.language]);
 

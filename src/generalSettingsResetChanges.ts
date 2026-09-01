@@ -10,6 +10,8 @@ type GeneralKey = keyof typeof DEFAULT_GENERAL_SETTINGS;
 const labels: Record<GeneralKey, () => string> = {
   language: () => translate('settings.general.language.label'),
   themeMode: () => translate('component.settingsGeneralPanel.colorScheme'),
+  windowTransparency: () => translate('component.settingsGeneralPanel.windowTransparency'),
+  windowBlur: () => translate('component.settingsGeneralPanel.windowBlur'),
   textSize: () => translate('component.settingsGeneralPanel.zoom'),
   rowHeight: () => translate('component.settingsGeneralPanel.clipDensity'),
   startupView: () => translate('component.settingsGeneralPanel.startupView'),
@@ -65,6 +67,8 @@ function formatValue(key: GeneralKey, value: AppSettings[GeneralKey], locales: r
     ? translate('common.automatic')
     : locales.find(({ code }) => code === value)?.nativeName ?? String(value);
   if (key === 'textSize') return `${appZoomPercent(Number(value))}%`;
+  if (key === 'windowTransparency') return `${value}%`;
+  if (key === 'windowBlur') return `${value}px`;
   if (key.endsWith('AgeDays')) return Number(value) === 0
     ? translate('component.settingsGeneralPanel.forever')
     : translate('format.dayCount', { count: Number(value) });

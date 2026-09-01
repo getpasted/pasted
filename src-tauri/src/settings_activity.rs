@@ -76,6 +76,8 @@ fn friendly_value(key: &str, value: &str) -> Option<String> {
             _ => return None,
         },
         "textSize" => format!("{value}px"),
+        "windowTransparency" => format!("{value}%"),
+        "windowBlur" => format!("{value}px"),
         "maxClipSizeMb" | "filePreviewMaxMb" => format!("{value} MB"),
         "keepClipCount" | "searchHistoryLimit" | "activityLogCapacity" | "trashCapacityCount"
             if value == "0" =>
@@ -149,6 +151,8 @@ fn setting_label(key: &str) -> Option<&'static str> {
         "menubarIconStyle" => Some("Menu bar icon"),
         "filePreviewMode" => Some("File previews"),
         "textSize" => Some("Zoom"),
+        "windowTransparency" => Some("Window transparency"),
+        "windowBlur" => Some("Window blur"),
         "maxClipSizeMb" => Some("Clip size limit"),
         "filePreviewMaxMb" => Some("File preview limit"),
         "keepClipCount" => Some("History limit"),

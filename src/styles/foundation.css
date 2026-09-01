@@ -16,6 +16,9 @@ bdi {
 }
 
 :root {
+  --window-transparency: 0%;
+  --window-opacity: calc(100% - var(--window-transparency));
+  --window-blur: 0px;
   --mac-traffic-close: #ff5f57;
   --mac-traffic-minimize: #febc2e;
   --mac-traffic-zoom: #28c840;
@@ -33,6 +36,10 @@ bdi {
   --elevation-modal: 0 18px 48px color-mix(in srgb, var(--shadow-color) 52%, transparent);
   --elevation-inset: inset 0 1px 3px color-mix(in srgb, var(--shadow-color) 22%, transparent);
   --elevation-object: 0 12px 30px color-mix(in srgb, var(--shadow-color) 36%, transparent);
+}
+
+html[data-platform="macos"] {
+  --window-transparency: 40%;
 }
 
 html[dir="rtl"] .tracking-tight,
