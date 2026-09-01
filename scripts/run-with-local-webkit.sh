@@ -9,7 +9,8 @@ Usage: npm run dev:local-webkit -- /absolute/path/to/WebKitBuild/Release
 Builds the Pasted debug application, starts its Vite frontend, and launches the
 application directly with a local WebKit build selected for both the app and its
 XPC services. The script exits unless vmmap confirms that Pasted loaded that
-WebKit.framework instead of the system framework.
+WebKit.framework instead of the system framework. It uses a temporary, seeded
+database and pauses clipboard capture so private Pasted history cannot appear.
 
 Set PASTED_LOCAL_WEBKIT_SKIP_BUILD=1 to reuse an existing debug application.
 EOF
@@ -44,8 +45,12 @@ fi
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 app_binary="$repo_root/src-tauri/target/debug/pasted-app"
+cli_binary="$repo_root/src-tauri/target/debug/pasted"
+preview_parent="${TMPDIR:-/tmp}"
+preview_parent="${preview_parent%/}"
 vite_pid=""
 app_pid=""
+preview_root=""
 
 cleanup() {
   local status=$?
@@ -57,6 +62,9 @@ cleanup() {
   if [[ -n "$vite_pid" ]] && kill -0 "$vite_pid" 2>/dev/null; then
     kill "$vite_pid" 2>/dev/null || true
     wait "$vite_pid" 2>/dev/null || true
+  fi
+  if [[ -n "$preview_root" && "$preview_root" == "$preview_parent/pasted-local-webkit."* ]]; then
+    rm -rf -- "$preview_root"
   fi
   exit "$status"
 }
@@ -70,12 +78,26 @@ if [[ "${PASTED_LOCAL_WEBKIT_SKIP_BUILD:-0}" != "1" ]]; then
     exit 1
   fi
   cargo build --locked --manifest-path src-tauri/Cargo.toml --bin pasted-app
+  cargo build --locked --manifest-path src-tauri/Cargo.toml --no-default-features --features cli --bin pasted
 fi
 
-if [[ ! -x "$app_binary" ]]; then
-  echo "Pasted's debug application was not found at $app_binary." >&2
+if [[ ! -x "$app_binary" || ! -x "$cli_binary" ]]; then
+  echo "Pasted's debug application and CLI were not found in src-tauri/target/debug." >&2
   exit 1
 fi
+
+preview_root="$(mktemp -d "$preview_parent/pasted-local-webkit.XXXXXX")"
+preview_database="$preview_root/pasted.db"
+preview_seed="$preview_root/demo-clips.csv"
+printf '%s\n' \
+  'id,content_type,source,is_pinned,created_at,name,text_content' \
+  '1,"text","Pasted Demo",true,"2026-09-01T18:00:00Z","Release engineering","Ship it, but make the pixels behave first."' \
+  '2,"text","Pasted Demo",false,"2026-09-01T18:01:00Z","WebKit field notes","Yellow and cyan have agreed to remain perfectly still."' \
+  '3,"text","Pasted Demo",false,"2026-09-01T18:02:00Z","Important research","Can a window corner outrun a layout viewport? Not anymore."' \
+  '4,"text","Pasted Demo",false,"2026-09-01T18:03:00Z","Extremely official memo","This clipboard contains zero secrets and several excellent rectangles."' \
+  > "$preview_seed"
+PASTED_DATABASE_PATH="$preview_database" \
+  "$cli_binary" clip import "$preview_seed" --format csv >/dev/null
 
 npm run dev -- --host 127.0.0.1 &
 vite_pid=$!
@@ -102,7 +124,8 @@ env \
   __XPC_DYLD_FRAMEWORK_PATH="$webkit_build" \
   DYLD_LIBRARY_PATH="$webkit_build" \
   __XPC_DYLD_LIBRARY_PATH="$webkit_build" \
-  "$app_binary" &
+  PASTED_PREVIEW_DATABASE_PATH="$preview_database" \
+  "$app_binary" --skip-welcome &
 app_pid=$!
 
 verified_path=""
