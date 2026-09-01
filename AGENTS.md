@@ -44,6 +44,17 @@ Pasted aims to make its meaningful clipboard-management capabilities available t
 - Recheck ratchets after every formatter, generator, test-fixture expansion, or follow-up fix that can change a governed file's measurement. Before committing or pushing, run `npm run test:architecture` and confirm every changed governed file remains within its existing threshold; a previously passing result from before the latest edit does not count.
 - Before opening or updating a pull request or enabling auto-merge, run the same aggregate validation commands used by the applicable CI scopes—currently `npm run test:frontend` for frontend/audit changes and `npm run test:native` for Rust/native changes. Do not substitute a hand-picked subset or describe the branch as ready based only on narrower checks.
 
+## Git and GitHub workflow
+
+- Start each new effort from a clean worktree. If unrelated changes are present, preserve them and stop or isolate them; never stash, reset, overwrite, commit, or delete work merely to make the tree clean without confirming ownership and intent.
+- Before creating a branch in the primary checkout, run `git fetch --prune origin`, switch to `main`, update it with `git pull --ff-only origin main`, and create a fresh `codex/<topic>` branch. When another worktree owns `main`, create the new worktree or branch directly from current `origin/main` instead of reusing a stale feature branch.
+- Keep one effort per branch and pull request. Never continue new work on a branch whose pull request merged or closed, especially after a squash merge. Before pushing, inspect the diff against `origin/main` and confirm that the branch contains only the intended commits and files.
+- Never force-push `main` or a shared branch. Use `--force-with-lease` only on an owned feature branch after a deliberate rebase and after resolving the exact remote branch state.
+- Keep pull request titles and summaries aligned with the actual diff, list the validation that actually ran, and use issue-closing language such as `Closes #123` only when the change fully resolves that issue. Do not create, edit, label, close, or reopen GitHub issues unless the user has requested that state change.
+- Inspect failed required checks before rerunning them. Fix failures caused by the branch, report genuinely external or flaky failures, and never bypass, weaken, or dismiss required checks merely to merge.
+- After GitHub confirms a pull request merged, treat that confirmation as authorization to clean up its local feature branch: ensure the worktree is clean, switch away from the branch, confirm no linked worktree uses it, then delete the local branch and prune stale remote-tracking refs. Because squash-merged branches are not ancestors of `main`, do not rely only on `git branch --merged`; verify the pull request state first.
+- Never delete an open, unmerged, unverified, currently checked-out, worktree-bound, or unpublished branch. If any branch contains commits or changes whose remote or pull-request status is uncertain, preserve it and investigate rather than guessing.
+
 ## Rust build artifact maintenance
 
 - During substantial Tauri or Rust work, occasionally check the size of `src-tauri/target`; do not clean it after every routine build.
