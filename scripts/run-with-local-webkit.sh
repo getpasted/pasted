@@ -13,6 +13,10 @@ WebKit.framework instead of the system framework. It uses a temporary, seeded
 database and pauses clipboard capture so private Pasted history cannot appear.
 
 Set PASTED_LOCAL_WEBKIT_SKIP_BUILD=1 to reuse an existing debug application.
+Set PASTED_LOCAL_WEBKIT_FULL_RATE=1 to disable WebKit's near-60-fps preference
+inside the privacy-isolated preview only.
+Set PASTED_LOCAL_WEBKIT_DISABLE_BLUR=1 to disable Pasted's CSS window blur in
+the temporary database for paint-cost comparison.
 EOF
 }
 
@@ -98,6 +102,11 @@ printf '%s\n' \
   > "$preview_seed"
 PASTED_DATABASE_PATH="$preview_database" \
   "$cli_binary" clip import "$preview_seed" --format csv >/dev/null
+
+if [[ "${PASTED_LOCAL_WEBKIT_DISABLE_BLUR:-0}" == "1" ]]; then
+  sqlite3 "$preview_database" \
+    "INSERT INTO settings (key, value) VALUES ('windowBlur', '0') ON CONFLICT(key) DO UPDATE SET value = excluded.value;"
+fi
 
 npm run dev -- --host 127.0.0.1 &
 vite_pid=$!

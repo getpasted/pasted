@@ -31,6 +31,9 @@ assert.match(source, /vmmap "\$app_pid"/, 'The preview must inspect the launched
 assert.match(source, /mktemp -d/, 'The preview must isolate its demonstration database in a temporary directory');
 assert.match(source, /PASTED_PREVIEW_DATABASE_PATH="\$preview_database"/, 'The GUI must use the isolated preview database');
 assert.match(source, /PASTED_DATABASE_PATH="\$preview_database"/, 'The CLI must seed the same isolated preview database');
+assert.match(source, /PASTED_LOCAL_WEBKIT_FULL_RATE=1/, 'The preview must document its explicit full-rate test switch');
+assert.match(source, /PASTED_LOCAL_WEBKIT_DISABLE_BLUR=1/, 'The preview must document its isolated blur comparison switch');
+assert.match(source, /VALUES \('windowBlur', '0'\)/, 'The blur comparison must affect only the temporary preview database');
 assert.match(source, /rm -rf -- "\$preview_root"/, 'The temporary preview database must be removed during cleanup');
 assert.match(source, /kill "\$app_pid"/, 'Interrupted previews must stop the launched application');
 assert.match(source, /kill "\$vite_pid"/, 'Interrupted previews must stop the Vite server');
@@ -39,5 +42,8 @@ assert.match(previewSource, /#\[cfg\(not\(debug_assertions\)\)\][\s\S]*None/, 'R
 assert.match(previewSource, /is_absolute\(\)[\s\S]*pasted\.db/, 'The debug override must reject relative or unexpected database paths');
 assert.match(previewSource, /canonical_parent\.parent\(\)[\s\S]*pasted-local-webkit\./, 'The debug override must stay inside a script-managed temporary directory');
 assert.match(previewSource, /file_type\(\)\.is_symlink\(\)/, 'The debug override must reject database symlinks');
+assert.match(previewSource, /has_valid_preview_database/, 'Full-rate rendering must require a validated isolated preview database');
+assert.match(previewSource, /PASTED_LOCAL_WEBKIT_FULL_RATE/, 'Full-rate rendering must require its explicit preview switch');
+assert.match(previewSource, /PreferPageRenderingUpdatesNear60FPSEnabled/, 'The preview must target only WebKit\'s existing near-60-fps preference');
 
 console.log('Local WebKit preview launcher checks passed.');
