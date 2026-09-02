@@ -36,5 +36,8 @@ assert.match(source, /kill "\$app_pid"/, 'Interrupted previews must stop the lau
 assert.match(source, /kill "\$vite_pid"/, 'Interrupted previews must stop the Vite server');
 assert.match(previewSource, /#\[cfg\(debug_assertions\)\][\s\S]*PASTED_PREVIEW_DATABASE_PATH/, 'Only debug builds may honor the preview database override');
 assert.match(previewSource, /#\[cfg\(not\(debug_assertions\)\)\][\s\S]*None/, 'Release builds must ignore the preview database override');
+assert.match(previewSource, /is_absolute\(\)[\s\S]*pasted\.db/, 'The debug override must reject relative or unexpected database paths');
+assert.match(previewSource, /canonical_parent\.parent\(\)[\s\S]*pasted-local-webkit\./, 'The debug override must stay inside a script-managed temporary directory');
+assert.match(previewSource, /file_type\(\)\.is_symlink\(\)/, 'The debug override must reject database symlinks');
 
 console.log('Local WebKit preview launcher checks passed.');

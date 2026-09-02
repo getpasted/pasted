@@ -68,7 +68,8 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         .path()
         .app_data_dir()
         .unwrap_or_else(|_| std::path::PathBuf::from("./pasted_data"));
-    let preview_database_path = crate::local_webkit_preview::database_path();
+    let preview_database_path =
+        crate::local_webkit_preview::database_path().map_err(std::io::Error::other)?;
     let db_path = preview_database_path
         .clone()
         .unwrap_or_else(|| crate::library_storage::resolve_database_path(&app_dir));
