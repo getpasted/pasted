@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:local-webkit": "bash scripts/run-with-local-webkit.sh",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "cargo test --manifest-path src-tauri/Cargo.toml",
@@ -29,7 +30,7 @@
     "test:transformations": "node --experimental-strip-types scripts/test-manual-transform-step-model.ts && node scripts/audit-transformations.js",
     "test:activity": "node scripts/audit-activity-events.js",
     "test:backup": "node --experimental-strip-types scripts/test-backup-client-state.js && node --experimental-strip-types scripts/test-app-ui-state.ts && node scripts/audit-full-backup.js",
-    "test:platform": "node scripts/audit-platform-chrome.js",
+    "test:platform": "node scripts/test-local-webkit-preview.js && node scripts/audit-platform-chrome.js",
     "test:feedback": "node scripts/audit-capture-feedback.js",
     "test:app-lock": "node --experimental-strip-types scripts/test-app-lock-idle.ts",
     "bench:analysis": "cargo run --release --manifest-path src-tauri/Cargo.toml --example analysis_baseline --",
