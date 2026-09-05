@@ -149,7 +149,7 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_autostart::init(
-            tauri_plugin_autostart::MacosLauncher::AppleScript,
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--autostart"]),
         ))
         .on_page_load(|webview, payload| {

@@ -91,6 +91,17 @@ assert.equal(security.csp['frame-src'], "'none'", 'CSP must block framed content
 
 assert.ok(!capability.permissions.includes('opener:default'), 'Unused opener permission must not return');
 assert.ok(!packageJson.dependencies?.['@tauri-apps/plugin-opener'], 'Unused opener dependency must not return');
+for (const permission of ['autostart:allow-enable', 'autostart:allow-disable']) {
+  assert.ok(
+    capability.permissions.includes(permission),
+    `The Launch automatically setting requires ${permission}`,
+  );
+}
+assert.match(
+  rustSource,
+  /MacosLauncher::LaunchAgent,[\s\S]{0,80}Some\(vec!\["--autostart"\]\)/,
+  'macOS autostart must preserve the startup marker through the LaunchAgent backend',
+);
 assert.ok(
   !capability.permissions.some((permission) => permission.startsWith('shell:')),
   'The webview must not receive Tauri shell permissions',
