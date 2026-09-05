@@ -23,6 +23,8 @@
     "core:window:allow-set-focusable",
     "core:window:allow-show",
     "core:window:allow-hide",
+    "autostart:allow-enable",
+    "autostart:allow-disable",
     "global-shortcut:allow-register",
     "global-shortcut:allow-unregister",
     "global-shortcut:allow-is-registered"
