@@ -1992,7 +1992,7 @@
   "component.welcomeSetup.useTheInterfaceDirectlyTheCliFromAScriptOrTheShared": "Utilisez directement l'interface, la CLI à partir d'un script ou la bibliothèque partagée comme contexte pour un agent.",
   "component.welcomeSetup.welcomeCopycat": "Bienvenue, \"clippeur\".",
   "component.welcomeSetup.youCanChangeThisHotkeyLaterInSettingsHotkeys": "Vous pouvez modifier ce raccourci plus tard dans les paramètres → Raccourcis clavier.",
-  "component.welcomeSetup.yourClipboardIsNoneOfOurBusiness": "L’historique du presse-papiers ne regarde personne d’autre",
+  "component.welcomeSetup.yourClipboardIsNoneOfOurBusiness": "L’historique du presse-papiers ne regarde personne",
   "component.welcomeSetup.yourClipboardLibraryStaysOnThisComputerUnlessYouExplicitlyExportMove": "Votre bibliothèque de presse-papiers reste sur cet ordinateur, sauf si vous exportez, déplacez ou envoyez explicitement quelque chose.",
   "destination.activity": "Activité",
   "destination.help": "Aide",

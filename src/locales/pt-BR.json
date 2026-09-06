@@ -1992,7 +1992,7 @@
   "component.welcomeSetup.useTheInterfaceDirectlyTheCliFromAScriptOrTheShared": "Utilize a interface diretamente, a linha de comando a partir de um script ou a biblioteca compartilhada como contexto para um agente.",
   "component.welcomeSetup.welcomeCopycat": "Bem-vindo, copião.",
   "component.welcomeSetup.youCanChangeThisHotkeyLaterInSettingsHotkeys": "Você pode alterar esta atalho posteriormente nas Configurações → Atalhos de Teclado.",
-  "component.welcomeSetup.yourClipboardIsNoneOfOurBusiness": "O histórico da área de transferência não diz respeito a mais ninguém",
+  "component.welcomeSetup.yourClipboardIsNoneOfOurBusiness": "O histórico da área de transferência não diz respeito a ninguém",
   "component.welcomeSetup.yourClipboardLibraryStaysOnThisComputerUnlessYouExplicitlyExportMove": "Sua biblioteca de área de transferência permanece neste computador, a menos que você exporte, mova ou envie algo explicitamente.",
   "destination.activity": "Atividade",
   "destination.help": "Ajuda",

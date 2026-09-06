@@ -2028,7 +2028,7 @@
   "component.welcomeSetup.useTheInterfaceDirectlyTheCliFromAScriptOrTheShared": "استخدم الواجهة مباشرةً، أو سطر الأوامر من نص برمجي، أو المكتبة المشتركة كنطاق لبرنامج وكيل.",
   "component.welcomeSetup.welcomeCopycat": "مرحبًا، نسخة!",
   "component.welcomeSetup.youCanChangeThisHotkeyLaterInSettingsHotkeys": "يمكنك تغيير هذا الاختصار لاحقًا في إعدادات → اختصارات لوحة المفاتيح.",
-  "component.welcomeSetup.yourClipboardIsNoneOfOurBusiness": "سجل الحافظة ليس من شأن أي طرف آخر",
+  "component.welcomeSetup.yourClipboardIsNoneOfOurBusiness": "سجل الحافظة ليس من شأن أحد",
   "component.welcomeSetup.yourClipboardLibraryStaysOnThisComputerUnlessYouExplicitlyExportMove": "تبقى مكتبة النسخ واللصق الخاصة بك على هذا الجهاز ما لم تقوم بتصديرها أو نقلها أو إرسال شيء ما بشكل صريح.",
   "destination.activity": "النشاط",
   "destination.help": "مساعدة",
