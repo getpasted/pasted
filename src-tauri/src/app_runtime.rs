@@ -68,7 +68,11 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         .path()
         .app_data_dir()
         .unwrap_or_else(|_| std::path::PathBuf::from("./pasted_data"));
-    let db_path = crate::library_storage::resolve_database_path(&app_dir);
+    let preview_database_path =
+        crate::local_webkit_preview::database_path().map_err(std::io::Error::other)?;
+    let db_path = preview_database_path
+        .clone()
+        .unwrap_or_else(|| crate::library_storage::resolve_database_path(&app_dir));
     let db_state =
         Arc::new(crate::db::DbState::new(db_path).expect("Failed to initialize SQLite database"));
     if startup_args
@@ -118,6 +122,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         db_state.clone(),
         queue_state,
         ocr_service,
+        preview_database_path.is_some(),
     );
     app.manage(Arc::new(crate::clipboard_monitor::ClipboardMonitorState {
         is_manually_paused: monitor_handle.is_manually_paused.clone(),

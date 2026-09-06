@@ -70,6 +70,8 @@ pub mod library_storage;
 #[cfg(all(feature = "gui", target_os = "linux"))]
 mod linux_native_theme;
 pub mod live_app;
+#[cfg(feature = "gui")]
+mod local_webkit_preview;
 pub mod localization;
 pub mod manual_transform_service;
 pub mod ocr;
