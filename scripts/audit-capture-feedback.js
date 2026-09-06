@@ -43,6 +43,25 @@ const capabilitiesSource = fs.readFileSync('src-tauri/capabilities/default.json'
 const englishCatalog = JSON.parse(fs.readFileSync('src/locales/en.json', 'utf8'));
 
 const feedbackWindow = config.app.windows.find(({ label }) => label === 'capture-feedback');
+const macConfig = JSON.parse(fs.readFileSync('src-tauri/tauri.macos.conf.json', 'utf8'));
+const macFeedbackWindow = macConfig.app.windows.find(({ label }) => label === 'capture-feedback');
+assert.equal(macFeedbackWindow.focus, false);
+assert.equal(macFeedbackWindow.focusable, false);
+assert.equal(macFeedbackWindow.acceptFirstMouse, true,
+  'Capture feedback controls must respond without activating Pasted first');
+const nativeWindows = fs.readFileSync('src-tauri/src/app_windows.rs', 'utf8');
+const activationSource = fs.readFileSync('src-tauri/src/app_windows/capture_feedback.rs', 'utf8');
+assert.match(nativeWindows, /capture_feedback::prevent_app_activation\(app\)/);
+assert.match(activationSource, /get_webview_window\("capture-feedback"\)/);
+assert.doesNotMatch(activationSource, /get_webview_window\("(?:main|hud)"\)/);
+assert.match(activationSource, /msg_send!\[window, _setPreventsActivation: true\]/,
+  'Capture feedback must prevent application activation as well as keyboard focus');
+assert.doesNotMatch(activationSource, /set_class\(|ClassBuilder|class_addMethod/,
+  'Capture feedback must preserve the native KVO class to avoid startup crashes');
+assert.match(activationSource, /respondsToSelector: sel!\(_setPreventsActivation:\)/,
+  'The private native activation setting must be availability checked');
+assert.match(activationSource, /setCanHide: false/,
+  'Capture feedback must remain independent of application hiding');
 assert.ok(feedbackWindow, 'Capture feedback needs a dedicated window');
 assert.equal(feedbackWindow.visible, false, 'Capture feedback must start hidden');
 assert.equal(feedbackWindow.focus, false, 'Capture feedback must not steal focus');
