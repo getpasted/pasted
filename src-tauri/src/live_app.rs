@@ -178,6 +178,12 @@ fn read_and_execute(
         ));
     }
     let request_id = request.request_id.clone();
+    if app.try_state::<Arc<crate::db::DbState>>().is_none() {
+        return Err((
+            request_id,
+            "The saved library is unavailable. Open Pasted to retry or recover it.".into(),
+        ));
+    }
     execute(app, request.command, allow_recovery_reset)
         .map(|result| (request_id.clone(), result))
         .map_err(|error| (request_id, error))

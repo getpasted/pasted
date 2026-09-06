@@ -18,6 +18,7 @@ pub(super) mod registry;
 pub(super) mod retention;
 pub(super) mod search_history;
 pub(super) mod settings;
+pub(super) mod snapshots;
 pub(super) mod storage;
 pub(super) mod suggestions;
 pub(super) mod transforms;

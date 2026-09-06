@@ -4,7 +4,10 @@ Notable user-facing changes to Pasted are recorded here. The project follows sem
 
 ## Unreleased
 
-No changes yet.
+- added configurable automatic Snapshots when new clips arrive, with immediate creation, live countdown and list updates, restore, deletion, Full Backup export, and matching `pasted snapshots` commands;
+- added fault-tolerant startup for moved or unavailable libraries, including verified Snapshot recovery, preservation of failed library files, and a clean default-library fallback with an informative Storage notice;
+- reorganized Functionality controls around Storage, omitted disabled migration from welcome setup, and made Factory Reset remove automatic Snapshots while preserving manually exported Full Backups; and
+- kept capture-notification interaction independent from main-window visibility so clicking a notification no longer brings a covered Pasted window forward.
 
 ## 1.0.0 — 2026-08-27
 

@@ -43,7 +43,6 @@ export function SettingsDestination({ controller }: { controller: AppController 
     onResetColumnWidths={layout.resetColumnWidths}
     activeTab={navigation.activeSettingsTab}
     onActiveTabChange={navigation.setActiveSettingsTab}
-    onOpenAnalytics={() => handlers.handleSidebarNavigate('analytics')}
     onSearchClips={(clipIds) => {
       navigation.setSearchQuery(ocrStatusSearchQuery(clipIds));
       handlers.handleSidebarNavigate('search');

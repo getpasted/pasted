@@ -17,8 +17,9 @@ pub(crate) fn request_app_exit(app: &tauri::AppHandle) {
     for window in app.webview_windows().values() {
         let _ = window.hide();
     }
-    let db = app.state::<Arc<crate::db::DbState>>();
-    let _ = db.log_activity("app_exit_requested", "Quit Pasted");
+    if let Some(db) = app.try_state::<Arc<crate::db::DbState>>() {
+        let _ = db.log_activity("app_exit_requested", "Quit Pasted");
+    }
     app.exit(0);
 }
 
@@ -64,13 +65,13 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
     }
     crate::app_windows::configure_initial_windows(app)?;
 
-    let app_dir = app
-        .path()
-        .app_data_dir()
-        .unwrap_or_else(|_| std::path::PathBuf::from("./pasted_data"));
-    let db_path = crate::library_storage::resolve_database_path(&app_dir);
-    let db_state =
-        Arc::new(crate::db::DbState::new(db_path).expect("Failed to initialize SQLite database"));
+    let Some(db_state) = crate::library_startup::initialize(app.handle()) else {
+        if let Some(path) = live_request.as_deref() {
+            crate::live_app::handle_request_file(app.handle(), path, false);
+        }
+        crate::app_windows::mark_startup_setup_ready(app.handle());
+        return Ok(());
+    };
     if startup_args
         .iter()
         .any(|argument| argument == "--skip-welcome")
@@ -133,6 +134,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
     crate::keyboard_layout::start_layout_monitor(app.handle().clone());
     let _ = crate::commands::register_all_app_shortcuts(app.handle());
     crate::app_tray::install(app, &db_state)?;
+    crate::commands::snapshots::start_worker(app.handle().clone(), db_state.clone());
     crate::app_windows::mark_startup_setup_ready(app.handle());
     Ok(())
 }
@@ -141,7 +143,9 @@ pub(crate) fn handle_run_event(app: &tauri::AppHandle, event: &tauri::RunEvent) 
     if !matches!(event, tauri::RunEvent::Resumed) {
         return;
     }
-    let db = app.state::<Arc<crate::db::DbState>>();
+    let Some(db) = app.try_state::<Arc<crate::db::DbState>>() else {
+        return;
+    };
     let state = app.state::<Arc<crate::app_lock::AppLockState>>();
     let enabled = db
         .get_setting(crate::app_lock::ENABLED_SETTING)

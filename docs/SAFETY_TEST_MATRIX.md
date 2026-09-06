@@ -14,8 +14,9 @@ npm run test:all
 | --- | --- |
 | SQLite input safety | Untrusted clip text and metadata remain bound values and cannot become executable SQL. |
 | Schema migration | Legacy Bin and pre-release Transform schemas migrate without dropping existing records; partial pre-release schemas merge safely. |
-| Factory Reset | A successful reset removes user state and recreates valid first-launch defaults. A simulated mid-reset database failure rolls back every deletion. |
+| Factory Reset | A successful reset removes user state and automatic Snapshots, preserves manually exported Full Backups, and recreates valid first-launch defaults. A simulated mid-reset database failure rolls back every database deletion. |
 | Full backup and restore | Online SQLite snapshots preserve every durable Pasted-owned table and saved interface/window state. Restore validates format and integrity, creates a recovery backup, and leaves the current state usable on failure. External credentials and referenced source files remain explicit exclusions. |
+| Snapshots and library recovery | Automatic creation runs only after a new clip and the configured interval, uses bounded retention, verifies published files, and shares create, list, export, restore, and delete behavior with the CLI. Startup tests cover moved-library recovery, verified Snapshot fallback, failed-file preservation, clean default-library fallback, and interrupted publication cleanup. |
 | History and Organization import | Portable transfer files preserve clips in History and Trash, notes, protection, pins, Bins, ordering, Transforms, and completed OCR state. Unsupported schemas and simulated mid-import failures leave the destination unchanged. |
 | Trash and retention | Trashed clips become read-only, leave active collections, remain recoverable, and are not silently counted as active history. Protected clips survive destructive retention. |
 | Revisions | Content-changing actions create bounded snapshots, disabled history preserves old revisions, and a revision belonging to one clip cannot be restored onto another. |

@@ -7,13 +7,10 @@ import { ExternalHistoryImport, type ExternalImportReport } from './ExternalHist
 import { CopycatHeadMark } from './CopycatMark';
 import { ActionButton } from './AppDialogLayout';
 import { translate } from '../localization/runtime';
+import { welcomeSetupSteps, visibleWelcomeStep, type SetupStep } from './welcomeSetupModel';
 import { WelcomeBackupRestore } from './WelcomeBackupRestore';
 
 const ONBOARDING_VERSION = 1;
-
-type SetupStep = 'welcome' | 'migration' | 'privacy' | 'hotkey' | 'ready';
-
-const STEPS: SetupStep[] = ['welcome', 'migration', 'privacy', 'hotkey', 'ready'];
 
 interface HotkeyCapabilityStatus {
   platform: string;
@@ -32,10 +29,11 @@ interface WelcomeSetupProps {
 
 export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }: WelcomeSetupProps) {
   const steps = useMemo(
-    () => settings.enableHotkeys ? STEPS : STEPS.filter((candidate) => candidate !== 'hotkey'),
-    [settings.enableHotkeys],
+    () => welcomeSetupSteps(settings),
+    [settings.enableHotkeys, settings.enableBackups],
   );
-  const [step, setStep] = useState<SetupStep>('welcome');
+  const [selectedStep, setStep] = useState<SetupStep>('welcome');
+  const step = visibleWelcomeStep(selectedStep, settings);
   const [permission, setPermission] = useState<HotkeyCapabilityStatus | null>(null);
   const [importedCount, setImportedCount] = useState(0);
   const [backingError, setBackingError] = useState('');
@@ -49,8 +47,8 @@ export function WelcomeSetup({ isOpen, settings, onUpdateSettings, onImported }:
   }, [isOpen]);
 
   useEffect(() => {
-    if (!settings.enableHotkeys && step === 'hotkey') setStep('ready');
-  }, [settings.enableHotkeys, step]);
+    if (selectedStep !== step) setStep(step);
+  }, [selectedStep, step]);
 
   useEffect(() => {
     if (!isOpen || step !== 'hotkey') return undefined;

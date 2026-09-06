@@ -1,4 +1,8 @@
 export interface FunctionalitySettings {
+  enableLibraryMove: boolean;
+  enableBackups: boolean;
+  enableFactoryReset: boolean;
+  enableSnapshots: boolean;
   enableActivityLog: boolean;
   enableAnalytics: boolean;
   enableAppLock: boolean;

@@ -66,6 +66,8 @@ mod keyboard_layout;
 #[cfg(feature = "gui")]
 pub mod keyboard_shortcuts;
 pub mod library_items;
+#[cfg(feature = "gui")]
+mod library_startup;
 pub mod library_storage;
 #[cfg(all(feature = "gui", target_os = "linux"))]
 mod linux_native_theme;
@@ -313,6 +315,17 @@ pub fn run() {
             app_updates::check_for_app_update,
             app_updates::install_app_update,
             commands::storage::get_library_location,
+            commands::snapshots::list_snapshots,
+            commands::snapshots::get_snapshot_status,
+            commands::snapshots::enforce_snapshot_retention,
+            commands::snapshots::create_snapshot,
+            commands::snapshots::export_snapshot,
+            commands::snapshots::delete_snapshot,
+            commands::snapshots::restore_snapshot,
+            commands::library_startup::get_library_startup_status,
+            commands::library_startup::get_library_recovery_notice,
+            commands::library_startup::dismiss_library_recovery_notice,
+            commands::library_startup::retry_library_startup,
             commands::storage::get_storage_protection,
             commands::storage::move_library,
             commands::storage::restore_default_library_location,

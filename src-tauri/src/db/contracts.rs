@@ -287,4 +287,5 @@ pub struct FactoryResetReport {
     pub transforms_deleted: usize,
     pub connections_deleted: usize,
     pub activity_entries_deleted: usize,
+    pub snapshots_deleted: usize,
 }

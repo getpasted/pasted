@@ -16,7 +16,12 @@ pub(crate) fn run_clear(args: Vec<String>, db_path: PathBuf, conn: Connection) -
     Ok(())
 }
 
-pub(crate) fn run_reset(args: Vec<String>, db_path: PathBuf, conn: Connection) -> Result<()> {
+pub(crate) fn run_reset(
+    args: Vec<String>,
+    db_path: PathBuf,
+    conn: Connection,
+    session: &library_storage::LibrarySession,
+) -> Result<()> {
     if !args.iter().any(|argument| argument == "--yes") {
         eprintln!(
         "Refusing to reset without --yes. Quit Pasted first, and export a backup if you may need this data."
@@ -25,7 +30,8 @@ pub(crate) fn run_reset(args: Vec<String>, db_path: PathBuf, conn: Connection) -
     }
     drop(conn);
     let db = DbState::new(db_path.clone())?;
-    let report = db.factory_reset()?;
+    let report = library_storage::factory_reset_library(&db, session)
+        .map_err(rusqlite::Error::InvalidParameterName)?;
     if let Some(cache_directory) = dirs::cache_dir() {
         let app_cache = cache_directory.join(APP_IDENTIFIER);
         if app_cache.exists() {
@@ -40,12 +46,13 @@ pub(crate) fn run_reset(args: Vec<String>, db_path: PathBuf, conn: Connection) -
         );
     } else {
         println!(
-        "Reset Pasted: removed {} clips, {} bins, {} Transforms, {} connections, and {} activity entries.",
+        "Reset Pasted: removed {} clips, {} bins, {} Transforms, {} connections, {} activity entries, and {} automatic snapshots.",
         report.clips_deleted,
         report.bins_deleted,
         report.transforms_deleted,
         report.connections_deleted,
-        report.activity_entries_deleted
+        report.activity_entries_deleted,
+        report.snapshots_deleted
     );
     }
     Ok(())

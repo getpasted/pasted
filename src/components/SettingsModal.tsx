@@ -1,3 +1,4 @@
+import { hasStorageFeatures } from '../utils/features';
 import React, { useEffect } from 'react';
 import { Settings } from 'lucide-react';
 import { AppSettings, BlacklistApp, ManualTransform, Bin, type ClipSearchRequest } from '../types';
@@ -39,7 +40,6 @@ interface SettingsModalProps {
   onResetColumnWidths?: () => void;
   activeTab: SettingsTab;
   onActiveTabChange: (tab: SettingsTab) => void;
-  onOpenAnalytics?: () => void;
   onSearchClips: (clipIds: number[]) => void;
   onRunSearch: (request: ClipSearchRequest) => void;
 }
@@ -65,7 +65,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onResetColumnWidths,
   activeTab,
   onActiveTabChange,
-  onOpenAnalytics,
   onSearchClips,
   onRunSearch,
 }) => {
@@ -93,12 +92,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   }, [activeTab, onActiveTabChange, settings.enableSearch]);
 
+  const showStorage = hasStorageFeatures(settings);
+  useEffect(() => {
+    if (!showStorage && activeTab === 'storage') onActiveTabChange('general');
+  }, [activeTab, onActiveTabChange, showStorage]);
+
   return (
     <div className="tools-page settings-page flex-1 settings-modal-bg h-screen overflow-hidden font-sans select-none flex flex-col">
       <ToolPageHeader
         icon={<Settings className="w-4 h-4" />}
         title={translate('destination.settings')}
-        actions={<SettingsTabs activeTab={activeTab} onChange={onActiveTabChange} showNotifications={settings.enableNotifications} showSecurity={settings.enableAppLock} showHotkeys={settings.enableHotkeys} showSearchHistory={settings.enableSearch} />}
+        actions={<SettingsTabs showStorage={showStorage} activeTab={activeTab} onChange={onActiveTabChange} showNotifications={settings.enableNotifications} showSecurity={settings.enableAppLock} showHotkeys={settings.enableHotkeys} showSearchHistory={settings.enableSearch} />}
       />
 
       <div data-pasted-scroll-key={`settings:${activeTab}`} className="tools-scroll-region flex-1 overflow-y-auto p-6">
@@ -179,26 +183,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         )}
 
         {/* STORAGE */}
-        {activeTab === 'storage' && (
+        {showStorage && activeTab === 'storage' && (
           <>
             <div className="settings-primary-well theme-panel rounded-2xl border p-6">
               <SettingsSyncPanel
+                settings={settings}
+                onUpdateSettings={onUpdateSettings}
                 onRefreshBins={onRefreshBins}
                 onRefreshManualTransforms={onRefreshManualTransforms}
                 onRefreshClips={onRefreshClips}
                 onRefreshTrashedClips={onRefreshTrashedClips}
-                analyticsEnabled={settings.enableAnalytics}
                 activityEnabled={settings.enableActivityLog}
-                onOpenAnalytics={onOpenAnalytics}
               />
             </div>
-            <SettingsResetPanel
+            {settings.enableFactoryReset && <SettingsResetPanel
               onRefreshBins={onRefreshBins}
               onRefreshManualTransforms={onRefreshManualTransforms}
               onRefreshClips={onRefreshClips}
               onRefreshTrashedClips={onRefreshTrashedClips}
               onResetClientState={onResetClientState}
-            />
+            />}
           </>
         )}
 

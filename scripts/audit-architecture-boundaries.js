@@ -28,6 +28,11 @@ const analysisCommands = read('src-tauri/src/commands/analysis.rs');
 const contentRegistryCommands = read('src-tauri/src/commands/content_registry.rs');
 const extractorCommands = read('src-tauri/src/commands/extractors.rs');
 const queueCommands = read('src-tauri/src/commands/queue.rs');
+const snapshotCommands = read('src-tauri/src/commands/snapshots.rs');
+const snapshotStorage = readRustModuleTree(
+  'src-tauri/src/library_storage/snapshots.rs',
+  'src-tauri/src/library_storage/snapshots',
+);
 const storageCommands = read('src-tauri/src/commands/storage.rs');
 const liveApp = read('src-tauri/src/live_app.rs');
 const clipboardActions = read('src-tauri/src/clipboard_actions.rs');
@@ -56,6 +61,7 @@ const classifierDatabase = read('src-tauri/src/db/classifiers.rs');
 const contentTypeRegistryDatabase = read('src-tauri/src/db/content_type_registry.rs');
 const contractDatabase = read('src-tauri/src/db/contracts.rs');
 const extractorDatabase = read('src-tauri/src/db/extractors.rs');
+const fullBackupCreationDatabase = read('src-tauri/src/db/full_backup_creation.rs');
 const fullBackupDatabase = read('src-tauri/src/db/full_backups.rs');
 const intelligenceConnectionDatabase = readRustModuleTree(
   'src-tauri/src/db/intelligence_connections.rs',
@@ -106,15 +112,15 @@ const binCommands = read('src-tauri/src/commands/bins.rs');
 const captureCommands = read('src-tauri/src/commands/capture.rs');
 const cliInstallationCommands = read('src-tauri/src/commands/cli_installation.rs');
 const clipPolicyCommands = read('src-tauri/src/commands/clip_policies.rs');
-const backupCommands = read('src-tauri/src/commands/backups.rs');
-const importCommands = read('src-tauri/src/commands/imports.rs');
+const backupCommands = read('src-tauri/src/commands/backups.rs') + read('src-tauri/src/commands/backup_activation.rs');
+const importCommands = read('src-tauri/src/commands/imports.rs') + read('src-tauri/src/commands/import_inspection.rs');
 const factoryResetCommands = read('src-tauri/src/commands/factory_reset.rs');
 const extractionCommands = read('src-tauri/src/commands/extraction.rs');
 const ocrBackfillCommands = read('src-tauri/src/commands/extraction/ocr_backfill.rs');
 const filePreviewCommands = read('src-tauri/src/commands/file_previews.rs');
 const fileReferenceHealth = read('src-tauri/src/file_reference_health.rs');
 const intelligenceCommands = read('src-tauri/src/commands/intelligence.rs');
-const libraryAccessCommands = read('src-tauri/src/commands/library_access.rs');
+const libraryAccessCommands = read('src-tauri/src/commands/library_access.rs') + read('src-tauri/src/commands/library_exports.rs');
 const manualTransformCommands = read('src-tauri/src/commands/manual_transforms.rs');
 const sourceApplicationCommands = read('src-tauri/src/commands/source_apps.rs');
 const transformationCommands = read('src-tauri/src/commands/transformations.rs');
@@ -297,8 +303,8 @@ assert.match(clipRevisionDatabase, /pub fn delete_clip_version/,
   'Clip version deletion must remain centralized with revision reads');
 assert.doesNotMatch(read('src-tauri/src/db.rs'), /pub fn restore_clip_version/,
   'The database integration root must not reclaim Clip revision persistence');
-assert.match(fullBackupDatabase, /pub fn create_full_backup/,
-  'Full Backup creation must remain in its focused lifecycle subsystem');
+assert.match(fullBackupCreationDatabase, /pub fn create_full_backup/,
+  'Full Backup creation must remain in its focused creation subsystem');
 assert.match(fullBackupDatabase, /pub fn restore_full_backup/,
   'Full Restore recovery and activation must remain centralized with Full Backup lifecycle');
 assert.match(fullBackupDatabase, /fn open_validated_full_backup/,
@@ -365,8 +371,8 @@ for (const key of ['appExclusionHotkeysV1', 'transformTerminologyV1', 'currentTr
 }
 assert.match(lifecycleDatabase, /pub fn open_pasted_database/,
   'Shared database opening policy must remain in the database lifecycle subsystem');
-assert.match(lifecycleDatabase, /pub fn relocate_database/,
-  'Database relocation must remain in the database lifecycle subsystem');
+assert.match(read('src-tauri/src/db/relocation.rs'), /pub fn move_library/,
+  'Database relocation must remain in its shared database subsystem');
 assert.match(lifecycleDatabase, /pub fn factory_reset/,
   'Factory Reset persistence must remain in the database lifecycle subsystem');
 assert.doesNotMatch(read('src-tauri/src/db.rs'), /fn configure_connection|pub fn relocate_database|pub fn factory_reset/,
@@ -524,6 +530,44 @@ assert.match(extractorCommands, /pub async fn choose_extractor_executable[\s\S]*
   'Extractor executable selection must keep its native picker behind an async command');
 assert.match(contentRegistryCommands, /db\.create_content_classifier/,
   'GUI Content Registry commands must delegate classifier persistence to the shared database domain');
+const snapshotSettings = read('src/components/SettingsSnapshotsSection.tsx');
+assert.match(snapshotSettings, /<ConfirmationDialog/, 'Snapshot replacement must use the shared confirmation');
+assert.match(snapshotSettings, /settings: AppSettings[\s\S]*onUpdateSettings:/,
+  'Snapshot preferences must use the shared AppSettings registration pipeline');
+assert.doesNotMatch(snapshotSettings, /settingsApi|listen\(|const \[(?:busy|isBusy)/,
+  'Snapshot settings must not add a private settings lifecycle or section-wide busy flicker');
+assert.doesNotMatch(snapshotSettings, /window\.(?:alert|confirm|prompt)|plugin-dialog/,
+  'Snapshot replacement must not introduce browser or operating-system message dialogs');
+assert.match(snapshotSettings, /<ConfirmationDialog[\s\S]*snapshots\.deleteTitle[\s\S]*onConfirm: deleteSnapshot/,
+  'Snapshot deletion must use the shared destructive confirmation');
+assert.match(snapshotCommands, /pub async fn list_snapshots[\s\S]*spawn_blocking\(move \|\| snapshots::list/,
+  'Snapshot metadata listing must stay off the UI thread');
+assert.doesNotMatch(snapshotCommands.match(/pub async fn list_snapshots[\s\S]*?\n}/)?.[0] ?? '', /session\.stable/,
+  'Snapshot metadata listing must not wait behind database copy or relocation work');
+assert.match(snapshotSettings, /useAppEvent\(APP_EVENTS\.snapshotsChanged[\s\S]*void refresh\(\)/,
+  'An open Storage page must refresh when the background worker publishes a Snapshot');
+assert.match(snapshotSettings, /useAppEvent\(APP_EVENTS\.clipAdded[\s\S]*void refresh\(\)/,
+  'An open Storage page must refresh its Snapshot schedule when a new clip arrives');
+assert.match(snapshotSettings, /create_snapshot[\s\S]*export_snapshot/,
+  'Snapshot settings must expose immediate creation and verified Full Backup export');
+assert.match(snapshotCommands, /pub async fn create_snapshot[\s\S]*spawn_blocking/,
+  'Immediate Snapshot creation must stay off the UI thread');
+assert.match(snapshotCommands, /pub async fn export_snapshot[\s\S]*blocking_save_file[\s\S]*spawn_blocking/,
+  'Snapshot export must keep its native picker in an async command and copy off the UI thread');
+assert.match(snapshotStorage, /pub fn export\([\s\S]*Feature::Snapshots[\s\S]*Feature::Backups[\s\S]*files::digest\(&temporary\)/,
+  'Snapshot export must enforce both feature gates and verify the published Full Backup');
+const recoveryWaiting = read('src/components/LibraryStartupWaiting.tsx');
+assert.doesNotMatch(recoveryWaiting, /ConfirmationDialog|window\.(?:alert|confirm|prompt)|plugin-dialog/,
+  'Automatic startup recovery must not ask users to choose a recovery strategy');
+assert.match(read('src/main.tsx'), /startup\.ready \? <ProtectedAppRoot \/> : <LibraryStartupWaiting/,
+  'Application hooks must mount only after automatic recovery has provided a library');
+assert.match(read('src/components/SettingsSyncPanel.tsx'), /<LibraryRecoveryNote \/>/,
+  'Automatic recovery must remain visible through the informative Storage note');
+assert.match(storageCommands, /db\.move_library\(&session/,
+  'GUI moves must use the shared session-coordinated storage service');
+assert.match(read('src-tauri/src/cli/commands/storage.rs'), /db[\s\S]*\.move_library\(session/,
+  'CLI moves must use the same session-coordinated storage service');
+
 assert.match(storageCommands, /pub async fn move_library[\s\S]*blocking_pick_folder/,
   'Library relocation must keep its native folder picker behind an async command');
 assert.doesNotMatch(clipboardActions, /crate::commands::/,
@@ -686,6 +730,10 @@ assert.match(importCommands, /pub async fn choose_import_file[\s\S]*spawn_blocki
   'Import preflight must remain in its focused asynchronous GUI adapter');
 assert.match(factoryResetCommands, /pub fn factory_reset_app/,
   'Factory Reset must remain in its focused lifecycle adapter');
+assert.match(factoryResetCommands, /library_storage::factory_reset_library/,
+  'GUI Factory Reset must delete automatic Snapshots through the shared storage workflow');
+assert.match(read('src-tauri/src/cli/commands/maintenance.rs'), /library_storage::factory_reset_library/,
+  'CLI Factory Reset must use the same automatic Snapshot deletion workflow');
 assert.doesNotMatch(commands, /pub async fn export_backup_file|pub async fn choose_import_file|pub fn factory_reset_app/,
   'The GUI command root must not reclaim portability or reset operations');
 assert.match(browserRuntime, /const handlers: BrowserHandler\[\]/,
@@ -834,6 +882,7 @@ const sizeRatchets = new Map([
   ['src-tauri/src/db/content_type_registry.rs', 363],
   ['src-tauri/src/db/contracts.rs', 300],
   ['src-tauri/src/db/extractors.rs', 802],
+  ['src-tauri/src/db/full_backup_creation.rs', 160],
   ['src-tauri/src/db/full_backups.rs', 277],
   ['src-tauri/src/db/intelligence_connections.rs', 231],
   ['src-tauri/src/db/intelligence_connections/reset.rs', 75],
@@ -844,6 +893,9 @@ const sizeRatchets = new Map([
   ['src-tauri/src/settings_contract.rs', 260],
   ['src-tauri/src/settings_contract/tests.rs', 100],
   ['src-tauri/src/cli/commands/settings.rs', 200],
+  ['src-tauri/src/cli/commands/settings/snapshot_retention.rs', 44],
+  ['src/components/snapshotCountdown.ts', 10],
+  ['scripts/test-snapshot-countdown.ts', 22],
   ['src-tauri/src/cli/commands/settings/reset_preview.rs', 120],
   ['src-tauri/src/db/schema.rs', 35],
   ['src-tauri/src/db/schema/canonical.rs', 60],
@@ -946,6 +998,11 @@ const sizeRatchets = new Map([
   ['src-tauri/src/commands/backups.rs', 180],
   ['src-tauri/src/commands/imports.rs', 287],
   ['src-tauri/src/commands/factory_reset.rs', 39],
+  ['src-tauri/src/library_storage/factory_reset.rs', 39],
+  ['src-tauri/src/library_storage/factory_reset_tests.rs', 59],
+  ['src-tauri/src/library_storage/snapshots.rs', 202],
+  ['src-tauri/src/library_storage/snapshots/creation.rs', 221],
+  ['src-tauri/src/library_storage/snapshots/export.rs', 53],
   ['src-tauri/src/commands/extraction.rs', 187],
   ['src-tauri/src/commands/clips.rs', 261],
   ['src-tauri/src/commands/file_previews.rs', 623],
@@ -1117,6 +1174,7 @@ const sizeRatchets = new Map([
   ['src/types.ts', 495],
   ['src/appSettingsTypes.ts', 102],
   ['src/appSettingsRetentionModel.ts', 20],
+  ['src/appSettingsStorageModel.ts', 23],
   ['src/appSettingsTypes/retention.ts', 15],
   ['src/components/clipPreviewModel.ts', 162],
   ['src/components/clipExtractionModel.ts', 24],

@@ -17,7 +17,7 @@ import {
 interface FactoryResetDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onExport: () => void | Promise<void>;
+  onExport?: () => void | Promise<void>;
   onReset: () => void | Promise<void>;
 }
 
@@ -102,7 +102,7 @@ export function FactoryResetDialog({
           {error && <div role="alert" className="theme-status-danger rounded-xl border px-3 py-2 text-xs">{error}</div>}
         </AppDialogBody>
         <AppDialogFooter align="between">
-          <AppDialogButton onClick={() => void onExport()} disabled={isResetting}>{translate('component.factoryResetDialog.createFullBackup')}</AppDialogButton>
+          {onExport && <AppDialogButton onClick={() => void onExport()} disabled={isResetting}>{translate('component.factoryResetDialog.createFullBackup')}</AppDialogButton>}
           <div className="flex items-center gap-2">
             <AppDialogButton onClick={requestClose} disabled={isResetting}>{translate('common.cancel')}</AppDialogButton>
             <AppDialogButton
