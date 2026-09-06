@@ -1992,7 +1992,7 @@
   "component.welcomeSetup.useTheInterfaceDirectlyTheCliFromAScriptOrTheShared": "Use the interface directly, the CLI from a script, or the shared library as context for an agent.",
   "component.welcomeSetup.welcomeCopycat": "Welcome, copycat.",
   "component.welcomeSetup.youCanChangeThisHotkeyLaterInSettingsHotkeys": "Change this hotkey later in Settings → Hotkeys.",
-  "component.welcomeSetup.yourClipboardIsNoneOfOurBusiness": "Clipboard history is nobody else’s business",
+  "component.welcomeSetup.yourClipboardIsNoneOfOurBusiness": "Clipboard history is nobody’s business",
   "component.welcomeSetup.yourClipboardLibraryStaysOnThisComputerUnlessYouExplicitlyExportMove": "Your clipboard library stays on this computer unless you explicitly export, move, or send something.",
   "destination.activity": "Activity",
   "destination.help": "Help",

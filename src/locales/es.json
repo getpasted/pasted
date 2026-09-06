@@ -1992,7 +1992,7 @@
   "component.welcomeSetup.useTheInterfaceDirectlyTheCliFromAScriptOrTheShared": "Utilice la interfaz directamente, la línea de comandos desde un script o la biblioteca compartida como contexto para un agente.",
   "component.welcomeSetup.welcomeCopycat": "Bienvenido, \"Copycat\".",
   "component.welcomeSetup.youCanChangeThisHotkeyLaterInSettingsHotkeys": "Puede cambiar este atajo más tarde en Configuración → Teclas de acceso rápido.",
-  "component.welcomeSetup.yourClipboardIsNoneOfOurBusiness": "El historial del portapapeles no es asunto de nadie más",
+  "component.welcomeSetup.yourClipboardIsNoneOfOurBusiness": "El historial del portapapeles no es asunto de nadie",
   "component.welcomeSetup.yourClipboardLibraryStaysOnThisComputerUnlessYouExplicitlyExportMove": "Su biblioteca de portapapeles permanece en esta computadora a menos que lo exporte, mueva o envíe explícitamente algo.",
   "destination.activity": "Actividad",
   "destination.help": "Ayuda",
