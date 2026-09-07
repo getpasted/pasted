@@ -8,6 +8,9 @@ pub(crate) fn run(args: &[String], db_path: PathBuf, conn: Connection) -> Result
     drop(conn);
     let db = DbState::new(db_path.clone())?;
     let subcommand = args.get(2).map(String::as_str).unwrap_or("list");
+    if matches!(subcommand, "export" | "import") {
+        super::require_feature(&db, pasted_lib::features::Feature::Backups);
+    }
     match subcommand {
         "list" => {
             let limit = if args.iter().any(|argument| argument == "--all") {

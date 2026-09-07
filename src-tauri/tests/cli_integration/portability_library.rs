@@ -1,3 +1,5 @@
+#[path = "library_moves.rs"]
+mod library_moves;
 use super::support::*;
 
 #[test]

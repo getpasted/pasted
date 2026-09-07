@@ -47,6 +47,7 @@ import { translate, type TranslationKey } from '../localization/runtime';
 import { useLocalization } from '../localization/LocalizationProvider';
 
 const FEATURE_GROUP_KEYS: Record<FeatureGroupId, { label: TranslationKey; description: TranslationKey }> = {
+  storage: { label: 'feature.group.storage.label', description: 'feature.group.storage.description' },
   library: { label: 'feature.group.library.label', description: 'feature.group.library.description' },
   discovery: { label: 'feature.group.discovery.label', description: 'feature.group.discovery.description' },
   workflow: { label: 'feature.group.workflow.label', description: 'feature.group.workflow.description' },
@@ -54,6 +55,10 @@ const FEATURE_GROUP_KEYS: Record<FeatureGroupId, { label: TranslationKey; descri
 };
 
 const FEATURE_KEYS: Record<FeatureId, { label: TranslationKey; description: TranslationKey; caution?: TranslationKey }> = {
+  libraryMove: { label: 'feature.libraryMove.label', description: 'feature.libraryMove.description' },
+  backups: { label: 'feature.backups.label', description: 'feature.backups.description' },
+  factoryReset: { label: 'feature.factoryReset.label', description: 'feature.factoryReset.description' },
+  snapshots: { label: 'feature.snapshots.label', description: 'feature.snapshots.description' },
   analytics: { label: 'feature.analytics.label', description: 'feature.analytics.description' },
   bins: { label: 'feature.bins.label', description: 'feature.bins.description' },
   clipTypes: { label: 'feature.clipTypes.label', description: 'feature.clipTypes.description' },
@@ -106,6 +111,10 @@ const FEATURE_ICONS = {
   protection: Shield,
   queue: ListOrdered,
   revisions: History,
+  snapshots: History,
+  libraryMove: Folder,
+  backups: History,
+  factoryReset: Trash2,
   hud: LayoutGrid,
   hotkeys: Command,
   trash: Trash2,

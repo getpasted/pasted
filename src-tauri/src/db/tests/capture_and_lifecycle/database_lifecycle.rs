@@ -1,65 +1,6 @@
 use super::super::*;
 
 #[test]
-fn relocating_database_preserves_data_and_retains_the_source() {
-    let db = setup_test_db();
-    let source = db.database_path();
-    let destination_directory = std::env::temp_dir().join(format!(
-        "pasted_relocation_{}",
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ));
-    fs::create_dir_all(&destination_directory).unwrap();
-    let destination = destination_directory.join("pasted.db");
-    save_plain_test_clip(
-        &db,
-        "text",
-        "Move me without losing me",
-        "relocation-test-hash",
-        "Test",
-    );
-
-    let retained = db.relocate_database(destination.clone()).unwrap();
-
-    assert_eq!(retained, source);
-    assert_eq!(db.database_path(), destination);
-    assert!(retained.is_file());
-    assert_eq!(
-        db.get_clips(None, false).unwrap()[0]
-            .text_content
-            .as_deref(),
-        Some("Move me without losing me")
-    );
-    let reopened = DbState::new(db.database_path()).unwrap();
-    assert_eq!(reopened.get_clips(None, false).unwrap().len(), 1);
-    let _ = fs::remove_file(retained);
-    let _ = fs::remove_dir_all(destination_directory);
-}
-
-#[test]
-fn relocating_database_never_overwrites_an_existing_target() {
-    let db = setup_test_db();
-    let destination_directory = std::env::temp_dir().join(format!(
-        "pasted_relocation_existing_{}",
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ));
-    fs::create_dir_all(&destination_directory).unwrap();
-    let destination = destination_directory.join("pasted.db");
-    fs::write(&destination, b"keep this file").unwrap();
-
-    assert!(db.relocate_database(destination.clone()).is_err());
-    assert_eq!(fs::read(&destination).unwrap(), b"keep this file");
-    assert_ne!(db.database_path(), destination);
-    let _ = fs::remove_file(db.database_path());
-    let _ = fs::remove_dir_all(destination_directory);
-}
-
-#[test]
 fn factory_reset_removes_user_state_and_restores_first_launch_defaults() {
     let db = setup_test_db();
     let clip = save_plain_test_clip(

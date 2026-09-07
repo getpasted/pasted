@@ -90,6 +90,7 @@ pub(super) fn analysis_fixture(name: &str) -> Value {
 }
 
 pub(super) fn clean_database(path: &Path) {
+    let _ = std::fs::remove_dir_all(path.with_extension("session"));
     let _ = std::fs::remove_file(path);
     let _ = std::fs::remove_file(format!("{}-wal", path.display()));
     let _ = std::fs::remove_file(format!("{}-shm", path.display()));

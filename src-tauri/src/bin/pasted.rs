@@ -26,6 +26,8 @@ use pasted_lib::library_storage;
 
 #[path = "../cli/help.rs"]
 mod help;
+#[path = "../cli/library_startup.rs"]
+mod library_startup_cli;
 use pasted_lib::third_party_licenses;
 use pasted_lib::transformation_intent::{IntentPlanningMode, TransformationPlan};
 use pasted_lib::transformation_service::{
@@ -38,6 +40,9 @@ use cli_commands::json_error;
 mod cli_commands;
 
 fn get_app_data_dir() -> PathBuf {
+    if let Some(path) = env::var_os("PASTED_DATA_DIR") {
+        return PathBuf::from(path);
+    }
     if let Some(mut dir) = dirs::data_dir() {
         dir.push(APP_IDENTIFIER);
         if dir.exists() {
@@ -71,14 +76,6 @@ fn get_app_config_dir() -> PathBuf {
             dir
         })
         .unwrap_or_else(get_app_data_dir)
-}
-
-fn get_db_path() -> PathBuf {
-    if let Some(path) = env::var_os("PASTED_DATABASE_PATH") {
-        return PathBuf::from(path);
-    }
-    let app_data = get_app_data_dir();
-    library_storage::resolve_database_path(&app_data)
 }
 
 fn read_library_archive(path: &Path) -> Result<String> {
@@ -117,14 +114,11 @@ fn main() -> Result<()> {
         }
         return Ok(());
     }
-    let db_path = get_db_path();
-    let migration_db = match DbState::new(db_path.clone()) {
-        Ok(db) => db,
-        Err(error) => {
-            eprintln!("Error migrating Pasted database at '{db_path:?}': {error}");
-            std::process::exit(1);
-        }
-    };
+    let (session, migration_db) = library_startup_cli::open(&args).unwrap_or_else(|error| {
+        eprintln!("{error}");
+        std::process::exit(1);
+    });
+    let db_path = migration_db.database_path();
     if matches!(command, "update" | "updates") {
         cli_commands::require_feature(&migration_db, Feature::Updates);
         return cli_commands::updates::run(&args);
@@ -184,18 +178,24 @@ fn main() -> Result<()> {
         }
         drop(db);
         let conn = open_pasted_database(&db_path)?;
-        return run_command(command, &args, db_path, conn);
+        return run_command(command, &args, db_path, conn, &session);
     }
 
-    run_command(command, &args, db_path, conn)
+    run_command(command, &args, db_path, conn, &session)
 }
 
-fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connection) -> Result<()> {
+fn run_command(
+    command: &str,
+    args: &[String],
+    db_path: PathBuf,
+    conn: Connection,
+    session: &library_storage::LibrarySession,
+) -> Result<()> {
     let args = args.to_vec();
     match command {
         "app-lock" => cli_commands::app_lock::run(&args, db_path, conn)?,
         "retention" => cli_commands::retention::run(&args, db_path, conn)?,
-        "settings" | "setting" => cli_commands::settings::run(&args, db_path, conn)?,
+        "settings" | "setting" => cli_commands::settings::run(&args, db_path, conn, session)?,
         "private-browsing" | "private-browser" => {
             cli_commands::private_browsing::run(&args, db_path, conn)?
         }
@@ -203,7 +203,8 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
         "queue" => cli_commands::live_app::run_queue(&args)?,
         "activity" => cli_commands::activity::run(&args, db_path, conn)?,
         "transfer" | "archive" => cli_commands::portability::run_transfer(&args, db_path, conn)?,
-        "backup" => cli_commands::portability::run_backup(&args, db_path, conn)?,
+        "snapshots" => cli_commands::snapshots::run(&args, db_path, conn, session)?,
+        "backup" => cli_commands::portability::run_backup(&args, db_path, conn, session)?,
         "registry" => cli_commands::registry::run_registry(args, db_path, conn)?,
         "type" | "types" => cli_commands::registry::run_types(args, db_path, conn)?,
         "analyzer" | "analyze" => cli_commands::analyzer::run_analyzer(args, db_path, conn)?,
@@ -216,7 +217,9 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
             cli_commands::classifiers::run_classifier(args, db_path, conn)?
         }
         "import" => cli_commands::storage::run_import(args, db_path, conn)?,
-        "database" | "library" => cli_commands::storage::run_database(args, db_path, conn)?,
+        "database" | "library" => {
+            cli_commands::storage::run_database(args, db_path, conn, session)?
+        }
         "diagnostics" | "diagnose" => cli_commands::storage::run_diagnostics(args, db_path, conn)?,
         "insights" | "analytics" => cli_commands::storage::run_insights(args, db_path, conn)?,
         "ocr" => cli_commands::storage::run_ocr(args, db_path, conn)?,
@@ -236,7 +239,7 @@ fn run_command(command: &str, args: &[String], db_path: PathBuf, conn: Connectio
         "search" | "find" => cli_commands::history::run_search(args, db_path, conn)?,
         "search-history" | "searches" => cli_commands::search_history::run(&args, db_path, conn)?,
         "clear" => cli_commands::maintenance::run_clear(args, db_path, conn)?,
-        "reset" => cli_commands::maintenance::run_reset(args, db_path, conn)?,
+        "reset" => cli_commands::maintenance::run_reset(args, db_path, conn, session)?,
         _ => help::print(),
     }
 

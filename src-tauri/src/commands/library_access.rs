@@ -17,19 +17,9 @@ pub async fn search_clips(
     .map_err(|error| error.to_string())?
 }
 
-#[tauri::command]
-pub fn export_clips_json(db: State<'_, Arc<DbState>>) -> Result<String, String> {
-    let exported = db.export_clips_json().map_err(|error| error.to_string())?;
-    let _ = db.log_activity("data_export_completed", "Exported Clips as JSON");
-    Ok(exported)
-}
-
-#[tauri::command]
-pub fn export_clips_csv(db: State<'_, Arc<DbState>>) -> Result<String, String> {
-    let exported = db.export_clips_csv().map_err(|error| error.to_string())?;
-    let _ = db.log_activity("data_export_completed", "Exported Clips as CSV");
-    Ok(exported)
-}
+#[path = "library_exports.rs"]
+mod exports;
+pub use exports::*;
 
 #[tauri::command]
 pub fn get_analytics_summary(db: State<'_, Arc<DbState>>) -> Result<AnalyticsSummary, String> {

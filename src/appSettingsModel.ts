@@ -9,6 +9,7 @@ import { storedSearchHistoryAgeDays } from './searchHistoryRetention';
 import { DEFAULT_NOTIFICATION_SETTINGS } from './appSettingsSectionDefaults';
 import { DEFAULT_GENERAL_SETTINGS } from './generalSettingsDefaults';
 import { settingDefault } from './settingsContract.ts';
+import * as storageSettingsModel from './appSettingsStorageModel.ts';
 
 export const DEFAULT_SETTINGS: AppSettings = {
   onboardingVersion: settingDefault('onboardingVersion'),
@@ -33,6 +34,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
   enableProtection: settingDefault('enableProtection'),
   enableQueue: settingDefault('enableQueue'),
   enableRevisions: settingDefault('enableRevisions'),
+  enableSnapshots: settingDefault('enableSnapshots'),
+  enableLibraryMove: settingDefault('enableLibraryMove'),
+  enableBackups: settingDefault('enableBackups'),
+  enableFactoryReset: settingDefault('enableFactoryReset'),
+  snapshotIntervalMinutes: storageSettingsModel.DEFAULT_SNAPSHOT_INTERVAL_MINUTES,
+  snapshotKeepCount: storageSettingsModel.DEFAULT_SNAPSHOT_KEEP_COUNT,
+
   enableHud: settingDefault('enableHud'),
   enableHotkeys: settingDefault('enableHotkeys'),
   enableTransformations: settingDefault('enableTransformations'),
@@ -77,6 +85,12 @@ export function parseSavedSettings(saved: Record<string, string>): AppSettings {
   if (saved.filePreviewMaxMb) next.filePreviewMaxMb = Math.max(1, Math.min(64, numberValue('filePreviewMaxMb', next.filePreviewMaxMb)));
   if (saved.keepClipCount !== undefined) next.keepClipCount = Math.max(0, numberValue('keepClipCount', next.keepClipCount));
   if (saved.keepClipAgeDays !== undefined) next.keepClipAgeDays = Math.max(0, numberValue('keepClipAgeDays', next.keepClipAgeDays));
+  if (saved.snapshotIntervalMinutes !== undefined) {
+    next.snapshotIntervalMinutes = storageSettingsModel.storedSnapshotIntervalMinutes(saved);
+  }
+  if (saved.snapshotKeepCount !== undefined) {
+    next.snapshotKeepCount = storageSettingsModel.storedSnapshotKeepCount(saved);
+  }
   if (saved.revisionHistoryLimit !== undefined) next.revisionHistoryLimit = storedRetentionNumber(saved, 'revisionHistoryLimit', next.revisionHistoryLimit);
   if (saved.analysisAttemptsPerClip !== undefined) next.analysisAttemptsPerClip = storedRetentionNumber(saved, 'analysisAttemptsPerClip', next.analysisAttemptsPerClip);
   Object.assign(next, savedCapturePolicySettings(saved));
@@ -99,7 +113,7 @@ export function parseSavedSettings(saved: Record<string, string>): AppSettings {
     'enableNotifications', 'enableAppLock', 'enableOcr', 'enableTranscriptions',
     'enablePinning', 'enableProtection', 'enableQueue', 'enableRevisions', 'enableHud',
     'enableHotkeys', 'enableTransformations', 'enableTypes', 'enableSources',
-    'enableSearch', 'enableCli', 'enableHelp', 'enableUpdateChecks',
+    'enableLibraryMove', 'enableBackups', 'enableFactoryReset', 'enableSnapshots', 'enableSearch', 'enableCli', 'enableHelp', 'enableUpdateChecks',
   ] as const) {
     if (saved[key] !== undefined) next[key] = saved[key] === 'true';
   }

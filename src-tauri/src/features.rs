@@ -18,6 +18,11 @@ pub enum Feature {
     Protection,
     Queue,
     Revisions,
+    Snapshots,
+    LibraryMove,
+    Backups,
+    FactoryReset,
+
     Hud,
     Hotkeys,
     Trash,
@@ -32,7 +37,7 @@ pub enum Feature {
 }
 
 impl Feature {
-    pub const ALL: [Feature; 27] = [
+    pub const ALL: [Feature; 31] = [
         Feature::Insights,
         Feature::Bins,
         Feature::ClipTypes,
@@ -49,6 +54,10 @@ impl Feature {
         Feature::Protection,
         Feature::Queue,
         Feature::Revisions,
+        Feature::Snapshots,
+        Feature::LibraryMove,
+        Feature::Backups,
+        Feature::FactoryReset,
         Feature::Hud,
         Feature::Hotkeys,
         Feature::Trash,
@@ -80,6 +89,11 @@ impl Feature {
             Feature::Protection => "enableProtection",
             Feature::Queue => "enableQueue",
             Feature::Revisions => "enableRevisions",
+            Feature::Snapshots => "enableSnapshots",
+            Feature::LibraryMove => "enableLibraryMove",
+            Feature::Backups => "enableBackups",
+            Feature::FactoryReset => "enableFactoryReset",
+
             Feature::Hud => "enableHud",
             Feature::Hotkeys => "enableHotkeys",
             Feature::Trash => "enableTrash",
@@ -118,6 +132,11 @@ impl Feature {
             Feature::Protection => "Protection",
             Feature::Queue => "Queue",
             Feature::Revisions => "Revision History",
+            Feature::Snapshots => "Snapshots",
+            Feature::LibraryMove => "Move",
+            Feature::Backups => "Backup",
+            Feature::FactoryReset => "Reset",
+
             Feature::Hud => "HUD",
             Feature::Hotkeys => "Hotkeys",
             Feature::Trash => "Trash",
@@ -175,7 +194,7 @@ mod tests {
 
     #[test]
     fn frontend_and_native_setting_keys_are_stable() {
-        assert_eq!(Feature::ALL.len(), 27);
+        assert_eq!(Feature::ALL.len(), 31);
         for feature in Feature::ALL {
             assert_eq!(
                 Feature::from_setting_key(feature.setting_key()),

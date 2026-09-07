@@ -235,6 +235,7 @@ pasted diagnostics [--json]
 pasted insights summary [--json]
 pasted licenses [--json]
 pasted database location [--json]
+pasted database status [--json]
 pasted database protection [--json]
 pasted database move <folder> [--json]
 pasted database default [--json]
@@ -251,9 +252,9 @@ pasted ocr cancel [--json]
 pasted reset --yes [--json]
 ```
 
-`licenses` remains available without a database and even when the optional clipboard-management CLI feature is disabled. `reset` is intentionally gated by `--yes`. Other commands respect feature settings and exit with an explicit explanation when a capability is disabled or unavailable.
+`licenses` remains available without a database and even when the optional clipboard-management CLI feature is disabled. `reset` is intentionally gated by `--yes`. It removes automatic Snapshots with the library data while preserving manually created Full Backup files. Other commands respect feature settings and exit with an explicit explanation when a capability is disabled or unavailable.
 
-`database location`, `database protection`, `database move`, and `database default` inspect or change SQLite storage. `database protection` reports `protected`, `notDetected`, or `unknown` for the volume containing the active database; it never treats an unavailable operating-system check as proof that encryption is off. The former `library` command remains as a compatibility alias.
+`database location`, `database protection`, `database move`, and `database default` inspect or change SQLite storage. Moves relocate the current library; they do not select another existing library. The destination must be empty of a Pasted database. GUI and CLI sessions coordinate moves and Full Restore through a shared application-directory lock; close other sessions before these operations. `database protection` reports `protected`, `notDetected`, or `unknown` for the volume containing the active database; it never treats an unavailable operating-system check as proof that encryption is off. The former `library` command remains as a compatibility alias.
 
 `transfer export` writes the portable History and Organization JSON available under Settings → Storage → Export. `transfer inspect` performs the same bounded structural and referential preflight as import without changing saved data. `transfer import` validates the complete file before opening a write transaction, updates matching stable identities and content hashes, adds new items, and leaves unrelated data unchanged. The former `archive` command remains as a compatibility alias.
 
@@ -273,3 +274,38 @@ pasted activity clear --yes [--json]
 ## Intentional app-only boundaries
 
 Window, title-bar, dock, tray, cursor, emoji-picker, native-menu, preview-rendering, and operating-system permission-prompt commands remain graphical presentation behavior. Hotkey registration is owned by the running app; the CLI can persist hotkey settings and the app applies them when active or at launch. Provider scheduler cancellation remains process-local: a CLI Transform exits with its CLI process, while the app manages and cancels its own active jobs. Installation diagnostics remain available through `pasted diagnostics` without exposing internal presentation helpers.
+
+### Unavailable library locations
+
+Startup automatically tries verified snapshots, newest first, then the retained recovery copy from the last library move. If none can be opened, it creates a fresh library in the normal default folder. Original library files and any displaced default files are preserved. Settings > Storage explains what happened and the date of any recovered snapshot; clips captured after that snapshot may be absent.
+
+`database status --json` reports `ready`, `path`, and `notice`. When a library opens, status follows the same CLI and App Lock gates as other commands, including standalone database paths. If storage cannot open at all, it returns an unavailable diagnostic with a nonzero exit status. A restored custom library stays in the default folder even if the original drive reconnects. If another Pasted process prevents safe recovery or the default folder cannot be written, startup waits instead of offering recovery decisions or replacing files unsafely.
+
+Move publication requires filesystem support for atomic hard links in the destination directory. Unsupported destinations fail without switching the active library. Retained originals and recovery copies consume disk space. External SQLite tools and older app versions do not participate in session coordination. `PASTED_DATA_DIR` overrides the stable application directory for isolated CLI environments. `PASTED_DATABASE_PATH` opens a standalone database; its snapshots use a separate directory beside that database, and installed-library moves do not apply.
+
+### Snapshots
+
+The running app checks for new clips every 30 seconds. It saves an initial snapshot when the library has clips, then saves another only after the configured interval and when clips exist that were absent from the previous valid snapshot. Deletions, setting changes, and recopying the same content alone do not trigger snapshots. Checks use elapsed UTC time; Storage displays dates locally.
+
+Settings > Storage configures the interval in minutes (default 60, range 1–10080) and how many snapshots to keep (default 24, range 0–10000). Settings > Functionality enables or disables Snapshots, including their Storage controls and CLI commands, without deleting saved snapshots. The interval is preserved while disabled; a count of 0 pauses automatic creation while keeping the snapshot list and restoration available. Existing snapshots are preserved. Changes take effect without restarting, and lowering the count removes older indexed snapshots immediately. Snapshots are stored in the stable application directory, so moving the library does not move its snapshots.
+
+```sh
+pasted settings set enableSnapshots true
+pasted settings set snapshotIntervalMinutes 30
+pasted settings set snapshotKeepCount 48
+pasted settings set snapshotKeepCount 0 # Pause creation; retain list and restore
+pasted snapshots delete <id> --yes --json
+pasted snapshots list --json
+pasted snapshots check --json
+pasted snapshots create --json
+pasted snapshots export <id> <path.pastedbackup> --json
+pasted snapshots restore <id> --yes --json
+```
+
+`check` performs one scheduled check using the same interval and new-clip rules; its JSON result is the saved snapshot or `null`. `create` saves one immediately, including while automatic creation is paused. `export` verifies and copies the selected Snapshot as a standard Full Backup. Background scheduling requires the app to be running. `list` returns newest-first objects containing `id`, `createdAt`, `clipCount`, `sizeBytes`, and `sha256`. Restoration requires quitting other Pasted processes. It validates the snapshot and creates a complete pre-restore recovery backup before replacing the current library and settings.
+
+Snapshots use the Full Backup format, including durable database tables and the last persisted interface and window state. Credentials remain in their operating-system or provider stores, and original files referenced by file clips remain external. Snapshots are local recovery copies, not protection against loss of the device or application-data folder.
+
+### Storage feature gates
+
+`enableLibraryMove` controls `database move` and `database default`. `enableBackups` controls `backup`, `transfer`, clipboard-manager `import`, and Activity import/export. `enableSnapshots` controls `snapshots` independently of Backup. `enableFactoryReset` controls `reset`; it does not affect individual settings-page resets or clearing History. Disabled operations fail before changing data. Use `pasted settings set <key> true|false` to change a gate.
