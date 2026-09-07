@@ -15,7 +15,7 @@ Operating-system frameworks are supplied by the operating system. Linux AppImage
 runtime notices are embedded by the AppImage runtime and must remain intact.
 Windows installer-tool components and their notices are included in this inventory.
 
-Component inventory (590)
+Component inventory (593)
 
 - adler2 2.0.1 [cargo; 0BSD OR MIT OR Apache-2.0] — https://github.com/oyvindln/adler2
 - aho-corasick 1.1.5 [cargo; Unlicense OR MIT] — https://github.com/BurntSushi/aho-corasick
@@ -23,7 +23,7 @@ Component inventory (590)
 - alloc-stdlib 0.2.4 [cargo; BSD-3-Clause] — https://github.com/dropbox/rust-alloc-no-stdlib
 - anyhow 1.0.104 [cargo; MIT OR Apache-2.0] — https://github.com/dtolnay/anyhow
 - arboard 3.6.1 [cargo; MIT OR Apache-2.0] — https://github.com/1Password/arboard
-- argon2 0.5.3 [cargo; MIT OR Apache-2.0] — https://github.com/RustCrypto/password-hashes/tree/master/argon2
+- argon2 0.6.0 [cargo; MIT OR Apache-2.0] — https://github.com/RustCrypto/password-hashes
 - ashpd 0.13.13 [cargo; MIT] — https://github.com/bilelmoussaoui/ashpd
 - async-broadcast 0.7.2 [cargo; MIT OR Apache-2.0] — https://github.com/smol-rs/async-broadcast
 - async-channel 2.5.0 [cargo; Apache-2.0 OR MIT] — https://github.com/smol-rs/async-channel
@@ -47,7 +47,7 @@ Component inventory (590)
 - bit-vec 0.8.0 [cargo; Apache-2.0 OR MIT] — https://github.com/contain-rs/bit-vec
 - bitflags 1.3.2 [cargo; MIT OR Apache-2.0] — https://github.com/bitflags/bitflags
 - bitflags 2.13.1 [cargo; MIT OR Apache-2.0] — https://github.com/bitflags/bitflags
-- blake2 0.10.6 [cargo; MIT OR Apache-2.0] — https://github.com/RustCrypto/hashes
+- blake2 0.11.0 [cargo; MIT OR Apache-2.0] — https://github.com/RustCrypto/hashes
 - block-buffer 0.10.4 [cargo; MIT OR Apache-2.0] — https://github.com/RustCrypto/utils
 - block-buffer 0.12.1 [cargo; MIT OR Apache-2.0] — https://github.com/RustCrypto/utils
 - block2 0.6.2 [cargo; MIT] — https://github.com/madsmtm/objc2
@@ -68,6 +68,7 @@ Component inventory (590)
 - cfg-if 1.0.4 [cargo; MIT OR Apache-2.0] — https://github.com/rust-lang/cfg-if
 - chrono 0.4.45 [cargo; MIT OR Apache-2.0] — https://github.com/chronotope/chrono
 - clipboard-win 5.4.1 [cargo; BSL-1.0] — https://github.com/DoumanAsh/clipboard-win
+- cmov 0.5.4 [cargo; Apache-2.0 OR MIT] — https://github.com/RustCrypto/utils
 - concurrent-queue 2.5.0 [cargo; Apache-2.0 OR MIT] — https://github.com/smol-rs/concurrent-queue
 - const-oid 0.10.2 [cargo; Apache-2.0 OR MIT] — https://github.com/RustCrypto/formats
 - cookie 0.18.2 [cargo; MIT OR Apache-2.0] — https://github.com/SergioBenitez/cookie-rs
@@ -87,6 +88,7 @@ Component inventory (590)
 - cssparser-macros 0.6.1 [cargo; MPL-2.0] — https://github.com/servo/rust-cssparser
 - ctor 0.8.0 [cargo; Apache-2.0 OR MIT] — https://github.com/mmastrac/rust-ctor
 - ctor-proc-macro 0.0.7 [cargo; Apache-2.0 OR MIT] — https://github.com/mmastrac/rust-ctor
+- ctutils 0.4.2 [cargo; Apache-2.0 OR MIT] — https://github.com/RustCrypto/utils
 - darling 0.23.0 [cargo; MIT] — https://github.com/TedDriggs/darling
 - darling_core 0.23.0 [cargo; MIT] — https://github.com/TedDriggs/darling
 - darling_macro 0.23.0 [cargo; MIT] — https://github.com/TedDriggs/darling
@@ -255,9 +257,10 @@ Component inventory (590)
 - parking 2.2.1 [cargo; Apache-2.0 OR MIT] — https://github.com/smol-rs/parking
 - parking_lot 0.12.5 [cargo; MIT OR Apache-2.0] — https://github.com/Amanieu/parking_lot
 - parking_lot_core 0.9.12 [cargo; MIT OR Apache-2.0] — https://github.com/Amanieu/parking_lot
-- password-hash 0.5.0 [cargo; MIT OR Apache-2.0] — https://github.com/RustCrypto/traits/tree/master/password-hash
+- password-hash 0.6.1 [cargo; MIT OR Apache-2.0] — https://github.com/RustCrypto/traits
 - percent-encoding 2.3.2 [cargo; MIT OR Apache-2.0] — https://github.com/servo/rust-url/
 - petgraph 0.8.3 [cargo; MIT OR Apache-2.0] — https://github.com/petgraph/petgraph
+- phc 0.6.1 [cargo; Apache-2.0 OR MIT] — https://github.com/RustCrypto/formats
 - phf 0.13.1 [cargo; MIT] — https://github.com/rust-phf/rust-phf
 - phf_generator 0.13.1 [cargo; MIT] — https://github.com/rust-phf/rust-phf
 - phf_macros 0.13.1 [cargo; MIT] — https://github.com/rust-phf/rust-phf
@@ -3770,7 +3773,7 @@ DEALINGS IN THE SOFTWARE.
 ================================================================================
 Apache License 2.0
 License identifier: Apache-2.0
-Used by: embed_plist 1.2.2 (cargo), rustls-platform-verifier 0.7.0 (cargo), serialize-to-javascript 0.1.2 (cargo), serialize-to-javascript-impl 0.1.2 (cargo), tinyvec 1.12.0 (cargo), utf8_iter 1.0.4 (cargo), x11rb 0.13.2 (cargo), x11rb 0.14.0 (cargo), x11rb-protocol 0.13.2 (cargo), x11rb-protocol 0.14.0 (cargo), zeroize 1.9.0 (cargo), zune-core 0.5.3 (cargo), zune-jpeg 0.5.15 (cargo)
+Used by: cmov 0.5.4 (cargo), ctutils 0.4.2 (cargo), embed_plist 1.2.2 (cargo), rustls-platform-verifier 0.7.0 (cargo), serialize-to-javascript 0.1.2 (cargo), serialize-to-javascript-impl 0.1.2 (cargo), tinyvec 1.12.0 (cargo), utf8_iter 1.0.4 (cargo), x11rb 0.13.2 (cargo), x11rb 0.14.0 (cargo), x11rb-protocol 0.13.2 (cargo), x11rb-protocol 0.14.0 (cargo), zeroize 1.9.0 (cargo), zune-core 0.5.3 (cargo), zune-jpeg 0.5.15 (cargo)
 --------------------------------------------------------------------------------
 Apache License
                            Version 2.0, January 2004
@@ -5262,7 +5265,7 @@ limitations under the License.
 ================================================================================
 Apache License 2.0
 License identifier: Apache-2.0
-Used by: argon2 0.5.3 (cargo), base64ct 1.8.3 (cargo), blake2 0.10.6 (cargo), block-buffer 0.10.4 (cargo), block-buffer 0.12.1 (cargo), const-oid 0.10.2 (cargo), cpufeatures 0.2.17 (cargo), cpufeatures 0.3.0 (cargo), crypto-common 0.1.7 (cargo), crypto-common 0.2.2 (cargo), digest 0.10.7 (cargo), digest 0.11.3 (cargo), hybrid-array 0.4.14 (cargo), password-hash 0.5.0 (cargo), sha2 0.10.9 (cargo), sha2 0.11.0 (cargo)
+Used by: argon2 0.6.0 (cargo), base64ct 1.8.3 (cargo), blake2 0.11.0 (cargo), block-buffer 0.10.4 (cargo), block-buffer 0.12.1 (cargo), const-oid 0.10.2 (cargo), cpufeatures 0.2.17 (cargo), cpufeatures 0.3.0 (cargo), crypto-common 0.1.7 (cargo), crypto-common 0.2.2 (cargo), digest 0.10.7 (cargo), digest 0.11.3 (cargo), hybrid-array 0.4.14 (cargo), password-hash 0.6.1 (cargo), phc 0.6.1 (cargo), sha2 0.10.9 (cargo), sha2 0.11.0 (cargo)
 --------------------------------------------------------------------------------
 Apache License
                         Version 2.0, January 2004
