@@ -14,6 +14,7 @@ import {
 import type { AppSettings } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { CaptureFeedbackCard } from './CaptureFeedbackCard';
+import { createCaptureFeedbackDismissal } from './captureFeedbackDismissal';
 import {
   CAPTURE_FEEDBACK_LAYOUT,
   MAX_CAPTURE_FEEDBACK_WINDOW_HEIGHT,
@@ -34,7 +35,6 @@ const ENTER_DURATION_MS = 220;
 const ENTER_PAINT_DELAY_MS = 64;
 const DISPLAY_POLL_INTERVAL_MS = 180;
 const HOVER_POLL_INTERVAL_MS = 60;
-const PREVIEW_FADE_MS = 1_000;
 const SWIPE_DISMISS_THRESHOLD = 54;
 const STACK_COLLAPSE_MS = 160;
 
@@ -54,6 +54,7 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
     if (!settings.enableNotifications) {
       timers.current.forEach((timer) => window.clearTimeout(timer));
       timers.current.clear();
+      autoDismiss.clear();
       itemsRef.current = [];
       setItems([]);
       void syncWindowRef.current([]);
@@ -97,7 +98,8 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
 
   const dismiss = (id: number, exitDirection?: -1 | 1) => {
     const item = itemsRef.current.find((candidate) => candidate.id === id);
-    if (!item || item.exiting) return;
+    if (!item || (item.exiting && !item.fading)) return;
+    autoDismiss.pause(id);
     const timer = timers.current.get(id);
     if (timer) window.clearTimeout(timer);
     const direction = exitDirection
@@ -108,48 +110,18 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
     timers.current.set(id, window.setTimeout(() => beginCollapse(id), EXIT_DURATION_MS));
   };
 
-  const collapseAfterFade = (id: number) => {
-    const item = itemsRef.current.find((candidate) => candidate.id === id);
-    if (!item || item.exiting) return;
-    const timer = timers.current.get(id);
-    if (timer) window.clearTimeout(timer);
-    commitItems((current) => current.map((candidate) => candidate.id === id
-      ? { ...candidate, fading: true, exiting: true, collapsing: true }
-      : candidate));
-    timers.current.set(id, window.setTimeout(() => finishDismiss(id), STACK_COLLAPSE_MS));
-  };
-
-  const pauseAutoDismiss = (id: number) => {
-    const timer = timers.current.get(id);
-    if (timer) window.clearTimeout(timer);
-    timers.current.delete(id);
-    const item = itemsRef.current.find((candidate) => candidate.id === id);
-    if (item?.fading) {
-      commitItems((current) => current.map((candidate) => candidate.id === id
-        ? { ...candidate, fading: false }
-        : candidate));
-    }
-  };
-
-  const scheduleAutoDismiss = (id: number) => {
-    const item = itemsRef.current.find((candidate) => candidate.id === id);
-    if (!item?.clip || item.exiting) return;
-    const timer = timers.current.get(id);
-    if (timer) window.clearTimeout(timer);
-    timers.current.delete(id);
-    commitItems((current) => current.map((candidate) => candidate.id === id && candidate.fading
-      ? { ...candidate, fading: false }
-      : candidate));
-    if (item.clip.isPinned) return;
-    const delaySeconds = settingsRef.current.captureFeedbackDismissSeconds;
-    if (delaySeconds <= 0) return;
-    timers.current.set(id, window.setTimeout(() => {
-      commitItems((current) => current.map((candidate) => candidate.id === id
-        ? { ...candidate, fading: true }
-        : candidate));
-      timers.current.set(id, window.setTimeout(() => collapseAfterFade(id), PREVIEW_FADE_MS));
-    }, delaySeconds * 1_000));
-  };
+  const [autoDismiss] = useState(() => createCaptureFeedbackDismissal({
+    items: () => itemsRef.current,
+    delaySeconds: () => settingsRef.current.captureFeedbackDismissSeconds,
+    setPhase: (id, phase) => commitItems((current) => current.map((item) => item.id === id
+      ? { ...item, fading: phase !== 'visible', exiting: phase === 'collapsing', collapsing: phase === 'collapsing' }
+      : item)),
+    finish: finishDismiss,
+    setTimeout: (callback, delay) => window.setTimeout(callback, delay),
+    clearTimeout: (timer) => window.clearTimeout(timer),
+  }));
+  const pauseAutoDismiss = autoDismiss.pause;
+  const scheduleAutoDismiss = autoDismiss.schedule;
 
   const handleSwipe = (id: number, event: WheelEvent<HTMLDivElement>) => {
     if (Math.abs(event.deltaX) <= Math.abs(event.deltaY) * 1.15) return;
@@ -171,7 +143,7 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
     let placementQueuedForce = false;
     let lastDisplayKey = '';
     let lastCursorIcon: 'arrow' | 'hand' = 'arrow';
-    let lastHoveredItemId: number | null = null;
+    let hoverBusy = false;
     let lastIgnoreCursorEvents: boolean | null = null;
     let nativeWindowVisible = false;
     const unlisteners: Array<() => void> = [];
@@ -208,28 +180,24 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
     };
 
     const syncSyntheticHover = async () => {
-      if (!itemsRef.current.some((item) => item.clip)) {
+      if (disposed || hoverBusy) return;
+      if (itemsRef.current.length === 0) {
         clearSyntheticHover();
         setWindowCursorPassthrough(true);
         return;
       }
+      hoverBusy = true;
       try {
         const [pointer, origin] = await Promise.all([cursorPosition(), windowHandle.outerPosition()]);
+        if (disposed) return;
         const scale = window.devicePixelRatio || 1;
         const localX = (pointer.x - origin.x) / scale;
         const localY = (pointer.y - origin.y) / scale;
         const hit = document.elementFromPoint(localX, localY);
-        const hoveredCard = hit?.closest('.capture-feedback-card.is-preview') ?? null;
+        const hoveredCard = hit?.closest('.capture-feedback-card') ?? null;
         const hoveredAction = hit?.closest('.floating-action-button:not(:disabled)') ?? null;
-        const hoveredItemId = hoveredCard instanceof HTMLElement
-          ? Number(hoveredCard.dataset.feedbackId)
-          : null;
-
-        if (hoveredItemId !== lastHoveredItemId) {
-          if (lastHoveredItemId !== null) scheduleAutoDismiss(lastHoveredItemId);
-          if (hoveredItemId !== null && Number.isFinite(hoveredItemId)) pauseAutoDismiss(hoveredItemId);
-          lastHoveredItemId = hoveredItemId;
-        }
+        autoDismiss.setInteraction('native-pointer', Boolean(hoveredCard));
+        if (!hoveredCard) autoDismiss.setInteraction('dom-pointer', false);
 
         document.querySelectorAll('.capture-feedback-card.is-preview').forEach((element) => {
           element.classList.toggle('is-global-pointer-hover', element === hoveredCard);
@@ -240,8 +208,10 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
         setWindowCursorPassthrough(!hoveredCard);
         setSyntheticCursor(hoveredAction ? 'hand' : 'arrow');
       } catch {
+        // Keep the last interaction state until a successful pointer sample.
         clearSyntheticHover();
-        setWindowCursorPassthrough(true);
+      } finally {
+        hoverBusy = false;
       }
     };
 
@@ -303,6 +273,7 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
     const syncWindow = async (nextItems: CaptureFeedbackItem[]) => {
       if (nextItems.length === 0) {
         lastDisplayKey = '';
+        autoDismiss.clear();
         clearSyntheticHover();
         setWindowCursorPassthrough(true);
         await windowHandle.hide();
@@ -382,12 +353,7 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
           : candidate));
       }, ENTER_PAINT_DELAY_MS + ENTER_DURATION_MS);
 
-      if (!clip) {
-        const timer = window.setTimeout(() => dismiss(item.id), 1_800);
-        timers.current.set(item.id, timer);
-      } else {
-        scheduleAutoDismiss(item.id);
-      }
+      scheduleAutoDismiss(item.id);
     };
 
     const register = async () => {
@@ -403,6 +369,7 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
 
     return () => {
       disposed = true;
+      autoDismiss.clear();
       timers.current.forEach((timer) => window.clearTimeout(timer));
       timers.current.clear();
       window.clearInterval(displayPoll);
@@ -456,7 +423,13 @@ export function CaptureFeedbackWindow({ settings, settingsHydrated }: CaptureFee
   const bottomStack = settings.captureFeedbackPosition.startsWith('bottom');
 
   return (
-    <div className={`capture-feedback-root flex h-screen w-screen gap-1.5 p-1.5 ${bottomStack ? 'is-bottom-stack flex-col-reverse' : 'flex-col'}`}>
+    <div
+      className={`capture-feedback-root flex h-screen w-screen gap-1.5 p-1.5 ${bottomStack ? 'is-bottom-stack flex-col-reverse' : 'flex-col'}`}
+      onPointerOver={(event) => autoDismiss.setInteraction('dom-pointer', Boolean((event.target as Element).closest('.capture-feedback-card')))}
+      onPointerOut={(event) => autoDismiss.setInteraction('dom-pointer', event.relatedTarget instanceof Element && Boolean(event.relatedTarget.closest('.capture-feedback-card')))}
+      onFocusCapture={() => autoDismiss.setInteraction('focus', true)}
+      onBlurCapture={(event) => autoDismiss.setInteraction('focus', event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget))}
+    >
       {items.map((item) => <CaptureFeedbackCard
         key={item.id}
         item={item}

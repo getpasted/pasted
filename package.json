@@ -30,7 +30,7 @@
     "test:activity": "node scripts/audit-activity-events.js",
     "test:backup": "node --experimental-strip-types scripts/test-backup-client-state.js && node --experimental-strip-types scripts/test-app-ui-state.ts && node scripts/audit-full-backup.js",
     "test:platform": "node scripts/audit-platform-chrome.js",
-    "test:feedback": "node scripts/audit-capture-feedback.js",
+    "test:feedback": "node --experimental-strip-types scripts/test-capture-feedback-dismissal.ts && node scripts/audit-capture-feedback.js",
     "test:app-lock": "node --experimental-strip-types scripts/test-app-lock-idle.ts",
     "bench:analysis": "cargo run --release --manifest-path src-tauri/Cargo.toml --example analysis_baseline --",
     "test:ipc": "node scripts/audit-ipc.js && node scripts/audit-app-events.js",

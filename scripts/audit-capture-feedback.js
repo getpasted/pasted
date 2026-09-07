@@ -37,6 +37,7 @@ const overlaySource = [
   'src/components/CaptureFeedbackWindow.tsx',
   'src/components/CaptureFeedbackCard.tsx',
   'src/components/captureFeedbackModel.ts',
+  'src/components/captureFeedbackDismissal.ts',
 ].map((path) => fs.readFileSync(path, 'utf8')).join('\n');
 const tabsSource = fs.readFileSync('src/components/SettingsTabs.tsx', 'utf8');
 const capabilitiesSource = fs.readFileSync('src-tauri/capabilities/default.json', 'utf8');
@@ -174,7 +175,7 @@ assert.match(overlaySource, /captureFeedbackDismissSeconds/);
 assert.match(overlaySource, /SWIPE_DISMISS_THRESHOLD/);
 assert.match(
   overlaySource,
-  /if \(item\.clip\.isPinned\) return;/,
+  /if \(item\.clip\?\.isPinned\) return;/,
   'Pinned capture previews must opt out of automatic dismissal',
 );
 assert.match(
