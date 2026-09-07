@@ -45,12 +45,15 @@ const englishCatalog = JSON.parse(fs.readFileSync('src/locales/en.json', 'utf8')
 const feedbackWindow = config.app.windows.find(({ label }) => label === 'capture-feedback');
 const macConfig = JSON.parse(fs.readFileSync('src-tauri/tauri.macos.conf.json', 'utf8'));
 const macFeedbackWindow = macConfig.app.windows.find(({ label }) => label === 'capture-feedback');
+assert.ok(macFeedbackWindow, 'macOS capture feedback needs a dedicated window');
 assert.equal(macFeedbackWindow.focus, false);
 assert.equal(macFeedbackWindow.focusable, false);
 assert.equal(macFeedbackWindow.acceptFirstMouse, true,
   'Capture feedback controls must respond without activating Pasted first');
 const nativeWindows = fs.readFileSync('src-tauri/src/app_windows.rs', 'utf8');
 const activationSource = fs.readFileSync('src-tauri/src/app_windows/capture_feedback.rs', 'utf8');
+assert.match(activationSource, /MainThreadMarker::new\(\)[\s\S]*?\.ok_or\([^;]+\)\?;[\s\S]*?window\.ns_window\(\)/,
+  'Capture feedback must reject off-thread calls before accessing AppKit');
 assert.match(nativeWindows, /capture_feedback::prevent_app_activation\(app\)/);
 assert.match(activationSource, /get_webview_window\("capture-feedback"\)/);
 assert.doesNotMatch(activationSource, /get_webview_window\("(?:main|hud)"\)/);

@@ -1,15 +1,19 @@
 use objc2::runtime::AnyObject;
-use objc2::{msg_send, sel};
+use objc2::{msg_send, sel, MainThreadMarker};
 use tauri::Manager;
 
 pub(super) fn prevent_app_activation(
     app: &tauri::AppHandle,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    // Keep setup synchronous, but reject future off-thread callers before
+    // retrieving the native window or sending any AppKit messages.
+    let _main_thread = MainThreadMarker::new()
+        .ok_or("Capture feedback activation must be configured on the AppKit main thread")?;
     let Some(window) = app.get_webview_window("capture-feedback") else {
         return Ok(());
     };
     let pointer = window.ns_window()?;
-    // Setup runs on the AppKit main thread, before this hidden window is shown.
+    // The guard above verifies the AppKit main thread before this window is shown.
     unsafe {
         let window = pointer.cast::<AnyObject>();
         let supported: bool = msg_send![window, respondsToSelector: sel!(_setPreventsActivation:)];
