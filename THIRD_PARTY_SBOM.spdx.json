@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "Pasted-1.0.1-distributed-components",
-  "documentNamespace": "https://getpasted.app/sbom/1.0.1/795479402855e38eb629e85d2feae72e21f8fac31ee1fc06be0c3a6cdf3991dd",
+  "documentNamespace": "https://getpasted.app/sbom/1.0.1/1a627b53475ede43a136a258393f4267348c2d1eeffb78fbae108eaf0451c6ed",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
@@ -114,10 +114,10 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-e70570ae485cf374",
+      "SPDXID": "SPDXRef-cargo-7404ed9d56526245",
       "name": "argon2",
-      "versionInfo": "0.5.3",
-      "downloadLocation": "https://github.com/RustCrypto/password-hashes/tree/master/argon2",
+      "versionInfo": "0.6.0",
+      "downloadLocation": "https://github.com/RustCrypto/password-hashes",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT OR Apache-2.0",
       "licenseDeclared": "MIT OR Apache-2.0",
@@ -126,7 +126,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/argon2@0.5.3"
+          "referenceLocator": "pkg:cargo/argon2@0.6.0"
         }
       ]
     },
@@ -522,9 +522,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-4889838d8677945d",
+      "SPDXID": "SPDXRef-cargo-5a8c6e8e0a00dcf9",
       "name": "blake2",
-      "versionInfo": "0.10.6",
+      "versionInfo": "0.11.0",
       "downloadLocation": "https://github.com/RustCrypto/hashes",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT OR Apache-2.0",
@@ -534,7 +534,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/blake2@0.10.6"
+          "referenceLocator": "pkg:cargo/blake2@0.11.0"
         }
       ]
     },
@@ -879,6 +879,23 @@
       ]
     },
     {
+      "SPDXID": "SPDXRef-cargo-d8c30b6cb6d1ad84",
+      "name": "cmov",
+      "versionInfo": "0.5.4",
+      "downloadLocation": "https://github.com/RustCrypto/utils",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0 OR MIT",
+      "licenseDeclared": "Apache-2.0 OR MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/cmov@0.5.4"
+        }
+      ]
+    },
+    {
       "SPDXID": "SPDXRef-cargo-a81fe5bdadb95789",
       "name": "concurrent-queue",
       "versionInfo": "2.5.0",
@@ -1181,6 +1198,23 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/ctor-proc-macro@0.0.7"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-7e7357f5f55da350",
+      "name": "ctutils",
+      "versionInfo": "0.4.2",
+      "downloadLocation": "https://github.com/RustCrypto/utils",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0 OR MIT",
+      "licenseDeclared": "Apache-2.0 OR MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/ctutils@0.4.2"
         }
       ]
     },
@@ -4041,10 +4075,10 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-3ec13ce06be4f9a0",
+      "SPDXID": "SPDXRef-cargo-58b730111db1e3a8",
       "name": "password-hash",
-      "versionInfo": "0.5.0",
-      "downloadLocation": "https://github.com/RustCrypto/traits/tree/master/password-hash",
+      "versionInfo": "0.6.1",
+      "downloadLocation": "https://github.com/RustCrypto/traits",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT OR Apache-2.0",
       "licenseDeclared": "MIT OR Apache-2.0",
@@ -4053,7 +4087,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/password-hash@0.5.0"
+          "referenceLocator": "pkg:cargo/password-hash@0.6.1"
         }
       ]
     },
@@ -4088,6 +4122,23 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/petgraph@0.8.3"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-76e2ace611126f8a",
+      "name": "phc",
+      "versionInfo": "0.6.1",
+      "downloadLocation": "https://github.com/RustCrypto/formats",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0 OR MIT",
+      "licenseDeclared": "Apache-2.0 OR MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/phc@0.6.1"
         }
       ]
     },
@@ -10008,7 +10059,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-e70570ae485cf374"
+      "relatedSpdxElement": "SPDXRef-cargo-7404ed9d56526245"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -10128,7 +10179,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-4889838d8677945d"
+      "relatedSpdxElement": "SPDXRef-cargo-5a8c6e8e0a00dcf9"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -10233,6 +10284,11 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-d8c30b6cb6d1ad84"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-a81fe5bdadb95789"
     },
     {
@@ -10319,6 +10375,11 @@
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-5c5a75874e393dd6"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-7e7357f5f55da350"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -11163,7 +11224,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-3ec13ce06be4f9a0"
+      "relatedSpdxElement": "SPDXRef-cargo-58b730111db1e3a8"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -11174,6 +11235,11 @@
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-1256787f2e0459ad"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-76e2ace611126f8a"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
