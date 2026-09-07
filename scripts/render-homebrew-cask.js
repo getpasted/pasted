@@ -27,8 +27,7 @@ const cask = `cask "pasted" do
   version "${version}"
   sha256 "${sha256.toLowerCase()}"
 
-  url "https://github.com/getpasted/pasted/releases/download/v#{version}/Pasted_#{version}_universal.dmg",
-      verified: "github.com/getpasted/pasted/"
+  url "https://github.com/getpasted/pasted/releases/download/v#{version}/Pasted_#{version}_universal.dmg"
   name "Pasted"
   desc "Clipboard history, organization, and transformations"
   homepage "https://github.com/getpasted/pasted"
