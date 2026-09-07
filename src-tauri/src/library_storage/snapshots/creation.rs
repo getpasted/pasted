@@ -5,12 +5,11 @@ use super::{
 };
 use crate::db::DbState;
 use chrono::{DateTime, Utc};
-use serde::Serialize;
 use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotSchedule {
     pub next_automatic_snapshot_at: Option<String>,
