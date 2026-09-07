@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "Pasted-1.0.1-distributed-components",
-  "documentNamespace": "https://getpasted.app/sbom/1.0.1/b1bbe603c4af3b3b812eb3c534db393b64f89d8c4994407d268c99ce7725bf3a",
+  "documentNamespace": "https://getpasted.app/sbom/1.0.1/98b5792f29e7e93143f61dae970ee0bcbe9f6c65ccc13e8b3476bd15295a2e61",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
@@ -7101,6 +7101,23 @@
       ]
     },
     {
+      "SPDXID": "SPDXRef-cargo-e2e797e5a0d43a9f",
+      "name": "windows-core",
+      "versionInfo": "0.100.0",
+      "downloadLocation": "https://github.com/microsoft/windows-rs",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/windows-core@0.100.0"
+        }
+      ]
+    },
+    {
       "SPDXID": "SPDXRef-cargo-a58dd7c6fdeea739",
       "name": "windows-core",
       "versionInfo": "0.61.2",
@@ -7131,6 +7148,23 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/windows-core@0.62.2"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-700de5a848443a89",
+      "name": "windows-future",
+      "versionInfo": "0.100.0",
+      "downloadLocation": "https://github.com/microsoft/windows-rs",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/windows-future@0.100.0"
         }
       ]
     },
@@ -7220,6 +7254,23 @@
       ]
     },
     {
+      "SPDXID": "SPDXRef-cargo-deabe4ddd7d4db39",
+      "name": "windows-link",
+      "versionInfo": "0.100.0",
+      "downloadLocation": "https://github.com/microsoft/windows-rs",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/windows-link@0.100.0"
+        }
+      ]
+    },
+    {
       "SPDXID": "SPDXRef-cargo-8c02325d9c479e71",
       "name": "windows-link",
       "versionInfo": "0.2.1",
@@ -7271,6 +7322,23 @@
       ]
     },
     {
+      "SPDXID": "SPDXRef-cargo-2cdd8b2d800063b0",
+      "name": "windows-result",
+      "versionInfo": "0.100.0",
+      "downloadLocation": "https://github.com/microsoft/windows-rs",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/windows-result@0.100.0"
+        }
+      ]
+    },
+    {
       "SPDXID": "SPDXRef-cargo-1527ac73aaa7dfa7",
       "name": "windows-result",
       "versionInfo": "0.3.4",
@@ -7301,6 +7369,23 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/windows-result@0.4.1"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-9c13bbe7c0fde290",
+      "name": "windows-strings",
+      "versionInfo": "0.100.0",
+      "downloadLocation": "https://github.com/microsoft/windows-rs",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/windows-strings@0.100.0"
         }
       ]
     },
@@ -7437,6 +7522,23 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/windows-threading@0.1.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-bdb5691ec7331a10",
+      "name": "windows-threading",
+      "versionInfo": "0.100.0",
+      "downloadLocation": "https://github.com/microsoft/windows-rs",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/windows-threading@0.100.0"
         }
       ]
     },
@@ -12063,12 +12165,22 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-e2e797e5a0d43a9f"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-a58dd7c6fdeea739"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-66fdd71423b2b0eb"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-700de5a848443a89"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -12098,6 +12210,11 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-deabe4ddd7d4db39"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-8c02325d9c479e71"
     },
     {
@@ -12113,12 +12230,22 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-2cdd8b2d800063b0"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-1527ac73aaa7dfa7"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-0795a685f0415c41"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-9c13bbe7c0fde290"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -12159,6 +12286,11 @@
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-0cda853fb8833c7f"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-bdb5691ec7331a10"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
