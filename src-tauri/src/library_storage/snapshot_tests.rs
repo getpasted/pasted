@@ -267,9 +267,12 @@ fn deletion_is_gated_locked_and_limited_to_the_selected_indexed_snapshot() {
     assert!(source.is_file());
     // Damaged snapshots remain deletable; removal does not require a usable backup.
     fs::write(&source, b"damaged snapshot").unwrap();
+    let sidecar = PathBuf::from(format!("{}-wal", source.display()));
+    fs::write(&sidecar, b"stale sidecar").unwrap();
     db.save_setting(snapshots::RETENTION_KEY, "0").unwrap();
     snapshots::delete(&db, &fixture.0, &snapshot.id).unwrap();
     assert!(!source.exists());
+    assert!(!sidecar.exists());
     assert!(!fixture
         .0
         .join("snapshots")
@@ -290,6 +293,11 @@ fn retention_removes_only_unpublished_snapshot_artifacts() {
         .unwrap()
         .unwrap();
     let directory = fixture.0.join("snapshots");
+    let published_path = directory.join(format!("{}.pastedbackup", published.id));
+    let published_sidecar = PathBuf::from(format!("{}-shm", published_path.display()));
+    fs::write(&published_sidecar, b"stale sidecar").unwrap();
+    add(&db, "newer");
+    snapshots::create(&db, &fixture.0, Utc::now() + Duration::seconds(1), None).unwrap();
     fs::write(directory.join("orphan.pastedbackup"), b"partial").unwrap();
     fs::write(directory.join("orphan.json"), b"invalid").unwrap();
     fs::write(
@@ -298,9 +306,11 @@ fn retention_removes_only_unpublished_snapshot_artifacts() {
     )
     .unwrap();
 
-    snapshots::enforce_retention(&db, &fixture.0, 24).unwrap();
+    snapshots::enforce_retention(&db, &fixture.0, 1).unwrap();
 
-    assert_eq!(snapshots::list(&fixture.0).unwrap()[0].id, published.id);
+    assert_eq!(snapshots::list(&fixture.0).unwrap().len(), 1);
+    assert!(!published_path.exists());
+    assert!(!published_sidecar.exists());
     assert!(!directory.join("orphan.pastedbackup").exists());
     assert!(!directory.join("orphan.json").exists());
     assert!(!directory

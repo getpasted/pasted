@@ -35,11 +35,13 @@ export function LibraryRecoveryNote() {
   const description = notice.outcome === 'recovered' && notice.recoveryCreatedAt
     ? t('libraryRecovery.restoredNote', { date: formatDateTime(notice.recoveryCreatedAt, { dateStyle: 'medium', timeStyle: 'short' }) })
     : notice.outcome === 'continued' ? t('libraryRecovery.continuedNote') : t('libraryRecovery.freshNote');
+  const title = notice.outcome === 'recovered' ? t('libraryRecovery.restoredTitle')
+    : notice.outcome === 'continued' ? t('libraryRecovery.continuedTitle') : t('libraryRecovery.freshTitle');
   return <aside className="theme-status-info flex gap-3 rounded-xl border p-3" aria-labelledby="library-recovery-note-title">
     <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
     <div className="min-w-0 flex-1 space-y-1">
       <h3 id="library-recovery-note-title" className="theme-text-main text-xs font-semibold">
-        {notice.outcome === 'fresh' ? t('libraryRecovery.freshTitle') : t('libraryRecovery.restoredTitle')}
+        {title}
       </h3>
       <p className="theme-text-muted text-xs leading-relaxed">{description}</p>
       <details className="theme-text-muted pt-1 text-xs">

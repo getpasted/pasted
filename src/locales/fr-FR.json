@@ -2552,6 +2552,7 @@
   "libraryRecovery.waitingDescription": "Le démarrage reprendra automatiquement dès que le dossier par défaut sera disponible.",
   "libraryRecovery.restoredTitle": "Bibliothèque restaurée",
   "libraryRecovery.freshTitle": "Nouvelle bibliothèque créée",
+  "libraryRecovery.continuedTitle": "Déplacement de la bibliothèque terminé",
   "libraryRecovery.restoredNote": "Une copie de récupération du {date} est utilisée, car la bibliothèque précédente n’a pas pu être ouverte. Les modifications ultérieures peuvent manquer. Les fichiers existants ont été conservés.",
   "libraryRecovery.freshNote": "L’emplacement par défaut est utilisé, car la bibliothèque précédente n’a pas pu être récupérée. Les fichiers existants ont été conservés.",
   "libraryRecovery.continuedNote": "Un déplacement interrompu de la bibliothèque a été résolu automatiquement. La bibliothèque actuelle est disponible et les fichiers existants ont été conservés.",

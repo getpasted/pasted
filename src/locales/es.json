@@ -2552,6 +2552,7 @@
   "libraryRecovery.waitingDescription": "El inicio continuará automáticamente cuando la carpeta predeterminada esté disponible.",
   "libraryRecovery.restoredTitle": "Biblioteca restaurada",
   "libraryRecovery.freshTitle": "Nueva biblioteca iniciada",
+  "libraryRecovery.continuedTitle": "Traslado de la biblioteca completado",
   "libraryRecovery.restoredNote": "Se está usando una copia de recuperación del {date} porque no se pudo abrir la biblioteca anterior. Puede que falten los cambios posteriores a esa copia. Se conservaron los archivos existentes.",
   "libraryRecovery.freshNote": "Se está usando la ubicación predeterminada porque no se pudo recuperar la biblioteca anterior. Se conservaron los archivos existentes.",
   "libraryRecovery.continuedNote": "Se resolvió automáticamente un traslado interrumpido de la biblioteca. La biblioteca actual está disponible y se conservaron los archivos existentes.",

@@ -1,6 +1,7 @@
+use super::retention::{prune_locked, retention_count};
 use super::{
-    files, lease, list, path, prune_locked, remove_unpublished_locked, retention_count, Snapshot,
-    SnapshotPublishGuard, BASELINE_KEY, INTERVAL_KEY,
+    files, lease, list, path, remove_unpublished_locked, Snapshot, SnapshotPublishGuard,
+    BASELINE_KEY, INTERVAL_KEY,
 };
 use crate::db::DbState;
 use chrono::{DateTime, Utc};

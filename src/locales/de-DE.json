@@ -2552,6 +2552,7 @@
   "libraryRecovery.waitingDescription": "Der Start wird automatisch fortgesetzt, sobald der Standardordner verfügbar ist.",
   "libraryRecovery.restoredTitle": "Bibliothek wiederhergestellt",
   "libraryRecovery.freshTitle": "Neue Bibliothek angelegt",
+  "libraryRecovery.continuedTitle": "Bibliotheksverschiebung abgeschlossen",
   "libraryRecovery.restoredNote": "Eine Wiederherstellungskopie vom {date} wird verwendet, da die vorherige Bibliothek nicht geöffnet werden konnte. Spätere Änderungen fehlen möglicherweise. Vorhandene Dateien wurden beibehalten.",
   "libraryRecovery.freshNote": "Der Standardspeicherort wird verwendet, da die vorherige Bibliothek nicht wiederhergestellt werden konnte. Vorhandene Dateien wurden beibehalten.",
   "libraryRecovery.continuedNote": "Ein unterbrochenes Verschieben der Bibliothek wurde automatisch abgeschlossen. Die aktuelle Bibliothek ist verfügbar. Vorhandene Dateien wurden beibehalten.",

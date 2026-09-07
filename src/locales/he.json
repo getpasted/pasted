@@ -2576,6 +2576,7 @@
   "libraryRecovery.waitingDescription": "ההפעלה תימשך אוטומטית כשתיקיית ברירת המחדל תהיה זמינה.",
   "libraryRecovery.restoredTitle": "הספרייה שוחזרה",
   "libraryRecovery.freshTitle": "נוצרה ספרייה חדשה",
+  "libraryRecovery.continuedTitle": "העברת הספרייה הושלמה",
   "libraryRecovery.restoredNote": "עותק שחזור מ־{date} נמצא בשימוש משום שלא ניתן היה לפתוח את הספרייה הקודמת. ייתכן ששינויים שבוצעו לאחר יצירת העותק חסרים. הקבצים הקיימים נשמרו.",
   "libraryRecovery.freshNote": "מיקום ברירת המחדל נמצא בשימוש משום שלא ניתן היה לשחזר את הספרייה הקודמת. הקבצים הקיימים נשמרו.",
   "libraryRecovery.continuedNote": "העברה שנקטעה של הספרייה טופלה אוטומטית. הספרייה הנוכחית זמינה, והקבצים הקיימים נשמרו.",

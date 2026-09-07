@@ -2552,6 +2552,7 @@
   "libraryRecovery.waitingDescription": "Startup will continue automatically when the default folder is available.",
   "libraryRecovery.restoredTitle": "Library restored",
   "libraryRecovery.freshTitle": "New library started",
+  "libraryRecovery.continuedTitle": "Library move completed",
   "libraryRecovery.restoredNote": "A recovery copy from {date} is in use because the previous library could not be opened. Changes after that copy may be missing. Existing files were kept.",
   "libraryRecovery.freshNote": "The default location is in use because the previous library could not be recovered. Existing files were kept.",
   "libraryRecovery.continuedNote": "An interrupted library move was settled automatically. The current library is available, and existing files were kept.",

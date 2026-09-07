@@ -2552,6 +2552,7 @@
   "libraryRecovery.waitingDescription": "A inicialização continuará automaticamente quando a pasta padrão estiver disponível.",
   "libraryRecovery.restoredTitle": "Biblioteca restaurada",
   "libraryRecovery.freshTitle": "Nova biblioteca criada",
+  "libraryRecovery.continuedTitle": "Movimentação da biblioteca concluída",
   "libraryRecovery.restoredNote": "Uma cópia de recuperação de {date} está em uso porque não foi possível abrir a biblioteca anterior. As alterações posteriores a essa cópia podem estar ausentes. Os arquivos existentes foram preservados.",
   "libraryRecovery.freshNote": "O local padrão está em uso porque não foi possível recuperar a biblioteca anterior. Os arquivos existentes foram preservados.",
   "libraryRecovery.continuedNote": "Uma movimentação interrompida da biblioteca foi resolvida automaticamente. A biblioteca atual está disponível e os arquivos existentes foram preservados.",

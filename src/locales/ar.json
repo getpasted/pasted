@@ -2648,6 +2648,7 @@
   "libraryRecovery.waitingDescription": "سيستمر بدء التشغيل تلقائيًا عندما يصبح المجلد الافتراضي متاحًا.",
   "libraryRecovery.restoredTitle": "تمت استعادة المكتبة",
   "libraryRecovery.freshTitle": "تم إنشاء مكتبة جديدة",
+  "libraryRecovery.continuedTitle": "اكتمل نقل المكتبة",
   "libraryRecovery.restoredNote": "تُستخدم نسخة استرداد بتاريخ {date} لتعذر فتح المكتبة السابقة. قد لا تتضمن التغييرات التي أُجريت بعد تلك النسخة. تم الاحتفاظ بالملفات الموجودة.",
   "libraryRecovery.freshNote": "يُستخدم الموقع الافتراضي لتعذر استرداد المكتبة السابقة. تم الاحتفاظ بالملفات الموجودة.",
   "libraryRecovery.continuedNote": "تمت معالجة نقل متوقف للمكتبة تلقائيًا. المكتبة الحالية متاحة، وتم الاحتفاظ بالملفات الموجودة.",

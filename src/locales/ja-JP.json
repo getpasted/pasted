@@ -2549,6 +2549,7 @@
   "libraryRecovery.waitingDescription": "既定のフォルダが利用可能になると、起動が自動的に続行されます。",
   "libraryRecovery.restoredTitle": "ライブラリを復元しました",
   "libraryRecovery.freshTitle": "新しいライブラリを作成しました",
+  "libraryRecovery.continuedTitle": "ライブラリの移動が完了しました",
   "libraryRecovery.restoredNote": "以前のライブラリを開けなかったため、{date}の復元用コピーを使用しています。コピー作成後の変更が含まれていない可能性があります。既存のファイルは保持されています。",
   "libraryRecovery.freshNote": "以前のライブラリを復元できなかったため、既定の場所を使用しています。既存のファイルは保持されています。",
   "libraryRecovery.continuedNote": "中断されたライブラリの移動を自動的に処理しました。現在のライブラリは利用可能で、既存のファイルは保持されています。",
