@@ -19,6 +19,14 @@ Revision History stores Versions created by content-changing actions, including 
 
 The scriptable equivalents are `pasted clip versions <id>`, `pasted clip restore-version <id> <version-id>`, and `pasted clip delete-version <id> <version-id> --yes`.
 
+## Snapshots
+
+**Settings → Storage → Snapshots** keeps local recovery points automatically while Pasted is running. The interval defaults to 60 minutes and retention defaults to 24 Snapshots. An automatic Snapshot is created only after a new clip arrives, so an unchanged library is not copied repeatedly. A retention count of 0 pauses automatic creation without hiding existing Snapshots; **Create** remains available for an immediate recovery point.
+
+The Snapshot list updates while Storage is open and shows when the next automatic Snapshot is due. Each Snapshot can replace the current library, be exported as a portable Full Backup, or be deleted. Restore validates the selected Snapshot and saves a recovery copy of the current state before activation. The CLI provides the same operations through `pasted snapshots list|check|create|export|restore|delete`, including structured `--json` output.
+
+Automatic Snapshots live in Pasted's application-data directory, independently of a moved library. If the configured library cannot be opened at startup, Pasted first tries verified recovery data and then starts a clean library in the default location when recovery is not possible. Files from the failed library are preserved for diagnosis, and Storage shows a dismissible recovery note. Snapshots protect against database and location failures on the same device; export a Full Backup to separate storage for device-loss protection.
+
 ## Full backup and restore
 
 **Settings → Storage → Full Backup and Restore** creates an exact recovery point: a validated, unencrypted SQLite snapshot of all durable state owned by Pasted, plus saved interface/window state. This includes clips in History and Trash, stored clipboard images, all Bins and ordering, revisions, Activity, settings and hotkeys, App Exclusion rules, Copy Queue state, Transforms, Operations, automations, execution history, OCR state, Extractor recipes and local authoring history, Classifiers, derived Analysis classifications, Content Types, and intelligence connection setup. Store the file on encrypted storage or place it in an encrypted archive when additional protection is needed.
@@ -45,6 +53,6 @@ These migrations import supported text history rather than another application's
 
 ## Factory Reset
 
-Factory Reset removes local data and preferences after explicit confirmation, recreates the starter manual and Smart Bins, and relaunches. It is transactional: a database failure rolls back the reset rather than leaving partially cleared data.
+Factory Reset removes local data, preferences, and automatic Snapshots after explicit confirmation, recreates the starter manual and Smart Bins, and relaunches. Manually exported Full Backups remain in their chosen locations. The database reset is transactional: a failure rolls back the reset rather than leaving partially cleared data.
 
 Export before reset if any data matters.

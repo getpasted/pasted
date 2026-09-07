@@ -1,7 +1,8 @@
 import type { FunctionalitySettings } from './appSettingsTypes/functionality';
 import type { RetentionSettings } from './appSettingsTypes/retention';
+import type { StorageSettings } from './appSettingsTypes/storage';
 
-export interface AppSettings extends FunctionalitySettings, RetentionSettings {
+export interface AppSettings extends FunctionalitySettings, RetentionSettings, StorageSettings {
   onboardingVersion: number;
   language: string;
   textSize: number;

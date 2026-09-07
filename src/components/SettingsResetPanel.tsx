@@ -1,3 +1,4 @@
+import { useFeatures } from '../hooks/useFeatures';
 import { useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
@@ -25,6 +26,7 @@ export function SettingsResetPanel({
   onRefreshTrashedClips,
   onResetClientState,
 }: SettingsResetPanelProps) {
+  const features = useFeatures();
   const { showToast } = useToast();
   const [isResetOpen, setIsResetOpen] = useState(false);
 
@@ -78,7 +80,7 @@ export function SettingsResetPanel({
       <FactoryResetDialog
         isOpen={isResetOpen}
         onClose={() => setIsResetOpen(false)}
-        onExport={handleExport}
+        onExport={features.backups ? handleExport : undefined}
         onReset={handleFactoryReset}
       />
     </section>

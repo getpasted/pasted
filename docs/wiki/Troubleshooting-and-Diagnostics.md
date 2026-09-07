@@ -48,4 +48,6 @@ Run it from a terminal and inspect WebKit/GTK output. SteamOS required host WebK
 
 ## Recovery
 
-Create a Full Backup before destructive troubleshooting. Full Restore replaces the current state and creates a recovery backup first; History and Organization import merges portable data. Factory Reset is the last resort and permanently removes local data after confirmation.
+Create a Full Backup before destructive troubleshooting. Full Restore replaces the current state and creates a recovery backup first; History and Organization import merges portable data.
+
+Automatic Snapshots are listed under **Settings → Storage → Snapshots**. If a moved or unavailable library cannot be opened, startup attempts verified recovery automatically and preserves failed library files. A dismissible Storage note reports the recovery result. Factory Reset is the last resort and permanently removes local data and automatic Snapshots after confirmation; manually exported Full Backups remain at their chosen locations.

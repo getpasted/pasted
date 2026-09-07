@@ -1,4 +1,6 @@
 import React from "react";
+import { safeInvoke as invoke } from "./utils/tauri";
+import { LibraryStartupWaiting, type LibraryStartupStatus } from "./components/LibraryStartupWaiting";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import { applyDesktopPlatform } from "./utils/platform";
@@ -64,10 +66,12 @@ function ProtectedAppRoot() {
 }
 
 async function mountApp() {
+  const startup = await invoke<LibraryStartupStatus>("get_library_startup_status")
+    .catch(() => ({ ready: false, path: null, recoveryCreatedAt: null }));
   try {
     // Full Restore stages its backed-up interface state in the restored database.
     // Apply it before any hook reads localStorage so startup has one stable frame.
-    await restorePendingBackupClientStateBeforeMount();
+    if (startup.ready) await restorePendingBackupClientStateBeforeMount();
   } catch (error) {
     console.error('Failed to restore backed-up interface state:', error);
   }
@@ -79,7 +83,7 @@ async function mountApp() {
   ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <React.StrictMode>
       <LocalizationProvider>
-        <ProtectedAppRoot />
+        {startup.ready ? <ProtectedAppRoot /> : <LibraryStartupWaiting />}
       </LocalizationProvider>
     </React.StrictMode>,
   );

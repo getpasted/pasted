@@ -20,6 +20,7 @@ pub(crate) mod hud;
 pub(crate) mod imports;
 pub(crate) mod intelligence;
 pub(crate) mod library_access;
+pub(crate) use crate::library_startup;
 pub(crate) mod manual_transforms;
 pub(crate) mod platform;
 pub(crate) mod queue;
@@ -44,3 +45,5 @@ pub(crate) use manual_transforms::*;
 pub(crate) use runtime::refresh_native_app_menu;
 pub(crate) use source_apps::*;
 pub(crate) use transformations::*;
+
+pub(crate) mod snapshots;

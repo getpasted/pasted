@@ -1,5 +1,6 @@
+import { useFeatures } from '../hooks/useFeatures';
 import { useEffect, useState } from 'react';
-import { ArrowRight, Database, RotateCcw } from 'lucide-react';
+import { Database, RotateCcw } from 'lucide-react';
 import { safeInvoke as invoke } from '../utils/tauri';
 import { SettingsPanelHeader } from './SettingsPanelHeader';
 import { SettingsSubsectionHeader } from './SettingsSubsectionHeader';
@@ -16,6 +17,8 @@ import { useLocalization } from '../localization/LocalizationProvider';
 import { translate } from '../localization/runtime';
 import { activityApi } from '../api/activity';
 import { backupApi } from '../api/backup';
+import { SettingsSnapshotsSection } from './SettingsSnapshotsSection';
+import { LibraryRecoveryNote } from './LibraryRecoveryNote';
 import { SettingsSyncLibrarySection } from './SettingsSyncLibrarySection';
 import { SettingsSyncExportSection } from './SettingsSyncExportSection';
 import { SettingsSyncImportSection } from './SettingsSyncImportSection';
@@ -30,26 +33,28 @@ import type {
   LibraryMoveReport,
   StorageProtectionInfo,
 } from './settingsSyncModel';
+import type { AppSettings } from '../types';
 
 interface SettingsSyncPanelProps {
+  settings: AppSettings;
+  onUpdateSettings: (settings: Partial<AppSettings>) => void;
   onRefreshBins?: () => void;
   onRefreshManualTransforms?: () => void;
   onRefreshClips?: () => void;
   onRefreshTrashedClips?: () => void;
-  analyticsEnabled?: boolean;
   activityEnabled?: boolean;
-  onOpenAnalytics?: () => void;
 }
 
 export function SettingsSyncPanel({
+  settings,
+  onUpdateSettings,
   onRefreshBins,
   onRefreshManualTransforms,
   onRefreshClips,
   onRefreshTrashedClips,
-  analyticsEnabled = false,
   activityEnabled = false,
-  onOpenAnalytics,
 }: SettingsSyncPanelProps) {
+  const features = useFeatures();
   const { formatDateTime, formatNumber } = useLocalization();
   const { showToast } = useToast();
   const [isImporting, setIsImporting] = useState(false);
@@ -98,9 +103,18 @@ export function SettingsSyncPanel({
   };
 
   useEffect(() => {
+    if (!features.libraryMove) return;
     void refreshLocation();
     void refreshStorageProtection();
-  }, []);
+  }, [features.libraryMove]);
+
+  useEffect(() => {
+    if (!features.backups) {
+      setIsRestoreConfirmOpen(false);
+      setImportInspection(null);
+      setImportInspectionError(null);
+    }
+  }, [features.backups]);
 
   const handleMoveLibrary = async () => {
     const transitionStartedAt = performance.now();
@@ -118,7 +132,7 @@ export function SettingsSyncPanel({
     } catch (error) {
       console.error('Library move failed:', error);
       await waitForMinimumLibraryTransition(transitionStartedAt);
-      showToast({ tone: 'error', message: String(error), durationMs: 8000 });
+      showToast({ tone: 'error', get message() { return translate('libraryRecovery.moveFailed'); }, durationMs: 8000 });
     } finally {
       setIsMoving(false);
     }
@@ -139,7 +153,7 @@ export function SettingsSyncPanel({
     } catch (error) {
       console.error('Default library restore failed:', error);
       await waitForMinimumLibraryTransition(transitionStartedAt);
-      showToast({ tone: 'error', message: String(error), durationMs: 8000 });
+      showToast({ tone: 'error', get message() { return translate('libraryRecovery.moveFailed'); }, durationMs: 8000 });
     } finally {
       setIsMoving(false);
     }
@@ -326,14 +340,18 @@ export function SettingsSyncPanel({
         description={translate('component.settingsSyncPanel.manageRecoveryAndDataTransfers')}
       />
 
-      <SettingsSyncLibrarySection
+      {features.libraryMove && <SettingsSyncLibrarySection
         location={location}
         storageProtection={storageProtection}
         isMoving={isMoving}
         onMove={() => void handleMoveLibrary()}
         onRestoreDefault={() => void handleRestoreDefault()}
-      />
+      />}
 
+      <LibraryRecoveryNote />
+      {features.snapshots && <SettingsSnapshotsSection settings={settings} onUpdateSettings={onUpdateSettings} />}
+
+      {features.backups && <>
       <SettingsSyncExportSection
         activityEnabled={activityEnabled}
         exportMode={exportMode}
@@ -363,7 +381,7 @@ export function SettingsSyncPanel({
       <section className="space-y-3 border-t theme-divider pt-5" aria-labelledby="migration-title">
         <SettingsSubsectionHeader
           id="migration-title"
-          title={translate('component.settingsSyncPanel.moveFromAnotherClipboardManager')}
+          title={translate('component.settingsSyncPanel.migrateFromAnotherClipboardManager')}
           description={translate('component.settingsSyncPanel.importSupportedHistoryWithoutChangingTheSourceClipboardManager')}
         />
         <ExternalHistoryImport
@@ -375,20 +393,8 @@ export function SettingsSyncPanel({
           }}
         />
       </section>
+      </>}
 
-      {analyticsEnabled && onOpenAnalytics && (
-        <button
-          type="button"
-          onClick={onOpenAnalytics}
-          className="theme-secondary-button flex w-full items-center justify-between rounded-xl border px-4 py-3 text-start"
-        >
-          <span>
-            <strong className="theme-title block text-xs">{translate('component.settingsSyncPanel.curiousWhatSTakingUpSpace')}</strong>
-            <span className="theme-text-muted mt-0.5 block text-[11px]">{translate('component.settingsSyncPanel.openInsights')}</span>
-          </span>
-          <ArrowRight className="h-4 w-4 shrink-0 rtl:-scale-x-100" />
-        </button>
-      )}
 
       <LibraryTransitionDialog
         isOpen={isImporting || isRestoringFullBackup}
@@ -403,7 +409,7 @@ export function SettingsSyncPanel({
         description={translate('component.settingsSyncPanel.carryingEveryClipBinTransformAndRevisionToItsNewHome')}
       />
       <AppDialog
-        isOpen={isRestoreConfirmOpen}
+        isOpen={features.backups && isRestoreConfirmOpen}
         onClose={() => setIsRestoreConfirmOpen(false)}
         labelledBy="restore-full-backup-title"
         panelClassName="app-dialog-danger theme-panel w-full max-w-md rounded-2xl border overflow-hidden font-sans"

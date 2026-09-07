@@ -9,3 +9,4 @@ pub const HOTKEY_REGISTRATION_CHANGED: &str = "hotkey-registration-changed";
 pub const NAVIGATE_BIN: &str = "navigate-bin";
 pub const NAVIGATE_TAB: &str = "navigate-tab";
 pub const SEQUENTIAL_UPDATED: &str = "sequential-updated";
+pub const SNAPSHOTS_CHANGED: &str = "snapshots-changed";

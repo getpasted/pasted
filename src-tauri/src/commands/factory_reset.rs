@@ -1,6 +1,4 @@
-use std::sync::Arc;
-use std::thread;
-use std::time::Duration;
+use std::{sync::Arc, thread, time::Duration};
 
 use tauri::{AppHandle, Emitter, Manager, State};
 
@@ -11,8 +9,9 @@ use crate::sequential_paste::SequentialQueueState;
 pub fn factory_reset_app(
     app: AppHandle,
     db: State<'_, Arc<DbState>>,
+    session: State<'_, Arc<crate::library_storage::LibrarySession>>,
 ) -> Result<FactoryResetReport, String> {
-    let report = db.factory_reset().map_err(|error| error.to_string())?;
+    let report = crate::library_storage::factory_reset_library(&db, &session)?;
 
     if let Some(queue) = app.try_state::<Arc<SequentialQueueState>>() {
         queue.clear_queue();

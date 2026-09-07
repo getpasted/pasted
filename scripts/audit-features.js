@@ -67,19 +67,20 @@ const frontendKeys = [...frontendRegistry.matchAll(/settingKey:\s*'(enable[A-Za-
 const nativeKeys = [...nativePolicy.matchAll(/=>\s*"(enable[A-Za-z]+)"/g)]
   .map((match) => match[1]);
 
-assert.equal(frontendKeys.length, 27, 'The frontend feature registry must include every supported capability');
+assert.equal(frontendKeys.length, 31, 'The frontend feature registry must include every supported capability');
 const frontendGroups = [...frontendRegistry.matchAll(/group:\s*'([A-Za-z]+)'/g)]
   .map((match) => match[1]);
 assert.equal(frontendGroups.length, frontendKeys.length, 'Every feature must belong to a Functionality group');
 assert.deepEqual(
   [...new Set(frontendGroups)].sort(),
-  ['app', 'discovery', 'library', 'workflow'],
+  ['app', 'discovery', 'library', 'storage', 'workflow'],
   'Functionality must keep the expected feature groups',
 );
 const expectedFeatureLayout = {
   library: ['bins', 'naming', 'notes', 'pinning', 'protection', 'concealment', 'trash', 'revisions'],
   discovery: ['clipTypes', 'types', 'contentClassification', 'fileFormats', 'ocr', 'transcriptions', 'sources', 'search', 'analytics'],
   workflow: ['queue', 'transformations', 'hud', 'hotkeys'],
+  storage: ['libraryMove', 'backups', 'snapshots', 'factoryReset'],
   app: ['notifications', 'appLock', 'activityLog', 'cli', 'help', 'updates'],
 };
 for (const [group, expectedIds] of Object.entries(expectedFeatureLayout)) {
@@ -291,3 +292,27 @@ assert.match(
 );
 
 console.log(`Feature capability audit passed for ${frontendKeys.length} shared gates.`);
+
+assert.match(read('src/components/SettingsSyncPanel.tsx'), /features\.snapshots && <SettingsSnapshotsSection/,
+  'Snapshots must own their Storage settings surface');
+assert.match(readRustModuleTree(
+  'src-tauri/src/library_storage/snapshots.rs',
+  'src-tauri/src/library_storage/snapshots',
+), /features::is_enabled\(db, crate::features::Feature::Snapshots\)/,
+  'Disabled snapshots must stop background creation');
+assert.match(cli, /require_feature\(&policy, pasted_lib::features::Feature::Snapshots\)/,
+  'Snapshot CLI commands must respect Functionality');
+
+assert.match(settingsModal, /!showStorage && activeTab === 'storage'[\s\S]{0,80}onActiveTabChange\('general'\)/,
+  'An unavailable Storage page must return to General');
+assert.match(read('src/components/SettingsTabs.tsx'), /id !== 'storage' \|\| showStorage/,
+  'Storage navigation must respect its aggregate feature gate');
+
+assert.match(read('src/components/SettingsSyncPanel.tsx'), /isOpen=\{features\.backups && isRestoreConfirmOpen\}/,
+  'Disabling Backup must hide an existing restore confirmation');
+assert.match(read('src/components/WelcomeSetup.tsx'), /welcomeSetupSteps\(settings\)/,
+  'Welcome navigation must use the tested feature-aware step sequence');
+assert.match(read('src-tauri/src/commands/backup_activation.rs'), /session\.exclusive\(\|\| \{[\s\S]*?features::require\(&restore_db, feature\)/,
+  'Restore must recheck its owning feature immediately before activation');
+assert.match(read('src-tauri/src/commands/snapshots.rs'), /watcher\.poll\(&db\)[\s\S]*emit_window_appearance_change/,
+  'External Storage settings must flow through the existing settings-change event');

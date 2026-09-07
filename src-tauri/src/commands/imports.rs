@@ -4,28 +4,19 @@ use std::sync::Arc;
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt;
 
-use crate::db::{DbState, FullBackupInspection, LibraryArchiveInspection};
+use crate::db::DbState;
+#[path = "import_inspection.rs"]
+mod inspection;
+use inspection::{inspect_import_file_path, ImportFileInspection};
 
 use super::{refresh_native_app_menu, settings::emit_window_appearance_change};
-
-#[derive(Debug, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ImportFileInspection {
-    path: String,
-    name: String,
-    kind: String,
-    format: String,
-    size_bytes: u64,
-    report: Option<serde_json::Value>,
-    library: Option<LibraryArchiveInspection>,
-    backup: Option<FullBackupInspection>,
-}
 
 #[tauri::command]
 pub async fn choose_import_file(
     app: AppHandle,
     db: State<'_, Arc<DbState>>,
 ) -> Result<Option<ImportFileInspection>, String> {
+    crate::features::require(&db, crate::features::Feature::Backups)?;
     let Some(selected_file) = app
         .dialog()
         .file()
@@ -39,128 +30,13 @@ pub async fn choose_import_file(
         .into_path()
         .map_err(|error| format!("The selected file is not accessible: {error}"))?;
     let db = Arc::clone(&db);
-    tauri::async_runtime::spawn_blocking(move || inspect_import_file_path(path, &db))
-        .await
-        .map_err(|error| error.to_string())?
-        .map(Some)
-}
-
-fn inspect_import_file_path(path: PathBuf, db: &DbState) -> Result<ImportFileInspection, String> {
-    let metadata = std::fs::metadata(&path)
-        .map_err(|error| format!("The selected file is not accessible: {error}"))?;
-    if !metadata.is_file() {
-        return Err("The selected item is not a file.".to_string());
-    }
-    let name = path
-        .file_name()
-        .and_then(|value| value.to_str())
-        .unwrap_or("Selected file")
-        .to_string();
-    let extension = path
-        .extension()
-        .and_then(|value| value.to_str())
-        .unwrap_or_default()
-        .to_ascii_lowercase();
-    let base = |kind: &str, format: &str| ImportFileInspection {
-        path: path.to_string_lossy().into_owned(),
-        name: name.clone(),
-        kind: kind.to_string(),
-        format: format.to_string(),
-        size_bytes: metadata.len(),
-        report: None,
-        library: None,
-        backup: None,
-    };
-
-    if extension == "pastedbackup" {
-        let inspection = db
-            .inspect_full_backup(&path)
-            .map_err(|error| format!("The backup is not valid: {error}"))?;
-        return Ok(ImportFileInspection {
-            backup: Some(inspection),
-            ..base("backup", "backup")
-        });
-    }
-    if !matches!(extension.as_str(), "json" | "csv") {
-        return Err("Choose a JSON, CSV, or Pasted Backup file.".to_string());
-    }
-    let contents = std::fs::read_to_string(&path)
-        .map_err(|error| format!("The selected file could not be read: {error}"))?;
-    if extension == "csv" {
-        let header = contents.lines().next().unwrap_or_default();
-        if header.starts_with("timestamp,observed_timestamp,event_name,") {
-            let report = db
-                .inspect_activity_csv(&contents)
-                .map_err(|error| format!("The Activity CSV is not valid: {error}"))?;
-            return Ok(ImportFileInspection {
-                report: Some(serde_json::to_value(report).map_err(|error| error.to_string())?),
-                ..base("activity", "csv")
-            });
-        }
-        if header.starts_with("id,content_type,source,") {
-            let report = db
-                .inspect_clips_csv(&contents)
-                .map_err(|error| format!("The Clips CSV is not valid: {error}"))?;
-            return Ok(ImportFileInspection {
-                report: Some(serde_json::to_value(report).map_err(|error| error.to_string())?),
-                ..base("clips", "csv")
-            });
-        }
-        return Err("The CSV does not match a supported Clips or Activity export.".to_string());
-    }
-
-    let parsed: serde_json::Value = serde_json::from_str(&contents)
-        .map_err(|error| format!("The selected file is not valid JSON: {error}"))?;
-    if parsed.is_array() {
-        let report = db
-            .inspect_clips_json(&contents)
-            .map_err(|error| format!("The Clips JSON is not valid: {error}"))?;
-        return Ok(ImportFileInspection {
-            report: Some(serde_json::to_value(report).map_err(|error| error.to_string())?),
-            ..base("clips", "json")
-        });
-    }
-    let object = parsed
-        .as_object()
-        .ok_or_else(|| "The JSON does not match a supported export.".to_string())?;
-    if object
-        .get("entries")
-        .and_then(serde_json::Value::as_array)
-        .is_some()
-        && object
-            .get("schemaVersion")
-            .and_then(serde_json::Value::as_u64)
-            .is_some()
-    {
-        let report = db
-            .inspect_activity_json(&contents)
-            .map_err(|error| format!("The Activity JSON is not valid: {error}"))?;
-        return Ok(ImportFileInspection {
-            report: Some(serde_json::to_value(report).map_err(|error| error.to_string())?),
-            ..base("activity", "json")
-        });
-    }
-    if object
-        .get("clips")
-        .and_then(serde_json::Value::as_array)
-        .is_some()
-        && object
-            .get("bins")
-            .and_then(serde_json::Value::as_array)
-            .is_some()
-        && object
-            .get("version")
-            .and_then(serde_json::Value::as_u64)
-            .is_some()
-    {
-        let inspection = DbState::inspect_library_archive_json(&contents)
-            .map_err(|error| format!("The History and Organization JSON is not valid: {error}"))?;
-        return Ok(ImportFileInspection {
-            library: Some(inspection),
-            ..base("organization", "json")
-        });
-    }
-    Err("The JSON does not match a supported export.".to_string())
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::features::require(&db, crate::features::Feature::Backups)?;
+        inspect_import_file_path(path, &db)
+    })
+    .await
+    .map_err(|error| error.to_string())?
+    .map(Some)
 }
 
 #[tauri::command]
@@ -171,10 +47,12 @@ pub async fn import_inspected_file(
     app: AppHandle,
     db: State<'_, Arc<DbState>>,
 ) -> Result<serde_json::Value, String> {
+    crate::features::require(&db, crate::features::Feature::Backups)?;
     let refresh_menu = kind == "organization";
     let db = Arc::clone(&db);
     let worker_db = Arc::clone(&db);
     let report = tauri::async_runtime::spawn_blocking(move || {
+        crate::features::require(&worker_db, crate::features::Feature::Backups)?;
         let contents = std::fs::read_to_string(PathBuf::from(path))
             .map_err(|error| format!("The selected file could not be read: {error}"))?;
         let result: Result<serde_json::Value, String> = match (kind.as_str(), format.as_str()) {
@@ -233,6 +111,7 @@ pub async fn import_external_history(
     app: AppHandle,
     db: State<'_, Arc<DbState>>,
 ) -> Result<Option<crate::external_import::ExternalImportReport>, String> {
+    crate::features::require(&db, crate::features::Feature::Backups)?;
     let source = source.parse::<crate::external_import::ExternalImportSource>()?;
     let selected_path =
         if choose_file.unwrap_or(false) {
@@ -273,6 +152,7 @@ pub async fn import_external_history(
         };
     let db = Arc::clone(&db);
     let report = tauri::async_runtime::spawn_blocking(move || {
+        crate::features::require(&db, crate::features::Feature::Backups)?;
         crate::external_import::import_history(&db, source, selected_path).map(Some)
     })
     .await
