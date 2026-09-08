@@ -191,7 +191,7 @@ pub(crate) fn start_worker(app: AppHandle, db: Arc<DbState>) {
                     && crate::features::is_enabled(&db, crate::features::Feature::Snapshots)
                 {
                     if let Err(error) = session.stable(|| {
-                        let keep = value.parse::<usize>().unwrap_or(24);
+                        let keep = value.parse::<usize>().unwrap_or(5);
                         snapshots::enforce_retention(&db, &session.app_data, keep)
                     }) {
                         eprintln!("Snapshot retention could not be applied: {error}");

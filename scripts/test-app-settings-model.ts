@@ -49,8 +49,8 @@ assert.deepEqual(DEFAULT_PRIVATE_BROWSER_SETTINGS, {
   excludePrivateBrowserWindows: false,
   privateBrowserUnavailablePolicy: 'capture',
 });
-assert.equal(DEFAULT_SNAPSHOT_INTERVAL_MINUTES, 60);
-assert.equal(DEFAULT_SNAPSHOT_KEEP_COUNT, 24);
+assert.equal(DEFAULT_SNAPSHOT_INTERVAL_MINUTES, 1440);
+assert.equal(DEFAULT_SNAPSHOT_KEEP_COUNT, 5);
 assert.equal(storedSnapshotIntervalMinutes({ snapshotIntervalMinutes: '15' }), 15);
 assert.equal(storedSnapshotIntervalMinutes({ snapshotIntervalMinutes: '-1' }), 1);
 assert.equal(storedSnapshotKeepCount({ snapshotKeepCount: '6' }), 6);

@@ -21,7 +21,7 @@ The scriptable equivalents are `pasted clip versions <id>`, `pasted clip restore
 
 ## Snapshots
 
-**Settings → Storage → Snapshots** keeps local recovery points automatically while Pasted is running. The interval defaults to 60 minutes and retention defaults to 24 Snapshots. An automatic Snapshot is created only after a new clip arrives, so an unchanged library is not copied repeatedly. A retention count of 0 pauses automatic creation without hiding existing Snapshots; **Create** remains available for an immediate recovery point.
+**Settings → Storage → Snapshots** keeps local recovery points automatically while Pasted is running. The interval defaults to 1 day (1,440 minutes) and retention defaults to 5 Snapshots. An automatic Snapshot is created only after a new clip arrives, so an unchanged library is not copied repeatedly. A retention count of 0 pauses automatic creation without hiding existing Snapshots; **Create** remains available for an immediate recovery point.
 
 The Snapshot list updates while Storage is open and shows when the next automatic Snapshot is due. Each Snapshot can replace the current library, be exported as a portable Full Backup, or be deleted. Restore validates the selected Snapshot and saves a recovery copy of the current state before activation. The CLI provides the same operations through `pasted snapshots list|check|create|export|restore|delete`, including structured `--json` output.
 

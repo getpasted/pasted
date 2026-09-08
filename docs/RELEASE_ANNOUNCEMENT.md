@@ -1,12 +1,12 @@
-The copycat landed on its feet.
+The copycat keeps receipts.
 
-Pasted 1.0.1 smooths out the first few post-launch edges: window glass stays put while the app locks and unlocks, translucent macOS windows flicker less, and long clipboard histories no longer show blank rows while scrolling.
+Pasted 1.0.2 adds automatic Snapshots and fault-tolerant library recovery. When new clips arrive, Pasted creates a local recovery point once a day and keeps the five newest Snapshots by default. Snapshots can be created immediately, restored, deleted, or exported as Full Backups from the app or CLI.
 
-The menu-bar copycat also looks more like itself, its menu is easier to scan, and window terminology is now consistent across every shipped language.
+If a moved or unavailable library cannot be opened, Pasted can recover from verified local data, preserve the failed files for diagnosis, and explain what happened in Storage. This release also fixes launch at login and keeps copy notifications independent from the main window on macOS. Existing App Lock credentials continue to work after the updated password-hashing dependency.
 
 The primary build is a signed, notarized, and stapled universal app for macOS 13 or newer, on Apple Silicon and Intel.
 
-**[Download Pasted 1.0.1](https://github.com/getpasted/pasted/releases/tag/v1.0.1)**
+**[Download Pasted 1.0.2](https://github.com/getpasted/pasted/releases/tag/v1.0.2)**
 
 Or update from **Settings → About**, or with Homebrew:
 
@@ -20,4 +20,4 @@ Tell us what happened in [Discussions](https://github.com/getpasted/pasted/discu
 
 Copy irresponsibly.
 
-<!-- pasted-release:v1.0.1 -->
+<!-- pasted-release:v1.0.2 -->

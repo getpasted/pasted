@@ -18,7 +18,7 @@ pub(super) fn after_set(
     value: &str,
 ) -> Result<()> {
     if key == snapshots::RETENTION_KEY {
-        enforce(db, session, value.parse::<usize>().unwrap_or(24))?;
+        enforce(db, session, value.parse::<usize>().unwrap_or(5))?;
     }
     Ok(())
 }
@@ -39,6 +39,6 @@ pub(super) fn after_reset(
     let keep = db
         .get_setting(snapshots::RETENTION_KEY)?
         .and_then(|value| value.parse::<usize>().ok())
-        .unwrap_or(24);
+        .unwrap_or(5);
     enforce(db, session, keep)
 }

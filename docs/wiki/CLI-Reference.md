@@ -287,12 +287,12 @@ Move publication requires filesystem support for atomic hard links in the destin
 
 The running app checks for new clips every 30 seconds. It saves an initial snapshot when the library has clips, then saves another only after the configured interval and when clips exist that were absent from the previous valid snapshot. Deletions, setting changes, and recopying the same content alone do not trigger snapshots. Checks use elapsed UTC time; Storage displays dates locally.
 
-Settings > Storage configures the interval in minutes (default 60, range 1–10080) and how many snapshots to keep (default 24, range 0–10000). Settings > Functionality enables or disables Snapshots, including their Storage controls and CLI commands, without deleting saved snapshots. The interval is preserved while disabled; a count of 0 pauses automatic creation while keeping the snapshot list and restoration available. Existing snapshots are preserved. Changes take effect without restarting, and lowering the count removes older indexed snapshots immediately. Snapshots are stored in the stable application directory, so moving the library does not move its snapshots.
+Settings > Storage configures the interval in minutes (default 1440, range 1–10080) and how many snapshots to keep (default 5, range 0–10000). Settings > Functionality enables or disables Snapshots, including their Storage controls and CLI commands, without deleting saved snapshots. The interval is preserved while disabled; a count of 0 pauses automatic creation while keeping the snapshot list and restoration available. Existing snapshots are preserved. Changes take effect without restarting, and lowering the count removes older indexed snapshots immediately. Snapshots are stored in the stable application directory, so moving the library does not move its snapshots.
 
 ```sh
 pasted settings set enableSnapshots true
-pasted settings set snapshotIntervalMinutes 30
-pasted settings set snapshotKeepCount 48
+pasted settings set snapshotIntervalMinutes 1440
+pasted settings set snapshotKeepCount 5
 pasted settings set snapshotKeepCount 0 # Pause creation; retain list and restore
 pasted snapshots delete <id> --yes --json
 pasted snapshots list --json

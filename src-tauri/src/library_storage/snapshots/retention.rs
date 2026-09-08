@@ -22,7 +22,7 @@ pub(super) fn retention_count(db: &DbState) -> Result<usize, String> {
         .map_err(|error| error.to_string())?
         .and_then(|value| value.parse::<usize>().ok())
         .filter(|value| *value <= 10000)
-        .unwrap_or(24))
+        .unwrap_or(5))
 }
 
 pub(super) fn prune_locked(app_data: &Path, keep: usize) -> Result<(), String> {
