@@ -89,7 +89,7 @@ fn retention_and_restore_preserve_complete_state_and_validate_before_replacement
     db.save_setting(snapshots::RETENTION_KEY, "2").unwrap();
     for index in 0..3 {
         add(&db, &format!("clip{index}"));
-        snapshots::check(&db, &fixture.0, now + Duration::hours(index), None)
+        snapshots::check(&db, &fixture.0, now + Duration::days(index), None)
             .unwrap()
             .unwrap();
     }
@@ -97,7 +97,7 @@ fn retention_and_restore_preserve_complete_state_and_validate_before_replacement
     assert_eq!(available.len(), 2);
     assert_eq!(available[0].clip_count, 3);
     let (lease, source) = snapshots::restore_source(&fixture.0, &available[1].id).unwrap();
-    assert!(snapshots::check(&db, &fixture.0, now + Duration::hours(3), None).is_err());
+    assert!(snapshots::check(&db, &fixture.0, now + Duration::days(3), None).is_err());
     let (report, _, _) = session
         .exclusive(|| {
             db.restore_full_backup(&source, None, None)
@@ -125,7 +125,7 @@ fn restoring_an_older_snapshot_restores_its_creation_baseline() {
         .unwrap()
         .unwrap();
     add(&db, "second");
-    snapshots::check(&db, &fixture.0, now + Duration::hours(1), None)
+    snapshots::check(&db, &fixture.0, now + Duration::days(1), None)
         .unwrap()
         .unwrap();
 
@@ -139,7 +139,7 @@ fn restoring_an_older_snapshot_restores_its_creation_baseline() {
     drop(lease);
     add(&db, "after restore");
 
-    let created = snapshots::check(&db, &fixture.0, now + Duration::hours(2), None)
+    let created = snapshots::check(&db, &fixture.0, now + Duration::days(2), None)
         .unwrap()
         .expect("a clip captured after restore should create a new snapshot");
     assert_eq!(created.clip_count, 2);
@@ -153,7 +153,7 @@ fn automatic_recovery_skips_damaged_newest_snapshot_and_preserves_failed_library
     add(&db, "first");
     snapshots::check(&db, &fixture.0, now, None).unwrap();
     add(&db, "second");
-    let latest = snapshots::check(&db, &fixture.0, now + Duration::hours(1), None)
+    let latest = snapshots::check(&db, &fixture.0, now + Duration::days(1), None)
         .unwrap()
         .unwrap();
     let (_, source) = snapshots::restore_source(&fixture.0, &latest.id).unwrap();
@@ -341,7 +341,7 @@ fn schedule_tracks_new_clips_and_manual_creation_works_while_automatic_is_paused
     let next = snapshots::schedule(&db, &fixture.0, now).unwrap();
     assert_eq!(
         next.next_automatic_snapshot_at.as_deref(),
-        Some("2026-09-06T13:00:00Z")
+        Some("2026-09-07T12:00:00Z")
     );
     db.save_setting(snapshots::RETENTION_KEY, "0").unwrap();
     let manual = snapshots::create(&db, &fixture.0, now + Duration::minutes(1), None).unwrap();

@@ -65,7 +65,7 @@ pub fn schedule(
         .map_err(|error| error.to_string())?
         .and_then(|value| value.parse::<i64>().ok())
         .filter(|value| (1..=10080).contains(value))
-        .unwrap_or(60);
+        .unwrap_or(1440);
     let due = list(app_data)?
         .first()
         .map(|latest| DateTime::parse_from_rfc3339(&latest.created_at))
@@ -171,7 +171,7 @@ pub fn check(
         .map_err(|error| error.to_string())?
         .and_then(|value| value.parse::<i64>().ok())
         .filter(|value| (1..=10080).contains(value))
-        .unwrap_or(60);
+        .unwrap_or(1440);
     let _lease = lease(app_data)?;
     remove_unpublished_locked(app_data)?;
     let snapshots = list(app_data)?;

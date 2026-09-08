@@ -4,10 +4,23 @@ Notable user-facing changes to Pasted are recorded here. The project follows sem
 
 ## Unreleased
 
+## 1.0.2 — 2026-09-08
+
 - added configurable automatic Snapshots when new clips arrive, with immediate creation, live countdown and list updates, restore, deletion, Full Backup export, and matching `pasted snapshots` commands;
 - added fault-tolerant startup for moved or unavailable libraries, including verified Snapshot recovery, preservation of failed library files, and a clean default-library fallback with an informative Storage notice;
-- reorganized Functionality controls around Storage, omitted disabled migration from welcome setup, and made Factory Reset remove automatic Snapshots while preserving manually exported Full Backups; and
-- kept capture-notification interaction independent from main-window visibility so clicking a notification no longer brings a covered Pasted window forward.
+- reorganized Functionality controls around Storage, omitted disabled migration from welcome setup, and made Factory Reset remove automatic Snapshots while preserving manually exported Full Backups;
+- changed the Snapshot defaults to one recovery point per day with the five newest Snapshots retained;
+- fixed launch-at-login registration on macOS and kept capture notifications independent from main-window visibility;
+- prevented wrapped welcome headings from overlapping their content;
+- updated App Lock password hashing while preserving verification of existing saved credentials; and
+- normalized Windows release notices before checksumming and refreshed reviewed frontend and native dependencies.
+
+## 1.0.1 — 2026-09-01
+
+- prevented virtualized History rows from appearing blank during long-list navigation;
+- reduced translucent macOS window flicker and preserved window blur while App Lock opens and closes;
+- polished the Copycat menu-bar icon and menu, removed the clipped HUD shadow, and standardized window terminology across every shipped locale; and
+- refreshed reviewed build and frontend dependencies.
 
 ## 1.0.0 — 2026-08-27
 
