@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "Pasted-1.0.2-distributed-components",
-  "documentNamespace": "https://getpasted.app/sbom/1.0.2/e1bf52c4f8bce32d1a235e58c5274c97020a424ce49d14bdc68a15f879728c69",
+  "documentNamespace": "https://getpasted.app/sbom/1.0.2/9c182d46de78c6d036e55386292e75558c2c0bf1bdfe46c20c3966ed78f70e27",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
@@ -1419,6 +1419,23 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/dirs@6.0.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-bd0c4b5d68db55d5",
+      "name": "dirs",
+      "versionInfo": "7.0.0",
+      "downloadLocation": "https://codeberg.org/dirs/dirs-rs",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/dirs@7.0.0"
         }
       ]
     },
@@ -10508,6 +10525,11 @@
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-07a092d839ebf66d"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-bd0c4b5d68db55d5"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
