@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "Pasted-1.0.2-distributed-components",
-  "documentNamespace": "https://getpasted.app/sbom/1.0.2/d8755b23e1de07957d29eb36aad98825c8e27decd0ff832e36b92592e62552e8",
+  "documentNamespace": "https://getpasted.app/sbom/1.0.2/e1bf52c4f8bce32d1a235e58c5274c97020a424ce49d14bdc68a15f879728c69",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
@@ -8325,9 +8325,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-npm-231c43c28c7240ad",
+      "SPDXID": "SPDXRef-npm-04c98f24fe40e51d",
       "name": "@types/react",
-      "versionInfo": "19.2.18",
+      "versionInfo": "19.3.0",
       "downloadLocation": "https://github.com/DefinitelyTyped/DefinitelyTyped",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT",
@@ -8337,7 +8337,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:npm/%40types/react@19.2.18"
+          "referenceLocator": "pkg:npm/%40types/react@19.3.0"
         }
       ]
     },
@@ -8835,9 +8835,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-npm-b435c92153086a79",
+      "SPDXID": "SPDXRef-npm-ed84cc5d62572a9a",
       "name": "lucide-react",
-      "versionInfo": "1.41.0",
+      "versionInfo": "1.45.0",
       "downloadLocation": "https://github.com/lucide-icons/lucide",
       "filesAnalyzed": false,
       "licenseConcluded": "ISC",
@@ -8847,7 +8847,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:npm/lucide-react@1.41.0"
+          "referenceLocator": "pkg:npm/lucide-react@1.45.0"
         }
       ]
     },
@@ -9651,9 +9651,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-npm-f0ed5178d6d7db28",
+      "SPDXID": "SPDXRef-npm-bd679726788e3c19",
       "name": "react",
-      "versionInfo": "19.2.8",
+      "versionInfo": "19.3.0",
       "downloadLocation": "https://github.com/react/react",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT",
@@ -9663,14 +9663,14 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:npm/react@19.2.8"
+          "referenceLocator": "pkg:npm/react@19.3.0"
         }
       ]
     },
     {
-      "SPDXID": "SPDXRef-npm-774924c5059b7f08",
+      "SPDXID": "SPDXRef-npm-e7069d7b1afc7978",
       "name": "react-dom",
-      "versionInfo": "19.2.8",
+      "versionInfo": "19.3.0",
       "downloadLocation": "https://github.com/react/react",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT",
@@ -9680,7 +9680,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:npm/react-dom@19.2.8"
+          "referenceLocator": "pkg:npm/react-dom@19.3.0"
         }
       ]
     },
@@ -9770,10 +9770,10 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-npm-e21311c62741b359",
+      "SPDXID": "SPDXRef-npm-e06edbe7016d8d03",
       "name": "scheduler",
-      "versionInfo": "0.27.0",
-      "downloadLocation": "https://github.com/facebook/react",
+      "versionInfo": "0.28.0",
+      "downloadLocation": "https://github.com/react/react",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT",
       "licenseDeclared": "MIT",
@@ -9782,7 +9782,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:npm/scheduler@0.27.0"
+          "referenceLocator": "pkg:npm/scheduler@0.28.0"
         }
       ]
     },
@@ -12542,7 +12542,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-npm-231c43c28c7240ad"
+      "relatedSpdxElement": "SPDXRef-npm-04c98f24fe40e51d"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -12692,7 +12692,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-npm-b435c92153086a79"
+      "relatedSpdxElement": "SPDXRef-npm-ed84cc5d62572a9a"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -12932,12 +12932,12 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-npm-f0ed5178d6d7db28"
+      "relatedSpdxElement": "SPDXRef-npm-bd679726788e3c19"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-npm-774924c5059b7f08"
+      "relatedSpdxElement": "SPDXRef-npm-e7069d7b1afc7978"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -12967,7 +12967,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-npm-e21311c62741b359"
+      "relatedSpdxElement": "SPDXRef-npm-e06edbe7016d8d03"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
