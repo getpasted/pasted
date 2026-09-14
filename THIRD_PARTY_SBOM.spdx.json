@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "Pasted-1.0.2-distributed-components",
-  "documentNamespace": "https://getpasted.app/sbom/1.0.2/9c182d46de78c6d036e55386292e75558c2c0bf1bdfe46c20c3966ed78f70e27",
+  "documentNamespace": "https://getpasted.app/sbom/1.0.2/c066d9b99590e62c8f30747bb5335a509ffb8842c08357134a3ed68df6679730",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
@@ -4279,9 +4279,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-b21c6a318a0aae18",
+      "SPDXID": "SPDXRef-cargo-7e3843209376ea5f",
       "name": "plist",
-      "versionInfo": "1.10.0",
+      "versionInfo": "1.10.1",
       "downloadLocation": "https://github.com/ebarnard/rust-plist/",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT",
@@ -4291,7 +4291,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/plist@1.10.0"
+          "referenceLocator": "pkg:cargo/plist@1.10.1"
         }
       ]
     },
@@ -4551,6 +4551,23 @@
       ]
     },
     {
+      "SPDXID": "SPDXRef-cargo-5fa1e47efdec5828",
+      "name": "quick-xml",
+      "versionInfo": "0.42.0",
+      "downloadLocation": "https://github.com/tafia/quick-xml",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/quick-xml@0.42.0"
+        }
+      ]
+    },
+    {
       "SPDXID": "SPDXRef-cargo-d50574c855cb0e65",
       "name": "quote",
       "versionInfo": "1.0.47",
@@ -4653,9 +4670,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-e0fe3d7d90fc8c50",
+      "SPDXID": "SPDXRef-cargo-c3340e6b7c1132f4",
       "name": "reqwest",
-      "versionInfo": "0.13.4",
+      "versionInfo": "0.13.5",
       "downloadLocation": "https://github.com/seanmonstar/reqwest",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT OR Apache-2.0",
@@ -4665,7 +4682,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/reqwest@0.13.4"
+          "referenceLocator": "pkg:cargo/reqwest@0.13.5"
         }
       ]
     },
@@ -11369,7 +11386,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-b21c6a318a0aae18"
+      "relatedSpdxElement": "SPDXRef-cargo-7e3843209376ea5f"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -11449,6 +11466,11 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-5fa1e47efdec5828"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-d50574c855cb0e65"
     },
     {
@@ -11479,7 +11501,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-e0fe3d7d90fc8c50"
+      "relatedSpdxElement": "SPDXRef-cargo-c3340e6b7c1132f4"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
