@@ -506,7 +506,7 @@ Component inventory (593)
 - @types/hast 3.0.5 [npm; MIT] — https://github.com/DefinitelyTyped/DefinitelyTyped
 - @types/mdast 4.0.4 [npm; MIT] — https://github.com/DefinitelyTyped/DefinitelyTyped
 - @types/ms 2.1.0 [npm; MIT] — https://github.com/DefinitelyTyped/DefinitelyTyped
-- @types/react 19.2.18 [npm; MIT] — https://github.com/DefinitelyTyped/DefinitelyTyped
+- @types/react 19.3.0 [npm; MIT] — https://github.com/DefinitelyTyped/DefinitelyTyped
 - @types/unist 2.0.11 [npm; MIT] — https://github.com/DefinitelyTyped/DefinitelyTyped
 - @types/unist 3.0.3 [npm; MIT] — https://github.com/DefinitelyTyped/DefinitelyTyped
 - @ungap/structured-clone 1.4.0 [npm; ISC] — https://github.com/ungap/structured-clone
@@ -536,7 +536,7 @@ Component inventory (593)
 - is-hexadecimal 2.0.1 [npm; MIT] — wooorm/is-hexadecimal
 - is-plain-obj 4.1.0 [npm; MIT] — sindresorhus/is-plain-obj
 - longest-streak 3.1.0 [npm; MIT] — wooorm/longest-streak
-- lucide-react 1.41.0 [npm; ISC] — https://github.com/lucide-icons/lucide
+- lucide-react 1.45.0 [npm; ISC] — https://github.com/lucide-icons/lucide
 - markdown-table 3.0.4 [npm; MIT] — wooorm/markdown-table
 - mdast-util-find-and-replace 3.0.2 [npm; MIT] — syntax-tree/mdast-util-find-and-replace
 - mdast-util-from-markdown 2.0.3 [npm; MIT] — syntax-tree/mdast-util-from-markdown
@@ -584,14 +584,14 @@ Component inventory (593)
 - ms 2.1.3 [npm; MIT] — vercel/ms
 - parse-entities 4.0.2 [npm; MIT] — wooorm/parse-entities
 - property-information 7.2.0 [npm; MIT] — wooorm/property-information
-- react 19.2.8 [npm; MIT] — https://github.com/react/react
-- react-dom 19.2.8 [npm; MIT] — https://github.com/react/react
+- react 19.3.0 [npm; MIT] — https://github.com/react/react
+- react-dom 19.3.0 [npm; MIT] — https://github.com/react/react
 - react-markdown 10.1.0 [npm; MIT] — remarkjs/react-markdown
 - remark-gfm 4.0.1 [npm; MIT] — remarkjs/remark-gfm
 - remark-parse 11.0.0 [npm; MIT] — https://github.com/remarkjs/remark/tree/main/packages/remark-parse
 - remark-rehype 11.1.2 [npm; MIT] — remarkjs/remark-rehype
 - remark-stringify 11.0.0 [npm; MIT] — https://github.com/remarkjs/remark/tree/main/packages/remark-stringify
-- scheduler 0.27.0 [npm; MIT] — https://github.com/facebook/react
+- scheduler 0.28.0 [npm; MIT] — https://github.com/react/react
 - space-separated-tokens 2.0.2 [npm; MIT] — wooorm/space-separated-tokens
 - stringify-entities 4.0.4 [npm; MIT] — wooorm/stringify-entities
 - style-to-js 1.1.21 [npm; MIT] — https://github.com/remarkablemark/style-to-js
@@ -3044,7 +3044,7 @@ THE SOFTWARE.
 ================================================================================
 @types/debug — LICENSE / @types/estree — LICENSE / @types/estree-jsx — LICENSE / @types/hast — LICENSE / @types/mdast — LICENSE / @types/ms — LICENSE / @types/react — LICENSE / @types/unist — LICENSE
 License identifier: MIT
-Used by: @types/debug 4.1.13 (npm), @types/estree 1.0.9 (npm), @types/estree-jsx 1.0.5 (npm), @types/hast 3.0.5 (npm), @types/mdast 4.0.4 (npm), @types/ms 2.1.0 (npm), @types/react 19.2.18 (npm), @types/unist 2.0.11 (npm), @types/unist 3.0.3 (npm)
+Used by: @types/debug 4.1.13 (npm), @types/estree 1.0.9 (npm), @types/estree-jsx 1.0.5 (npm), @types/hast 3.0.5 (npm), @types/mdast 4.0.4 (npm), @types/ms 2.1.0 (npm), @types/react 19.3.0 (npm), @types/unist 2.0.11 (npm), @types/unist 3.0.3 (npm)
 --------------------------------------------------------------------------------
 MIT License
 
@@ -8619,7 +8619,7 @@ THIS SOFTWARE.
 ================================================================================
 lucide-react — LICENSE
 License identifier: ISC
-Used by: lucide-react 1.41.0 (npm)
+Used by: lucide-react 1.45.0 (npm)
 --------------------------------------------------------------------------------
 ISC License
 
@@ -10055,7 +10055,7 @@ SOFTWARE.
 ================================================================================
 react — LICENSE / react-dom — LICENSE / scheduler — LICENSE
 License identifier: MIT
-Used by: react 19.2.8 (npm), react-dom 19.2.8 (npm), scheduler 0.27.0 (npm)
+Used by: react 19.3.0 (npm), react-dom 19.3.0 (npm), scheduler 0.28.0 (npm)
 --------------------------------------------------------------------------------
 MIT License
 
