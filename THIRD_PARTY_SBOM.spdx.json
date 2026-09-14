@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "Pasted-1.0.2-distributed-components",
-  "documentNamespace": "https://getpasted.app/sbom/1.0.2/c066d9b99590e62c8f30747bb5335a509ffb8842c08357134a3ed68df6679730",
+  "documentNamespace": "https://getpasted.app/sbom/1.0.2/10e3ea0e4d3e4fcbce144f91def58a29964519ecada2bab8b19ebae9ed0bcbae",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
@@ -4806,9 +4806,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-e2cdbfdc2c901457",
+      "SPDXID": "SPDXRef-cargo-f8a12faed808e2a1",
       "name": "rustls",
-      "versionInfo": "0.23.43",
+      "versionInfo": "0.23.45",
       "downloadLocation": "https://github.com/rustls/rustls",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0 OR ISC OR MIT",
@@ -4818,7 +4818,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/rustls@0.23.43"
+          "referenceLocator": "pkg:cargo/rustls@0.23.45"
         }
       ]
     },
@@ -11541,7 +11541,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-e2cdbfdc2c901457"
+      "relatedSpdxElement": "SPDXRef-cargo-f8a12faed808e2a1"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
