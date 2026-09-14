@@ -6,6 +6,7 @@ pub(crate) mod backups;
 pub(crate) mod bins;
 pub(crate) mod capture;
 pub(crate) mod cli_installation;
+pub(crate) mod clip_collection;
 pub(crate) mod clip_metadata;
 pub(crate) mod clip_policies;
 pub(crate) mod clipboard;

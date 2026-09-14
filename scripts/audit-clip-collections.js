@@ -16,6 +16,10 @@ const sidebar = [
   'src/hooks/useSidebarFacets.ts',
 ].map(read).join('\n');
 const clipViews = read('src/hooks/useClipViews.ts');
+const pagedClipCollection = read('src/hooks/usePagedClipCollection.ts');
+const clipSelection = read('src/hooks/useClipSelectionController.ts');
+const clipActions = read('src/hooks/useClipActions.ts');
+const clipDetail = read('src/utils/clipDetail.ts');
 const searchPagination = read('src/utils/searchPagination.ts');
 const clipsApi = read('src/api/clips.ts');
 const emptyState = read('src/components/EmptyClipList.tsx');
@@ -61,7 +65,8 @@ for (const [id, membership, action] of [
 }
 assert.match(propertyAssociations, /id:\s*'name'[\s\S]{0,100}membership:\s*'named'/, 'Named must use the shared clip-property association contract');
 assert.match(registry, /association:\s*'name'/, 'Named collection must reference its property association');
-assert.match(clipViews, /getClipPropertyAssociation\(collection\?\.association\)/, 'Property collection filtering must use the shared association contract');
+assert.doesNotMatch(clipViews, /filterByBin|facet\?\.kind|clips\.filter\(propertyAssociation\.isMember\)/,
+  'Paged Bin, facet, and property collections must not be reimplemented over the loaded History window');
 assert.match(dragHook, /CLIP_PROPERTY_ASSOCIATIONS/, 'Property drop eligibility must use the shared association contract');
 assert.match(registry, /key:\s*'system:queue'[\s\S]{0,300}acceptsClipDrop:\s*true[\s\S]{0,100}dropAction:\s*'queue'/,
   'Queued must remain a registered text Clip drop destination');
@@ -87,7 +92,7 @@ assert.match(sidebar, /id: 'clipTypes'[\s\S]{0,500}id: 'types'/, 'Clip Types mus
 assert.match(sidebar, /clipFacetRoute\('clip_type', value\)/, 'Clip Type navigation must use stable structural routes');
 assert.match(sidebar, /clipFacetRoute\('content_type', value\)/, 'Content Type navigation must use stable calculated-collection routes');
 assert.match(sidebar, /clipFacetRoute\('source', value\)/, 'Source navigation must use stable calculated-collection routes');
-assert.match(read('src/hooks/useClipViews.ts'), /parseClipFacetRoute\(currentTab\)/, 'Type and Source views must share calculated collection filtering');
+assert.match(pagedClipCollection, /parseClipFacetRoute\(currentTab\)/, 'Type and Source views must share calculated collection routing');
 assert.match(sidebar, /missingSources[\s\S]*get_source_icons/, 'Source icons must request only newly observed applications');
 assert.match(sidebar, /\[sourcesEnabled, sourceIconSignature\]/, 'Clip count and ordering changes must not retrigger source icon extraction');
 assert.match(sidebar, /sourceFallbackIcon\(item\.value\)/, 'Unresolvable system sources must retain semantic cross-platform icons');
@@ -121,7 +126,7 @@ assert.match(database, /id,content_type,source,is_pinned/, 'CSV exports must exp
 assert.match(appData, /record\.source_app[\s\S]*source_app:\s*_legacySource/, 'Pre-1.0 cached and IPC clip summaries must migrate source_app without retaining it');
 assert.match(sidebar, /source\?\.trim\(\)\.toLowerCase\(\)\s*\?\?\s*''/, 'Source icon rendering must tolerate stale or incomplete cached metadata');
 assert.match(clipViews, /getClipCollection\(currentTab, selectedBin\)/, 'Clip filtering must resolve the active collection');
-assert.match(clipViews, /clipsApi\.search\(/, 'GUI Search must use the centralized Clips client');
+assert.match(clipViews, /clipsApi\.searchList\(/, 'GUI Search must use the bounded list-payload client');
 assert.match(
   clipViews,
   /setSearchResult\(\(current\) => \(\{ \.\.\.current, loading: true, failed: false \}\)\)/,
@@ -152,11 +157,11 @@ assert.match(nativeClipSearch, /indexed_fts_like[\s\S]{0,300}term_fields::base\(
   'Ordinary Search must pass its FTS5 trigram-optimized LIKE policy to term fields');
 assert.match(nativeClipSearchTermFields, /WHERE text_content \{fts_like\}/,
   'Ordinary Search term fields must retain the FTS5 text-content path');
-assert.match(clipsApi, /invoke<ClipSearchResult>\('search_clips'/, 'The Clips client must use the authoritative shared Search service');
+assert.match(clipsApi, /invoke<ClipListPage>\('search_clip_list'/, 'GUI Search must use the bounded native list-payload service');
 assert.doesNotMatch(clipViews, /search_clip_searchable_text_ids/, 'GUI Search must not intersect extracted-text IDs with loaded pages');
 assert.match(database, /LOWER\(clips\.content_type\) LIKE \? ESCAPE/, 'Collection-axis Search filters must use fuzzy case-insensitive matching');
-assert.match(clipViews, /facet\?\.kind === 'clip_type'[\s\S]{0,160}clip\.content_type === facet\.value/, 'Clip Type routes must filter structural identity only');
-assert.match(clipViews, /facet\?\.kind === 'content_type'[\s\S]{0,180}clip\.content_types/, 'Content Type routes must filter Classifier results only');
+assert.match(pagedClipCollection, /clip_type:\s*'clipType'[\s\S]{0,100}content_type:\s*'contentType'/, 'Clip Type and Content Type routes must retain distinct server collection axes');
+assert.match(pagedClipCollection, /file_format:\s*'fileFormat'[\s\S]{0,100}source:\s*'source'/, 'File Format and Source routes must retain distinct server collection axes');
 assert.match(emptyState, /collection\?\.emptyTitle/, 'Empty states must come from the collection descriptor');
 assert.match(viewPolicy, /collection\?\.membership/, 'Interaction policy must use collection membership');
 assert.match(
@@ -171,8 +176,19 @@ assert.doesNotMatch(dragHook, /export type ClipDropAction/, 'Drop actions must b
 assert.match(database, /pub fn get_clips_page[\s\S]*LIMIT \? OFFSET \?/, 'Active clips must support bounded server pagination');
 assert.match(database, /pub fn get_trashed_clips_page[\s\S]*LIMIT \? OFFSET \?/, 'Trash must support bounded server pagination');
 assert.match(database, /pub fn get_clip_collection_summary/, 'Sidebar collection counts must come from an exact server summary');
-assert.match(appData, /const CLIP_PAGE_SIZE = 250;/, 'The GUI must fetch clip collections in bounded pages');
+assert.match(appData, /const CLIP_PAGE_SIZE = 100;/, 'History and Trash must use the measured bounded page size');
 assert.match(appData, /loadMoreClips[\s\S]*loadMoreTrashedClips/, 'Active clips and Trash must both support incremental loading');
+assert.match(clipsApi, /get_clip_collection_page/, 'GUI collections must use the bounded native collection-page contract');
+assert.match(pagedClipCollection, /collection:\s*'bin'[\s\S]{0,600}collection:\s*'pinned'[\s\S]{0,600}collection:\s*'protected'/,
+  'Bins and property collections must page through the native collection service');
+assert.match(database, /pub struct ClipListItem[\s\S]{0,600}pub preview_text:[\s\S]{0,200}pub preview_truncated:/,
+  'List payloads must use an explicit bounded preview contract');
+assert.doesNotMatch(database.match(/pub struct ClipListItem[\s\S]*?\n\}/)?.[0] ?? '', /html_content|image_base64|image_path/,
+  'List payloads must not include full HTML, image data, or private image paths');
+assert.match(clipSelection, /selectedClip\?\.is_summary[\s\S]{0,300}clipsApi\.detail/,
+  'Selecting a summary must lazily hydrate the full clip record');
+assert.match(`${clipActions}\n${clipDetail}`, /clip\.is_summary \? clipsApi\.detail/,
+  'Content-dependent actions must hydrate bounded summaries before use');
 for (const field of ['clipTypeCounts', 'typeCounts', 'sourceCounts']) {
   assert.match(sidebar, new RegExp(`clipCollectionSummary\\.${field}`), `${field} badges must come from the exact server summary`);
 }

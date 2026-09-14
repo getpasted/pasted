@@ -1,4 +1,5 @@
 import type { ClipCollectionSummary, ClipItem, ClipMutationSummary, ClipSearchRequest, ClipSearchResult } from '../types';
+import type { ClipCollectionPageRequest, ClipListPage } from './clipListTypes';
 import { safeInvoke as invoke } from '../utils/tauri';
 
 interface ClipPageRequest {
@@ -13,6 +14,10 @@ export interface BinAssignmentOutcome {
 }
 
 export const clipsApi = {
+  detail: (id: number) => invoke<ClipItem>('get_clip_detail', { id }),
+  collectionPage: (request: ClipCollectionPageRequest) =>
+    invoke<ClipListPage>('get_clip_collection_page', { request }),
+  searchList: (request: ClipSearchRequest) => invoke<ClipListPage>('search_clip_list', { request }),
   list: (request: ClipPageRequest) => invoke<unknown[]>('get_clips', { ...request }),
   listTrash: (request: Pick<ClipPageRequest, 'limit' | 'offset'>) => invoke<unknown[]>('get_trashed_clips', { ...request }),
   search: (request: ClipSearchRequest) => invoke<ClipSearchResult>('search_clips', { request }),

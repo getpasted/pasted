@@ -3,7 +3,7 @@ import { clipMatchesSearch, parseClipSearch } from '../../utils/clipSearch';
 import { handleActivityBrowserMock } from './activity';
 import { handleBackupBrowserMock } from './backup';
 import { handleAnalyticsBrowserMock } from './analytics';
-import { handleClipBrowserMock } from './clips';
+import { browserClipListItem, handleClipBrowserMock } from './clips';
 import { handleClipVersionBrowserMock } from './clipVersions';
 import { handleBinBrowserMock } from './bins';
 import { handleAnalysisBrowserMock } from './analysis';
@@ -158,7 +158,8 @@ export async function invokeLibraryBrowserMock<T>(
     if (result.matched) return result.value as T;
   }
   switch (cmd) {
-    case 'search_clips': {
+    case 'search_clips':
+    case 'search_clip_list': {
       const request = (args?.request ?? {}) as Record<string, unknown>;
       const query = String(request.query ?? '');
       const plan = parseClipSearch(query);
@@ -184,13 +185,15 @@ export async function invokeLibraryBrowserMock<T>(
           : protectedClip;
         return clipMatchesSearch(candidate as unknown as import('../../types').ClipItem, plan);
       });
-      return {
-        items: items.slice(offset, offset + limit).map((clip) => ({
+      const pageItems = items.slice(offset, offset + limit).map((clip) => ({
           ...withMockProtection(clip),
           content_types: [...(clip.content_types ?? [])],
           file_formats: [...(clip.file_formats ?? [])],
           bin_ids: [...clip.bin_ids],
-        })),
+        }));
+      return {
+        schemaVersion: 1,
+        items: cmd === 'search_clip_list' ? pageItems.map(browserClipListItem) : pageItems,
         totalCount: items.length,
         limit,
         offset,

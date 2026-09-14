@@ -104,6 +104,10 @@ export interface ClipItem {
   ocr_extractor_ref?: string | null;
   ocr_extractor_name?: string | null;
   ocr_engine_version?: string | null;
+  /** True when text_content is a bounded list preview rather than full clip content. */
+  is_summary?: boolean;
+  preview_truncated?: boolean;
+  file_names?: string[];
 }
 
 export interface ClipSearchRequest {

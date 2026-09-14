@@ -141,7 +141,7 @@ assert.match(
 assert.doesNotMatch(quickHud, /<img\b/, 'The HUD must not bypass its safe thumbnail surface');
 assert.match(rustSource, /validate_raster_data_url/, 'Native clip and icon boundaries must validate raster data URLs');
 assert.doesNotMatch(frontendSource, /\b(?:eval|Function)\s*\(/, 'Frontend dynamic code execution is forbidden');
-assert.match(clipActions, /htmlToPlainText\(clip\.text_content\)/, 'Plain-text copying must use the shared HTML parser');
+assert.match(clipActions, /htmlToPlainText\((?:fullClip|clip)\.text_content\)/, 'Plain-text copying must use the shared HTML parser');
 assert.match(plainText, /new DOMParser\(\)\.parseFromString\(value, 'text\/html'\)/, 'HTML-to-text conversion must use DOM parsing');
 assert.match(plainText, /script, style, template, noscript/, 'HTML-to-text conversion must discard non-visible executable content');
 assert.doesNotMatch(clipActions, /replace\(\/<\[\^>\]\*>\/g/, 'Do not restore one-pass regex HTML stripping');

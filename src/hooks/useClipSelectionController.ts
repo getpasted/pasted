@@ -1,5 +1,6 @@
 import {
   useCallback,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -11,6 +12,7 @@ import type { ClipItem } from '../types';
 import type { AppUiState } from '../utils/appUiState';
 import { clipCollectionViewKey, pendingClipFocusId, selectionIdsForContextMenu, type ClipFocusRequest } from '../utils/clipSelection';
 import { useClipSelectionKeyboard } from './useClipSelectionKeyboard';
+import { clipsApi } from '../api/clips';
 
 interface UseClipSelectionControllerOptions {
   displayedClips: ClipItem[];
@@ -57,6 +59,18 @@ export function useClipSelectionController({
   ]));
   const activeSelectionViewRef = useRef<string | null>(null);
   const handledFocusRequestIdRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!selectedClip?.is_summary || selectedClip.id < 1) return;
+    let active = true;
+    const selectedId = selectedClip.id;
+    void clipsApi.detail(selectedId).then((detail) => {
+      if (active) setSelectedClip((current) => current?.id === selectedId ? detail : current);
+    }).catch((error) => console.error('Failed to load clip detail:', error));
+    return () => {
+      active = false;
+    };
+  }, [selectedClip?.id, selectedClip?.is_summary, setSelectedClip]);
 
   const clearClipSelection = useCallback(() => {
     setSelectedClip(null);

@@ -407,10 +407,10 @@ assert.match(suggestionExecution, /pub struct SmartActionSuggestionResult/,
   'Focused suggestion must expose one stable application result');
 assert.match(cli, /suggestion_execution::suggest_(?:text|clip)/,
   'CLI Smart Actions must use the shared Suggestion execution service');
-assert.match(clipViews, /clipsApi\.search\(/,
-  'GUI Search must request authoritative ClipItems and totals through the centralized Clips client');
+assert.match(clipViews, /clipsApi\.searchList\(/,
+  'GUI Search must request authoritative bounded summaries and totals through the centralized Clips client');
 assert.match(clipsApi, /invoke<ClipSearchResult>\('search_clips'/,
-  'The Clips client must request authoritative ClipItems and totals from the native service');
+  'The full shared Search contract must remain available for stable CLI output');
 assert.match(database, /pub fn search_clips\([\s\S]*?clip_searchable_text AS extracted/,
   'Shared Search must include hash-current extracted text without exposing it in ClipItems');
 assert.match(database, /pub const MAX_CLIP_SEARCH_PAGE_SIZE/,
@@ -647,9 +647,11 @@ assert.match(cli, /smart_bins::parse_rule_json/,
   'The CLI must validate Smart Bin rules through the shared contract');
 assert.match(smartBins, /pub const CURRENT_TARGETS:[\s\S]*clip_type[\s\S]*content_type[\s\S]*file_format[\s\S]*source/,
   'The Smart Bin contract must publish the four current collection axes');
-for (const [feature, target] of [['clipTypes', 'clip_type'], ['types', 'content_type'], ['fileFormats', 'file_format'], ['sources', 'source']]) {
-  assert.match(clipViews, new RegExp(`${target}[\\s\\S]{0,500}features\\?\\.${feature}|features\\?\\.${feature}[\\s\\S]{0,500}${target}`),
-    `GUI Smart Bin matching must honor the ${feature} Functionality setting`);
+assert.match(clipViews, /usePagedClipCollection/,
+  'GUI Smart Bin membership must use the shared paged collection service');
+for (const [feature, target] of [['clip_types', 'clip_type'], ['content_types', 'content_type'], ['file_formats', 'file_format'], ['sources', 'source']]) {
+  assert.match(database, new RegExp(`${target}[\\s\\S]{0,500}features\\.${feature}|features\\.${feature}[\\s\\S]{0,500}${target}`),
+    `Shared Smart Bin matching must honor the ${feature} Functionality setting`);
 }
 for (const method of ['update_clip_note', 'get_clip_version_timeline_page', 'restore_clip_version', 'delete_clip_version', 'get_clip_transformation_provenance', 'purge_clip_permanently', 'empty_trash', 'get_analytics_summary']) {
   assert.match(database, new RegExp(`pub fn ${method}`), `${method} must live in the shared database domain layer`);

@@ -6,25 +6,86 @@ interface BrowserClip {
   source: string;
   is_trashed: number;
   is_pinned: number;
-  is_protected: number;
+  is_protected: number | boolean;
   is_concealed?: number | boolean;
   name?: string | null;
   note?: string | null;
   bin_ids: number[];
   content_types?: string[];
   file_formats?: string[];
+  text_content?: string | null;
+  html_content?: string | null;
+  image_base64?: string | null;
+  image_path?: string | null;
+}
+
+export function browserClipListItem<T extends BrowserClip>(clip: T) {
+  const { text_content: text, html_content: _html, image_base64: _image, image_path: _path, ...metadata } = clip;
+  let fileNames: string[] = [];
+  if (clip.content_type === 'file' && text) {
+    try {
+      const paths = JSON.parse(text);
+      if (Array.isArray(paths)) fileNames = paths.filter((path): path is string => typeof path === 'string');
+    } catch {
+      fileNames = text.split(/\r?\n/).filter(Boolean);
+    }
+    fileNames = fileNames.map((path) => path.split(/[\\/]/).filter(Boolean).pop() ?? path).slice(0, 20);
+  }
+  const characters = text ? Array.from(text) : [];
+  return {
+    ...metadata,
+    preview_text: clip.content_type === 'file' ? null : characters.slice(0, 1_024).join('') || null,
+    preview_truncated: clip.content_type !== 'file' && characters.length > 1_024,
+    file_names: fileNames,
+  };
 }
 
 export function handleClipBrowserMock<T extends BrowserClip>(
   command: string,
   args: Record<string, unknown> | undefined,
   clips: readonly T[],
-  withPolicies: (clip: T) => object & { is_concealed: boolean },
+  withPolicies: (clip: T) => object & { is_concealed: boolean; is_protected: boolean },
 ): BrowserMockResult {
   if (command === 'update_clip_name') {
     const clip = clips.find((item) => item.id === Number(args?.clipId));
     if (clip && clip.is_trashed === 0) clip.name = typeof args?.name === 'string' ? args.name.trim() || null : null;
     return handled(clip ? { ...withPolicies(clip) } : null);
+  }
+  if (command === 'get_clip_detail') {
+    const clip = clips.find((item) => item.id === Number(args?.id));
+    return handled(clip ? { ...withPolicies(clip) } : null);
+  }
+  if (command === 'get_clip_collection_page') {
+    const request = (args?.request ?? {}) as Record<string, unknown>;
+    const collection = String(request.collection ?? 'history');
+    const value = String(request.value ?? '').toLowerCase();
+    const binId = Number(request.binId);
+    const offset = Math.max(0, Number(request.offset ?? 0));
+    const limit = Math.min(500, Math.max(1, Number(request.limit ?? 100)));
+    const items = clips.filter((clip) => {
+      const active = clip.is_trashed === 0;
+      const policies = withPolicies(clip);
+      if (collection === 'trash') return !active;
+      if (!active) return false;
+      if (collection === 'bin') return clip.bin_ids.includes(binId);
+      if (collection === 'pinned') return Boolean(clip.is_pinned);
+      if (collection === 'protected') return policies.is_protected;
+      if (collection === 'concealed') return policies.is_concealed;
+      if (collection === 'named') return Boolean(clip.name?.trim());
+      if (collection === 'noted') return Boolean(clip.note?.trim());
+      if (collection === 'clipType') return clip.content_type.toLowerCase() === value;
+      if (collection === 'contentType') return (clip.content_types ?? []).some((type) => type.toLowerCase() === value);
+      if (collection === 'fileFormat') return (clip.file_formats ?? []).some((format) => format.toLowerCase() === value);
+      if (collection === 'source') return clip.source.toLowerCase() === value;
+      return collection === 'history';
+    });
+    return handled({
+      schemaVersion: 1,
+      items: items.slice(offset, offset + limit).map((clip) => browserClipListItem({ ...clip, ...withPolicies(clip) })),
+      totalCount: items.length,
+      limit,
+      offset,
+    });
   }
   if (command === 'get_clips') {
     const offset = Math.max(0, Number(args?.offset ?? 0));

@@ -7,7 +7,7 @@ import { useClipActions } from './useClipActions';
 import { useClipViews } from './useClipViews';
 import { useColumnResize } from './useColumnResize';
 import { useAppLibraryActions } from './useAppLibraryActions';
-import { findDraggedPreviewClip, selectionHasRestrictedClip } from './appControllerModel';
+import { findDraggedPreviewClip, mergeVisibleClipSnapshots, selectionHasRestrictedClip } from './appControllerModel';
 import {
   useAppMenuActions,
   useAppNavigation,
@@ -180,12 +180,12 @@ export function useAppController() {
   const {
     displayedClips,
     queuedIndexMap,
-    searchTotalCount,
+    currentPageTotalCount,
     searchDisplayQuery,
-    isSearching,
+    isLoadingCurrentPage,
     searchFailed,
     retrySearch,
-    loadMoreSearchResults,
+    loadMoreCurrentPage,
   } = useClipViews({
     allClips,
     trashedClips,
@@ -226,13 +226,13 @@ export function useAppController() {
     pinningEnabled: enabledFeatures.pinning,
     totalClipCount,
     totalTrashCount,
-    searchTotalCount,
+    currentPageTotalCount,
     isLoadingMoreClips,
     isLoadingMoreTrash,
-    isSearching,
+    isLoadingCurrentPage,
     loadMoreClips,
     loadMoreTrashedClips,
-    loadMoreSearchResults,
+    loadMoreCurrentPage,
     focusRequest: clipHistoryFocus.focusRequest,
   });
   const {
@@ -247,8 +247,8 @@ export function useAppController() {
     selectedBinId,
     displayedClips,
     sequentialStatus: seqStatus,
-    loadedClipCount: allClips.length,
-    totalClipCount,
+    loadedClipCount: currentCollection?.membership === 'bin' ? displayedClips.length : allClips.length,
+    totalClipCount: currentCollection?.membership === 'bin' ? currentPageTotalCount : totalClipCount,
     clipListRef,
     fetchBins,
     fetchSequentialStatus,
@@ -280,7 +280,7 @@ export function useAppController() {
     transformingClipIds,
     transformErrorsByClipId,
   } = useClipActions({
-    allClips,
+    allClips: mergeVisibleClipSnapshots(allClips, displayedClips),
     setAllClips,
     setTrashedClips,
     bins,
@@ -354,7 +354,7 @@ export function useAppController() {
     assignSidebarDropToBin: handleSidebarClipDropOnBin,
   } = useClipDragController({
     isQueueCollection,
-    allClips,
+    allClips: mergeVisibleClipSnapshots(allClips, displayedClips),
     setAllClips,
     bins,
     selectedClipIds,
@@ -465,7 +465,7 @@ export function useAppController() {
       handleSidebarPointerDown, handleListPointerDown, resetColumnWidths,
     },
     clipView: {
-      displayedClips, queuedIndexMap, searchTotalCount, searchDisplayQuery, searchFailed,
+      displayedClips, queuedIndexMap, searchTotalCount: currentPageTotalCount, searchDisplayQuery, searchFailed,
       retrySearch, currentCollection, clipListRef, handleClipListScroll, isLoadingCurrentCollection,
       pinnedShelfClips, stackedPinnedClipIds, binClipReorder, isBinCollection, isQueueCollection,
       queueReorder, reorderIdsForClip, displayedClipsForRender, binsById, selectedClipViewPolicy, hasRestrictedSelection,

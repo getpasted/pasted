@@ -165,6 +165,9 @@ pub fn run() {
         .on_window_event(app_windows::handle_window_event)
         .invoke_handler(tauri::generate_handler![
             commands::clips::get_clips,
+            commands::clips::get_clip_detail,
+            commands::clip_collection::get_clip_collection_page,
+            commands::clip_collection::search_clip_list,
             commands::clips::get_capture_feedback_clip,
             commands::clips::get_clip_image,
             commands::analysis::analyze_content,
