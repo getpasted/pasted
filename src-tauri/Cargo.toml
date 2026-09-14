@@ -66,7 +66,7 @@ tauri-plugin-single-instance = { version = "2", optional = true }
 tauri-plugin-window-state = { version = "2", optional = true }
 tauri-plugin-dialog = { version = "2", optional = true }
 window-vibrancy = { version = "0.8", optional = true }
-dirs = "6.0"
+dirs = "7.0"
 unicode-normalization = "0.1"
 url = "2.5"
 tauri-plugin-updater = { version = "2", optional = true }
