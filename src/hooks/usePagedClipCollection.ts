@@ -5,6 +5,12 @@ import { clipsApi } from '../api/clips';
 import { getClipCollection, parseClipFacetRoute } from '../utils/clipCollections';
 import type { FeatureId } from '../utils/features';
 import { clipListItemsAsClips } from '../utils/clipListItems';
+import {
+  cacheRecentClipCollection,
+  clearRecentClipCollections,
+  getRecentClipCollection,
+  peekRecentClipCollection,
+} from '../utils/recentClipCollectionCache';
 
 const COLLECTION_PAGE_SIZE = 100;
 
@@ -72,6 +78,12 @@ export function usePagedClipCollection({
     failed: false,
   });
   const loadingRef = useRef(false);
+  const revisionsRef = useRef({ activeClipsRevision, trashClipsRevision });
+  if (revisionsRef.current.activeClipsRevision !== activeClipsRevision
+    || revisionsRef.current.trashClipsRevision !== trashClipsRevision) {
+    clearRecentClipCollections();
+    revisionsRef.current = { activeClipsRevision, trashClipsRevision };
+  }
 
   useEffect(() => {
     if (!request) {
@@ -82,15 +94,22 @@ export function usePagedClipCollection({
       return;
     }
     let active = true;
+    const cached = getRecentClipCollection(requestKey);
     loadingRef.current = true;
-    setState((current) => ({ ...current, requestKey, loading: true, failed: false }));
+    setState(cached
+      ? { requestKey, ...cached, loading: false, failed: false }
+      : { requestKey, items: [], totalCount: 0, loading: true, failed: false });
     void clipsApi.collectionPage({ ...request, limit: COLLECTION_PAGE_SIZE, offset: 0 })
       .then((page) => {
         if (!active) return;
-        startTransition(() => setState({
-          requestKey,
+        const collection = {
           items: clipListItemsAsClips(page.items),
           totalCount: page.totalCount,
+        };
+        cacheRecentClipCollection(requestKey, collection);
+        startTransition(() => setState({
+          requestKey,
+          ...collection,
           loading: false,
           failed: false,
         }));
@@ -137,11 +156,12 @@ export function usePagedClipCollection({
     }
   }, [request, requestKey, state]);
 
+  const cached = state.requestKey === requestKey ? undefined : peekRecentClipCollection(requestKey);
   return {
     active: Boolean(request),
-    items: state.requestKey === requestKey ? state.items : [],
-    totalCount: state.requestKey === requestKey ? state.totalCount : 0,
-    loading: state.requestKey === requestKey && state.loading,
+    items: state.requestKey === requestKey ? state.items : cached?.items ?? [],
+    totalCount: state.requestKey === requestKey ? state.totalCount : cached?.totalCount ?? 0,
+    loading: state.requestKey === requestKey ? state.loading : Boolean(request && !cached),
     failed: state.requestKey === requestKey && state.failed,
     loadMore,
   };

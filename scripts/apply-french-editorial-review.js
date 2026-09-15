@@ -57,7 +57,6 @@ const overrides = {
   'app.emptyClip': 'Clip vide',
   'app.ignoredApp': 'Application ignorée : {name}',
   'app.imageClip': 'Clip image',
-  'app.loadingOlderClips': 'Chargement des anciens clips…',
   'app.moveSelectedToTrash': 'Déplacer la sélection vers la corbeille',
   'app.pinSelected': 'Épingler la sélection',
   'app.resultCount': { one: '{count} résultat', other: '{count} résultats' },

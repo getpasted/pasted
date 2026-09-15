@@ -38,10 +38,13 @@ function restorePosition(element: HTMLDivElement, position: ClipListScrollPositi
     if (anchor) {
       element.scrollTop += anchor.getBoundingClientRect().top
         - element.getBoundingClientRect().top - position.anchorOffset;
-      return;
+      return true;
     }
+    element.scrollTop = position.scrollTop;
+    return false;
   }
   element.scrollTop = position.scrollTop;
+  return position.scrollTop <= element.scrollHeight - element.clientHeight + 1;
 }
 
 function reorderCommitInProgress(element: HTMLDivElement) {
@@ -52,51 +55,73 @@ function reorderCommitInProgress(element: HTMLDivElement) {
 export function useRememberedClipListScroll(
   viewKey: string,
   listRef: RefObject<HTMLDivElement | null>,
+  ready: boolean,
 ) {
   const memoryRef = useRef<ClipListScrollMemory | null>(null);
   const restoreFrameRef = useRef<number | null>(null);
+  const restoringRef = useRef(false);
+  const transitionRef = useRef<{
+    key: string;
+    position: ClipListScrollPosition;
+    complete: boolean;
+  } | null>(null);
   if (memoryRef.current === null) memoryRef.current = new ClipListScrollMemory();
 
   useLayoutEffect(() => {
     const element = listRef.current;
     if (!element) return undefined;
-    if (!memoryRef.current!.has(viewKey)) {
-      const persisted = readPersistedScrollPosition(`clips:${viewKey}`);
-      memoryRef.current!.remember(viewKey, {
-        scrollTop: persisted.scrollTop,
-        anchorClipId: persisted.anchorClipId ?? null,
-        anchorOffset: persisted.anchorOffset ?? 0,
-      });
+    if (transitionRef.current?.key !== viewKey) {
+      if (!memoryRef.current!.has(viewKey)) {
+        const persisted = readPersistedScrollPosition(`clips:${viewKey}`);
+        memoryRef.current!.remember(viewKey, {
+          scrollTop: persisted.scrollTop,
+          anchorClipId: persisted.anchorClipId ?? null,
+          anchorOffset: persisted.anchorOffset ?? 0,
+        });
+      }
+      transitionRef.current = {
+        key: viewKey,
+        position: memoryRef.current!.recall(viewKey),
+        complete: false,
+      };
     }
-    const initialPosition = memoryRef.current!.recall(viewKey);
-    let restoringInitialLayout = true;
-    const finishInitialRestore = window.setTimeout(() => { restoringInitialLayout = false; }, 500);
-    const scheduleRestore = () => {
-      if (reorderCommitInProgress(element)) return;
-      if (restoreFrameRef.current !== null) cancelAnimationFrame(restoreFrameRef.current);
-      restoreFrameRef.current = requestAnimationFrame(() => {
-        restoreFrameRef.current = null;
-        restorePosition(
-          element,
-          restoringInitialLayout ? initialPosition : memoryRef.current!.recall(viewKey),
-        );
-      });
+    const transition = transitionRef.current;
+    if (transition.complete) return undefined;
+    let attempts = 0;
+    restoringRef.current = true;
+    element.style.visibility = 'hidden';
+    const reveal = () => {
+      transition.complete = true;
+      restoringRef.current = false;
+      element.style.visibility = '';
     };
-    const mutationObserver = new MutationObserver(scheduleRestore);
-
-    element.scrollTop = initialPosition.scrollTop;
-    mutationObserver.observe(element, { childList: true, subtree: true });
-    element.addEventListener('load', scheduleRestore, true);
-    scheduleRestore();
+    const restore = () => {
+      restoreFrameRef.current = null;
+      if (!ready) return;
+      if (reorderCommitInProgress(element)) {
+        restoreFrameRef.current = requestAnimationFrame(restore);
+        return;
+      }
+      attempts += 1;
+      if (restorePosition(element, transition.position) || attempts >= 12) {
+        restoreFrameRef.current = requestAnimationFrame(reveal);
+        return;
+      }
+      restoreFrameRef.current = requestAnimationFrame(restore);
+    };
+    element.scrollTop = transition.position.scrollTop;
+    restoreFrameRef.current = requestAnimationFrame(restore);
+    const fallback = window.setTimeout(reveal, 500);
     return () => {
-      window.clearTimeout(finishInitialRestore);
+      window.clearTimeout(fallback);
       if (restoreFrameRef.current !== null) cancelAnimationFrame(restoreFrameRef.current);
-      mutationObserver.disconnect();
-      element.removeEventListener('load', scheduleRestore, true);
+      restoringRef.current = false;
+      element.style.visibility = '';
     };
-  }, [listRef, viewKey]);
+  }, [listRef, ready, viewKey]);
 
   return useCallback((element: HTMLDivElement) => {
+    if (restoringRef.current) return;
     const position = capturePosition(element);
     memoryRef.current!.remember(viewKey, position);
     scheduleScrollPositionPersistence(`clips:${viewKey}`, position);

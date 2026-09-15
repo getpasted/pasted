@@ -119,6 +119,8 @@ assert.match(rustSource, /PROVIDER_EXECUTION_TIMEOUT_SECS/, 'Provider execution 
 assert.doesNotMatch(frontendSource, /dangerouslySetInnerHTML/, 'Render untrusted clip content as text, never raw HTML');
 assert.match(safeRasterImage, /decodeSafeRasterDataUrl\(source\)/, 'Dynamic image sources must pass the shared raster decoder');
 assert.match(safeRasterImage, /URL\.createObjectURL\(new Blob/, 'Validated raster bytes must render through an inert object URL');
+assert.match(safeRasterImage, /React\.useLayoutEffect\(\(\) => \{[\s\S]{0,300}URL\.createObjectURL/,
+  'Validated raster object URLs must be ready before cached thumbnails paint');
 assert.match(
   frontendSource,
   /decodedByteLength > MAX_RENDERABLE_RASTER_BYTES[\s\S]*atob\(payload\)/,

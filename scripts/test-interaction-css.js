@@ -167,8 +167,16 @@ assert.match(reorderHook, /setSettlingOrder\(nextOrder\)/,
   'Clip reordering must retain its committed visual order through persistence');
 assert.match(sidebar, /\.is-settling-pinned-reorder \[data-clip-list\][\s\S]{0,100}overflow-anchor:\s*none;/,
   'The clip list must disable browser scroll anchoring during reorder commits');
-assert.match(rememberedClipListScroll, /if \(reorderCommitInProgress\(element\)\) return;/,
+assert.match(rememberedClipListScroll, /if \(reorderCommitInProgress\(element\)\)[\s\S]{0,120}requestAnimationFrame\(restore\)/,
   'Remembered clip positions must not fight an in-progress reorder commit');
+assert.doesNotMatch(rememberedClipListScroll, /MutationObserver|addEventListener\('load'/,
+  'Clip scroll restoration must not compete with list mutation or thumbnail load observers');
+assert.match(rememberedClipListScroll, /element\.style\.visibility = 'hidden'[\s\S]*restorePosition\(element, transition\.position\)[\s\S]*requestAnimationFrame\(reveal\)/,
+  'The list must reveal only after its single coordinator applies the restored position');
+assert.match(rememberedClipListScroll, /if \(transition\.complete\) return undefined/,
+  'Loading another page must not restart the completed view-entry restoration');
+assert.match(rememberedClipListScroll, /setTimeout\(reveal, 500\)/,
+  'A slow transition must reveal the usable list after a bounded delay');
 
 // Bin reordering restores the JS-managed hover immediately after settling;
 // clip dragging keeps its separate post-drag suppression behavior.

@@ -117,7 +117,8 @@ const importCommands = read('src-tauri/src/commands/imports.rs') + read('src-tau
 const factoryResetCommands = read('src-tauri/src/commands/factory_reset.rs');
 const extractionCommands = read('src-tauri/src/commands/extraction.rs');
 const ocrBackfillCommands = read('src-tauri/src/commands/extraction/ocr_backfill.rs');
-const filePreviewCommands = read('src-tauri/src/commands/file_previews.rs');
+const filePreviewCommands = read('src-tauri/src/commands/file_previews.rs')
+  + read('src-tauri/src/commands/file_preview_request.rs');
 const fileReferenceHealth = read('src-tauri/src/file_reference_health.rs');
 const intelligenceCommands = read('src-tauri/src/commands/intelligence.rs');
 const libraryAccessCommands = read('src-tauri/src/commands/library_access.rs') + read('src-tauri/src/commands/library_exports.rs');
@@ -1007,8 +1008,10 @@ const sizeRatchets = new Map([
   ['src-tauri/src/commands/extraction.rs', 187],
   ['src-tauri/src/commands/clips.rs', 261],
   ['src-tauri/src/commands/file_previews.rs', 623],
+  ['src-tauri/src/commands/file_preview_request.rs', 84],
   ['src-tauri/src/commands/file_preview_cache.rs', 191],
   ['src-tauri/src/file_reference_health.rs', 288],
+  ['src-tauri/src/file_reference_health_tests.rs', 55],
   ['src-tauri/src/commands/intelligence.rs', 271],
   ['src-tauri/src/commands/library_access.rs', 38],
   ['src-tauri/src/commands/manual_transforms.rs', 164],
@@ -1061,6 +1064,8 @@ const sizeRatchets = new Map([
   ['src/appExclusionModel.ts', 50],
   ['src/utils/appTheme.ts', 28],
   ['src/components/ClipImageThumbnail.tsx', 76],
+  ['src/utils/previewMemoryCache.ts', 44],
+  ['src/utils/recentClipCollectionCache.ts', 32],
   ['src/hooks/useAppController.ts', 499],
   ['src/hooks/useAppLibraryActions.ts', 59],
   ['src/hooks/appControllerModel.ts', 22],

@@ -1,5 +1,6 @@
 import type { AppSettings } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { cachePreview, getCachedPreview } from '../utils/previewMemoryCache';
 import type { FileClipPreview } from './fileClipPreviewModel';
 
 interface FilePreviewRequest extends Record<string, unknown> {
@@ -10,23 +11,22 @@ interface FilePreviewRequest extends Record<string, unknown> {
   onlyIndex?: number;
 }
 
-const resultCache = new Map<string, FileClipPreview[]>();
 const requestCache = new Map<string, Promise<FileClipPreview[]>>();
 
-export const getCachedFilePreviews = (cacheKey: string) => resultCache.get(cacheKey);
+export const getCachedFilePreviews = (cacheKey: string) => getCachedPreview<FileClipPreview[]>(`file-detail:${cacheKey}`);
 
 export function loadFilePreviews(
   cacheKey: string,
   request: FilePreviewRequest,
 ): Promise<FileClipPreview[]> {
-  const cached = resultCache.get(cacheKey);
+  const cached = getCachedFilePreviews(cacheKey);
   if (cached) return Promise.resolve(cached);
   const pending = requestCache.get(cacheKey);
   if (pending) return pending;
   const next = invoke<FileClipPreview[]>('get_file_clip_previews', request)
     .then((items) => {
       const previews = Array.isArray(items) ? items : [];
-      resultCache.set(cacheKey, previews);
+      cachePreview(`file-detail:${cacheKey}`, previews);
       return previews;
     })
     .finally(() => requestCache.delete(cacheKey));
@@ -44,10 +44,10 @@ export async function recheckFilePreview(
     onlyIndex: index,
     forceRecheck: true,
   });
-  if (!preview) return resultCache.get(cacheKey) ?? [];
-  const merged = [...(resultCache.get(cacheKey) ?? [])].filter((item) => item.index !== index);
+  if (!preview) return getCachedFilePreviews(cacheKey) ?? [];
+  const merged = [...(getCachedFilePreviews(cacheKey) ?? [])].filter((item) => item.index !== index);
   merged.push(preview);
   merged.sort((left, right) => left.index - right.index);
-  resultCache.set(cacheKey, merged);
+  cachePreview(`file-detail:${cacheKey}`, merged);
   return merged;
 }

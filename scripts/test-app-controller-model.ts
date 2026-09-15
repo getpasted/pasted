@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import type { ClipItem } from '../src/types.ts';
 import {
   findDraggedPreviewClip,
+  mergeVisibleClipSnapshots,
   selectionHasRestrictedClip,
 } from '../src/hooks/appControllerModel.ts';
 
@@ -21,5 +22,10 @@ assert.equal(selectionHasRestrictedClip(new Set([99]), [active], isRestricted), 
 assert.equal(findDraggedPreviewClip({ clipId: 1 }, [active], [trashed]), active);
 assert.equal(findDraggedPreviewClip({ clipId: 2 }, [active], [trashed]), trashed);
 assert.equal(findDraggedPreviewClip(null, [active], [trashed]), undefined);
+assert.deepEqual(
+  mergeVisibleClipSnapshots([active, active], [active, active]),
+  [active],
+  'cached and paged snapshots must not expose duplicate React identities',
+);
 
 console.log('App controller model tests passed.');

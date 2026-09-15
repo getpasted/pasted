@@ -50,6 +50,12 @@ const cli = readRustModuleTree('src-tauri/src/bin/pasted.rs', 'src-tauri/src/cli
 const clipTypes = read('src/types.ts');
 const appData = read('src/hooks/useAppData.ts');
 const foundationCss = read('src/styles/foundation.css');
+const clipThumbnailSources = [
+  read('src/components/ClipImageThumbnail.tsx'),
+  read('src/components/ClipCardThumbnails.tsx'),
+];
+const clipThumbnails = clipThumbnailSources.join('\n');
+const thumbnailVisibility = read('src/utils/thumbnailVisibility.ts');
 
 for (const tab of ['all', 'sequential', 'pinned', 'protected', 'notes', 'trash']) {
   assert.match(registry, new RegExp(`tab:\\s*'${tab}'`), `${tab} must be registered as a system clip collection`);
@@ -70,6 +76,8 @@ assert.doesNotMatch(clipViews, /filterByBin|facet\?\.kind|clips\.filter\(propert
 assert.match(dragHook, /CLIP_PROPERTY_ASSOCIATIONS/, 'Property drop eligibility must use the shared association contract');
 assert.match(registry, /key:\s*'system:queue'[\s\S]{0,300}acceptsClipDrop:\s*true[\s\S]{0,100}dropAction:\s*'queue'/,
   'Queued must remain a registered text Clip drop destination');
+assert.match(registry, /const isSmart = Boolean\(bin\?\.smart_rule\)[\s\S]{0,400}canReorder:\s*!isSmart/,
+  'Smart Bins must not advertise a persistent manual order');
 assert.match(dragHook, /content_type === 'file' \|\| !clip\.text_content[\s\S]{0,40}disabled\.push\('queue'\)/,
   'Queue drops must fail closed for Clips without a text payload');
 
@@ -132,11 +140,8 @@ assert.match(
   /setSearchResult\(\(current\) => \(\{ \.\.\.current, loading: true, failed: false \}\)\)/,
   'Search refreshes must retain settled results until their replacement is ready',
 );
-assert.match(
-  app,
-  /isLoadingCurrentCollection && currentCollection\?\.membership !== 'search'/,
-  'Search must not reuse the History pagination loading interstitial',
-);
+assert.doesNotMatch(app, /loadingOlderClips/,
+  'Background collection paging must not add a visible loading interstitial');
 assert.match(app, /useDeferredValue\((?:searchQuery|query)\)/,
   'Search result rendering must not compete with controlled input updates');
 assert.match(app, /setTimeout\(\(\) => setSettledQuery\(deferredQuery\), delayMs\)/,
@@ -192,6 +197,22 @@ assert.match(`${clipActions}\n${clipDetail}`, /clip\.is_summary \? clipsApi\.det
 for (const field of ['clipTypeCounts', 'typeCounts', 'sourceCounts']) {
   assert.match(sidebar, new RegExp(`clipCollectionSummary\\.${field}`), `${field} badges must come from the exact server summary`);
 }
-assert.match(foundationCss, /\.clip-card[\s\S]*content-visibility:\s*auto/, 'Offscreen clip cards must retain browser-native rendering virtualization');
+const clipCardCss = foundationCss.match(/\.clip-card\s*\{[\s\S]*?\}/)?.[0] ?? '';
+assert.doesNotMatch(clipCardCss, /content-visibility|contain-intrinsic-block-size/,
+  'React-virtualized clip cards must not also use WebKit content visibility');
+for (const thumbnailSource of clipThumbnailSources) {
+  assert.match(thumbnailSource, /placeholderHeightClass[\s\S]{0,160}is-loaded/,
+    'Lazy clip thumbnails must reserve their measured height while raster data decodes');
+  assert.match(thumbnailSource, /loadVisibleThumbnail\(stage, load\)/,
+    'Clip thumbnails must share the bounded visibility-loading policy');
+}
+assert.match(thumbnailVisibility, /closest\('\[data-virtual-clip-list\]'\)[\s\S]{0,80}load\(\)/,
+  'React-virtualized thumbnails must not wait for a second visibility-observer frame');
+assert.match(clipThumbnails, /queueFileThumbnailLoad/,
+  'File-card preview work must use the bounded thumbnail queue');
+assert.match(thumbnailVisibility, /MAX_ACTIVE_FILE_THUMBNAILS = 2[\s\S]*activeFileThumbnails/,
+  'File-card preview work must not saturate native filesystem workers');
+assert.doesNotMatch(clipThumbnails, /loading="lazy"/,
+  'Clip thumbnail loaders must not add a native lazy-loading gate');
 
 console.log('Clip collection contract audit passed.');

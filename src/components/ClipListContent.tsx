@@ -1,4 +1,3 @@
-import { translate } from '../localization/runtime';
 import type { ClipItem } from '../types';
 import { getClipViewPolicy } from '../utils/clipViewPolicy';
 import { safeInvoke as invoke } from '../utils/tauri';
@@ -205,11 +204,6 @@ export function ClipListContent({ controller }: { controller: AppController }) {
           scrollRef={clipListRef}
           renderClip={renderClip}
         />
-        {isLoadingCurrentCollection && currentCollection?.membership !== 'search' && (
-          <div className="theme-text-muted py-3 text-center text-xs" role="status">
-            {translate('app.loadingOlderClips')}
-          </div>
-        )}
       </>}
     </div>
   </div>;

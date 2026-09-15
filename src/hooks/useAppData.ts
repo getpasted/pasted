@@ -8,7 +8,7 @@ import { transformsApi } from '../api/transforms';
 import { clipsApi } from '../api/clips';
 import { binsApi } from '../api/bins';
 import { safeInvoke as invoke } from '../utils/tauri';
-import { summarizeClipForList } from '../utils/clipListItems';
+import { summarizeClipForList, uniqueClipItemsById } from '../utils/clipListItems';
 
 function readCachedArray<T>(key: string): T[] {
   try {
@@ -52,7 +52,7 @@ function normalizeClipItem(value: unknown): ClipItem | null {
 
 function normalizeClipItems(value: unknown): ClipItem[] {
   if (!Array.isArray(value)) return [];
-  return value.map(normalizeClipItem).filter((clip): clip is ClipItem => clip !== null);
+  return uniqueClipItemsById(value.map(normalizeClipItem).filter((clip): clip is ClipItem => clip !== null));
 }
 
 function cacheClipSummaries(clips: ClipItem[]) {

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { ClipItem } from '../types';
 import type { ClipCollectionMembership } from '../utils/clipCollections';
 import { clipCollectionViewKey, pendingClipFocusId, type ClipFocusRequest } from '../utils/clipSelection';
-import { clipCardScrollTop } from '../utils/clipListViewport';
+import { clipCardScrollTop, clipCollectionIsReady } from '../utils/clipListViewport';
 import { useRememberedClipListScroll } from './useRememberedClipListScroll';
 
 interface UseClipListViewportOptions {
@@ -55,7 +55,8 @@ export function useClipListViewport({
   const isServerPagedCollection = membership !== undefined
     && !['all', 'trash', 'search', 'queue'].includes(membership);
   const selectionViewKey = clipCollectionViewKey(currentTab, selectedBinId);
-  const rememberScroll = useRememberedClipListScroll(selectionViewKey, clipListRef);
+  const collectionReady = clipCollectionIsReady(isLoadingCurrentPage, displayedClips.length, currentPageTotalCount);
+  const rememberScroll = useRememberedClipListScroll(selectionViewKey, clipListRef, collectionReady);
   const pinnedShelfClips = useMemo(
     () => pinningEnabled && (membership === 'all' || isPinnedCollection)
       ? displayedClips.filter((clip) => clip.is_pinned)

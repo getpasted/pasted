@@ -5,6 +5,7 @@ import { getClipFileSummary } from '../types';
 import { useFeatures } from '../hooks/useFeatures';
 import { translate } from '../localization/runtime';
 import { localizedSourceName } from '../localization/presentation';
+import { uniqueClipItemsById } from '../utils/clipListItems';
 
 interface PinnedClipShelfProps {
   clips: ClipItem[];
@@ -39,9 +40,14 @@ export function PinnedClipShelf({
   const stackedSignature = stackedClipIds.join(',');
 
   useEffect(() => {
+    const currentDisplayed = uniqueClipItemsById(displayedClipsRef.current);
+    if (currentDisplayed.length !== displayedClipsRef.current.length) {
+      displayedClipsRef.current = currentDisplayed;
+      setDisplayedClips(currentDisplayed);
+    }
     const nextIds = new Set(stackedSignature.split(',').filter(Boolean).map(Number));
     const nextStackedClips = clips.filter((clip) => nextIds.has(clip.id));
-    const currentIds = new Set(displayedClipsRef.current.map((clip) => clip.id));
+    const currentIds = new Set(currentDisplayed.map((clip) => clip.id));
     const additions = nextStackedClips.filter((clip) => !currentIds.has(clip.id));
     if (additions.length > 0) {
       const nextDisplayed = [...displayedClipsRef.current, ...additions];

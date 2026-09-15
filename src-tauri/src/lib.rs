@@ -171,7 +171,7 @@ pub fn run() {
             commands::clips::get_capture_feedback_clip,
             commands::clips::get_clip_image,
             commands::analysis::analyze_content,
-            commands::file_previews::get_file_clip_previews,
+            commands::file_previews::file_preview_request::get_file_clip_previews,
             commands::clips::get_trashed_clips,
             commands::clips::restore_clip,
             commands::clips::restore_all_trashed_clips,

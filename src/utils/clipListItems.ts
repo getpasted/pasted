@@ -1,15 +1,24 @@
 import type { ClipListItem } from '../api/clipListTypes';
 import type { ClipItem } from '../types';
 
+export function uniqueClipItemsById(items: ClipItem[]): ClipItem[] {
+  const seen = new Set<number>();
+  return items.filter((item) => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+}
+
 export function clipListItemsAsClips(items: ClipListItem[]): ClipItem[] {
-  return items.map((item) => ({
+  return uniqueClipItemsById(items.map((item) => ({
     ...item,
     text_content: item.content_type === 'file' ? JSON.stringify(item.file_names) : item.preview_text,
     html_content: null,
     image_base64: null,
     image_path: null,
     is_summary: true,
-  }));
+  })));
 }
 
 export function summarizeClipForList(clip: ClipItem): ClipItem {
@@ -45,10 +54,12 @@ export function summarizeClipForList(clip: ClipItem): ClipItem {
 }
 
 export function mergeVisibleClipSnapshots(history: ClipItem[], visible: ClipItem[]): ClipItem[] {
-  const visibleById = new Map(visible.map((clip) => [clip.id, clip]));
-  const historyIds = new Set(history.map((clip) => clip.id));
+  const uniqueHistory = uniqueClipItemsById(history);
+  const uniqueVisible = uniqueClipItemsById(visible);
+  const visibleById = new Map(uniqueVisible.map((clip) => [clip.id, clip]));
+  const historyIds = new Set(uniqueHistory.map((clip) => clip.id));
   return [
-    ...history.map((clip) => visibleById.get(clip.id) ?? clip),
-    ...visible.filter((clip) => !historyIds.has(clip.id)),
+    ...uniqueHistory.map((clip) => visibleById.get(clip.id) ?? clip),
+    ...uniqueVisible.filter((clip) => !historyIds.has(clip.id)),
   ];
 }

@@ -58,7 +58,6 @@ const overrides = {
   'app.deselect': 'Auswahl aufheben',
   'app.emptyClip': 'Leerer Clip',
   'app.imageClip': 'Bildclip',
-  'app.loadingOlderClips': 'Ältere Clips werden geladen…',
   'app.moveSelectedToTrash': 'Auswahl in den Papierkorb verschieben',
   'app.pinSelected': 'Auswahl anheften',
   'app.resultCount': { one: '{count} Ergebnis', other: '{count} Ergebnisse' },
