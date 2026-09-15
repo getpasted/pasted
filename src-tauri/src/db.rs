@@ -16,6 +16,8 @@ mod capture;
 mod classifiers;
 mod clip_collections;
 mod clip_concealment;
+mod clip_id_queries;
+mod clip_list;
 mod clip_mutations;
 mod clip_names;
 mod clip_search;
@@ -58,6 +60,7 @@ pub use clip_collections::ClipCollectionSummary;
 use clip_concealment::{
     append_clip_concealment, configure_content_type_schema, create_effective_view,
 };
+pub use clip_list::{ClipCollectionPageRequest, ClipListItem, ClipListPage};
 use clip_names::append_clip_names;
 use clip_records::{
     append_clip_content_types, append_clip_file_formats, append_clip_protection,

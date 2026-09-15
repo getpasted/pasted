@@ -8,6 +8,7 @@ import { transformsApi } from '../api/transforms';
 import { clipsApi } from '../api/clips';
 import { binsApi } from '../api/bins';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { summarizeClipForList, uniqueClipItemsById } from '../utils/clipListItems';
 
 function readCachedArray<T>(key: string): T[] {
   try {
@@ -29,12 +30,29 @@ function normalizeClipItem(value: unknown): ClipItem | null {
       ? record.source_app
       : 'Unknown';
   const { source_app: _legacySource, ...canonical } = record;
+  if ('preview_text' in canonical) {
+    const fileNames = Array.isArray(canonical.file_names)
+      ? canonical.file_names.filter((name): name is string => typeof name === 'string')
+      : [];
+    return {
+      ...canonical,
+      source,
+      text_content: canonical.content_type === 'file'
+        ? JSON.stringify(fileNames)
+        : typeof canonical.preview_text === 'string' ? canonical.preview_text : null,
+      html_content: null,
+      image_base64: null,
+      image_path: null,
+      file_names: fileNames,
+      is_summary: true,
+    } as unknown as ClipItem;
+  }
   return { ...canonical, source } as unknown as ClipItem;
 }
 
 function normalizeClipItems(value: unknown): ClipItem[] {
   if (!Array.isArray(value)) return [];
-  return value.map(normalizeClipItem).filter((clip): clip is ClipItem => clip !== null);
+  return uniqueClipItemsById(value.map(normalizeClipItem).filter((clip): clip is ClipItem => clip !== null));
 }
 
 function cacheClipSummaries(clips: ClipItem[]) {
@@ -54,7 +72,7 @@ function isCompleteClipEvent(payload: ClipItem | { id: number }): payload is Cli
 
 function mergeClipSummary(clips: ClipItem[], incoming: ClipItem) {
   if (incoming.is_trashed) return clips.filter((clip) => clip.id !== incoming.id);
-  const summary = { ...incoming, html_content: null, image_base64: null };
+  const summary = summarizeClipForList(incoming);
   const existingIndex = clips.findIndex((clip) => clip.id === summary.id);
   const next = existingIndex === -1
     ? [...clips, summary]
@@ -62,7 +80,7 @@ function mergeClipSummary(clips: ClipItem[], incoming: ClipItem) {
   return sortClipsForTimeline(next);
 }
 
-const CLIP_PAGE_SIZE = 250;
+const CLIP_PAGE_SIZE = 100;
 const EMPTY_COLLECTION_SUMMARY: ClipCollectionSummary = {
   activeCount: 0,
   trashCount: 0,
@@ -114,14 +132,15 @@ export function useAppData() {
 
   const fetchClips = useCallback(async () => {
     try {
-      const clips = normalizeClipItems(await clipsApi.list({
-        binId: null,
-        onlyPinned: false,
+      const page = await clipsApi.collectionPage({
+        collection: 'history',
         limit: Math.max(CLIP_PAGE_SIZE, activeOffsetRef.current),
         offset: 0,
-      }));
+      });
+      const clips = normalizeClipItems(page.items);
       setAllClips(clips);
       activeOffsetRef.current = clips.length;
+      setTotalClipCount(page.totalCount);
       void fetchClipCollectionSummary();
       cacheClipSummaries(clips);
     } catch (error) {
@@ -131,12 +150,15 @@ export function useAppData() {
 
   const fetchTrashedClips = useCallback(async () => {
     try {
-      const clips = normalizeClipItems(await clipsApi.listTrash({
+      const page = await clipsApi.collectionPage({
+        collection: 'trash',
         limit: Math.max(CLIP_PAGE_SIZE, trashOffsetRef.current),
         offset: 0,
-      }));
+      });
+      const clips = normalizeClipItems(page.items);
       setTrashedClips(clips);
       trashOffsetRef.current = clips.length;
+      setTotalTrashCount(page.totalCount);
       void fetchClipCollectionSummary();
     } catch (error) {
       console.error('Failed to fetch trashed clips:', error);
@@ -148,12 +170,13 @@ export function useAppData() {
     activeLoadingRef.current = true;
     setIsLoadingMoreClips(true);
     try {
-      const page = normalizeClipItems(await clipsApi.list({
-        binId: null,
-        onlyPinned: false,
+      const result = await clipsApi.collectionPage({
+        collection: 'history',
         limit: CLIP_PAGE_SIZE,
         offset: activeOffsetRef.current,
-      }));
+      });
+      const page = normalizeClipItems(result.items);
+      setTotalClipCount(result.totalCount);
       activeOffsetRef.current += page.length;
       if (page.length === 0) activeOffsetRef.current = totalClipCount;
       setAllClips((current) => appendUniqueClips(current, page));
@@ -170,10 +193,13 @@ export function useAppData() {
     trashLoadingRef.current = true;
     setIsLoadingMoreTrash(true);
     try {
-      const page = normalizeClipItems(await clipsApi.listTrash({
+      const result = await clipsApi.collectionPage({
+        collection: 'trash',
         limit: CLIP_PAGE_SIZE,
         offset: trashOffsetRef.current,
-      }));
+      });
+      const page = normalizeClipItems(result.items);
+      setTotalTrashCount(result.totalCount);
       trashOffsetRef.current += page.length;
       if (page.length === 0) trashOffsetRef.current = totalTrashCount;
       setTrashedClips((current) => appendUniqueClips(current, page));

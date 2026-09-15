@@ -51,17 +51,11 @@ html[dir="rtl"] .tracking-widest {
 
 .clip-card {
   contain: content;
-  content-visibility: auto;
-  contain-intrinsic-block-size: auto 108px;
   transform: translateZ(0);
   backface-visibility: hidden;
   -webkit-user-drag: none;
   user-select: none;
   -webkit-user-select: none;
-}
-
-.is-dragging-clip .clip-card {
-  content-visibility: visible;
 }
 
 [draggable="true"] {

@@ -165,10 +165,13 @@ pub fn run() {
         .on_window_event(app_windows::handle_window_event)
         .invoke_handler(tauri::generate_handler![
             commands::clips::get_clips,
+            commands::clips::get_clip_detail,
+            commands::clip_collection::get_clip_collection_page,
+            commands::clip_collection::search_clip_list,
             commands::clips::get_capture_feedback_clip,
             commands::clips::get_clip_image,
             commands::analysis::analyze_content,
-            commands::file_previews::get_file_clip_previews,
+            commands::file_previews::file_preview_request::get_file_clip_previews,
             commands::clips::get_trashed_clips,
             commands::clips::restore_clip,
             commands::clips::restore_all_trashed_clips,

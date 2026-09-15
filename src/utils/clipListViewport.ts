@@ -8,6 +8,10 @@ export function clipCardScrollTop(element: HTMLElement, card: HTMLElement): numb
   ));
 }
 
+export function clipCollectionIsReady(loading: boolean, loadedCount: number, totalCount: number) {
+  return !loading && (loadedCount > 0 || totalCount === 0);
+}
+
 export function orderClipsForStableReorder<T>(
   items: T[],
   orderedIds: string[] | null,

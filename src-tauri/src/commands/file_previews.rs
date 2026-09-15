@@ -1,18 +1,17 @@
 use base64::Engine;
 use std::io::Cursor;
-use std::sync::Arc;
-
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Manager};
 
 #[path = "file_preview_cache.rs"]
 mod file_preview_cache;
+#[path = "file_preview_request.rs"]
+pub(crate) mod file_preview_request;
 #[cfg(test)]
 use self::file_preview_cache::looks_like_pdf;
 use self::file_preview_cache::{
     clip_file_preview_cache_key, flatten_image_on_white, pdf_preview_cache_key, read_bounded_file,
     read_preview_cache, render_pdf_first_page, write_preview_cache,
 };
-use crate::db::DbState;
 
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -39,6 +38,44 @@ fn is_safe_preview_extension(path: &std::path::Path) -> bool {
                 "jpeg" | "jpg" | "pdf" | "png" | "txt" | "webp"
             )
         })
+}
+
+pub(super) fn cached_file_preview(
+    path: &str,
+    mode: &str,
+    cache_directory: Option<&std::path::Path>,
+    content_hash: &str,
+    index: usize,
+) -> Option<(FileClipPreview, usize)> {
+    if mode == "off" {
+        return None;
+    }
+    let path = std::path::Path::new(path);
+    if is_text_preview_path(path) || (mode == "safe" && !is_safe_preview_extension(path)) {
+        return None;
+    }
+    let key = clip_file_preview_cache_key(content_hash, index);
+    let cached = cache_directory.and_then(|directory| read_preview_cache(directory, &key))?;
+    let reader = image::ImageReader::new(Cursor::new(&cached))
+        .with_guessed_format()
+        .ok()?;
+    let (width, height) = reader.into_dimensions().ok()?;
+    let byte_count = cached.len();
+    Some((
+        FileClipPreview {
+            index,
+            data_url: Some(format!(
+                "data:image/webp;base64,{}",
+                base64::engine::general_purpose::STANDARD.encode(cached)
+            )),
+            text_content: None,
+            width: Some(width),
+            height: Some(height),
+            availability: crate::file_reference_health::FileReferenceAvailability::Available,
+            cached: true,
+        },
+        byte_count,
+    ))
 }
 
 fn is_pdf_path(path: &std::path::Path) -> bool {
@@ -87,7 +124,7 @@ fn collect_file_clip_previews(
     )
 }
 
-fn collect_file_clip_previews_with_health(
+pub(super) fn collect_file_clip_previews_with_health(
     paths: &[String],
     mode: &str,
     configured_max_bytes: u64,
@@ -120,35 +157,24 @@ fn collect_file_clip_previews_with_health(
         let clip_cache_key = clip_content_hash
             .filter(|_| !is_text_preview_path(path))
             .map(|content_hash| clip_file_preview_cache_key(content_hash, index));
-        if let Some(cached) = clip_cache_key.as_deref().and_then(|key| {
-            cache_directory.and_then(|directory| read_preview_cache(directory, key))
+        if let Some((cached, byte_count)) = clip_content_hash.and_then(|content_hash| {
+            cached_file_preview(
+                path.to_string_lossy().as_ref(),
+                mode,
+                cache_directory,
+                content_hash,
+                index,
+            )
         }) {
-            let dimensions = image::load_from_memory(&cached)
-                .ok()
-                .map(|decoded| (decoded.width(), decoded.height()));
-            if let Some((width, height)) = dimensions {
-                let Some(next_total) = encoded_total.checked_add(cached.len()) else {
-                    break;
-                };
-                if next_total > crate::resource_limits::MAX_FILE_PREVIEW_OUTPUT_BYTES {
-                    break;
-                }
-                encoded_total = next_total;
-                previews.push(FileClipPreview {
-                    index,
-                    data_url: Some(format!(
-                        "data:image/webp;base64,{}",
-                        base64::engine::general_purpose::STANDARD.encode(cached)
-                    )),
-                    text_content: None,
-                    width: Some(width),
-                    height: Some(height),
-                    availability:
-                        crate::file_reference_health::FileReferenceAvailability::Available,
-                    cached: true,
-                });
-                continue;
+            let Some(next_total) = encoded_total.checked_add(byte_count) else {
+                break;
+            };
+            if next_total > crate::resource_limits::MAX_FILE_PREVIEW_OUTPUT_BYTES {
+                break;
             }
+            encoded_total = next_total;
+            previews.push(cached);
+            continue;
         }
         if health.is_some_and(|items| {
             items.iter().any(|item| {
@@ -265,7 +291,7 @@ fn collect_file_clip_previews_with_health(
     previews
 }
 
-fn attach_file_reference_health(
+pub(super) fn attach_file_reference_health(
     paths: &[String],
     previews: Vec<FileClipPreview>,
     health: &[crate::file_reference_health::FileReferenceHealth],
@@ -295,6 +321,25 @@ fn attach_file_reference_health(
         .collect()
 }
 
+pub(super) fn healthy_cached_file_preview(
+    paths: &[String],
+    mode: &str,
+    cache_directory: Option<&std::path::Path>,
+    content_hash: &str,
+    health: &[crate::file_reference_health::FileReferenceHealth],
+    index: usize,
+) -> Option<Vec<FileClipPreview>> {
+    let (cached, _) = paths
+        .get(index)
+        .and_then(|path| cached_file_preview(path, mode, cache_directory, content_hash, index))?;
+    Some(attach_file_reference_health(
+        paths,
+        vec![cached],
+        health,
+        Some(index),
+    ))
+}
+
 pub(crate) fn prefetch_file_clip_previews(
     app: &AppHandle,
     paths: &[String],
@@ -318,66 +363,6 @@ pub(crate) fn prefetch_file_clip_previews(
         None,
         Some(content_hash),
     );
-}
-
-#[tauri::command]
-pub async fn get_file_clip_previews(
-    clip_id: i64,
-    mode: String,
-    max_size_mb: u64,
-    only_index: Option<usize>,
-    force_recheck: Option<bool>,
-    app: AppHandle,
-    db: State<'_, Arc<DbState>>,
-) -> Result<Vec<FileClipPreview>, String> {
-    if !matches!(mode.as_str(), "off" | "safe" | "all") {
-        return Err("Unknown file preview mode".to_string());
-    }
-    let cache_directory = app
-        .path()
-        .app_cache_dir()
-        .ok()
-        .map(|directory| directory.join("file-previews/thumbnails"));
-    let db = Arc::clone(&db);
-    tauri::async_runtime::spawn_blocking(move || {
-        let clip = db
-            .get_clip_by_id(clip_id)
-            .map_err(|error| error.to_string())?;
-        if clip.content_type != "file" {
-            return Err("Clip is not a file list".to_string());
-        }
-        let paths = clip
-            .text_content
-            .as_deref()
-            .map(parse_file_clip_paths)
-            .filter(|paths| !paths.is_empty())
-            .ok_or_else(|| "File clip has no valid path metadata".to_string())?;
-        if !crate::resource_limits::file_list_within_limit(&paths) {
-            return Err("File list exceeds Pasted's safety limit".to_string());
-        }
-        let health = crate::file_reference_health::resolve_file_reference_health(
-            &db,
-            clip.id,
-            &paths,
-            force_recheck.unwrap_or(false),
-        )
-        .map_err(|error| error.to_string())?;
-        let configured_max_bytes = max_size_mb.saturating_mul(1024 * 1024);
-        let previews = collect_file_clip_previews_with_health(
-            &paths,
-            &mode,
-            configured_max_bytes,
-            cache_directory.as_deref(),
-            only_index,
-            Some(&clip.content_hash),
-            Some(&health),
-        );
-        Ok(attach_file_reference_health(
-            &paths, previews, &health, only_index,
-        ))
-    })
-    .await
-    .map_err(|error| error.to_string())?
 }
 
 #[cfg(test)]

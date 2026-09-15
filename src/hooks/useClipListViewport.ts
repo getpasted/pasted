@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { ClipItem } from '../types';
 import type { ClipCollectionMembership } from '../utils/clipCollections';
 import { clipCollectionViewKey, pendingClipFocusId, type ClipFocusRequest } from '../utils/clipSelection';
-import { clipCardScrollTop } from '../utils/clipListViewport';
+import { clipCardScrollTop, clipCollectionIsReady } from '../utils/clipListViewport';
 import { useRememberedClipListScroll } from './useRememberedClipListScroll';
 
 interface UseClipListViewportOptions {
@@ -16,13 +16,13 @@ interface UseClipListViewportOptions {
   pinningEnabled: boolean;
   totalClipCount: number;
   totalTrashCount: number;
-  searchTotalCount: number;
+  currentPageTotalCount: number;
   isLoadingMoreClips: boolean;
   isLoadingMoreTrash: boolean;
-  isSearching: boolean;
+  isLoadingCurrentPage: boolean;
   loadMoreClips: () => Promise<unknown>;
   loadMoreTrashedClips: () => Promise<unknown>;
-  loadMoreSearchResults: () => Promise<unknown>;
+  loadMoreCurrentPage: () => Promise<unknown>;
   focusRequest?: ClipFocusRequest | null;
 }
 
@@ -37,13 +37,13 @@ export function useClipListViewport({
   pinningEnabled,
   totalClipCount,
   totalTrashCount,
-  searchTotalCount,
+  currentPageTotalCount,
   isLoadingMoreClips,
   isLoadingMoreTrash,
-  isSearching,
+  isLoadingCurrentPage,
   loadMoreClips,
   loadMoreTrashedClips,
-  loadMoreSearchResults,
+  loadMoreCurrentPage,
   focusRequest,
 }: UseClipListViewportOptions) {
   const clipListRef = useRef<HTMLDivElement | null>(null);
@@ -51,10 +51,12 @@ export function useClipListViewport({
   const revealAnimationFrameRef = useRef<number | null>(null);
   const handledFocusRequestIdRef = useRef<number | null>(null);
   const [stackedPinnedClipIds, setStackedPinnedClipIds] = useState<number[]>([]);
-  const isBinCollection = membership === 'bin' && selectedBinId !== null;
   const isPinnedCollection = membership === 'pinned';
+  const isServerPagedCollection = membership !== undefined
+    && !['all', 'trash', 'search', 'queue'].includes(membership);
   const selectionViewKey = clipCollectionViewKey(currentTab, selectedBinId);
-  const rememberScroll = useRememberedClipListScroll(selectionViewKey, clipListRef);
+  const collectionReady = clipCollectionIsReady(isLoadingCurrentPage, displayedClips.length, currentPageTotalCount);
+  const rememberScroll = useRememberedClipListScroll(selectionViewKey, clipListRef, collectionReady);
   const pinnedShelfClips = useMemo(
     () => pinningEnabled && (membership === 'all' || isPinnedCollection)
       ? displayedClips.filter((clip) => clip.is_pinned)
@@ -78,7 +80,7 @@ export function useClipListViewport({
     rememberScroll(element);
     if (element.scrollHeight - element.scrollTop - element.clientHeight < 800) {
       if (membership === 'trash') void loadMoreTrashedClips();
-      else if (membership === 'search') void loadMoreSearchResults();
+      else if (membership === 'search' || isServerPagedCollection) void loadMoreCurrentPage();
       else if (membership !== 'queue') void loadMoreClips();
     }
     if (pinnedShelfClips.length === 0 || (membership !== 'all' && !isPinnedCollection)) {
@@ -103,28 +105,30 @@ export function useClipListViewport({
         ? previous
         : next;
     });
-  }, [isPinnedCollection, loadMoreClips, loadMoreSearchResults, loadMoreTrashedClips, membership, pinnedShelfClips.length, rememberScroll]);
+  }, [isPinnedCollection, isServerPagedCollection, loadMoreClips, loadMoreCurrentPage, loadMoreTrashedClips, membership, pinnedShelfClips.length, rememberScroll]);
 
   useLayoutEffect(() => {
     const element = clipListRef.current;
     if (!element) return;
-    const needsAnotherBatch = isBinCollection
-      ? allClips.length < totalClipCount
-      : element.scrollHeight - element.clientHeight < 800;
+    const needsAnotherBatch = element.scrollHeight - element.clientHeight < 800;
     if (!needsAnotherBatch) return;
     if (membership === 'trash') {
       if (!isLoadingMoreTrash && trashedClips.length < totalTrashCount) void loadMoreTrashedClips();
     } else if (membership === 'search') {
-      if (!isSearching && displayedClips.length < searchTotalCount) void loadMoreSearchResults();
+      if (!isLoadingCurrentPage && displayedClips.length < currentPageTotalCount) void loadMoreCurrentPage();
+    } else if (isServerPagedCollection) {
+      if (!isLoadingCurrentPage && displayedClips.length < currentPageTotalCount) {
+        void loadMoreCurrentPage();
+      }
     } else if (membership !== 'queue' && !isLoadingMoreClips && allClips.length < totalClipCount) {
       void loadMoreClips();
     }
-  }, [allClips.length, displayedClips.length, isBinCollection, isLoadingMoreClips, isLoadingMoreTrash, isSearching, loadMoreClips, loadMoreSearchResults, loadMoreTrashedClips, membership, searchTotalCount, totalClipCount, totalTrashCount, trashedClips.length]);
+  }, [allClips.length, currentPageTotalCount, displayedClips.length, isLoadingCurrentPage, isLoadingMoreClips, isLoadingMoreTrash, isServerPagedCollection, loadMoreClips, loadMoreCurrentPage, loadMoreTrashedClips, membership, totalClipCount, totalTrashCount, trashedClips.length]);
 
   const isLoadingCurrentCollection = membership === 'trash'
     ? isLoadingMoreTrash
-    : membership === 'search'
-      ? isSearching
+    : membership === 'search' || isServerPagedCollection
+      ? isLoadingCurrentPage
       : membership !== 'queue' && isLoadingMoreClips;
 
   useLayoutEffect(() => {

@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 
 import { useVirtualClipViewport } from '../hooks/useVirtualClipViewport';
 import type { ClipItem } from '../types';
@@ -7,12 +7,14 @@ import {
   estimatedClipCardHeight,
   virtualClipIndexes,
 } from '../utils/virtualClipList';
+import { MeasuredVirtualClip } from './MeasuredVirtualClip';
 
 const CLIP_GAP = 10;
 const OVERSCAN_PX = 800;
 
 interface VirtualClipListProps {
   clips: ClipItem[];
+  totalCount?: number;
   disabled?: boolean;
   forcedClipIds?: number[];
   rowHeight: 'small' | 'medium' | 'large';
@@ -20,45 +22,9 @@ interface VirtualClipListProps {
   renderClip: (clip: ClipItem, index: number) => ReactNode;
 }
 
-function MeasuredClip({
-  children,
-  clipId,
-  index,
-  onMeasure,
-  start,
-  totalCount,
-}: {
-  children: ReactNode;
-  clipId: number;
-  index: number;
-  onMeasure: (clipId: number, height: number) => void;
-  start: number;
-  totalCount: number;
-}) {
-  const ref = useRef<HTMLDivElement | null>(null);
-  useLayoutEffect(() => {
-    const element = ref.current;
-    if (!element) return undefined;
-    const measure = () => onMeasure(clipId, element.getBoundingClientRect().height - CLIP_GAP);
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [clipId, onMeasure]);
-  return <div
-    ref={ref}
-    role="listitem"
-    aria-posinset={index + 1}
-    aria-setsize={totalCount}
-    className="absolute inset-x-0 pb-2.5"
-    style={{ transform: `translateY(${start}px)` }}
-  >
-    {children}
-  </div>;
-}
-
 export function VirtualClipList({
   clips,
+  totalCount = clips.length,
   disabled = false,
   forcedClipIds = [],
   rowHeight,
@@ -66,6 +32,7 @@ export function VirtualClipList({
   renderClip,
 }: VirtualClipListProps) {
   const measuredSizesRef = useRef(new Map<number, number>());
+  const measurementFrameRef = useRef<number | null>(null);
   const [measurementRevision, setMeasurementRevision] = useState(0);
   const clipIds = useMemo(() => clips.map((clip) => clip.id), [clips]);
   const estimatedSize = estimatedClipCardHeight(rowHeight);
@@ -80,31 +47,40 @@ export function VirtualClipList({
     setMeasurementRevision((revision) => revision + 1);
   }, [rowHeight]);
 
+  useEffect(() => () => {
+    if (measurementFrameRef.current !== null) cancelAnimationFrame(measurementFrameRef.current);
+  }, []);
+
   const measureClip = useCallback((clipId: number, height: number) => {
     const previous = measuredSizesRef.current.get(clipId);
     if (previous !== undefined && Math.abs(previous - height) < 0.5) return;
     measuredSizesRef.current.set(clipId, height);
-    setMeasurementRevision((revision) => revision + 1);
+    if (measurementFrameRef.current !== null) return;
+    measurementFrameRef.current = requestAnimationFrame(() => {
+      measurementFrameRef.current = null;
+      setMeasurementRevision((revision) => revision + 1);
+    });
   }, []);
 
-  if (disabled) {
+  if (disabled || layout.totalSize <= viewport.height + OVERSCAN_PX) {
     return <div role="list" className="space-y-2.5">
       {clips.map((clip, index) => <div key={clip.id} role="listitem">{renderClip(clip, index)}</div>)}
     </div>;
   }
 
   const indexById = new Map(clips.map((clip, index) => [clip.id, index]));
-  const forcedIndexes = forcedClipIds.flatMap((id) => {
+  const forcedIndexes = Array.from(new Set(forcedClipIds.flatMap((id) => {
     const index = indexById.get(id);
     return index === undefined ? [] : [index];
-  });
-  const indexes = virtualClipIndexes(
+  })));
+  const viewportIndexes = virtualClipIndexes(
     layout,
     viewport.scrollTop,
     viewport.height,
     OVERSCAN_PX,
-    forcedIndexes,
   );
+  const viewportIndexSet = new Set(viewportIndexes);
+  const offscreenForcedIndexes = forcedIndexes.filter((index) => !viewportIndexSet.has(index));
   const firstViewportIndex = virtualClipIndexes(
     layout,
     viewport.scrollTop,
@@ -119,18 +95,35 @@ export function VirtualClipList({
     className="relative"
     style={{ height: `${layout.totalSize}px` }}
   >
-    {indexes.map((index) => {
+    {viewportIndexes.length > 0 && <div
+      className="absolute inset-x-0"
+      style={{ transform: `translateY(${layout.positions[viewportIndexes[0]].start}px)` }}
+    >
+      {viewportIndexes.map((index) => {
       const clip = clips[index];
-      return <MeasuredClip
+      return <MeasuredVirtualClip
+        key={clip.id}
+        clipId={clip.id}
+        index={index}
+        onMeasure={measureClip}
+        totalCount={totalCount}
+      >
+        {renderClip(clip, index)}
+      </MeasuredVirtualClip>;
+      })}
+    </div>}
+    {offscreenForcedIndexes.map((index) => {
+      const clip = clips[index];
+      return <MeasuredVirtualClip
         key={clip.id}
         clipId={clip.id}
         index={index}
         onMeasure={measureClip}
         start={layout.positions[index].start}
-        totalCount={clips.length}
+        totalCount={totalCount}
       >
         {renderClip(clip, index)}
-      </MeasuredClip>;
+      </MeasuredVirtualClip>;
     })}
   </div>;
 }
