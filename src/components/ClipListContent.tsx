@@ -1,5 +1,6 @@
 import type { ClipItem } from '../types';
 import { getClipViewPolicy } from '../utils/clipViewPolicy';
+import { translate } from '../localization/runtime';
 import { safeInvoke as invoke } from '../utils/tauri';
 import type { useAppController } from '../hooks/useAppController';
 import { ClipCard } from './ClipCard';
@@ -16,7 +17,7 @@ export function ClipListContent({ controller }: { controller: AppController }) {
   const { fetchSequentialStatus } = data;
   const { currentTab, selectedBinId, searchQuery } = navigation;
   const {
-    displayedClips, queuedIndexMap, searchDisplayQuery, searchFailed, retrySearch,
+    displayedClips, queuedIndexMap, searchTotalCount, searchDisplayQuery, searchFailed, collectionFailed, retrySearch, retryCollection,
     currentCollection, clipListRef, handleClipListScroll, isLoadingCurrentCollection,
     pinnedShelfClips, stackedPinnedClipIds, binClipReorder, isQueueCollection,
     queueReorder, reorderIdsForClip, displayedClipsForRender, binsById, hasRestrictedSelection,
@@ -185,7 +186,11 @@ export function ClipListContent({ controller }: { controller: AppController }) {
       }}
     >
       {showEmpty ? (
-        searchFailed && currentTab === 'search' ? (
+        collectionFailed ? (
+          <div className="flex h-full items-center justify-center p-6">
+            <SearchErrorNotice message={translate('component.searchErrorNotice.clipsCouldNotBeLoaded')} onRetry={retryCollection} />
+          </div>
+        ) : searchFailed && currentTab === 'search' ? (
           <div className="flex h-full items-center justify-center p-6">
             <SearchErrorNotice onRetry={retrySearch} />
           </div>
@@ -195,9 +200,11 @@ export function ClipListContent({ controller }: { controller: AppController }) {
           selectedBin={selectedBinId === null ? undefined : binsById.get(selectedBinId)}
         />
       ) : <>
+        {collectionFailed && <SearchErrorNotice message={translate('component.searchErrorNotice.clipsCouldNotBeLoaded')} onRetry={retryCollection} />}
         {searchFailed && currentTab === 'search' && <SearchErrorNotice onRetry={retrySearch} />}
         <VirtualClipList
           clips={displayedClipsForRender}
+          totalCount={searchTotalCount}
           disabled={Boolean(currentCollection?.capabilities.canReorder)}
           forcedClipIds={forcedClipIds}
           rowHeight={appSettings.rowHeight}

@@ -18,6 +18,7 @@ pub struct ClipListItem {
     pub preview_text: Option<String>,
     pub preview_truncated: bool,
     pub file_names: Vec<String>,
+    pub file_count: usize,
     pub content_hash: String,
     pub source: String,
     pub is_pinned: bool,
@@ -64,8 +65,7 @@ fn file_names(value: &str) -> Vec<String> {
     });
     paths
         .iter()
-        .filter_map(|path| std::path::Path::new(path).file_name())
-        .filter_map(|name| name.to_str())
+        .filter_map(|path| path.rsplit(['/', '\\']).find(|part| !part.is_empty()))
         .take(MAX_CLIP_LIST_FILE_NAMES)
         .map(|name| name.chars().take(MAX_CLIP_LIST_FILE_NAME_CHARS).collect())
         .collect()
@@ -91,13 +91,27 @@ fn note_preview(value: &str) -> String {
 
 impl From<ClipItem> for ClipListItem {
     fn from(clip: ClipItem) -> Self {
-        let names = if clip.content_type == "file" {
-            clip.text_content
+        let (names, file_count) = if clip.content_type == "file" {
+            let paths = clip
+                .text_content
                 .as_deref()
-                .map(file_names)
-                .unwrap_or_default()
+                .map(|value| {
+                    serde_json::from_str::<Vec<String>>(value).unwrap_or_else(|_| {
+                        value
+                            .lines()
+                            .map(str::trim)
+                            .filter(|path| !path.is_empty())
+                            .map(str::to_owned)
+                            .collect()
+                    })
+                })
+                .unwrap_or_default();
+            (
+                file_names(&serde_json::to_string(&paths).unwrap_or_default()),
+                paths.len(),
+            )
         } else {
-            Vec::new()
+            (Vec::new(), 0)
         };
         let (preview_text, preview_truncated) = if clip.content_type == "file" {
             (None, false)
@@ -118,6 +132,7 @@ impl From<ClipItem> for ClipListItem {
             preview_text,
             preview_truncated,
             file_names: names,
+            file_count,
             content_hash: clip.content_hash,
             source: clip.source,
             is_pinned: clip.is_pinned,
@@ -214,7 +229,7 @@ fn required_value(request: &ClipCollectionPageRequest) -> Result<String> {
 
 impl DbState {
     pub fn search_clip_list(&self, request: &ClipSearchRequest) -> Result<ClipListPage> {
-        let result = self.search_clips(request)?;
+        let result = self.search_clips_bounded(request)?;
         Ok(ClipListPage {
             schema_version: CLIP_LIST_SCHEMA_VERSION,
             items: result.items.into_iter().map(ClipListItem::from).collect(),
@@ -309,7 +324,7 @@ impl DbState {
             })?
             .collect::<Result<Vec<_>>>()?;
         drop(statement);
-        let clips = Self::get_clips_by_ids_internal(&conn, &ids)?;
+        let clips = Self::get_clip_list_items_by_ids_internal(&conn, &ids)?;
         Ok((clips, total_count))
     }
 
@@ -387,7 +402,10 @@ impl DbState {
             .query_map(page_parameter_refs.as_slice(), |row| row.get::<_, i64>(0))?
             .collect::<Result<Vec<_>>>()?;
         drop(statement);
-        Ok((Self::get_clips_by_ids_internal(&conn, &ids)?, total_count))
+        Ok((
+            Self::get_clip_list_items_by_ids_internal(&conn, &ids)?,
+            total_count,
+        ))
     }
 }
 
@@ -439,9 +457,10 @@ mod tests {
         assert!(summary.preview_truncated);
 
         clip.content_type = "file".into();
-        clip.text_content = Some(r#"["/private/one.txt","/secret/two.png"]"#.into());
+        clip.text_content = Some(r#"["/private/one.txt","C:\\secret\\two.png"]"#.into());
         let summary = ClipListItem::from(clip);
         assert_eq!(summary.file_names, vec!["one.txt", "two.png"]);
+        assert_eq!(summary.file_count, 2);
         assert_eq!(summary.preview_text, None);
     }
 

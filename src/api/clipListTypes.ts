@@ -4,6 +4,7 @@ export interface ClipListItem extends Omit<ClipItem, 'text_content' | 'html_cont
   preview_text: string | null;
   preview_truncated: boolean;
   file_names: string[];
+  file_count: number;
 }
 
 export type ClipCollectionKind =

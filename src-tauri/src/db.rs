@@ -16,6 +16,7 @@ mod capture;
 mod classifiers;
 mod clip_collections;
 mod clip_concealment;
+mod clip_id_queries;
 mod clip_list;
 mod clip_mutations;
 mod clip_names;

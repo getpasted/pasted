@@ -1,10 +1,7 @@
-use std::collections::HashMap;
-
 use rusqlite::{params, Connection, Result};
 
 use super::{
-    append_smart_bin_memberships, clip_item_from_row, push_smart_condition,
-    smart_bin_feature_policy, ClipItem, DbState,
+    append_smart_bin_memberships, push_smart_condition, smart_bin_feature_policy, ClipItem, DbState,
 };
 
 impl DbState {
@@ -92,40 +89,6 @@ impl DbState {
         Ok(clip)
     }
 
-    pub(super) fn get_clips_by_ids_internal(
-        conn: &Connection,
-        ids: &[i64],
-    ) -> Result<Vec<ClipItem>> {
-        if ids.is_empty() {
-            return Ok(Vec::new());
-        }
-        let ids_json = serde_json::to_string(ids)
-            .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
-        let mut statement = conn.prepare(
-            "SELECT id, content_type, text_content, html_content, image_base64, image_path,
-                    content_hash, source, is_pinned, is_protected, COALESCE(pin_order, 0),
-                    bin_id, note, COALESCE(is_trashed, 0), trashed_at, created_at,
-                    (SELECT GROUP_CONCAT(bin_id) FROM clip_bins WHERE clip_id = clips.id),
-                    current_transformation_id IS NOT NULL,
-                    ocr_extractor_ref, ocr_extractor_name, ocr_engine_version, shortcut
-             FROM clips
-             WHERE id IN (SELECT CAST(value AS INTEGER) FROM json_each(?1))",
-        )?;
-        let clips = statement
-            .query_map(params![ids_json], clip_item_from_row)?
-            .collect::<Result<Vec<_>>>()?;
-        let mut by_id = clips
-            .into_iter()
-            .map(|clip| (clip.id, clip))
-            .collect::<HashMap<_, _>>();
-        let mut ordered = ids
-            .iter()
-            .filter_map(|id| by_id.remove(id))
-            .collect::<Vec<_>>();
-        append_smart_bin_memberships(conn, &mut ordered)?;
-        Ok(ordered)
-    }
-
     pub fn get_clips(&self, bin_id: Option<i64>, only_pinned: bool) -> Result<Vec<ClipItem>> {
         self.get_clips_page(bin_id, only_pinned, None, None)
     }
@@ -154,7 +117,7 @@ impl DbState {
         }
 
         let mut sql = String::from(
-            "SELECT id, content_type, text_content, NULL as html_content, NULL as image_base64, image_path, content_hash, source, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at,
+            "SELECT id, content_type, CASE WHEN content_type = 'file' THEN text_content ELSE SUBSTR(text_content, 1, 1025) END, NULL as html_content, NULL as image_base64, image_path, content_hash, source, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, SUBSTR(note, 1, 1025), is_trashed, trashed_at, created_at,
              (SELECT GROUP_CONCAT(bin_id) FROM clip_bins WHERE clip_id = clips.id) as bin_ids_str,
              current_transformation_id IS NOT NULL,
              ocr_extractor_ref, ocr_extractor_name, ocr_engine_version, shortcut
@@ -326,7 +289,7 @@ impl DbState {
     ) -> Result<Vec<ClipItem>> {
         let conn = self.conn.lock();
         let mut sql = String::from(
-            "SELECT id, content_type, text_content, NULL as html_content, NULL as image_base64, image_path, content_hash, source, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, note, is_trashed, trashed_at, created_at,
+            "SELECT id, content_type, CASE WHEN content_type = 'file' THEN text_content ELSE SUBSTR(text_content, 1, 1025) END, NULL as html_content, NULL as image_base64, image_path, content_hash, source, is_pinned, is_protected, COALESCE(pin_order, 0), bin_id, SUBSTR(note, 1, 1025), is_trashed, trashed_at, created_at,
                     current_transformation_id IS NOT NULL,
                     ocr_extractor_ref, ocr_extractor_name, ocr_engine_version, shortcut
              FROM clips WHERE is_trashed = 1 ORDER BY COALESCE(trashed_at, created_at) DESC, id DESC"

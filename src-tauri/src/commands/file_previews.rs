@@ -47,6 +47,9 @@ pub(super) fn cached_file_preview(
     content_hash: &str,
     index: usize,
 ) -> Option<(FileClipPreview, usize)> {
+    if mode == "off" {
+        return None;
+    }
     let path = std::path::Path::new(path);
     if is_text_preview_path(path) || (mode == "safe" && !is_safe_preview_extension(path)) {
         return None;
@@ -316,6 +319,25 @@ pub(super) fn attach_file_reference_health(
             preview
         })
         .collect()
+}
+
+pub(super) fn healthy_cached_file_preview(
+    paths: &[String],
+    mode: &str,
+    cache_directory: Option<&std::path::Path>,
+    content_hash: &str,
+    health: &[crate::file_reference_health::FileReferenceHealth],
+    index: usize,
+) -> Option<Vec<FileClipPreview>> {
+    let (cached, _) = paths
+        .get(index)
+        .and_then(|path| cached_file_preview(path, mode, cache_directory, content_hash, index))?;
+    Some(attach_file_reference_health(
+        paths,
+        vec![cached],
+        health,
+        Some(index),
+    ))
 }
 
 pub(crate) fn prefetch_file_clip_previews(

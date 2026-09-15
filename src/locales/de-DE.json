@@ -1863,6 +1863,7 @@
   "component.sidebar.alreadyInThisBin": "Bereits in dieser Sammlung",
   "component.sidebar.bins": "Sammlungen",
   "component.searchErrorNotice.retrySearch": "Erneut versuchen",
+  "component.searchErrorNotice.clipsCouldNotBeLoaded": "Clips konnten nicht geladen werden.",
   "component.searchErrorNotice.searchCouldNotBeCompleted": "Die Suche konnte nicht abgeschlossen werden.",
   "component.sidebar.clearSearch": "Suche löschen",
   "component.sidebar.clearSearch2": "Suche löschen",

@@ -1872,6 +1872,7 @@
   "component.sidebar.alreadyInThisBin": "כבר באוסף זה",
   "component.sidebar.bins": "אוספים",
   "component.searchErrorNotice.retrySearch": "ניסיון חוזר",
+  "component.searchErrorNotice.clipsCouldNotBeLoaded": "לא ניתן היה לטעון את הקטעים.",
   "component.searchErrorNotice.searchCouldNotBeCompleted": "לא ניתן היה להשלים את החיפוש.",
   "component.sidebar.clearSearch": "ניקוי החיפוש",
   "component.sidebar.clearSearch2": "ניקוי החיפוש",

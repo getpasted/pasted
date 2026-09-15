@@ -83,10 +83,12 @@ export function useClipViews({
   });
   const [searchRevision, setSearchRevision] = useState(0);
   const searchLoadingRef = useRef(false);
+  const searchGenerationRef = useRef(0);
   const recordedSearchRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (currentTab !== 'search' || !normalizedSearchQuery) {
+      searchGenerationRef.current += 1;
       searchLoadingRef.current = false;
       recordedSearchRef.current = null;
       setSearchResult((current) => (
@@ -97,10 +99,11 @@ export function useClipViews({
       return;
     }
     let active = true;
+    const generation = ++searchGenerationRef.current;
     setSearchResult((current) => ({ ...current, loading: true, failed: false }));
     searchLoadingRef.current = true;
     clipsApi.searchList({ query: normalizedSearchQuery, limit: SEARCH_PAGE_SIZE, offset: 0 }).then((result) => {
-      if (active) {
+      if (active && searchGenerationRef.current === generation) {
         startTransition(() => {
           setSearchResult({
             query: normalizedSearchQuery,
@@ -119,11 +122,11 @@ export function useClipViews({
       }
     }).catch((error) => {
       console.error('Failed to search clips:', error);
-      if (active) {
+      if (active && searchGenerationRef.current === generation) {
         setSearchResult({ query: normalizedSearchQuery, items: [], totalCount: 0, loading: false, failed: true });
       }
     }).finally(() => {
-      if (active) searchLoadingRef.current = false;
+      if (active && searchGenerationRef.current === generation) searchLoadingRef.current = false;
     });
     return () => {
       active = false;
@@ -138,6 +141,7 @@ export function useClipViews({
       || searchResult.query !== normalizedSearchQuery
       || searchResult.items.length >= searchResult.totalCount) return;
     searchLoadingRef.current = true;
+    const generation = searchGenerationRef.current;
     setSearchResult((current) => ({ ...current, loading: true }));
     try {
       const result = await clipsApi.searchList({
@@ -146,7 +150,7 @@ export function useClipViews({
         offset: searchResult.items.length,
       });
       setSearchResult((current) => {
-        if (current.query !== normalizedSearchQuery) return current;
+        if (current.query !== normalizedSearchQuery || searchGenerationRef.current !== generation) return current;
         return {
           query: current.query,
           items: appendUniqueSearchPage(current.items, clipListItemsAsClips(result.items)),
@@ -157,9 +161,11 @@ export function useClipViews({
       });
     } catch (error) {
       console.error('Failed to load more Search results:', error);
-      setSearchResult((current) => ({ ...current, loading: false, failed: true }));
+      if (searchGenerationRef.current === generation) {
+        setSearchResult((current) => ({ ...current, loading: false, failed: true }));
+      }
     } finally {
-      searchLoadingRef.current = false;
+      if (searchGenerationRef.current === generation) searchLoadingRef.current = false;
     }
   }, [currentTab, normalizedSearchQuery, searchResult]);
 
@@ -222,7 +228,9 @@ export function useClipViews({
       : searchResult.loading
         || Boolean(normalizedSearchQuery && searchResult.query !== normalizedSearchQuery),
     searchFailed: searchResult.query === normalizedSearchQuery && searchResult.failed,
+    collectionFailed: pagedCollection.active && pagedCollection.failed,
     retrySearch: () => setSearchRevision((revision) => revision + 1),
+    retryCollection: pagedCollection.retry,
     loadMoreCurrentPage: pagedCollection.active ? pagedCollection.loadMore : loadMoreSearchResults,
   };
 }

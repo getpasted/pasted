@@ -177,16 +177,7 @@ export function useAppController() {
     resetColumnWidths,
   } = useColumnResize();
 
-  const {
-    displayedClips,
-    queuedIndexMap,
-    currentPageTotalCount,
-    searchDisplayQuery,
-    isLoadingCurrentPage,
-    searchFailed,
-    retrySearch,
-    loadMoreCurrentPage,
-  } = useClipViews({
+  const clipViews = useClipViews({
     allClips,
     trashedClips,
     bins,
@@ -196,6 +187,13 @@ export function useAppController() {
     sequentialStatus: seqStatus,
     features: enabledFeatures,
   });
+  const {
+    displayedClips,
+    queuedIndexMap,
+    currentPageTotalCount,
+    searchDisplayQuery,
+    isLoadingCurrentPage, loadMoreCurrentPage,
+  } = clipViews;
   const currentCollection = useMemo(
     () => getClipCollection(currentTab, selectedBinId === null ? undefined : bins.find((bin) => bin.id === selectedBinId)),
     [bins, currentTab, locale, selectedBinId],
@@ -465,8 +463,10 @@ export function useAppController() {
       handleSidebarPointerDown, handleListPointerDown, resetColumnWidths,
     },
     clipView: {
-      displayedClips, queuedIndexMap, searchTotalCount: currentPageTotalCount, searchDisplayQuery, searchFailed,
-      retrySearch, currentCollection, clipListRef, handleClipListScroll, isLoadingCurrentCollection,
+      displayedClips, queuedIndexMap, searchTotalCount: currentPageTotalCount, searchDisplayQuery,
+      searchFailed: clipViews.searchFailed, collectionFailed: clipViews.collectionFailed,
+      retrySearch: clipViews.retrySearch, retryCollection: clipViews.retryCollection,
+      currentCollection, clipListRef, handleClipListScroll, isLoadingCurrentCollection,
       pinnedShelfClips, stackedPinnedClipIds, binClipReorder, isBinCollection, isQueueCollection,
       queueReorder, reorderIdsForClip, displayedClipsForRender, binsById, selectedClipViewPolicy, hasRestrictedSelection,
       clipHistoryFocus,

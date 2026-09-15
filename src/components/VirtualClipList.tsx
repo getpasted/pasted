@@ -14,6 +14,7 @@ const OVERSCAN_PX = 800;
 
 interface VirtualClipListProps {
   clips: ClipItem[];
+  totalCount?: number;
   disabled?: boolean;
   forcedClipIds?: number[];
   rowHeight: 'small' | 'medium' | 'large';
@@ -23,6 +24,7 @@ interface VirtualClipListProps {
 
 export function VirtualClipList({
   clips,
+  totalCount = clips.length,
   disabled = false,
   forcedClipIds = [],
   rowHeight,
@@ -104,7 +106,7 @@ export function VirtualClipList({
         clipId={clip.id}
         index={index}
         onMeasure={measureClip}
-        totalCount={clips.length}
+        totalCount={totalCount}
       >
         {renderClip(clip, index)}
       </MeasuredVirtualClip>;
@@ -118,7 +120,7 @@ export function VirtualClipList({
         index={index}
         onMeasure={measureClip}
         start={layout.positions[index].start}
-        totalCount={clips.length}
+        totalCount={totalCount}
       >
         {renderClip(clip, index)}
       </MeasuredVirtualClip>;

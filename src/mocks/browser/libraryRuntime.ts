@@ -146,7 +146,7 @@ export async function invokeLibraryBrowserMock<T>(
     handleActivityBrowserMock(cmd),
     handleBackupBrowserMock(cmd),
     handleAnalyticsBrowserMock(cmd, mockClips),
-    handleClipBrowserMock(cmd, args, mockClips, withMockProtection),
+    handleClipBrowserMock(cmd, args, mockClips, mockBins, withMockProtection),
     handleClipVersionBrowserMock(cmd, args, mockClips),
     handleBinBrowserMock(cmd, mockBins, mockClips),
     handleAnalysisBrowserMock(cmd),

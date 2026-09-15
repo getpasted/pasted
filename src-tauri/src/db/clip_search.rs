@@ -172,6 +172,21 @@ impl DbState {
     }
 
     pub fn search_clips(&self, request: &ClipSearchRequest) -> Result<ClipSearchResult> {
+        self.search_clips_with_projection(request, false)
+    }
+
+    pub(super) fn search_clips_bounded(
+        &self,
+        request: &ClipSearchRequest,
+    ) -> Result<ClipSearchResult> {
+        self.search_clips_with_projection(request, true)
+    }
+
+    fn search_clips_with_projection(
+        &self,
+        request: &ClipSearchRequest,
+        bounded: bool,
+    ) -> Result<ClipSearchResult> {
         validate_search_request(request)?;
 
         let limit = if request.limit == 0 {
@@ -497,7 +512,11 @@ impl DbState {
             (ids, total)
         };
 
-        let mut items = Self::get_clips_by_ids_internal(&conn, &matching_ids)?;
+        let mut items = if bounded {
+            Self::get_clip_list_items_by_ids_internal(&conn, &matching_ids)?
+        } else {
+            Self::get_clips_by_ids_internal(&conn, &matching_ids)?
+        };
         for item in &mut items {
             item.html_content = None;
             item.image_base64 = None;

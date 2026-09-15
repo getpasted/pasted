@@ -50,6 +50,7 @@ export function summarizeClipForList(clip: ClipItem): ClipItem {
     is_summary: true,
     preview_truncated: clip.content_type !== 'file' && textCharacters.length > 1_024,
     file_names: fileNames,
+    file_count: fileNames.length,
   };
 }
 

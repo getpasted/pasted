@@ -3,8 +3,8 @@ use std::sync::Arc;
 use tauri::{AppHandle, Manager, State};
 
 use super::{
-    attach_file_reference_health, cached_file_preview, collect_file_clip_previews_with_health,
-    parse_file_clip_paths, FileClipPreview,
+    attach_file_reference_health, collect_file_clip_previews_with_health,
+    healthy_cached_file_preview, parse_file_clip_paths, FileClipPreview,
 };
 use crate::db::DbState;
 
@@ -43,21 +43,6 @@ pub async fn get_file_clip_previews(
         if !crate::resource_limits::file_list_within_limit(&paths) {
             return Err("File list exceeds Pasted's safety limit".to_string());
         }
-        if !force_recheck.unwrap_or(false) {
-            if let Some(index) = only_index {
-                if let Some((cached, _)) = paths.get(index).and_then(|path| {
-                    cached_file_preview(
-                        path,
-                        &mode,
-                        cache_directory.as_deref(),
-                        &clip.content_hash,
-                        index,
-                    )
-                }) {
-                    return Ok(vec![cached]);
-                }
-            }
-        }
         let health = crate::file_reference_health::resolve_file_reference_health(
             &db,
             clip.id,
@@ -66,6 +51,20 @@ pub async fn get_file_clip_previews(
             only_index,
         )
         .map_err(|error| error.to_string())?;
+        if !force_recheck.unwrap_or(false) {
+            if let Some(index) = only_index {
+                if let Some(cached) = healthy_cached_file_preview(
+                    &paths,
+                    &mode,
+                    cache_directory.as_deref(),
+                    &clip.content_hash,
+                    &health,
+                    index,
+                ) {
+                    return Ok(cached);
+                }
+            }
+        }
         let previews = collect_file_clip_previews_with_health(
             &paths,
             &mode,

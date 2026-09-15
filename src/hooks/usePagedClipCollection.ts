@@ -77,12 +77,15 @@ export function usePagedClipCollection({
     loading: false,
     failed: false,
   });
+  const [retryRevision, setRetryRevision] = useState(0);
   const loadingRef = useRef(false);
-  const revisionsRef = useRef({ activeClipsRevision, trashClipsRevision });
+  const generationRef = useRef(0);
+  const revisionsRef = useRef({ activeClipsRevision, trashClipsRevision, bins });
   if (revisionsRef.current.activeClipsRevision !== activeClipsRevision
-    || revisionsRef.current.trashClipsRevision !== trashClipsRevision) {
+    || revisionsRef.current.trashClipsRevision !== trashClipsRevision
+    || revisionsRef.current.bins !== bins) {
     clearRecentClipCollections();
-    revisionsRef.current = { activeClipsRevision, trashClipsRevision };
+    revisionsRef.current = { activeClipsRevision, trashClipsRevision, bins };
   }
 
   useEffect(() => {
@@ -94,6 +97,7 @@ export function usePagedClipCollection({
       return;
     }
     let active = true;
+    const generation = ++generationRef.current;
     const cached = getRecentClipCollection(requestKey);
     loadingRef.current = true;
     setState(cached
@@ -101,7 +105,7 @@ export function usePagedClipCollection({
       : { requestKey, items: [], totalCount: 0, loading: true, failed: false });
     void clipsApi.collectionPage({ ...request, limit: COLLECTION_PAGE_SIZE, offset: 0 })
       .then((page) => {
-        if (!active) return;
+        if (!active || generationRef.current !== generation) return;
         const collection = {
           items: clipListItemsAsClips(page.items),
           totalCount: page.totalCount,
@@ -116,20 +120,21 @@ export function usePagedClipCollection({
       })
       .catch((error) => {
         console.error('Failed to load clip collection:', error);
-        if (active) setState({ requestKey, items: [], totalCount: 0, loading: false, failed: true });
+        if (active && generationRef.current === generation) setState({ requestKey, items: [], totalCount: 0, loading: false, failed: true });
       })
       .finally(() => {
-        if (active) loadingRef.current = false;
+        if (active && generationRef.current === generation) loadingRef.current = false;
       });
     return () => {
       active = false;
     };
-  }, [activeClipsRevision, requestKey, trashClipsRevision]);
+  }, [activeClipsRevision, bins, requestKey, retryRevision, trashClipsRevision]);
 
   const loadMore = useCallback(async () => {
     if (!request || loadingRef.current || state.requestKey !== requestKey
       || state.items.length >= state.totalCount) return;
     loadingRef.current = true;
+    const generation = generationRef.current;
     setState((current) => ({ ...current, loading: true }));
     try {
       const page = await clipsApi.collectionPage({
@@ -138,7 +143,7 @@ export function usePagedClipCollection({
         offset: state.items.length,
       });
       setState((current) => {
-        if (current.requestKey !== requestKey) return current;
+        if (current.requestKey !== requestKey || generationRef.current !== generation) return current;
         const known = new Set(current.items.map((clip) => clip.id));
         return {
           ...current,
@@ -150,9 +155,11 @@ export function usePagedClipCollection({
       });
     } catch (error) {
       console.error('Failed to load more clips in collection:', error);
-      setState((current) => ({ ...current, loading: false, failed: true }));
+      if (generationRef.current === generation) {
+        setState((current) => ({ ...current, loading: false, failed: true }));
+      }
     } finally {
-      loadingRef.current = false;
+      if (generationRef.current === generation) loadingRef.current = false;
     }
   }, [request, requestKey, state]);
 
@@ -163,6 +170,7 @@ export function usePagedClipCollection({
     totalCount: state.requestKey === requestKey ? state.totalCount : cached?.totalCount ?? 0,
     loading: state.requestKey === requestKey ? state.loading : Boolean(request && !cached),
     failed: state.requestKey === requestKey && state.failed,
+    retry: () => setRetryRevision((revision) => revision + 1),
     loadMore,
   };
 }

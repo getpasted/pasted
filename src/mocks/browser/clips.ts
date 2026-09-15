@@ -1,4 +1,7 @@
 import { handled, unhandled, type BrowserMockResult } from './result';
+import { browserClipMatchesBin } from './smartBins';
+
+interface BrowserBin { id: number; smart_rule?: string | null }
 
 interface BrowserClip {
   id: number;
@@ -22,6 +25,7 @@ interface BrowserClip {
 export function browserClipListItem<T extends BrowserClip>(clip: T) {
   const { text_content: text, html_content: _html, image_base64: _image, image_path: _path, ...metadata } = clip;
   let fileNames: string[] = [];
+  let fileCount = 0;
   if (clip.content_type === 'file' && text) {
     try {
       const paths = JSON.parse(text);
@@ -29,6 +33,7 @@ export function browserClipListItem<T extends BrowserClip>(clip: T) {
     } catch {
       fileNames = text.split(/\r?\n/).filter(Boolean);
     }
+    fileCount = fileNames.length;
     fileNames = fileNames.map((path) => path.split(/[\\/]/).filter(Boolean).pop() ?? path).slice(0, 20);
   }
   const characters = text ? Array.from(text) : [];
@@ -37,6 +42,7 @@ export function browserClipListItem<T extends BrowserClip>(clip: T) {
     preview_text: clip.content_type === 'file' ? null : characters.slice(0, 1_024).join('') || null,
     preview_truncated: clip.content_type !== 'file' && characters.length > 1_024,
     file_names: fileNames,
+    file_count: fileCount,
   };
 }
 
@@ -44,6 +50,7 @@ export function handleClipBrowserMock<T extends BrowserClip>(
   command: string,
   args: Record<string, unknown> | undefined,
   clips: readonly T[],
+  bins: readonly BrowserBin[],
   withPolicies: (clip: T) => object & { is_concealed: boolean; is_protected: boolean },
 ): BrowserMockResult {
   if (command === 'update_clip_name') {
@@ -67,7 +74,7 @@ export function handleClipBrowserMock<T extends BrowserClip>(
       const policies = withPolicies(clip);
       if (collection === 'trash') return !active;
       if (!active) return false;
-      if (collection === 'bin') return clip.bin_ids.includes(binId);
+      if (collection === 'bin') return browserClipMatchesBin(clip, bins.find((bin) => bin.id === binId));
       if (collection === 'pinned') return Boolean(clip.is_pinned);
       if (collection === 'protected') return policies.is_protected;
       if (collection === 'concealed') return policies.is_concealed;
