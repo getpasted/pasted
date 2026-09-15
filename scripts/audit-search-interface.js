@@ -51,7 +51,7 @@ assert.doesNotMatch(`${navigation}\n${clipViews}`, /useDeferredValue|useSettledS
   'Explicitly submitted Search must not retain live-input delays');
 assert.match(pagination, /resultQuery === normalizedQuery \? resultItems : \[\]/,
   'A replacement Search must never display another query’s clips');
-assert.match(clipViews, /searchTotalCount: searchResult\.query === normalizedSearchQuery[\s\S]{0,80}: 0/,
+assert.match(clipViews, /currentPageTotalCount:[\s\S]{0,120}searchResult\.query === normalizedSearchQuery[\s\S]{0,80}: displayedClips\.length/,
   'A replacement Search must never display another query’s result count');
 assert.match(clipViews, /searchDisplayQuery: searchResult\.query === normalizedSearchQuery \? searchResult\.query : ''/,
   'A replacement Search must never retain another query’s highlights');
