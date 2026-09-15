@@ -29,7 +29,7 @@ export function SettingsDestination({ controller }: { controller: AppController 
       navigation.setActiveHelpTopic(DEFAULT_APP_UI_STATE.helpTopic);
       navigation.setActiveTransformWorkspace(DEFAULT_APP_UI_STATE.transformWorkspace);
       navigation.setSelectedBinId(null);
-      navigation.setSearchQuery('');
+      navigation.clearSearch();
       navigation.setIsSidebarCollapsed(DEFAULT_APP_UI_STATE.isSidebarCollapsed);
       for (const section of SIDEBAR_SECTION_IDS) {
         navigation.handleSidebarSectionStateChange(section, DEFAULT_APP_UI_STATE.sidebarSections[section]);
@@ -44,14 +44,12 @@ export function SettingsDestination({ controller }: { controller: AppController 
     activeTab={navigation.activeSettingsTab}
     onActiveTabChange={navigation.setActiveSettingsTab}
     onSearchClips={(clipIds) => {
-      navigation.setSearchQuery(ocrStatusSearchQuery(clipIds));
-      handlers.handleSidebarNavigate('search');
+      navigation.runSearch(ocrStatusSearchQuery(clipIds));
     }}
     onRunSearch={(request) => {
       const query = searchHistoryRequestQuery(request);
       if (query === null) return;
-      navigation.setSearchQuery(query);
-      handlers.handleSidebarNavigate('search');
+      navigation.runSearch(query);
     }}
   />;
 }

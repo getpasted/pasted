@@ -82,6 +82,8 @@
   "collection.search": "Search",
   "collection.searchActiveAndTrashedClips": "Search active and trashed clips.",
   "collection.searchYourClips": "Search your clips",
+  "collection.searchingActiveAndTrashedClips": "Searching active and trashed clips.",
+  "collection.searchingYourClips": "Searching your clips",
   "collection.smartBinMatchesAppearAutomatically": "Clips matching {name}’s rules will appear here automatically.",
   "collection.sourceClipsAppearAutomatically": "Clips copied from {label} will appear here automatically.",
   "collection.thisBin": "this Bin",

@@ -82,6 +82,8 @@
   "collection.search": "Recherche",
   "collection.searchActiveAndTrashedClips": "Rechercher les sélections actives et dans la corbeille.",
   "collection.searchYourClips": "Rechercher vos sélections",
+  "collection.searchingActiveAndTrashedClips": "Recherche dans les clips actifs et ceux de la corbeille.",
+  "collection.searchingYourClips": "Recherche dans vos clips",
   "collection.smartBinMatchesAppearAutomatically": "Les sélections correspondant aux règles de {name} apparaîtront automatiquement ici.",
   "collection.sourceClipsAppearAutomatically": "Les sélections copiées à partir de {label} apparaîtront automatiquement ici.",
   "collection.thisBin": "Cette collection",

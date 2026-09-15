@@ -18,11 +18,12 @@ import { useLocalization } from '../localization/LocalizationProvider';
 
 interface EmptyClipListProps {
   currentTab: string;
+  isSearching?: boolean;
   searchQuery: string;
   selectedBin?: Bin;
 }
 
-export function EmptyClipList({ currentTab, searchQuery, selectedBin }: EmptyClipListProps) {
+export function EmptyClipList({ currentTab, isSearching = false, searchQuery, selectedBin }: EmptyClipListProps) {
   useLocalization();
   const trimmedSearch = searchQuery.trim();
   const collection = getClipCollection(currentTab, selectedBin);
@@ -31,9 +32,13 @@ export function EmptyClipList({ currentTab, searchQuery, selectedBin }: EmptyCli
   let description = collection?.emptyDescription ?? translate('component.emptyClipList.yourCopiedItemsWillAppearHereAutomatically');
 
   if (currentTab === 'search') {
-    icon = <Search className="sidebar-icon-primary w-10 h-10 stroke-1" />;
-    title = trimmedSearch ? translate('collection.noMatchingClips') : translate('collection.searchYourClips');
-    description = trimmedSearch
+    icon = <Search className={`sidebar-icon-primary w-10 h-10 stroke-1 ${isSearching ? 'search-loading-mark' : ''}`} />;
+    title = isSearching
+      ? translate('collection.searchingYourClips')
+      : trimmedSearch ? translate('collection.noMatchingClips') : translate('collection.searchYourClips');
+    description = isSearching
+      ? translate('collection.searchingActiveAndTrashedClips')
+      : trimmedSearch
       ? translate('collection.tryAnotherSearchOrFilter')
       : description;
   } else if (currentTab === 'sequential') {
@@ -57,7 +62,11 @@ export function EmptyClipList({ currentTab, searchQuery, selectedBin }: EmptyCli
   }
 
   return (
-    <div className="theme-text-subtle h-full flex flex-col items-center justify-center text-center p-6 select-none">
+    <div
+      className="theme-text-subtle h-full flex flex-col items-center justify-center text-center p-6 select-none"
+      role={isSearching ? 'status' : undefined}
+      aria-live={isSearching ? 'polite' : undefined}
+    >
       <div className="mb-3 opacity-55" aria-hidden="true">{icon}</div>
       <p className="theme-text-muted text-xs font-medium">{title}</p>
       <p className="text-[11px] mt-1 max-w-56 leading-relaxed">{description}</p>

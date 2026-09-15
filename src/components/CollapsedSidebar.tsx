@@ -5,7 +5,8 @@ import { translate } from '../localization/runtime';
 import type { Bin } from '../types';
 import { formatEmojiIcon } from '../utils/emoji';
 import type { ClipDropAction } from '../utils/clipCollections';
-import { handleWindowDragDoubleClick, startWindowDrag } from '../utils/windowDrag';
+import { CollapsedSidebarHeader } from './CollapsedSidebarHeader';
+import { CollapsedSidebarSearchFooter } from './CollapsedSidebarSearchFooter';
 
 interface CompactNavItem {
   tab: string;
@@ -18,6 +19,7 @@ interface CompactNavItem {
 interface CollapsedSidebarProps {
   binsEnabled: boolean;
   bins: Bin[];
+  searchEnabled: boolean;
   clipNavItems: CompactNavItem[];
   toolNavItems: CompactNavItem[];
   currentTab: string;
@@ -28,6 +30,7 @@ interface CollapsedSidebarProps {
   hoveredControl: string | null;
   isHoverMuted: boolean;
   setIsCollapsed: (collapsed: boolean) => void;
+  onOpenSearch: () => void;
   navigateTo: (tab: string) => void;
   selectBin: (id: number) => void;
   getDropActionTitle: (action: ClipDropAction) => string;
@@ -39,6 +42,7 @@ interface CollapsedSidebarProps {
 export function CollapsedSidebar({
   binsEnabled,
   bins,
+  searchEnabled,
   clipNavItems,
   toolNavItems,
   currentTab,
@@ -49,6 +53,7 @@ export function CollapsedSidebar({
   hoveredControl,
   isHoverMuted,
   setIsCollapsed,
+  onOpenSearch,
   navigateTo,
   selectBin,
   getDropActionTitle,
@@ -63,21 +68,7 @@ export function CollapsedSidebar({
       onPointerLeave={onPointerLeave}
       className={`w-[100px] col-sidebar h-screen flex flex-col items-center border-e select-none ${isHoverMuted ? 'suppress-sidebar-hover' : ''}`}
     >
-      <div
-        onMouseDown={startWindowDrag}
-        onDoubleClick={handleWindowDragDoubleClick}
-        className="platform-sidebar-header h-[56px] w-full cursor-default titlebar-drag-handle shrink-0"
-      >
-        <button
-          data-sidebar-hover-key="expand-header"
-          onClick={() => setIsCollapsed(false)}
-          disabled={isClipDragging}
-          className={`platform-framed-only sidebar-control-muted ui-control-radius w-9 h-9 items-center justify-center p-0 transition-colors duration-75 border titlebar-no-drag ${isClipDragging ? 'border-transparent cursor-default' : `cursor-pointer ${hoveredControl === 'expand-header' ? 'sidebar-item-hovered' : 'border-transparent'}`}`}
-          title={translate('component.sidebar.expandSidebar')}
-        >
-          <PanelLeftOpen className="h-5 w-5 rtl:-scale-x-100" />
-        </button>
-      </div>
+      <CollapsedSidebarHeader disabled={isClipDragging} hovered={hoveredControl === 'expand-header'} onExpand={() => setIsCollapsed(false)} />
       <div data-pasted-scroll-key="sidebar:collapsed" className="w-full flex-1 overflow-y-auto overflow-x-hidden sidebar-scroll-container flex flex-col items-center gap-1.5 py-2 px-1 custom-scrollbar">
         <button
           data-sidebar-hover-key="expand"
@@ -160,6 +151,7 @@ export function CollapsedSidebar({
           </button>
         ))}
       </div>
+      {searchEnabled && <CollapsedSidebarSearchFooter disabled={isClipDragging} hovered={hoveredControl === 'search'} onOpen={onOpenSearch} />}
     </aside>
   );
 }

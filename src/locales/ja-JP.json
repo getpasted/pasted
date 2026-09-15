@@ -82,6 +82,8 @@
   "collection.search": "検索",
   "collection.searchActiveAndTrashedClips": "使用中の動画と削除された動画を検索する。",
   "collection.searchYourClips": "動画クリップを検索する",
+  "collection.searchingActiveAndTrashedClips": "使用中のクリップとゴミ箱内のクリップを検索中です。",
+  "collection.searchingYourClips": "クリップを検索中",
   "collection.smartBinMatchesAppearAutomatically": "{name}のルールに合致するクリップは、こちらで自動的に表示されます。",
   "collection.sourceClipsAppearAutomatically": "以下に、{label}からコピーされたクリップが自動的に表示されます。",
   "collection.thisBin": "この箱",
