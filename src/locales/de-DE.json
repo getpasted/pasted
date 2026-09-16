@@ -2510,7 +2510,7 @@
     "other": "{count} gespeicherte Suchen"
   },
   "component.settingsSearchHistoryPanel.couldNotLoadSearchHistory": "Der Suchverlauf konnte nicht geladen werden.",
-  "component.settingsSearchHistoryPanel.noSearchHistory": "Erfolgreiche Suchen erscheinen hier, sobald die Eingabe abgeschlossen ist.",
+  "component.settingsSearchHistoryPanel.noSearchHistory": "Erfolgreiche Suchen erscheinen hier, nachdem die Ergebnisse geladen wurden.",
   "component.settingsSearchHistoryPanel.resultCount": {
     "one": "{count} Ergebnis",
     "other": "{count} Ergebnisse"

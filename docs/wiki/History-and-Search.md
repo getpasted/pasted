@@ -13,9 +13,11 @@ Pasted captures bounded representations of:
 
 Search is its own persistent collection. Leaving Search does not erase the query, and returning restores the results.
 
-Search waits 1000 milliseconds after the last edit before running. Each successful settled search is added to **Settings → Search History**. Repeated requests are combined while retaining their latest result count, last-used time, and use count. Saved searches include explicit Clip Type, Content Type, File Format, Source, Clip ID, and Trash filters, so searches created by the CLI remain portable to the app whenever the query grammar can represent them exactly.
+The Search control and `Command/Ctrl+F` open the same focused modal whether the sidebar is expanded or collapsed. Submitting replaces the current Search query and opens its results; Cancel, the close button, or `Esc` closes the modal without changing the committed query or current collection. From Search, `Esc` first clears a nonempty query and then returns to the previous available clip collection.
 
-History, Trash, Search, Bins, and the HUD use bounded pages rather than loading the complete library. Exact collection counts remain visible, older results load incrementally, and offscreen rows are virtualized. Returning to a collection restores its scroll position without requiring a full-library scan.
+Submitting the modal runs Search immediately. Each successful search is added to **Settings → Search History** after its results load. Repeated requests are combined while retaining their latest result count, last-used time, and use count. Saved searches include explicit Clip Type, Content Type, File Format, Source, Clip ID, and Trash filters, so searches created by the CLI remain portable to the app whenever the query grammar can represent them exactly.
+
+History, Trash, Search, Bins, and the HUD use bounded pages rather than loading the complete library. Exact collection counts remain visible, older results load incrementally, and offscreen rows are virtualized. Returning to a recently visited collection can reuse its cached first page, and saved scroll position is restored before the collection is revealed. File previews load with bounded concurrency, latency, and memory use, so a missing external file does not block the complete list.
 
 **Clip Search** under **Settings → Functionality** controls the app search surface and the explicit `pasted search` command. Both the Simple and Full presets enable it. Disabling it does not remove search data or stop background indexing, and internal collection queries remain available.
 

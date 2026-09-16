@@ -2532,7 +2532,7 @@
     "other": "{count} חיפושים שמורים"
   },
   "component.settingsSearchHistoryPanel.couldNotLoadSearchHistory": "לא ניתן לטעון את היסטוריית החיפוש.",
-  "component.settingsSearchHistoryPanel.noSearchHistory": "חיפושים מוצלחים יופיעו כאן לאחר שהשאילתה תתייצב.",
+  "component.settingsSearchHistoryPanel.noSearchHistory": "חיפושים מוצלחים יופיעו כאן לאחר טעינת התוצאות.",
   "component.settingsSearchHistoryPanel.resultCount": {
     "one": "תוצאה אחת",
     "two": "שתי תוצאות",

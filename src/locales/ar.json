@@ -2598,7 +2598,7 @@
     "other": "{count} عملية بحث محفوظة"
   },
   "component.settingsSearchHistoryPanel.couldNotLoadSearchHistory": "تعذر تحميل سجل البحث.",
-  "component.settingsSearchHistoryPanel.noSearchHistory": "ستظهر عمليات البحث الناجحة هنا بعد استقرار الاستعلام.",
+  "component.settingsSearchHistoryPanel.noSearchHistory": "ستظهر عمليات البحث الناجحة هنا بعد تحميل النتائج.",
   "component.settingsSearchHistoryPanel.resultCount": {
     "zero": "لا نتائج",
     "one": "نتيجة واحدة",

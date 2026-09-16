@@ -2510,7 +2510,7 @@
     "other": "{count} recherches enregistrées"
   },
   "component.settingsSearchHistoryPanel.couldNotLoadSearchHistory": "L’historique de recherche n’a pas pu être chargé.",
-  "component.settingsSearchHistoryPanel.noSearchHistory": "Les recherches réussies apparaîtront ici une fois la saisie terminée.",
+  "component.settingsSearchHistoryPanel.noSearchHistory": "Les recherches réussies apparaîtront ici après le chargement des résultats.",
   "component.settingsSearchHistoryPanel.resultCount": {
     "one": "{count} résultat",
     "other": "{count} résultats"
