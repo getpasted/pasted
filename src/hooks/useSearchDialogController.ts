@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import type { Bin } from '../types';
+import {
+  isClipCollectionRoute,
+  resolveSearchExit,
+  type ClipViewLocation,
+} from '../utils/appNavigation';
 import {
   CLOSED_SEARCH_DIALOG,
   closeSearchDialog,
@@ -9,7 +15,10 @@ import {
 
 interface UseSearchDialogControllerOptions {
   enabled: boolean;
+  bins: Bin[];
   currentTab: string;
+  selectedBinId: number | null;
+  initialClipView: ClipViewLocation;
   committedQuery: string;
   setCommittedQuery: Dispatch<SetStateAction<string>>;
   setCurrentTab: Dispatch<SetStateAction<string>>;
@@ -18,13 +27,29 @@ interface UseSearchDialogControllerOptions {
 
 export function useSearchDialogController({
   enabled,
+  bins,
   currentTab,
+  selectedBinId,
+  initialClipView,
   committedQuery,
   setCommittedQuery,
   setCurrentTab,
   setSelectedBinId,
 }: UseSearchDialogControllerOptions) {
   const [dialog, setDialog] = useState(CLOSED_SEARCH_DIALOG);
+  const lastClipViewRef = useRef(initialClipView);
+
+  useEffect(() => {
+    if (isClipCollectionRoute(currentTab)) {
+      lastClipViewRef.current = { tab: currentTab, binId: currentTab === 'bin' ? selectedBinId : null };
+    }
+  }, [currentTab, selectedBinId]);
+
+  const exitSearch = useCallback(() => {
+    const target = resolveSearchExit(lastClipViewRef.current, new Set(bins.map(({ id }) => id)));
+    setSelectedBinId(target.binId);
+    setCurrentTab(target.tab);
+  }, [bins, setCurrentTab, setSelectedBinId]);
 
   const open = useCallback(() => {
     if (!enabled || document.querySelector('[role="dialog"][aria-modal="true"]')) return;
@@ -56,10 +81,11 @@ export function useSearchDialogController({
   useEffect(() => {
     const handleSearchShortcut = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        if (dialog.isOpen || currentTab !== 'search' || !committedQuery) return;
+        if (dialog.isOpen || currentTab !== 'search') return;
         queueMicrotask(() => {
           if (!event.defaultPrevented && !document.querySelector('[role="dialog"][aria-modal="true"]')) {
-            clear();
+            if (committedQuery) clear();
+            else exitSearch();
           }
         });
         return;
@@ -77,7 +103,7 @@ export function useSearchDialogController({
     };
     window.addEventListener('keydown', handleSearchShortcut);
     return () => window.removeEventListener('keydown', handleSearchShortcut);
-  }, [clear, committedQuery, currentTab, dialog.isOpen, enabled, open]);
+  }, [clear, committedQuery, currentTab, dialog.isOpen, enabled, exitSearch, open]);
 
   return {
     isSearchDialogOpen: dialog.isOpen,

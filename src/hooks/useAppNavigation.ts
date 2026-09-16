@@ -43,7 +43,10 @@ export function useAppNavigation({
   const preserveRestoredViewRef = useRef(wasBackupClientStateRestoredBeforeMount());
   const searchDialog = useSearchDialogController({
     enabled: enabledFeatures.search,
+    bins,
     currentTab,
+    selectedBinId,
+    initialClipView: { tab: restoredUiState.currentTab, binId: restoredUiState.selectedBinId },
     committedQuery: searchQuery,
     setCommittedQuery: setSearchQuery,
     setCurrentTab,

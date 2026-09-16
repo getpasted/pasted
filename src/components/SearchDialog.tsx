@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, type FormEvent } from 'react';
+import { useEffect, useRef, type FormEvent } from 'react';
 import { Search } from 'lucide-react';
 import { translate } from '../localization/runtime';
 import type { FeatureId } from '../utils/features';
@@ -30,7 +30,7 @@ export function SearchDialog({
   onSearch,
 }: SearchDialogProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const helpers = useMemo(() => getSearchHelpers(features), [features]);
+  const helpers = getSearchHelpers(features);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -78,7 +78,6 @@ export function SearchDialog({
             <input
               ref={inputRef}
               data-search-dialog-input
-              autoFocus
               type="text"
               autoComplete="off"
               autoCorrect="off"

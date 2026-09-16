@@ -26,6 +26,8 @@ assert.match(controller, /if \(!enabled\) \{[\s\S]{0,80}close\(\);[\s\S]{0,80}cl
   'Disabling Search must close its modal and clear its in-memory query');
 assert.match(controller, /event\.key === 'Escape'[\s\S]{0,220}event\.defaultPrevented/,
   'Escape must defer to higher-priority interactions before clearing committed Search');
+assert.match(controller, /if \(committedQuery\) clear\(\);[\s\S]{0,40}else exitSearch\(\);/,
+  'Escape on an empty Search must restore the previous clip collection');
 assert.match(controller, /event\.metaKey \|\| event\.ctrlKey[\s\S]{0,100}event\.key\.toLowerCase\(\) !== 'f'/,
   'The standard Search shortcut must remain cross-platform');
 
@@ -33,6 +35,10 @@ assert.match(dialog, /<AppDialog[\s\S]{0,900}data-search-dialog-input/,
   'Search input and helpers must live in the shared modal');
 assert.match(dialog, /requestAnimationFrame[\s\S]{0,220}inputRef\.current\?\.focus\(\)[\s\S]{0,80}inputRef\.current\?\.select\(\)/,
   'The mounted Search modal must explicitly focus and select its input');
+assert.doesNotMatch(dialog, /autoFocus/,
+  'Search focus must wait until AppDialog records the launcher for restoration');
+assert.match(dialog, /const helpers = getSearchHelpers\(features\)/,
+  'Localized Search helpers must refresh whenever the dialog rerenders');
 assert.match(sidebar, /readOnly[\s\S]{0,120}aria-haspopup="dialog"/,
   'The expanded sidebar Search surface must be a modal launcher');
 assert.match(sidebar, /onMouseDown=\{\(event\) => event\.preventDefault\(\)\}/,

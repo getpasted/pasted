@@ -17,6 +17,11 @@ export interface AppNavigationTarget {
   transformWorkspace?: TransformWorkspace;
 }
 
+export interface ClipViewLocation {
+  tab: string;
+  binId: number | null;
+}
+
 export function resolveAppNavigationTarget(
   route: string,
 ): AppNavigationTarget {
@@ -31,4 +36,22 @@ export function resolveAppNavigationTarget(
     return { tab, transformWorkspace: detail as TransformWorkspace };
   }
   return { tab };
+}
+
+export function isClipCollectionRoute(tab: string): boolean {
+  return ['all', 'sequential', 'pinned', 'protected', 'concealed', 'named', 'notes', 'trash', 'bin'].includes(tab)
+    || tab.startsWith('clip_type-')
+    || tab.startsWith('content_type-')
+    || tab.startsWith('file_format-')
+    || tab.startsWith('source-');
+}
+
+export function resolveSearchExit(
+  previous: ClipViewLocation,
+  availableBinIds: ReadonlySet<number>,
+): ClipViewLocation {
+  if (previous.tab === 'bin' && previous.binId !== null && availableBinIds.has(previous.binId)) {
+    return previous;
+  }
+  return { tab: previous.tab === 'bin' ? 'all' : previous.tab, binId: null };
 }
