@@ -1,12 +1,14 @@
-The copycat keeps receipts.
+Search without the scavenger hunt.
 
-Pasted 1.0.2 adds automatic Snapshots and fault-tolerant library recovery. When new clips arrive, Pasted creates a local recovery point once a day and keeps the five newest Snapshots by default. Snapshots can be created immediately, restored, deleted, or exported as Full Backups from the app or CLI.
+Pasted 1.1 makes large libraries feel small. History, Bins, types, and other collections now load in bounded pages, coordinate saved scroll restoration with their reveal, and keep recent pages warm for faster return trips. A bounded fallback keeps slow content from holding the interface indefinitely. File previews are bounded by concurrency, time, and memory, so missing external files cannot hold up an entire list.
 
-If a moved or unavailable library cannot be opened, Pasted can recover from verified local data, preserve the failed files for diagnosis, and explain what happened in Storage. This release also fixes launch at login and keeps copy notifications independent from the main window on macOS. Existing App Lock credentials continue to work after the updated password-hashing dependency.
+Search now opens in the same focused modal whether the sidebar is expanded or collapsed. The current query is ready to edit immediately, filter helpers remain close at hand, progress appears as soon as a search starts, and Escape can clear the query or return to the previous collection. Search results remain paginated alongside the rest of the library.
 
 The primary build is a signed, notarized, and stapled universal app for macOS 13 or newer, on Apple Silicon and Intel.
 
-**[Download Pasted 1.0.2](https://github.com/getpasted/pasted/releases/tag/v1.0.2)**
+**[Download Pasted 1.1.0](https://github.com/getpasted/pasted/releases/tag/v1.1.0)**
+
+[Read the full changelog](https://github.com/getpasted/pasted/blob/v1.1.0/CHANGELOG.md)
 
 Or update from **Settings → About**, or with Homebrew:
 
@@ -20,4 +22,4 @@ Tell us what happened in [Discussions](https://github.com/getpasted/pasted/discu
 
 Copy irresponsibly.
 
-<!-- pasted-release:v1.0.2 -->
+<!-- pasted-release:v1.1.0 -->

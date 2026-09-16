@@ -30,7 +30,7 @@ Drag the column dividers to resize them. Pasted remembers the window position an
 - Click a clip to inspect it.
 - Right-click for Copy, Bin, Transform, Note, Queue, Pin, Protect, and Trash actions.
 - Drag a clip onto a manual Bin, Queue, Pinned, Protected, or Trash.
-- Search across active and trashed history from the lower-left Search control.
+- Open the focused Search modal from the lower-left control or `Command/Ctrl+F`, then search across active and trashed history.
 - Open **Settings → Functionality** for a simpler or more capable Pasted.
 
 The **Simple** Functionality preset keeps the core clipboard experience visible. **Full** enables every feature, and changing individual features creates a **Custom** setup. Hiding a feature normally preserves its existing data. Review [Settings and Features](Settings-and-Features) before disabling Trash or Revision History, because those choices affect whether future actions are reversible.

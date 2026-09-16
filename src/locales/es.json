@@ -2510,7 +2510,7 @@
     "other": "{count} búsquedas guardadas"
   },
   "component.settingsSearchHistoryPanel.couldNotLoadSearchHistory": "No se pudo cargar el historial de búsquedas.",
-  "component.settingsSearchHistoryPanel.noSearchHistory": "Las búsquedas aparecerán aquí cuando la consulta se estabilice.",
+  "component.settingsSearchHistoryPanel.noSearchHistory": "Las búsquedas correctas aparecerán aquí después de cargar los resultados.",
   "component.settingsSearchHistoryPanel.resultCount": {
     "one": "{count} resultado",
     "other": "{count} resultados"

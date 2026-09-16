@@ -2510,7 +2510,7 @@
     "other": "{count} saved searches"
   },
   "component.settingsSearchHistoryPanel.couldNotLoadSearchHistory": "Search history could not be loaded.",
-  "component.settingsSearchHistoryPanel.noSearchHistory": "Successful searches will appear here after the query settles.",
+  "component.settingsSearchHistoryPanel.noSearchHistory": "Successful searches will appear here after results load.",
   "component.settingsSearchHistoryPanel.resultCount": {
     "one": "{count} result",
     "other": "{count} results"

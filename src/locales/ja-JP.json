@@ -2509,7 +2509,7 @@
     "other": "保存された検索 {count} 件"
   },
   "component.settingsSearchHistoryPanel.couldNotLoadSearchHistory": "検索履歴を読み込めませんでした。",
-  "component.settingsSearchHistoryPanel.noSearchHistory": "入力が確定すると、成功した検索がここに表示されます。",
+  "component.settingsSearchHistoryPanel.noSearchHistory": "結果が読み込まれると、成功した検索がここに表示されます。",
   "component.settingsSearchHistoryPanel.resultCount": {
     "other": "{count} 件の結果"
   },

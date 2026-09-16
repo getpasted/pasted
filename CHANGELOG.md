@@ -4,6 +4,15 @@ Notable user-facing changes to Pasted are recorded here. The project follows sem
 
 ## Unreleased
 
+## 1.1.0 — 2026-09-15
+
+- unified Search around one focused modal from expanded or collapsed navigation, with immediate progress, filter helpers, layered Escape behavior, and restoration of the previous collection;
+- made large History, Bin, type, and other collection views load in bounded pages without showing partially positioned or unstable lists;
+- coordinated saved scroll restoration with collection reveal, using a bounded fallback for slow content, and cached recent collection pages for faster repeat navigation;
+- bounded file-preview concurrency, latency, and memory use so missing external files cannot hold up an entire list;
+- removed reordering affordances from Smart Bins while preserving manual ordering where it can be saved; and
+- refreshed reviewed frontend, native, packaging, and CodeQL dependencies, including the current Rustls patch release.
+
 ## 1.0.2 — 2026-09-08
 
 - added configurable automatic Snapshots when new clips arrive, with immediate creation, live countdown and list updates, restore, deletion, Full Backup export, and matching `pasted snapshots` commands;
