@@ -25,7 +25,7 @@ assert.deepEqual(resolveAppNavigationTarget('settings:not-a-tab'), { tab: 'setti
 assert.deepEqual(resolveAppNavigationTarget('search'), { tab: 'search' });
 
 for (const route of [
-  'all', 'sequential', 'pinned', 'protected', 'notes', 'trash', 'bin',
+  'all', 'sequential', 'pinned', 'protected', 'concealed', 'named', 'notes', 'trash', 'bin',
   'clip_type-text', 'content_type-code', 'file_format-json', 'source-Finder',
 ]) {
   assert.equal(isClipCollectionRoute(route), true, `${route} should be remembered as a clip view`);

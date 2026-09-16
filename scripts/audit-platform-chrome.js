@@ -9,6 +9,7 @@ const sidebarSource = [
   'src/components/Sidebar.tsx',
   'src/components/SidebarClipSection.tsx',
   'src/components/CollapsedSidebar.tsx',
+  'src/components/CollapsedSidebarHeader.tsx',
 ].map((path) => fs.readFileSync(path, 'utf8')).join('\n');
 const chromeCss = fs.readFileSync('src/styles/layout-chrome.css', 'utf8');
 const themePrimitivesCss = fs.readFileSync('src/styles/theme-primitives.css', 'utf8');

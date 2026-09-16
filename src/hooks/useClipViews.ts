@@ -219,10 +219,10 @@ export function useClipViews({
       ? pagedCollection.totalCount
       : searchResult.query === normalizedSearchQuery
         ? searchResult.totalCount
-        : searchResult.loading && searchResult.items.length > 0
-          ? searchResult.totalCount
-          : displayedClips.length,
-    searchDisplayQuery: normalizedSearchQuery ? searchResult.query : '',
+        : displayedClips.length,
+    searchDisplayQuery: searchResult.query === normalizedSearchQuery ? searchResult.query : '',
+    isSearching: searchResult.loading
+      || Boolean(normalizedSearchQuery && searchResult.query !== normalizedSearchQuery),
     isLoadingCurrentPage: pagedCollection.active
       ? pagedCollection.loading
       : searchResult.loading

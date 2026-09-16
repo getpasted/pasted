@@ -17,7 +17,8 @@ export function ClipListContent({ controller }: { controller: AppController }) {
   const { fetchSequentialStatus } = data;
   const { currentTab, selectedBinId, searchQuery } = navigation;
   const {
-    displayedClips, queuedIndexMap, searchTotalCount, searchDisplayQuery, searchFailed, collectionFailed, retrySearch, retryCollection,
+    displayedClips, queuedIndexMap, searchTotalCount, searchDisplayQuery, isSearching,
+    searchFailed, collectionFailed, retrySearch, retryCollection,
     currentCollection, clipListRef, handleClipListScroll, isLoadingCurrentCollection,
     pinnedShelfClips, stackedPinnedClipIds, binClipReorder, isQueueCollection,
     queueReorder, reorderIdsForClip, displayedClipsForRender, binsById, hasRestrictedSelection,
@@ -158,7 +159,7 @@ export function ClipListContent({ controller }: { controller: AppController }) {
 
   const showEmpty = displayedClips.length === 0 && (
     !isLoadingCurrentCollection
-    || (currentCollection?.membership === 'search' && Boolean(searchDisplayQuery))
+    || (currentCollection?.membership === 'search' && (isSearching || Boolean(searchDisplayQuery)))
   );
   const forcedClipIds = [
     ...(selectedClip ? [selectedClip.id] : []),
@@ -196,6 +197,7 @@ export function ClipListContent({ controller }: { controller: AppController }) {
           </div>
         ) : <EmptyClipList
           currentTab={currentTab}
+          isSearching={currentTab === 'search' && isSearching}
           searchQuery={currentTab === 'search' ? searchDisplayQuery : searchQuery}
           selectedBin={selectedBinId === null ? undefined : binsById.get(selectedBinId)}
         />

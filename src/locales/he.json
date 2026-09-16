@@ -84,6 +84,8 @@
   "collection.search": "חיפוש",
   "collection.searchActiveAndTrashedClips": "חיפוש בקטעים פעילים ובקטעים שבאשפה.",
   "collection.searchYourClips": "חיפוש בקטעים",
+  "collection.searchingActiveAndTrashedClips": "מתבצע חיפוש בקטעים פעילים ובקטעים שבאשפה.",
+  "collection.searchingYourClips": "מתבצע חיפוש בקטעים",
   "collection.smartBinMatchesAppearAutomatically": "קטעים שתואמים לכללי {name} יופיעו כאן אוטומטית.",
   "collection.sourceClipsAppearAutomatically": "קטעים שהועתקו מ-{label} יופיעו כאן אוטומטית.",
   "collection.thisBin": "אוסף זה",

@@ -19,7 +19,6 @@ import {
   useClipReordering,
   useClipSelectionController,
   useCopyQueueController,
-  useSettledSearchQuery,
   useSoundSettings,
 } from './appControllers';
 import { enabledFeatureRecord } from '../utils/features';
@@ -86,27 +85,7 @@ export function useAppController() {
 
   const [selectedClip, setSelectedClip] = useState<ClipItem | null>(null);
   const [selectedClipIds, setSelectedClipIds] = useState<Set<number>>(new Set());
-  const {
-    currentTab,
-    setCurrentTab,
-    activeSettingsTab,
-    setActiveSettingsTab,
-    activeHelpTopic,
-    setActiveHelpTopic,
-    activeTransformWorkspace,
-    setActiveTransformWorkspace,
-    selectedBinId,
-    setSelectedBinId,
-    searchQuery,
-    setSearchQuery,
-    isSidebarCollapsed,
-    setIsSidebarCollapsed,
-    sidebarSections,
-    handleSidebarSectionStateChange,
-    navigateToTab,
-    enterSearchView,
-    exitEmptySearch,
-  } = useAppNavigation({
+  const navigation = useAppNavigation({
     restoredUiState,
     enabledFeatures,
     bins,
@@ -115,7 +94,15 @@ export function useAppController() {
     initialDataLoaded,
     selectedClipId: selectedClip?.id ?? null,
   });
-  const settledSearchQuery = useSettledSearchQuery(searchQuery, currentTab === 'search');
+  const {
+    currentTab,
+    setCurrentTab,
+    selectedBinId,
+    setSelectedBinId,
+    searchQuery,
+    setIsSidebarCollapsed,
+    navigateToTab,
+  } = navigation;
   const {
     contextMenu,
     setContextMenu,
@@ -183,7 +170,7 @@ export function useAppController() {
     bins,
     currentTab,
     selectedBinId,
-    searchQuery: settledSearchQuery,
+    searchQuery,
     sequentialStatus: seqStatus,
     features: enabledFeatures,
   });
@@ -192,6 +179,7 @@ export function useAppController() {
     queuedIndexMap,
     currentPageTotalCount,
     searchDisplayQuery,
+    isSearching,
     isLoadingCurrentPage, loadMoreCurrentPage,
   } = clipViews;
   const currentCollection = useMemo(
@@ -445,12 +433,7 @@ export function useAppController() {
       fetchClipCollectionSummary, fetchBins, fetchManualTransforms, fetchSequentialStatus,
       handleToggleClipboardPause, handlePurgeClipPermanently, handleEmptyTrash,
     },
-    navigation: {
-      currentTab, setCurrentTab, activeSettingsTab, setActiveSettingsTab, activeHelpTopic, setActiveHelpTopic,
-      activeTransformWorkspace, setActiveTransformWorkspace, selectedBinId, setSelectedBinId,
-      searchQuery, setSearchQuery, isSidebarCollapsed, setIsSidebarCollapsed, sidebarSections,
-      handleSidebarSectionStateChange, navigateToTab, enterSearchView, exitEmptySearch,
-    },
+    navigation,
     overlays: {
       contextMenu, setContextMenu, binContextMenu, setBinContextMenu, isBinModalOpen,
       editingBin, setEditingBin, binToDelete, setBinToDelete, notePromptClip, setNotePromptClip,
@@ -464,6 +447,7 @@ export function useAppController() {
     },
     clipView: {
       displayedClips, queuedIndexMap, searchTotalCount: currentPageTotalCount, searchDisplayQuery,
+      isSearching,
       searchFailed: clipViews.searchFailed, collectionFailed: clipViews.collectionFailed,
       retrySearch: clipViews.retrySearch, retryCollection: clipViews.retryCollection,
       currentCollection, clipListRef, handleClipListScroll, isLoadingCurrentCollection,

@@ -82,6 +82,8 @@
   "collection.search": "Pesquisar",
   "collection.searchActiveAndTrashedClips": "Pesquisar clipes ativos e movidos para a Lixeira.",
   "collection.searchYourClips": "Pesquise seus clipes",
+  "collection.searchingActiveAndTrashedClips": "Pesquisando clipes ativos e movidos para a Lixeira.",
+  "collection.searchingYourClips": "Pesquisando seus clipes",
   "collection.smartBinMatchesAppearAutomatically": "Os clipes que correspondem às regras de {name} aparecerão automaticamente aqui.",
   "collection.sourceClipsAppearAutomatically": "Os clipes copiados de {label} aparecerão automaticamente aqui.",
   "collection.thisBin": "esta coleção",

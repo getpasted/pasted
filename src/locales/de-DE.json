@@ -82,6 +82,8 @@
   "collection.search": "Suche",
   "collection.searchActiveAndTrashedClips": "Durchsuche aktive Clips und Clips im Papierkorb.",
   "collection.searchYourClips": "Clips durchsuchen",
+  "collection.searchingActiveAndTrashedClips": "Aktive Clips und Clips im Papierkorb werden durchsucht.",
+  "collection.searchingYourClips": "Clips werden durchsucht",
   "collection.smartBinMatchesAppearAutomatically": "Clips, die den Regeln von {name} entsprechen, erscheinen automatisch hier.",
   "collection.sourceClipsAppearAutomatically": "Aus {label} kopierte Clips erscheinen automatisch hier.",
   "collection.thisBin": "dieser Sammlung",

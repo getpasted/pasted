@@ -11,5 +11,5 @@ export function resolveSearchDisplayItems<T>(
   resultQuery: string,
   resultItems: T[],
 ): T[] {
-  return normalizedQuery && resultQuery ? resultItems : [];
+  return normalizedQuery && resultQuery === normalizedQuery ? resultItems : [];
 }

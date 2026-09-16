@@ -32,16 +32,16 @@ const clipCard = [
 const app = [
   read('src/App.tsx'),
   read('src/hooks/useAppController.ts'),
-  read('src/hooks/useSettledSearchQuery.ts'),
   read('src/components/AppShellView.tsx'),
   read('src/components/ClipListContent.tsx'),
 ].join('\n');
 const clipListHeader = read('src/components/ClipListHeader.tsx');
-const appNavigation = read('src/utils/appNavigation.ts');
+const appNavigation = read('src/hooks/useAppNavigation.ts');
 const dragHook = read('src/hooks/useClipBinDrag.ts');
 const nativeCommands = read('src-tauri/src/commands/source_apps.rs');
 const clipSearch = read('src/utils/clipSearch.ts');
 const clipSearchGrammar = read('src/utils/clipSearchGrammar.ts');
+const searchHelpers = read('src/components/searchHelpers.ts');
 const historySearchDocs = read('docs/wiki/History-and-Search.md');
 const database = readRustModuleTree('src-tauri/src/db.rs', 'src-tauri/src/db');
 const nativeClipSearch = read('src-tauri/src/db/clip_search.rs');
@@ -115,11 +115,11 @@ assert.doesNotMatch(clipSearchGrammar, /startsWith\('type:'\)/, 'The ambiguous t
 assert.doesNotMatch(clipSearchGrammar, /startsWith\('app:'\)/, 'The pre-1.0 app: search operator must not remain as an alias');
 assert.match(clipSearchGrammar, /sources:\s*string\[\]/, 'Parsed search plans must expose canonical source terminology');
 assert.doesNotMatch(clipSearchGrammar, /apps:\s*string\[\]/, 'Parsed search plans must not expose the removed app terminology');
-assert.match(sidebar, /prefix:\s*'source:'/, 'Search helpers must advertise the canonical source: operator');
-assert.match(sidebar, /prefix:\s*'clip:'/, 'Search helpers must advertise the canonical clip: operator');
-assert.match(sidebar, /prefix:\s*'content:'/, 'Search helpers must advertise the canonical content: operator');
-assert.match(sidebar, /prefix:\s*'format:'/, 'Search helpers must advertise the canonical format: operator');
-assert.doesNotMatch(sidebar, /prefix:\s*'type:'/, 'Search helpers must not advertise the ambiguous type: operator');
+assert.match(searchHelpers, /prefix:\s*'source:'/, 'Search helpers must advertise the canonical source: operator');
+assert.match(searchHelpers, /prefix:\s*'clip:'/, 'Search helpers must advertise the canonical clip: operator');
+assert.match(searchHelpers, /prefix:\s*'content:'/, 'Search helpers must advertise the canonical content: operator');
+assert.match(searchHelpers, /prefix:\s*'format:'/, 'Search helpers must advertise the canonical format: operator');
+assert.doesNotMatch(searchHelpers, /prefix:\s*'type:'/, 'Search helpers must not advertise the ambiguous type: operator');
 assert.match(historySearchDocs, /`source:` — capture source/, 'Search documentation must use the canonical source: operator');
 assert.match(historySearchDocs, /`clip:` — structural Clip Type/, 'Search documentation must describe structural Clip Type filtering');
 assert.match(historySearchDocs, /`content:` — current Content Type/, 'Search documentation must describe semantic Content Type filtering');
@@ -142,22 +142,24 @@ assert.match(
 );
 assert.doesNotMatch(app, /loadingOlderClips/,
   'Background collection paging must not add a visible loading interstitial');
-assert.match(app, /useDeferredValue\((?:searchQuery|query)\)/,
-  'Search result rendering must not compete with controlled input updates');
-assert.match(app, /setTimeout\(\(\) => setSettledQuery\(deferredQuery\), delayMs\)/,
-  'Search requests must wait for the explicit settled-query delay');
+assert.doesNotMatch(app, /useDeferredValue\((?:searchQuery|query)\)/,
+  'Committed modal Search must not retain the retired live-input deferral path');
+assert.doesNotMatch(app, /useSettledSearchQuery/,
+  'Committed modal Search requests must begin without the retired live-input delay');
+assert.match(app, /useClipViews\(\{[\s\S]{0,180}searchQuery,/,
+  'Committed modal Search queries must flow directly into the Search service');
 assert.match(clipViews, /startTransition\(\(\) => \{[\s\S]{0,120}setSearchResult/,
   'Authoritative Search results must commit at transition priority');
 assert.doesNotMatch(clipViews, /setTimeout\([\s\S]{0,300}clipsApi\.search/,
   'Search must rely on deferred rendering instead of a fixed debounce');
 assert.match(clipViews, /resolveSearchDisplayItems\([\s\S]{0,120}normalizedSearchQuery[\s\S]{0,120}searchResult\.query/,
   'Search display state must pass through the blank-query guard');
-assert.match(searchPagination, /return normalizedQuery && resultQuery \? resultItems : \[\];/,
-  'Blank and first-pending Search states must never fall back to History clips');
-assert.match(app, /currentCollection\?\.membership === 'search' && Boolean\(searchDisplayQuery\)/,
-  'Search must preserve a settled empty state while its replacement query runs');
-assert.match(app, /searchQuery=\{currentTab === 'search' \? searchDisplayQuery : searchQuery\}/,
-  'A preserved Search empty state must retain its settled query until replacement');
+assert.match(searchPagination, /resultQuery === normalizedQuery \? resultItems : \[\];/,
+  'Blank, pending, and replacement Search states must never show clips from another query');
+assert.match(app, /currentCollection\?\.membership === 'search' && \(isSearching \|\| Boolean\(searchDisplayQuery\)\)/,
+  'Search must show its pending state and preserve a settled empty state while its replacement query runs');
+assert.match(clipViews, /searchDisplayQuery: searchResult\.query === normalizedSearchQuery \? searchResult\.query : ''/,
+  'Search highlighting must never retain a previous query while its replacement runs');
 assert.match(nativeClipSearch, /indexed_fts_like[\s\S]{0,300}term_fields::base\(fts_like\)/,
   'Ordinary Search must pass its FTS5 trigram-optimized LIKE policy to term fields');
 assert.match(nativeClipSearchTermFields, /WHERE text_content \{fts_like\}/,
@@ -175,7 +177,11 @@ assert.match(
   'Clip cards must honor collection policy before exposing concealment actions',
 );
 assert.match(clipListHeader, /collection\?\.title/, 'The clip-list heading must use the collection descriptor');
-assert.match(appNavigation, /tab\.startsWith\('clip_type-'\)[\s\S]{0,180}tab\.startsWith\('file_format-'\)/, 'Search escape must remember every collection-axis route');
+assert.match(
+  appNavigation,
+  /if \(route === 'search'\) \{[\s\S]{0,100}openSearchDialog\(\);[\s\S]{0,40}return;/,
+  'Opening Search must not replace the active collection before the modal is submitted',
+);
 assert.match(app, /\[bins, currentTab, locale, selectedBinId\]/, 'The active collection heading must recompute when the locale changes');
 assert.doesNotMatch(dragHook, /export type ClipDropAction/, 'Drop actions must be owned by the collection contract');
 assert.match(database, /pub fn get_clips_page[\s\S]*LIMIT \? OFFSET \?/, 'Active clips must support bounded server pagination');

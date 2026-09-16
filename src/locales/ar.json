@@ -90,6 +90,8 @@
   "collection.search": "البحث",
   "collection.searchActiveAndTrashedClips": "ابحث في المقتطفات النشطة والمحذوفة.",
   "collection.searchYourClips": "ابحث في مقتطفاتك",
+  "collection.searchingActiveAndTrashedClips": "جارٍ البحث في المقتطفات النشطة والمحذوفة.",
+  "collection.searchingYourClips": "جارٍ البحث في مقتطفاتك",
   "collection.smartBinMatchesAppearAutomatically": "ستظهر المقتطفات المطابقة لقواعد {name} هنا تلقائيًا.",
   "collection.sourceClipsAppearAutomatically": "ستظهر المقتطفات المنسوخة من {label} هنا تلقائيًا.",
   "collection.thisBin": "هذه المجموعة",

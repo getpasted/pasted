@@ -871,3 +871,22 @@ html.is-stable-reordering * {
     border-color: transparent;
   }
 }
+@keyframes search-loading-figure-eight {
+  0%, 50%, 100% { transform: translate(0, 0); }
+  12.5% { transform: translate(0.25rem, -0.15rem); }
+  25% { transform: translate(0.5rem, 0); }
+  37.5% { transform: translate(0.25rem, 0.15rem); }
+  62.5% { transform: translate(-0.25rem, -0.15rem); }
+  75% { transform: translate(-0.5rem, 0); }
+  87.5% { transform: translate(-0.25rem, 0.15rem); }
+}
+
+.search-loading-mark {
+  animation: search-loading-figure-eight 1.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .search-loading-mark {
+    animation: none;
+  }
+}
