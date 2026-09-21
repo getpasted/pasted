@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "Pasted-1.1.0-distributed-components",
-  "documentNamespace": "https://getpasted.app/sbom/1.1.0/10e3ea0e4d3e4fcbce144f91def58a29964519ecada2bab8b19ebae9ed0bcbae",
+  "documentNamespace": "https://getpasted.app/sbom/1.1.0/d0841e02bf858dabfd6e63261f03ba2c1aaa817201f64413591ae19b667570e2",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
@@ -8869,9 +8869,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-npm-ed84cc5d62572a9a",
+      "SPDXID": "SPDXRef-npm-e50451daa644dd71",
       "name": "lucide-react",
-      "versionInfo": "1.45.0",
+      "versionInfo": "1.47.0",
       "downloadLocation": "https://github.com/lucide-icons/lucide",
       "filesAnalyzed": false,
       "licenseConcluded": "ISC",
@@ -8881,7 +8881,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:npm/lucide-react@1.45.0"
+          "referenceLocator": "pkg:npm/lucide-react@1.47.0"
         }
       ]
     },
@@ -9889,9 +9889,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-npm-084c7514e672a928",
+      "SPDXID": "SPDXRef-npm-a0907c54b07f6ad1",
       "name": "tailwind-merge",
-      "versionInfo": "3.6.0",
+      "versionInfo": "3.7.0",
       "downloadLocation": "https://github.com/dcastil/tailwind-merge",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT",
@@ -9901,7 +9901,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:npm/tailwind-merge@3.6.0"
+          "referenceLocator": "pkg:npm/tailwind-merge@3.7.0"
         }
       ]
     },
@@ -12736,7 +12736,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-npm-ed84cc5d62572a9a"
+      "relatedSpdxElement": "SPDXRef-npm-e50451daa644dd71"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -13036,7 +13036,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-npm-084c7514e672a928"
+      "relatedSpdxElement": "SPDXRef-npm-a0907c54b07f6ad1"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
