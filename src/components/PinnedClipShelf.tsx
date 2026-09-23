@@ -1,14 +1,20 @@
 import { useEffect, useRef, useState, type CSSProperties, type WheelEvent } from 'react';
 import { FileText, Image as ImageIcon, Pin } from 'lucide-react';
-import type { ClipItem } from '../types';
-import { getClipFileSummary } from '../types';
+import { getClipFileSummary, type Bin, type ClipItem } from '../types';
 import { useFeatures } from '../hooks/useFeatures';
 import { translate } from '../localization/runtime';
 import { localizedSourceName } from '../localization/presentation';
 import { uniqueClipItemsById } from '../utils/clipListItems';
+import { useContentTypes } from './ContentTypeProvider';
+import {
+  mergePinnedClipSnapshots,
+  pinnedClipIsConcealed,
+  pinnedClipSummary,
+} from './pinnedClipShelfModel';
 
 interface PinnedClipShelfProps {
   clips: ClipItem[];
+  binsById: ReadonlyMap<number, Bin>;
   stackedClipIds: number[];
   selectedClipId?: number;
   onSelect: (clip: ClipItem) => void;
@@ -16,7 +22,7 @@ interface PinnedClipShelfProps {
   onWheel: (event: WheelEvent<HTMLDivElement>) => void;
 }
 
-function clipSummary(clip: ClipItem) {
+function visibleClipSummary(clip: ClipItem) {
   if (clip.content_type === 'file') return getClipFileSummary(clip);
   if (clip.content_type === 'image') return clip.text_content?.trim() || 'Image';
   return clip.text_content?.replace(/\s+/g, ' ').trim() || 'Empty clip';
@@ -24,6 +30,7 @@ function clipSummary(clip: ClipItem) {
 
 export function PinnedClipShelf({
   clips,
+  binsById,
   stackedClipIds,
   selectedClipId,
   onSelect,
@@ -31,6 +38,8 @@ export function PinnedClipShelf({
   onWheel,
 }: PinnedClipShelfProps) {
   const features = useFeatures();
+  const { definitions: contentTypeDefinitions } = useContentTypes();
+  const bins = [...binsById.values()];
   const stackedIds = new Set(stackedClipIds);
   const stackedClips = clips.filter((clip) => stackedIds.has(clip.id));
   const [displayedClips, setDisplayedClips] = useState(stackedClips);
@@ -47,10 +56,8 @@ export function PinnedClipShelf({
     }
     const nextIds = new Set(stackedSignature.split(',').filter(Boolean).map(Number));
     const nextStackedClips = clips.filter((clip) => nextIds.has(clip.id));
-    const currentIds = new Set(currentDisplayed.map((clip) => clip.id));
-    const additions = nextStackedClips.filter((clip) => !currentIds.has(clip.id));
-    if (additions.length > 0) {
-      const nextDisplayed = [...displayedClipsRef.current, ...additions];
+    const nextDisplayed = mergePinnedClipSnapshots(currentDisplayed, nextStackedClips);
+    if (nextDisplayed.some((clip, index) => clip !== currentDisplayed[index])) {
       displayedClipsRef.current = nextDisplayed;
       setDisplayedClips(nextDisplayed);
     }
@@ -120,13 +127,23 @@ export function PinnedClipShelf({
                 ? undefined
                 : '1.25rem minmax(0, 1fr) auto',
             } as CSSProperties}
-            onClick={() => onSelect(clip)}
+            onClick={() => onSelect(clips.find((current) => current.id === clip.id) ?? clip)}
           >
             <span className="pinned-clip-shelf-icon" aria-hidden="true">
               {clip.content_type === 'image' ? <ImageIcon /> : clip.content_type === 'file' ? <FileText /> : <Pin />}
             </span>
             {features.sources && <span className="pinned-clip-shelf-source">{localizedSourceName(clip.source)}</span>}
-            <span className="pinned-clip-shelf-summary">{clipSummary(clip)}</span>
+            <span className="pinned-clip-shelf-summary">
+              {pinnedClipSummary(
+                clip,
+                features.concealment && pinnedClipIsConcealed(
+                  clip,
+                  bins,
+                  contentTypeDefinitions,
+                ),
+                visibleClipSummary,
+              )}
+            </span>
             {index === 0 && (
               <span className="pinned-clip-shelf-count">{stackedClips.length}</span>
             )}

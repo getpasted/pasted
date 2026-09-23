@@ -169,6 +169,7 @@ export function ClipListContent({ controller }: { controller: AppController }) {
   return <div className="relative flex-1 min-h-0">
     {enabledFeatures.pinning && <PinnedClipShelf
       clips={pinnedShelfClips}
+      binsById={binsById}
       stackedClipIds={stackedPinnedClipIds}
       selectedClipId={selectedClip?.id}
       onSelect={selectPinnedShelfClip}
