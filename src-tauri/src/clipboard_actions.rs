@@ -129,6 +129,49 @@ pub fn execute_transform(
     Ok(outcome)
 }
 
+pub fn execute_smart_paste(db: &DbState) -> Result<crate::smart_paste::SmartPasteOutcome, String> {
+    crate::features::require(db, crate::features::Feature::Transformations)?;
+    #[cfg(target_os = "macos")]
+    if !crate::platform_capabilities::accessibility_status().is_trusted {
+        return Err("Smart Paste needs Accessibility access. Allow Pasted (or the terminal/IDE running this development build) in System Settings, then try again.".to_string());
+    }
+
+    let context = crate::paste_target::focused_smart_paste_context()?;
+    let mut clipboard = Clipboard::new()
+        .map_err(|_| "The system clipboard is unavailable right now.".to_string())?;
+    let source = clipboard
+        .get_text()
+        .map_err(|_| "Copy text before using Smart Paste.".to_string())?;
+    let outcome =
+        crate::smart_paste::select_value(db, &source, &context).map_err(|error| error.message)?;
+
+    let current = clipboard
+        .get_text()
+        .map_err(|_| "The system clipboard became unavailable.".to_string())?;
+    if current != source {
+        return Err(
+            "The clipboard changed while Smart Paste was preparing a value. Try again.".into(),
+        );
+    }
+    clipboard
+        .set_text(&outcome.value)
+        .map_err(|error| error.to_string())?;
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    let paste_result = crate::paste_automation::paste();
+    std::thread::sleep(std::time::Duration::from_millis(75));
+    if clipboard.get_text().ok().as_deref() == Some(outcome.value.as_str()) {
+        clipboard.set_text(&source).map_err(|_| {
+            "Smart Paste could not restore the original clipboard text.".to_string()
+        })?;
+    }
+    paste_result?;
+    let _ = db.log_activity(
+        "transform_smart_paste_succeeded",
+        &format!("Smart Paste filled a field in {}", context.application),
+    );
+    Ok(outcome)
+}
+
 pub fn paste_clip(
     db: &DbState,
     app: &AppHandle,

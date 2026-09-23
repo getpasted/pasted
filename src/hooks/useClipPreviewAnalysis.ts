@@ -10,6 +10,7 @@ import type {
   SmartActionSuggestion,
   StructuralInspection,
 } from '../components/clipPreviewModel';
+import type { ClipDetectedContent, PastePartsAnalysis } from '../components/pastePartModel';
 import { useFileClipPreviews } from './useFileClipPreviews';
 import { soundManager } from '../utils/sound';
 import { safeInvoke as invoke } from '../utils/tauri';
@@ -46,6 +47,7 @@ export function useClipPreviewAnalysis({
   onError,
 }: UseClipPreviewAnalysisInput) {
   const [contentMatches, setContentMatches] = useState<ClipContentMatch[]>([]);
+  const [pasteParts, setPasteParts] = useState<PastePartsAnalysis | null>(null);
   const [inspection, setInspection] = useState<StructuralInspection | null>(null);
   const [smartActions, setSmartActions] = useState<SmartActionSuggestion | null>(null);
   const [fileSearchableText, setFileSearchableText] = useState<ClipSearchableText | null>(null);
@@ -68,15 +70,22 @@ export function useClipPreviewAnalysis({
 
   useEffect(() => {
     let cancelled = false;
-    if (!clip || !typesEnabled) {
+    if (!clip || (!typesEnabled && !transformationsEnabled)) {
       setContentMatches([]);
+      setPasteParts(null);
       return () => { cancelled = true; };
     }
-    invoke<ClipContentMatch[]>('get_clip_content_matches', { clipId: clip.id })
-      .then((matches) => { if (!cancelled) setContentMatches(Array.isArray(matches) ? matches : []); })
-      .catch(() => { if (!cancelled) setContentMatches([]); });
+    invoke<ClipDetectedContent>('get_clip_detected_content', { clipId: clip.id }).then((result) => {
+      if (cancelled) return;
+      setContentMatches(typesEnabled ? result.classificationMatches : []);
+      setPasteParts(transformationsEnabled && clip.content_type === 'text' ? result.pasteParts : null);
+    }).catch(() => {
+      if (cancelled) return;
+      setContentMatches([]);
+      setPasteParts(null);
+    });
     return () => { cancelled = true; };
-  }, [clip?.content_hash, clip?.id, typesEnabled]);
+  }, [clip?.content_hash, clip?.content_type, clip?.id, transformationsEnabled, typesEnabled]);
 
   useEffect(() => {
     let cancelled = false;
@@ -224,6 +233,7 @@ export function useClipPreviewAnalysis({
 
   return {
     contentMatches,
+    pasteParts,
     inspection,
     smartActions,
     fileSearchableText,

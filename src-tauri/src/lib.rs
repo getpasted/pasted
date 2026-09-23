@@ -93,6 +93,7 @@ pub mod settings_activity;
 pub mod settings_contract;
 pub mod settings_service;
 pub mod smart_bins;
+pub mod smart_paste;
 pub mod storage_protection;
 pub mod structured_output;
 pub mod suggestion_execution;
@@ -213,7 +214,7 @@ pub fn run() {
             commands::content_registry::duplicate_content_classifier,
             commands::content_registry::delete_content_classifier,
             commands::content_registry::restore_default_content_classifiers,
-            commands::content_registry::get_clip_content_matches,
+            commands::content_registry::get_clip_detected_content,
             commands::content_registry::rescan_content_classification_history,
             commands::content_registry::rescan_file_format_history,
             commands::content_registry::test_content_classifier,

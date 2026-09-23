@@ -56,6 +56,7 @@
     { "key": "seqPopHotkey", "owner": "hotkeys", "default": "Alt+Shift+X", "reset": "default", "visibility": "public", "mutation": "direct", "validation": { "type": "string", "maximumBytes": 128 } },
     { "key": "copyLastPipelineHotkey", "owner": "hotkeys", "default": "", "reset": "default", "visibility": "public", "mutation": "direct", "validation": { "type": "string", "maximumBytes": 128 } },
     { "key": "pasteLastPipelineHotkey", "owner": "hotkeys", "default": "", "reset": "default", "visibility": "public", "mutation": "direct", "validation": { "type": "string", "maximumBytes": 128 } },
+    { "key": "smartPasteHotkey", "owner": "hotkeys", "default": "", "reset": "default", "visibility": "public", "mutation": "direct", "validation": { "type": "string", "maximumBytes": 128 } },
     { "key": "openTransformationsHotkey", "owner": "hotkeys", "default": "", "reset": "default", "visibility": "public", "mutation": "direct", "validation": { "type": "string", "maximumBytes": 128 } },
     { "key": "openMainWindowHotkey", "owner": "hotkeys", "default": "", "reset": "default", "visibility": "public", "mutation": "direct", "validation": { "type": "string", "maximumBytes": 128 } },
     { "key": "lockAppHotkey", "owner": "hotkeys", "default": "Alt+Shift+L", "reset": "default", "visibility": "public", "mutation": "direct", "validation": { "type": "string", "maximumBytes": 128 } },

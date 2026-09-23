@@ -23,6 +23,7 @@ const HOTKEY_SETTING_KEYS = new Set([
   'seqPopHotkey',
   'copyLastPipelineHotkey',
   'pasteLastPipelineHotkey',
+  'smartPasteHotkey',
   'openTransformationsHotkey',
   'openMainWindowHotkey',
   'lockAppHotkey',

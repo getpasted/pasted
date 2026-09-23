@@ -197,11 +197,13 @@ pub(super) fn append_smart_bin_memberships(
         let sql = format!(
             "SELECT id FROM clips
              WHERE (is_trashed IS NULL OR is_trashed = 0)
+               AND id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))
                AND ({rule_clause} OR bin_id = ? OR id IN (
                     SELECT clip_id FROM clip_bins WHERE bin_id = ?
                ))
                AND id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))"
         );
+        parameters.insert(0, Box::new(requested_ids_json.clone()));
         parameters.push(Box::new(bin_id));
         parameters.push(Box::new(bin_id));
         parameters.push(Box::new(requested_ids_json.clone()));
