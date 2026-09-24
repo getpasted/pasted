@@ -16,7 +16,7 @@ export function FloatingActionStrip({
   const visibilityClass = revealOnGroupInteraction
     ? 'pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100'
     : visible
-      ? 'visible opacity-100'
+      ? 'opacity-100'
       : 'invisible pointer-events-none opacity-0';
 
   const stopPointer = (event: PointerEvent<HTMLDivElement> | MouseEvent<HTMLDivElement>) => {

@@ -51,6 +51,7 @@ const clipPreviewContent = read('src/components/ClipPreviewContent.tsx');
 const clipPreviewTransformControls = read('src/components/ClipPreviewTransformControls.tsx');
 const clipTransformBar = read('src/components/ClipTransformBar.tsx');
 const clipCardActions = read('src/components/ClipCardActions.tsx');
+const floatingActionStrip = read('src/components/FloatingActionStrip.tsx');
 const clipPreviewTrashActions = read('src/components/ClipPreviewTrashActions.tsx');
 const clipBatchActionBar = read('src/components/ClipBatchActionBar.tsx');
 const contextMenu = read('src/components/ContextMenu.tsx');
@@ -69,6 +70,8 @@ for (const source of [clipCardActions, clipPreviewTrashActions, clipBatchActionB
 }
 assert.match(clipCardActions, /onPasteQueueItem[\s\S]*?className="floating-action-button is-accent"/,
   'the queue paste action keeps its accent treatment');
+assert.doesNotMatch(floatingActionStrip, /\? 'visible opacity-100'/,
+  'visible action strips must inherit a hidden clip list during scroll restoration');
 
 const ruleBody = (css, selector) => {
   const start = css.indexOf(selector);
@@ -173,6 +176,13 @@ assert.doesNotMatch(rememberedClipListScroll, /MutationObserver|addEventListener
   'Clip scroll restoration must not compete with list mutation or thumbnail load observers');
 assert.match(rememberedClipListScroll, /element\.style\.visibility = 'hidden'[\s\S]*restorePosition\(element, transition\.position\)[\s\S]*requestAnimationFrame\(reveal\)/,
   'The list must reveal only after its single coordinator applies the restored position');
+assert.match(
+  rememberedClipListScroll,
+  /if \(anchor\) \{[\s\S]*?return true;\n    \}\n    return false;/,
+  'Startup must not clamp a missing saved anchor to the end of the first History page',
+);
+assert.doesNotMatch(rememberedClipListScroll, /element\.scrollTop = transition\.position\.scrollTop/,
+  'View entry must wait for an available anchor or a restorable bounded offset');
 assert.match(rememberedClipListScroll, /if \(transition\.complete\) return undefined/,
   'Loading another page must not restart the completed view-entry restoration');
 assert.match(rememberedClipListScroll, /setTimeout\(reveal, 500\)/,

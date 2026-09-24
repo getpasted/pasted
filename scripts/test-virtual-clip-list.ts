@@ -75,6 +75,11 @@ assert.match(
   'the viewport must resync after measurements or loaded batches clamp the real scroll offset',
 );
 assert.match(
+  viewportSource,
+  /useEffect\(\(\) => \{[\s\S]*if \(frame !== 0\) return;[\s\S]*frame = 0;[\s\S]*addEventListener\('scroll', update/,
+  'the viewport listener must bind after commit and coalesce without starving scroll updates',
+);
+assert.match(
   listSource,
   /measurementFrameRef[\s\S]*requestAnimationFrame/,
   'clip measurements must batch layout updates outside ResizeObserver delivery',

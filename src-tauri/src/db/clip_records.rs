@@ -155,6 +155,9 @@ pub(super) fn append_smart_bin_memberships(
         return Ok(());
     }
     let requested_ids = clips.iter().map(|clip| clip.id).collect::<HashSet<_>>();
+    let requested_ids_json =
+        serde_json::to_string(&requested_ids.iter().copied().collect::<Vec<_>>())
+            .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
     let features = smart_bin_feature_policy(conn)?;
     let mut memberships = HashMap::<i64, Vec<i64>>::new();
     let mut bins_statement = conn
@@ -196,10 +199,12 @@ pub(super) fn append_smart_bin_memberships(
              WHERE (is_trashed IS NULL OR is_trashed = 0)
                AND ({rule_clause} OR bin_id = ? OR id IN (
                     SELECT clip_id FROM clip_bins WHERE bin_id = ?
-               ))"
+               ))
+               AND id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))"
         );
         parameters.push(Box::new(bin_id));
         parameters.push(Box::new(bin_id));
+        parameters.push(Box::new(requested_ids_json.clone()));
         let parameter_refs = parameters
             .iter()
             .map(|parameter| parameter.as_ref())

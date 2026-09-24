@@ -194,6 +194,11 @@ assert.match(pagedClipCollection, /collection:\s*'bin'[\s\S]{0,600}collection:\s
   'Bins and property collections must page through the native collection service');
 assert.match(database, /pub struct ClipListItem[\s\S]{0,600}pub preview_text:[\s\S]{0,200}pub preview_truncated:/,
   'List payloads must use an explicit bounded preview contract');
+assert.match(
+  read('src-tauri/src/db/clip_records.rs'),
+  /fn append_smart_bin_memberships[\s\S]*requested_ids_json[\s\S]*AND id IN \(SELECT CAST\(value AS INTEGER\) FROM json_each\(\?\)\)/,
+  'Clip list enrichment must limit Smart Bin evaluation to the requested page',
+);
 assert.doesNotMatch(database.match(/pub struct ClipListItem[\s\S]*?\n\}/)?.[0] ?? '', /html_content|image_base64|image_path/,
   'List payloads must not include full HTML, image data, or private image paths');
 assert.match(clipSelection, /selectedClip\?\.is_summary[\s\S]{0,300}clipsApi\.detail/,
