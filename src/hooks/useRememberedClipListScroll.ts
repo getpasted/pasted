@@ -33,6 +33,7 @@ function capturePosition(element: HTMLDivElement): ClipListScrollPosition {
 }
 
 function restorePosition(element: HTMLDivElement, position: ClipListScrollPosition) {
+  const maxScrollTop = element.scrollHeight - element.clientHeight + 1;
   if (position.anchorClipId !== null) {
     const anchor = element.querySelector<HTMLElement>(`[data-clip-id="${position.anchorClipId}"]`);
     if (anchor) {
@@ -40,9 +41,10 @@ function restorePosition(element: HTMLDivElement, position: ClipListScrollPositi
         - element.getBoundingClientRect().top - position.anchorOffset;
       return true;
     }
+    if (position.scrollTop <= maxScrollTop) element.scrollTop = position.scrollTop;
     return false;
   }
-  if (position.scrollTop > element.scrollHeight - element.clientHeight + 1) return false;
+  if (position.scrollTop > maxScrollTop) return false;
   element.scrollTop = position.scrollTop;
   return true;
 }
