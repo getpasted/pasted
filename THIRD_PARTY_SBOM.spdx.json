@@ -2,8 +2,8 @@
   "spdxVersion": "SPDX-2.3",
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
-  "name": "Pasted-1.1.0-distributed-components",
-  "documentNamespace": "https://getpasted.app/sbom/1.1.0/d0841e02bf858dabfd6e63261f03ba2c1aaa817201f64413591ae19b667570e2",
+  "name": "Pasted-1.2.0-distributed-components",
+  "documentNamespace": "https://getpasted.app/sbom/1.2.0/7aea405f5320b0662a3f90e4b0027cdb76f77fe7ca6067f0214dcb9655d41d05",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
@@ -9807,7 +9807,7 @@
       "SPDXID": "SPDXRef-npm-e06edbe7016d8d03",
       "name": "scheduler",
       "versionInfo": "0.28.0",
-      "downloadLocation": "https://github.com/react/react",
+      "downloadLocation": "https://github.com/facebook/react",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT",
       "licenseDeclared": "MIT",

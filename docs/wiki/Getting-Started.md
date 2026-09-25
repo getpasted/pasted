@@ -46,3 +46,16 @@ The **Simple** Functionality preset keeps the core clipboard experience visible.
 | `Esc` | Close HUD, a menu, or a modal |
 
 Change or disable hotkeys in **Settings → Hotkeys**.
+
+## Smart Paste
+
+Smart Paste can select one confidently matched value from a larger copied text block. Configure its shortcut in **Settings → Hotkeys**, copy text containing a recognized value such as an email address, phone number, or link, focus a field whose label or placeholder describes that value, and press the shortcut. Pasted briefly writes the matched value, pastes it, and restores the original clipboard without capturing the internal write into History or Queue.
+
+The focused application must expose useful field metadata through its accessibility interface. Pasted leaves the clipboard unchanged when the field is ambiguous, and Smart Paste is unavailable for passcode and verification-code fields. Detected values appear under **Detected Content** in the clip details. On supported Macs, an enabled Apple Intelligence connection can enrich those detected values locally; deterministic detection remains available without it.
+
+The CLI uses the same matching contract without controlling another application:
+
+```sh
+pasted smart-paste --context "Email" --text "Name: Ada Lovelace, Email: ada@example.com" --json
+pasted smart-paste parts --clip 42 --json
+```

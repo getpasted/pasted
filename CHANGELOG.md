@@ -4,6 +4,16 @@ Notable user-facing changes to Pasted are recorded here. The project follows sem
 
 ## Unreleased
 
+## 1.2.0 — 2026-09-25
+
+- added Smart Paste, which selects a confidently matched value from copied text for the focused field, restores the original clipboard, and exposes the same detected-content contract in clip details and the CLI;
+- added optional Apple Intelligence enrichment for detected paste values on supported Macs while keeping deterministic matching available without a model;
+- prevented Smart Paste and other internal clipboard writes from returning to History, Queue, notifications, or capture automation;
+- fixed History startup loading so the visible list fills reliably, including when saved-position restoration needs additional pages;
+- preserved independent scroll positions across History, Bins, Clip Types, Content Types, Images, and other virtualized clip collections without revealing selected-clip actions before the selected row is visible;
+- concealed pinned clip contents while the pinned roll-up is closed; and
+- refreshed reviewed frontend and GitHub Actions dependencies.
+
 ## 1.1.0 — 2026-09-15
 
 - unified Search around one focused modal from expanded or collapsed navigation, with immediate progress, filter helpers, layered Escape behavior, and restoration of the previous collection;
