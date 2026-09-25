@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useState, type RefObject } from 'react';
 
 interface VirtualClipViewport {
   height: number;
@@ -12,13 +12,14 @@ export function useVirtualClipViewport(
 ): VirtualClipViewport {
   const [viewport, setViewport] = useState<VirtualClipViewport>({ height: 800, scrollTop: 0 });
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const element = scrollRef.current;
     if (!element || disabled) return undefined;
     let frame = 0;
     const update = () => {
-      cancelAnimationFrame(frame);
+      if (frame !== 0) return;
       frame = requestAnimationFrame(() => {
+        frame = 0;
         setViewport({ height: element.clientHeight, scrollTop: element.scrollTop });
       });
     };
@@ -31,7 +32,7 @@ export function useVirtualClipViewport(
       observer.disconnect();
       element.removeEventListener('scroll', update);
     };
-  }, [disabled, scrollRef]);
+  }, [disabled, layoutSize, scrollRef]);
 
   useLayoutEffect(() => {
     const element = scrollRef.current;

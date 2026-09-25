@@ -40,11 +40,11 @@ function restorePosition(element: HTMLDivElement, position: ClipListScrollPositi
         - element.getBoundingClientRect().top - position.anchorOffset;
       return true;
     }
-    element.scrollTop = position.scrollTop;
     return false;
   }
+  if (position.scrollTop > element.scrollHeight - element.clientHeight + 1) return false;
   element.scrollTop = position.scrollTop;
-  return position.scrollTop <= element.scrollHeight - element.clientHeight + 1;
+  return true;
 }
 
 function reorderCommitInProgress(element: HTMLDivElement) {
@@ -109,7 +109,6 @@ export function useRememberedClipListScroll(
       }
       restoreFrameRef.current = requestAnimationFrame(restore);
     };
-    element.scrollTop = transition.position.scrollTop;
     restoreFrameRef.current = requestAnimationFrame(restore);
     const fallback = window.setTimeout(reveal, 500);
     return () => {
