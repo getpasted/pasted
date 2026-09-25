@@ -236,7 +236,10 @@ impl HotkeyManager {
                     let Some(db) = smart_paste_app.try_state::<Arc<DbState>>() else {
                         return;
                     };
-                    if let Err(error) = crate::clipboard_actions::execute_smart_paste(&db) {
+                    let sequential = smart_paste_app.state::<Arc<SequentialQueueState>>();
+                    if let Err(error) =
+                        crate::clipboard_actions::execute_smart_paste(&db, &sequential)
+                    {
                         let _ = db.log_activity(
                             "transform_smart_paste_failed",
                             "Smart Paste could not fill the focused field",

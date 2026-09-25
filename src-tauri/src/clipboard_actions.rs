@@ -129,7 +129,10 @@ pub fn execute_transform(
     Ok(outcome)
 }
 
-pub fn execute_smart_paste(db: &DbState) -> Result<crate::smart_paste::SmartPasteOutcome, String> {
+pub fn execute_smart_paste(
+    db: &DbState,
+    sequential: &SequentialQueueState,
+) -> Result<crate::smart_paste::SmartPasteOutcome, String> {
     crate::features::require(db, crate::features::Feature::Transformations)?;
     #[cfg(target_os = "macos")]
     if !crate::platform_capabilities::accessibility_status().is_trusted {
@@ -153,16 +156,20 @@ pub fn execute_smart_paste(db: &DbState) -> Result<crate::smart_paste::SmartPast
             "The clipboard changed while Smart Paste was preparing a value. Try again.".into(),
         );
     }
-    clipboard
-        .set_text(&outcome.value)
-        .map_err(|error| error.to_string())?;
+    sequential.mark_internal_clipboard_write(&outcome.value);
+    if let Err(error) = clipboard.set_text(&outcome.value) {
+        sequential.clear_internal_clipboard_write();
+        return Err(error.to_string());
+    }
     std::thread::sleep(std::time::Duration::from_millis(50));
     let paste_result = crate::paste_automation::paste();
     std::thread::sleep(std::time::Duration::from_millis(75));
     if clipboard.get_text().ok().as_deref() == Some(outcome.value.as_str()) {
-        clipboard.set_text(&source).map_err(|_| {
-            "Smart Paste could not restore the original clipboard text.".to_string()
-        })?;
+        sequential.mark_internal_clipboard_write(&source);
+        if clipboard.set_text(&source).is_err() {
+            sequential.clear_internal_clipboard_write();
+            return Err("Smart Paste could not restore the original clipboard text.".to_string());
+        }
     }
     paste_result?;
     let _ = db.log_activity(
