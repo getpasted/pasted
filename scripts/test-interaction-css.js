@@ -178,11 +178,11 @@ assert.match(rememberedClipListScroll, /element\.style\.visibility = 'hidden'[\s
   'The list must reveal only after its single coordinator applies the restored position');
 assert.match(
   rememberedClipListScroll,
-  /if \(anchor\) \{[\s\S]*?return true;\n    \}\n    return false;/,
-  'Startup must not clamp a missing saved anchor to the end of the first History page',
+  /if \(anchor\) \{[\s\S]*?return true;\n    \}\n    if \(position\.scrollTop <= maxScrollTop\) element\.scrollTop = position\.scrollTop;\n    return false;/,
+  'A bounded saved offset must materialize its virtualized anchor before correction',
 );
-assert.doesNotMatch(rememberedClipListScroll, /element\.scrollTop = transition\.position\.scrollTop/,
-  'View entry must wait for an available anchor or a restorable bounded offset');
+assert.match(rememberedClipListScroll, /if \(position\.scrollTop > maxScrollTop\) return false;/,
+  'Startup must not clamp an out-of-range saved offset to an incomplete History page');
 assert.match(rememberedClipListScroll, /if \(transition\.complete\) return undefined/,
   'Loading another page must not restart the completed view-entry restoration');
 assert.match(rememberedClipListScroll, /setTimeout\(reveal, 500\)/,
