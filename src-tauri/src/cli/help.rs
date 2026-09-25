@@ -67,6 +67,8 @@ const HELP_LINES: &[&str] = &[
     "  pasted transform get|plan|test|create|update|duplicate|delete Manage either Transform authoring form",
     "  pasted transform run <ref> [--text TEXT | --clip ID | --stdin] [--apply]",
     "  pasted operation list|get|create|update|duplicate|delete|run",
+    "  pasted smart-paste --context TEXT [--text TEXT | --stdin] [--json] Select a detected field value",
+    "  pasted smart-paste parts --clip ID [--json] List persistent detected values",
     "  pasted connection list|get|detect|create|update|delete|order",
     "  pasted bin list|get|create|update|duplicate|delete [--json]",
     "  pasted bin clips <id> --json List clips in persistent Bin order",

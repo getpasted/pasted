@@ -354,11 +354,11 @@ export function useAppData() {
     const unlistenLibraryChanged = listen(APP_EVENTS.clipLibraryChanged, () => {
       void Promise.all([fetchClips(), fetchTrashedClips()]);
     });
-    // Native backends should deliver every clip-added event while Pasted is in
-    // the background. Reconcile on focus as a safety net for compositors or
-    // webviews that coalesce background delivery.
+    // Native macOS and Windows backends deliver clip-added events while Pasted
+    // is in the background. Constrained Linux compositors can coalesce them, so
+    // retain the authoritative focus reconciliation only on that platform.
     const unlistenFocus = listen('tauri://focus', () => {
-      void fetchClips();
+      if (document.documentElement.dataset.platform === 'linux') void fetchClips();
     });
 
     return () => {

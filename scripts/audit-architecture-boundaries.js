@@ -1278,7 +1278,7 @@ for (const controller of ['useClipPreviewAnalysis', 'useClipPreviewNotes', 'useC
     `Clip Preview must compose the ${controller} controller`);
 }
 assert.doesNotMatch(clipPreviewShell,
-  /get_clip_versions|get_clip_extraction_results|update_clip_note|get_clip_content_matches|startTransformation|apply_transform_preview_to_clip/,
+  /get_clip_versions|get_clip_extraction_results|update_clip_note|get_clip_detected_content|startTransformation|apply_transform_preview_to_clip/,
   'Clip Preview must not reclaim controller-owned persistence, analysis, or Transform commands');
 const clipPreviewTransforms = read('src/hooks/useClipPreviewTransforms.ts');
 assert.match(clipPreviewTransforms, /useClipPreviewRevisions\(\{/,

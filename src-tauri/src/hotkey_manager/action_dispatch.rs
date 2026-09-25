@@ -226,6 +226,28 @@ impl HotkeyManager {
                     }
                 });
             }
+            AppHotkeyAction::SmartPaste => {
+                let smart_paste_app = app_handle.clone();
+                let action_guard = Arc::clone(&clipboard_action_guard);
+                std::thread::spawn(move || {
+                    let Some(_execution) = action_guard.try_lock() else {
+                        return;
+                    };
+                    let Some(db) = smart_paste_app.try_state::<Arc<DbState>>() else {
+                        return;
+                    };
+                    let sequential = smart_paste_app.state::<Arc<SequentialQueueState>>();
+                    if let Err(error) =
+                        crate::clipboard_actions::execute_smart_paste(&db, &sequential)
+                    {
+                        let _ = db.log_activity(
+                            "transform_smart_paste_failed",
+                            "Smart Paste could not fill the focused field",
+                        );
+                        eprintln!("[Pasted Smart Paste] {error}");
+                    }
+                });
+            }
             AppHotkeyAction::OpenBin(bin_id) => {
                 if let Some(w) = app_handle.get_webview_window("main") {
                     let _ = w.show();

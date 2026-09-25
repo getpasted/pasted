@@ -54,6 +54,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   seqToggleHotkey: settingDefault('seqToggleHotkey'),
   seqPopHotkey: settingDefault('seqPopHotkey'),
   lockAppHotkey: settingDefault('lockAppHotkey'),
+  smartPasteHotkey: settingDefault('smartPasteHotkey'),
 };
 
 export function parseSavedSettings(saved: Record<string, string>): AppSettings {
@@ -121,6 +122,7 @@ export function parseSavedSettings(saved: Record<string, string>): AppSettings {
   const hotkeyKeys = [
     'hudHotkey', 'seqToggleHotkey', 'seqPopHotkey', 'copyLastPipelineHotkey',
     'pasteLastPipelineHotkey', 'openTransformationsHotkey', 'openMainWindowHotkey',
+    'smartPasteHotkey',
     'lockAppHotkey',
     ...Array.from({ length: 9 }, (_, index) => `pasteClip${index + 1}Hotkey`),
   ];

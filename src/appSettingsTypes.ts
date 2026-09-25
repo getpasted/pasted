@@ -31,6 +31,7 @@ export interface AppSettings extends FunctionalitySettings, RetentionSettings, S
   seqPopHotkey?: string;
   copyLastPipelineHotkey?: string;
   pasteLastPipelineHotkey?: string;
+  smartPasteHotkey?: string;
   openTransformationsHotkey?: string;
   openMainWindowHotkey?: string;
   lockAppHotkey?: string;

@@ -119,6 +119,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
   });
   const {
     contentMatches,
+    pasteParts,
     inspection,
     smartActions,
     fileSearchableText,
@@ -304,6 +305,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
           isOcrLoading,
           ocrEnabled: features.ocr,
           transcriptionsEnabled: features.transcriptions,
+          pasteParts,
           onColorChange: setTransformedText,
           onCopyFormat: (label, value) => void handleCopySpecificFormat(label, value),
           onRunOCR: () => void handleRunOCR(),

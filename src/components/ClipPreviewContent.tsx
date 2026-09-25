@@ -12,6 +12,7 @@ import type { ClipPreviewContentProps } from './clipPreviewContentModel';
 import { ClipExtractionCards as ExtractionCards } from './ClipExtractionCards';
 import { VisualLabelEditor } from './VisualLabelEditor';
 import { ActionButton } from './AppDialogLayout';
+import { ClipPastePartsPanel } from './ClipPastePartsPanel';
 
 function ExtractionActivity({
   history,
@@ -128,6 +129,7 @@ export function ClipPreviewContent({
   isOcrLoading,
   ocrEnabled,
   transcriptionsEnabled,
+  pasteParts,
   readOnly = false,
   onColorChange,
   onCopyFormat,
@@ -358,8 +360,17 @@ export function ClipPreviewContent({
             </section>
           </div>
         ) : (
-          <div dir="auto" className="clip-text-content theme-surface elevation-inset p-4 rounded-xl border leading-relaxed overflow-x-auto whitespace-pre-wrap">
-            {displayText}
+          <div className="space-y-4">
+            <div dir="auto" className="clip-text-content theme-surface elevation-inset p-4 rounded-xl border leading-relaxed overflow-x-auto whitespace-pre-wrap">
+              {displayText}
+            </div>
+            {pasteParts && !previewingRevision && <ClipPastePartsPanel
+              analysis={pasteParts}
+              source={displayText}
+              concealed={Boolean(clip.is_concealed)}
+              copiedPart={copiedFormat}
+              onCopy={onCopyFormat}
+            />}
           </div>
         )}
     </>

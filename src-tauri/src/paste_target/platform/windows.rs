@@ -10,7 +10,7 @@ pub(in crate::paste_target) fn active_application_context(
 ) -> Option<ActiveApplicationContext> {
     let target = frontmost_application()?;
     let accessible_title = include_private_mode_signal
-        .then(|| accessible_window_title(target.native_handle))
+        .then(|| super::windows_accessibility::window_title(target.native_handle))
         .flatten();
     let window_title_is_accessible = accessible_title.is_some();
     Some(ActiveApplicationContext {
@@ -55,6 +55,14 @@ pub(in crate::paste_target) fn frontmost_application() -> Option<PasteTarget> {
     ))
 }
 
+pub(in crate::paste_target) fn focused_smart_paste_context(
+) -> Result<crate::smart_paste::SmartPasteContext, String> {
+    let application = active_application_context(false)
+        .map(|context| context.name)
+        .unwrap_or_else(|| "Windows application".to_string());
+    super::windows_accessibility::focused_context(application)
+}
+
 fn application_name(pid: i32) -> Option<String> {
     use std::ffi::OsString;
     use std::os::windows::ffi::OsStringExt;
@@ -78,38 +86,6 @@ fn application_name(pid: i32) -> Option<String> {
         .file_stem()
         .and_then(|name| name.to_str())
         .map(str::to_string)
-}
-
-fn accessible_window_title(handle: u64) -> Option<String> {
-    use std::cell::RefCell;
-    use std::ffi::c_void;
-    use windows::Win32::Foundation::HWND;
-    use windows::Win32::System::Com::{
-        CoCreateInstance, CoInitializeEx, CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED,
-    };
-    use windows::Win32::UI::Accessibility::{CUIAutomation, IUIAutomation};
-
-    thread_local! {
-        static AUTOMATION: RefCell<Option<IUIAutomation>> = const { RefCell::new(None) };
-    }
-
-    unsafe {
-        let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
-        AUTOMATION.with(|slot| {
-            if slot.borrow().is_none() {
-                *slot.borrow_mut() =
-                    CoCreateInstance(&CUIAutomation, None, CLSCTX_INPROC_SERVER).ok();
-            }
-            let slot = slot.borrow();
-            let element = slot
-                .as_ref()?
-                .ElementFromHandle(HWND(handle as *mut c_void))
-                .ok()?;
-            let name = element.CurrentName().ok()?;
-            let title = String::from_utf16_lossy(&name);
-            (!title.is_empty()).then_some(title)
-        })
-    }
 }
 
 pub(in crate::paste_target) fn paste_to_target(

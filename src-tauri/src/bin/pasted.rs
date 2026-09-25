@@ -232,6 +232,7 @@ fn run_command(
         "operation" | "operations" => {
             cli_commands::operations::run_operations(args, db_path, conn)?
         }
+        "smart-paste" => cli_commands::smart_paste::run(args, db_path, conn)?,
         "bin" | "bins" => cli_commands::bins::run_bins(args, db_path, conn)?,
         "clip" | "clips" => cli_commands::clips::run_clips(args, db_path, conn)?,
         "copy" | "add" => cli_commands::history::run_copy(args, db_path, conn)?,

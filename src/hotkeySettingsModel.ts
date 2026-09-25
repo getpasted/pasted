@@ -5,7 +5,7 @@ import { settingDefault } from './settingsContract.ts';
 
 export type HotkeySetting = keyof Pick<
   AppSettings,
-  | 'seqToggleHotkey' | 'seqPopHotkey' | 'copyLastPipelineHotkey' | 'pasteLastPipelineHotkey'
+  | 'seqToggleHotkey' | 'seqPopHotkey' | 'copyLastPipelineHotkey' | 'pasteLastPipelineHotkey' | 'smartPasteHotkey'
   | 'openTransformationsHotkey' | 'openMainWindowHotkey' | 'lockAppHotkey'
   | 'pasteClip1Hotkey' | 'pasteClip2Hotkey' | 'pasteClip3Hotkey' | 'pasteClip4Hotkey'
   | 'pasteClip5Hotkey' | 'pasteClip6Hotkey' | 'pasteClip7Hotkey' | 'pasteClip8Hotkey'
@@ -16,6 +16,7 @@ export const DEFAULT_HOTKEYS: Partial<AppSettings> = {
   hudHotkey: settingDefault('hudHotkey'), seqToggleHotkey: settingDefault('seqToggleHotkey'),
   seqPopHotkey: settingDefault('seqPopHotkey'), copyLastPipelineHotkey: settingDefault('copyLastPipelineHotkey'),
   pasteLastPipelineHotkey: settingDefault('pasteLastPipelineHotkey'), openTransformationsHotkey: settingDefault('openTransformationsHotkey'),
+  smartPasteHotkey: settingDefault('smartPasteHotkey'),
   openMainWindowHotkey: settingDefault('openMainWindowHotkey'), lockAppHotkey: settingDefault('lockAppHotkey'),
   pasteClip1Hotkey: settingDefault('pasteClip1Hotkey'), pasteClip2Hotkey: settingDefault('pasteClip2Hotkey'),
   pasteClip3Hotkey: settingDefault('pasteClip3Hotkey'), pasteClip4Hotkey: settingDefault('pasteClip4Hotkey'),
@@ -31,6 +32,7 @@ export const actionHotkeys: Array<{ label: string; key: HotkeySetting; fallback?
   { get label() { return translate('component.settingsHotkeysPanel.pasteNextItemFromQueue'); }, key: 'seqPopHotkey', fallback: 'Alt+Shift+X', feature: 'queue' },
   { get label() { return translate('component.settingsHotkeysPanel.copyWithLastAdvancedTransform'); }, key: 'copyLastPipelineHotkey', feature: 'transformations' },
   { get label() { return translate('component.settingsHotkeysPanel.pasteWithLastAdvancedTransform'); }, key: 'pasteLastPipelineHotkey', feature: 'transformations' },
+  { get label() { return translate('component.settingsHotkeysPanel.smartPaste'); }, key: 'smartPasteHotkey', feature: 'transformations' },
   { get label() { return translate('component.settingsHotkeysPanel.openTransformations'); }, key: 'openTransformationsHotkey', feature: 'transformations' },
 ];
 
