@@ -47,11 +47,12 @@ pub fn start_clipboard_monitor(
     db_state: Arc<DbState>,
     seq_state: Arc<SequentialQueueState>,
     ocr_service: Arc<crate::ocr::OcrService>,
+    initially_paused: bool,
 ) -> MonitorHandle {
     let running = Arc::new(AtomicBool::new(true));
     let running_clone = running.clone();
 
-    let is_manually_paused = Arc::new(AtomicBool::new(false));
+    let is_manually_paused = Arc::new(AtomicBool::new(initially_paused));
     let is_auto_paused = Arc::new(AtomicBool::new(false));
 
     let is_manually_paused_clone = is_manually_paused.clone();

@@ -4,6 +4,9 @@ use std::sync::{
 };
 use tauri::{Emitter, Manager};
 
+#[path = "local_webkit_preview.rs"]
+mod local_webkit_preview;
+
 static EXIT_REQUESTED: AtomicBool = AtomicBool::new(false);
 
 pub(crate) fn exit_requested() -> bool {
@@ -65,7 +68,11 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
     }
     crate::app_windows::configure_initial_windows(app)?;
 
-    let Some(db_state) = crate::library_startup::initialize(app.handle()) else {
+    let preview_database_path =
+        local_webkit_preview::prepare(app.handle()).map_err(std::io::Error::other)?;
+    let Some(db_state) =
+        crate::library_startup::initialize(app.handle(), preview_database_path.as_deref())
+    else {
         if let Some(path) = live_request.as_deref() {
             crate::live_app::handle_request_file(app.handle(), path, false);
         }
@@ -119,6 +126,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         db_state.clone(),
         queue_state,
         ocr_service,
+        preview_database_path.is_some(),
     );
     app.manage(Arc::new(crate::clipboard_monitor::ClipboardMonitorState {
         is_manually_paused: monitor_handle.is_manually_paused.clone(),
