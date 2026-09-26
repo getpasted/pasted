@@ -185,6 +185,7 @@ fn setting_label(key: &str) -> Option<&'static str> {
         "seqPopHotkey" => Some("Paste Next hotkey"),
         "copyLastPipelineHotkey" => Some("Copy with Transform hotkey"),
         "pasteLastPipelineHotkey" => Some("Paste with Transform hotkey"),
+        "smartPasteHotkey" => Some("Smart Paste hotkey"),
         "openTransformationsHotkey" => Some("Transformations hotkey"),
         "openMainWindowHotkey" => Some("Main window hotkey"),
         _ if key.starts_with("pasteClip") && key.ends_with("Hotkey") => Some("Clip hotkey"),

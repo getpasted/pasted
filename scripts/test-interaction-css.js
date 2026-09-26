@@ -51,6 +51,7 @@ const clipPreviewContent = read('src/components/ClipPreviewContent.tsx');
 const clipPreviewTransformControls = read('src/components/ClipPreviewTransformControls.tsx');
 const clipTransformBar = read('src/components/ClipTransformBar.tsx');
 const clipCardActions = read('src/components/ClipCardActions.tsx');
+const floatingActionStrip = read('src/components/FloatingActionStrip.tsx');
 const clipPreviewTrashActions = read('src/components/ClipPreviewTrashActions.tsx');
 const clipBatchActionBar = read('src/components/ClipBatchActionBar.tsx');
 const contextMenu = read('src/components/ContextMenu.tsx');
@@ -69,6 +70,8 @@ for (const source of [clipCardActions, clipPreviewTrashActions, clipBatchActionB
 }
 assert.match(clipCardActions, /onPasteQueueItem[\s\S]*?className="floating-action-button is-accent"/,
   'the queue paste action keeps its accent treatment');
+assert.doesNotMatch(floatingActionStrip, /\? 'visible opacity-100'/,
+  'visible action strips must inherit a hidden clip list during scroll restoration');
 
 const ruleBody = (css, selector) => {
   const start = css.indexOf(selector);
@@ -167,8 +170,23 @@ assert.match(reorderHook, /setSettlingOrder\(nextOrder\)/,
   'Clip reordering must retain its committed visual order through persistence');
 assert.match(sidebar, /\.is-settling-pinned-reorder \[data-clip-list\][\s\S]{0,100}overflow-anchor:\s*none;/,
   'The clip list must disable browser scroll anchoring during reorder commits');
-assert.match(rememberedClipListScroll, /if \(reorderCommitInProgress\(element\)\) return;/,
+assert.match(rememberedClipListScroll, /if \(reorderCommitInProgress\(element\)\)[\s\S]{0,120}requestAnimationFrame\(restore\)/,
   'Remembered clip positions must not fight an in-progress reorder commit');
+assert.doesNotMatch(rememberedClipListScroll, /MutationObserver|addEventListener\('load'/,
+  'Clip scroll restoration must not compete with list mutation or thumbnail load observers');
+assert.match(rememberedClipListScroll, /element\.style\.visibility = 'hidden'[\s\S]*restorePosition\(element, transition\.position\)[\s\S]*requestAnimationFrame\(reveal\)/,
+  'The list must reveal only after its single coordinator applies the restored position');
+assert.match(
+  rememberedClipListScroll,
+  /if \(anchor\) \{[\s\S]*?return true;\n    \}\n    if \(position\.scrollTop <= maxScrollTop\) element\.scrollTop = position\.scrollTop;\n    return false;/,
+  'A bounded saved offset must materialize its virtualized anchor before correction',
+);
+assert.match(rememberedClipListScroll, /if \(position\.scrollTop > maxScrollTop\) return false;/,
+  'Startup must not clamp an out-of-range saved offset to an incomplete History page');
+assert.match(rememberedClipListScroll, /if \(transition\.complete\) return undefined/,
+  'Loading another page must not restart the completed view-entry restoration');
+assert.match(rememberedClipListScroll, /setTimeout\(reveal, 500\)/,
+  'A slow transition must reveal the usable list after a bounded delay');
 
 // Bin reordering restores the JS-managed hover immediately after settling;
 // clip dragging keeps its separate post-drag suppression behavior.

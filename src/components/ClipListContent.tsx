@@ -1,6 +1,6 @@
-import { translate } from '../localization/runtime';
 import type { ClipItem } from '../types';
 import { getClipViewPolicy } from '../utils/clipViewPolicy';
+import { translate } from '../localization/runtime';
 import { safeInvoke as invoke } from '../utils/tauri';
 import type { useAppController } from '../hooks/useAppController';
 import { ClipCard } from './ClipCard';
@@ -17,7 +17,8 @@ export function ClipListContent({ controller }: { controller: AppController }) {
   const { fetchSequentialStatus } = data;
   const { currentTab, selectedBinId, searchQuery } = navigation;
   const {
-    displayedClips, queuedIndexMap, searchDisplayQuery, searchFailed, retrySearch,
+    displayedClips, queuedIndexMap, searchTotalCount, searchDisplayQuery, isSearching,
+    searchFailed, collectionFailed, retrySearch, retryCollection,
     currentCollection, clipListRef, handleClipListScroll, isLoadingCurrentCollection,
     pinnedShelfClips, stackedPinnedClipIds, binClipReorder, isQueueCollection,
     queueReorder, reorderIdsForClip, displayedClipsForRender, binsById, hasRestrictedSelection,
@@ -158,7 +159,7 @@ export function ClipListContent({ controller }: { controller: AppController }) {
 
   const showEmpty = displayedClips.length === 0 && (
     !isLoadingCurrentCollection
-    || (currentCollection?.membership === 'search' && Boolean(searchDisplayQuery))
+    || (currentCollection?.membership === 'search' && (isSearching || Boolean(searchDisplayQuery)))
   );
   const forcedClipIds = [
     ...(selectedClip ? [selectedClip.id] : []),
@@ -168,6 +169,7 @@ export function ClipListContent({ controller }: { controller: AppController }) {
   return <div className="relative flex-1 min-h-0">
     {enabledFeatures.pinning && <PinnedClipShelf
       clips={pinnedShelfClips}
+      binsById={binsById}
       stackedClipIds={stackedPinnedClipIds}
       selectedClipId={selectedClip?.id}
       onSelect={selectPinnedShelfClip}
@@ -186,30 +188,32 @@ export function ClipListContent({ controller }: { controller: AppController }) {
       }}
     >
       {showEmpty ? (
-        searchFailed && currentTab === 'search' ? (
+        collectionFailed ? (
+          <div className="flex h-full items-center justify-center p-6">
+            <SearchErrorNotice message={translate('component.searchErrorNotice.clipsCouldNotBeLoaded')} onRetry={retryCollection} />
+          </div>
+        ) : searchFailed && currentTab === 'search' ? (
           <div className="flex h-full items-center justify-center p-6">
             <SearchErrorNotice onRetry={retrySearch} />
           </div>
         ) : <EmptyClipList
           currentTab={currentTab}
+          isSearching={currentTab === 'search' && isSearching}
           searchQuery={currentTab === 'search' ? searchDisplayQuery : searchQuery}
           selectedBin={selectedBinId === null ? undefined : binsById.get(selectedBinId)}
         />
       ) : <>
+        {collectionFailed && <SearchErrorNotice message={translate('component.searchErrorNotice.clipsCouldNotBeLoaded')} onRetry={retryCollection} />}
         {searchFailed && currentTab === 'search' && <SearchErrorNotice onRetry={retrySearch} />}
         <VirtualClipList
           clips={displayedClipsForRender}
+          totalCount={searchTotalCount}
           disabled={Boolean(currentCollection?.capabilities.canReorder)}
           forcedClipIds={forcedClipIds}
           rowHeight={appSettings.rowHeight}
           scrollRef={clipListRef}
           renderClip={renderClip}
         />
-        {isLoadingCurrentCollection && currentCollection?.membership !== 'search' && (
-          <div className="theme-text-muted py-3 text-center text-xs" role="status">
-            {translate('app.loadingOlderClips')}
-          </div>
-        )}
       </>}
     </div>
   </div>;

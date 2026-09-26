@@ -21,6 +21,7 @@ pub fn clear_activity_logs(db: State<'_, Arc<DbState>>) -> Result<(), String> {
 
 #[tauri::command]
 pub fn export_activity_json(db: State<'_, Arc<DbState>>) -> Result<String, String> {
+    crate::features::require(&db, crate::features::Feature::Backups)?;
     let exported = db
         .export_activity_json()
         .map_err(|error| error.to_string())?;
@@ -30,6 +31,7 @@ pub fn export_activity_json(db: State<'_, Arc<DbState>>) -> Result<String, Strin
 
 #[tauri::command]
 pub fn export_activity_csv(db: State<'_, Arc<DbState>>) -> Result<String, String> {
+    crate::features::require(&db, crate::features::Feature::Backups)?;
     let exported = db
         .export_activity_csv()
         .map_err(|error| error.to_string())?;

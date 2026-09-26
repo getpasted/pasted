@@ -15,7 +15,7 @@ Operating-system frameworks are supplied by the operating system. Linux AppImage
 runtime notices are embedded by the AppImage runtime and must remain intact.
 Windows installer-tool components and their notices are included in this inventory.
 
-Component inventory (586)
+Component inventory (595)
 
 - adler2 2.0.1 [cargo; 0BSD OR MIT OR Apache-2.0] — https://github.com/oyvindln/adler2
 - aho-corasick 1.1.5 [cargo; Unlicense OR MIT] — https://github.com/BurntSushi/aho-corasick
@@ -23,7 +23,7 @@ Component inventory (586)
 - alloc-stdlib 0.2.4 [cargo; BSD-3-Clause] — https://github.com/dropbox/rust-alloc-no-stdlib
 - anyhow 1.0.104 [cargo; MIT OR Apache-2.0] — https://github.com/dtolnay/anyhow
 - arboard 3.6.1 [cargo; MIT OR Apache-2.0] — https://github.com/1Password/arboard
-- argon2 0.5.3 [cargo; MIT OR Apache-2.0] — https://github.com/RustCrypto/password-hashes/tree/master/argon2
+- argon2 0.6.0 [cargo; MIT OR Apache-2.0] — https://github.com/RustCrypto/password-hashes
 - ashpd 0.13.13 [cargo; MIT] — https://github.com/bilelmoussaoui/ashpd
 - async-broadcast 0.7.2 [cargo; MIT OR Apache-2.0] — https://github.com/smol-rs/async-broadcast
 - async-channel 2.5.0 [cargo; Apache-2.0 OR MIT] — https://github.com/smol-rs/async-channel
@@ -47,7 +47,7 @@ Component inventory (586)
 - bit-vec 0.8.0 [cargo; Apache-2.0 OR MIT] — https://github.com/contain-rs/bit-vec
 - bitflags 1.3.2 [cargo; MIT OR Apache-2.0] — https://github.com/bitflags/bitflags
 - bitflags 2.13.1 [cargo; MIT OR Apache-2.0] — https://github.com/bitflags/bitflags
-- blake2 0.10.6 [cargo; MIT OR Apache-2.0] — https://github.com/RustCrypto/hashes
+- blake2 0.11.0 [cargo; MIT OR Apache-2.0] — https://github.com/RustCrypto/hashes
 - block-buffer 0.10.4 [cargo; MIT OR Apache-2.0] — https://github.com/RustCrypto/utils
 - block-buffer 0.12.1 [cargo; MIT OR Apache-2.0] — https://github.com/RustCrypto/utils
 - block2 0.6.2 [cargo; MIT] — https://github.com/madsmtm/objc2
@@ -68,10 +68,12 @@ Component inventory (586)
 - cfg-if 1.0.4 [cargo; MIT OR Apache-2.0] — https://github.com/rust-lang/cfg-if
 - chrono 0.4.45 [cargo; MIT OR Apache-2.0] — https://github.com/chronotope/chrono
 - clipboard-win 5.4.1 [cargo; BSL-1.0] — https://github.com/DoumanAsh/clipboard-win
+- cmov 0.5.4 [cargo; Apache-2.0 OR MIT] — https://github.com/RustCrypto/utils
 - concurrent-queue 2.5.0 [cargo; Apache-2.0 OR MIT] — https://github.com/smol-rs/concurrent-queue
 - const-oid 0.10.2 [cargo; Apache-2.0 OR MIT] — https://github.com/RustCrypto/formats
 - cookie 0.18.2 [cargo; MIT OR Apache-2.0] — https://github.com/SergioBenitez/cookie-rs
 - core-foundation 0.10.1 [cargo; MIT OR Apache-2.0] — https://github.com/servo/core-foundation-rs
+- core-foundation 0.9.4 [cargo; MIT OR Apache-2.0] — https://github.com/servo/core-foundation-rs
 - core-foundation-sys 0.8.7 [cargo; MIT OR Apache-2.0] — https://github.com/servo/core-foundation-rs
 - core-graphics 0.25.0 [cargo; MIT OR Apache-2.0] — https://github.com/servo/core-foundation-rs
 - core-graphics-types 0.2.0 [cargo; MIT OR Apache-2.0] — https://github.com/servo/core-foundation-rs
@@ -86,6 +88,7 @@ Component inventory (586)
 - cssparser-macros 0.6.1 [cargo; MPL-2.0] — https://github.com/servo/rust-cssparser
 - ctor 0.8.0 [cargo; Apache-2.0 OR MIT] — https://github.com/mmastrac/rust-ctor
 - ctor-proc-macro 0.0.7 [cargo; Apache-2.0 OR MIT] — https://github.com/mmastrac/rust-ctor
+- ctutils 0.4.2 [cargo; Apache-2.0 OR MIT] — https://github.com/RustCrypto/utils
 - darling 0.23.0 [cargo; MIT] — https://github.com/TedDriggs/darling
 - darling_core 0.23.0 [cargo; MIT] — https://github.com/TedDriggs/darling
 - darling_macro 0.23.0 [cargo; MIT] — https://github.com/TedDriggs/darling
@@ -97,6 +100,7 @@ Component inventory (586)
 - digest 0.11.3 [cargo; MIT OR Apache-2.0] — https://github.com/RustCrypto/traits
 - dirs 4.0.0 [cargo; MIT OR Apache-2.0] — https://github.com/soc/dirs-rs
 - dirs 6.0.0 [cargo; MIT OR Apache-2.0] — https://github.com/soc/dirs-rs
+- dirs 7.0.0 [cargo; MIT OR Apache-2.0] — https://codeberg.org/dirs/dirs-rs
 - dirs-sys 0.3.7 [cargo; MIT OR Apache-2.0] — https://github.com/dirs-dev/dirs-sys-rs
 - dirs-sys 0.5.0 [cargo; MIT OR Apache-2.0] — https://github.com/dirs-dev/dirs-sys-rs
 - dispatch2 0.3.1 [cargo; Zlib OR Apache-2.0 OR MIT] — https://github.com/madsmtm/objc2
@@ -254,16 +258,17 @@ Component inventory (586)
 - parking 2.2.1 [cargo; Apache-2.0 OR MIT] — https://github.com/smol-rs/parking
 - parking_lot 0.12.5 [cargo; MIT OR Apache-2.0] — https://github.com/Amanieu/parking_lot
 - parking_lot_core 0.9.12 [cargo; MIT OR Apache-2.0] — https://github.com/Amanieu/parking_lot
-- password-hash 0.5.0 [cargo; MIT OR Apache-2.0] — https://github.com/RustCrypto/traits/tree/master/password-hash
+- password-hash 0.6.1 [cargo; MIT OR Apache-2.0] — https://github.com/RustCrypto/traits
 - percent-encoding 2.3.2 [cargo; MIT OR Apache-2.0] — https://github.com/servo/rust-url/
 - petgraph 0.8.3 [cargo; MIT OR Apache-2.0] — https://github.com/petgraph/petgraph
+- phc 0.6.1 [cargo; Apache-2.0 OR MIT] — https://github.com/RustCrypto/formats
 - phf 0.13.1 [cargo; MIT] — https://github.com/rust-phf/rust-phf
 - phf_generator 0.13.1 [cargo; MIT] — https://github.com/rust-phf/rust-phf
 - phf_macros 0.13.1 [cargo; MIT] — https://github.com/rust-phf/rust-phf
 - phf_shared 0.13.1 [cargo; MIT] — https://github.com/rust-phf/rust-phf
 - pin-project-lite 0.2.17 [cargo; Apache-2.0 OR MIT] — https://github.com/taiki-e/pin-project-lite
 - piper 0.2.5 [cargo; MIT OR Apache-2.0] — https://github.com/smol-rs/piper
-- plist 1.10.0 [cargo; MIT] — https://github.com/ebarnard/rust-plist/
+- plist 1.10.1 [cargo; MIT] — https://github.com/ebarnard/rust-plist/
 - png 0.17.16 [cargo; MIT OR Apache-2.0] — https://github.com/image-rs/image-png
 - png 0.18.1 [cargo; MIT OR Apache-2.0] — https://github.com/image-rs/image-png
 - polling 3.11.0 [cargo; Apache-2.0 OR MIT] — https://github.com/smol-rs/polling
@@ -279,13 +284,14 @@ Component inventory (586)
 - pxfm 0.1.30 [cargo; BSD-3-Clause OR Apache-2.0] — https://github.com/awxkee/pxfm
 - quick-error 2.0.1 [cargo; MIT OR Apache-2.0] — http://github.com/tailhook/quick-error
 - quick-xml 0.41.0 [cargo; MIT] — https://github.com/tafia/quick-xml
+- quick-xml 0.42.0 [cargo; MIT] — https://github.com/tafia/quick-xml
 - quote 1.0.47 [cargo; MIT OR Apache-2.0] — https://github.com/dtolnay/quote
 - rand_core 0.6.4 [cargo; MIT OR Apache-2.0] — https://github.com/rust-random/rand
 - raw-window-handle 0.6.2 [cargo; MIT OR Apache-2.0 OR Zlib] — https://github.com/rust-windowing/raw-window-handle
 - regex 1.13.1 [cargo; MIT OR Apache-2.0] — https://github.com/rust-lang/regex
 - regex-automata 0.4.18 [cargo; MIT OR Apache-2.0] — https://github.com/rust-lang/regex
 - regex-syntax 0.8.11 [cargo; MIT OR Apache-2.0] — https://github.com/rust-lang/regex
-- reqwest 0.13.4 [cargo; MIT OR Apache-2.0] — https://github.com/seanmonstar/reqwest
+- reqwest 0.13.5 [cargo; MIT OR Apache-2.0] — https://github.com/seanmonstar/reqwest
 - rfd 0.16.0 [cargo; MIT] — https://github.com/PolyMeilex/rfd
 - ring 0.17.14 [cargo; Apache-2.0 AND ISC] — https://github.com/briansmith/ring
 - rpassword 7.5.4 [cargo; Apache-2.0] — https://github.com/conradkleinespel/rpassword
@@ -293,7 +299,7 @@ Component inventory (586)
 - rusqlite 0.40.2 [cargo; MIT] — https://github.com/rusqlite/rusqlite
 - rustc-hash 2.1.3 [cargo; Apache-2.0 OR MIT] — https://github.com/rust-lang/rustc-hash
 - rustix 1.1.4 [cargo; Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT] — https://github.com/bytecodealliance/rustix
-- rustls 0.23.43 [cargo; Apache-2.0 OR ISC OR MIT] — https://github.com/rustls/rustls
+- rustls 0.23.45 [cargo; Apache-2.0 OR ISC OR MIT] — https://github.com/rustls/rustls
 - rustls-native-certs 0.8.4 [cargo; Apache-2.0 OR ISC OR MIT] — https://github.com/rustls/rustls-native-certs
 - rustls-pki-types 1.15.1 [cargo; MIT OR Apache-2.0] — https://github.com/rustls/pki-types
 - rustls-platform-verifier 0.7.0 [cargo; MIT OR Apache-2.0] — https://github.com/rustls/rustls-platform-verifier
@@ -341,17 +347,19 @@ Component inventory (586)
 - syn 3.0.4 [cargo; MIT OR Apache-2.0] — https://github.com/dtolnay/syn
 - sync_wrapper 1.0.2 [cargo; Apache-2.0] — https://github.com/Actyx/sync_wrapper
 - synstructure 0.13.2 [cargo; MIT] — https://github.com/mystor/synstructure
+- system-configuration 0.7.0 [cargo; MIT OR Apache-2.0] — https://github.com/mullvad/system-configuration-rs
+- system-configuration-sys 0.6.0 [cargo; MIT OR Apache-2.0] — https://github.com/mullvad/system-configuration-rs
 - tao 0.35.3 [cargo; Apache-2.0] — https://github.com/tauri-apps/tao
 - tar 0.4.46 [cargo; MIT OR Apache-2.0] — https://github.com/composefs/tar-rs
 - tauri 2.11.5 [cargo; Apache-2.0 OR MIT] — https://github.com/tauri-apps/tauri
 - tauri-codegen 2.6.3 [cargo; Apache-2.0 OR MIT] — https://github.com/tauri-apps/tauri
 - tauri-macros 2.6.3 [cargo; Apache-2.0 OR MIT] — https://github.com/tauri-apps/tauri
 - tauri-plugin-autostart 2.5.1 [cargo; Apache-2.0 OR MIT] — https://github.com/tauri-apps/plugins-workspace
-- tauri-plugin-dialog 2.7.2 [cargo; Apache-2.0 OR MIT] — https://github.com/tauri-apps/plugins-workspace
-- tauri-plugin-fs 2.5.1 [cargo; Apache-2.0 OR MIT] — https://github.com/tauri-apps/plugins-workspace
+- tauri-plugin-dialog 2.7.3 [cargo; Apache-2.0 OR MIT] — https://github.com/tauri-apps/plugins-workspace
+- tauri-plugin-fs 2.5.2 [cargo; Apache-2.0 OR MIT] — https://github.com/tauri-apps/plugins-workspace
 - tauri-plugin-global-shortcut 2.3.2 [cargo; Apache-2.0 OR MIT] — https://github.com/tauri-apps/plugins-workspace
-- tauri-plugin-single-instance 2.4.3 [cargo; Apache-2.0 OR MIT] — https://github.com/tauri-apps/plugins-workspace
-- tauri-plugin-updater 2.10.1 [cargo; Apache-2.0 OR MIT] — https://github.com/tauri-apps/plugins-workspace
+- tauri-plugin-single-instance 2.4.4 [cargo; Apache-2.0 OR MIT] — https://github.com/tauri-apps/plugins-workspace
+- tauri-plugin-updater 2.11.0 [cargo; Apache-2.0 OR MIT] — https://github.com/tauri-apps/plugins-workspace
 - tauri-plugin-window-state 2.4.1 [cargo; Apache-2.0 OR MIT] — https://github.com/tauri-apps/plugins-workspace
 - tauri-runtime 2.11.3 [cargo; Apache-2.0 OR MIT] — https://github.com/tauri-apps/tauri
 - tauri-runtime-wry 2.11.4 [cargo; Apache-2.0 OR MIT] — https://github.com/tauri-apps/tauri
@@ -444,6 +452,7 @@ Component inventory (586)
 - windows-link 0.2.1 [cargo; MIT OR Apache-2.0] — https://github.com/microsoft/windows-rs
 - windows-numerics 0.2.0 [cargo; MIT OR Apache-2.0] — https://github.com/microsoft/windows-rs
 - windows-numerics 0.3.1 [cargo; MIT OR Apache-2.0] — https://github.com/microsoft/windows-rs
+- windows-registry 0.6.1 [cargo; MIT OR Apache-2.0] — https://github.com/microsoft/windows-rs
 - windows-result 0.3.4 [cargo; MIT OR Apache-2.0] — https://github.com/microsoft/windows-rs
 - windows-result 0.4.1 [cargo; MIT OR Apache-2.0] — https://github.com/microsoft/windows-rs
 - windows-strings 0.4.2 [cargo; MIT OR Apache-2.0] — https://github.com/microsoft/windows-rs
@@ -499,7 +508,7 @@ Component inventory (586)
 - @types/hast 3.0.5 [npm; MIT] — https://github.com/DefinitelyTyped/DefinitelyTyped
 - @types/mdast 4.0.4 [npm; MIT] — https://github.com/DefinitelyTyped/DefinitelyTyped
 - @types/ms 2.1.0 [npm; MIT] — https://github.com/DefinitelyTyped/DefinitelyTyped
-- @types/react 19.2.18 [npm; MIT] — https://github.com/DefinitelyTyped/DefinitelyTyped
+- @types/react 19.3.0 [npm; MIT] — https://github.com/DefinitelyTyped/DefinitelyTyped
 - @types/unist 2.0.11 [npm; MIT] — https://github.com/DefinitelyTyped/DefinitelyTyped
 - @types/unist 3.0.3 [npm; MIT] — https://github.com/DefinitelyTyped/DefinitelyTyped
 - @ungap/structured-clone 1.4.0 [npm; ISC] — https://github.com/ungap/structured-clone
@@ -529,7 +538,7 @@ Component inventory (586)
 - is-hexadecimal 2.0.1 [npm; MIT] — wooorm/is-hexadecimal
 - is-plain-obj 4.1.0 [npm; MIT] — sindresorhus/is-plain-obj
 - longest-streak 3.1.0 [npm; MIT] — wooorm/longest-streak
-- lucide-react 1.35.0 [npm; ISC] — https://github.com/lucide-icons/lucide
+- lucide-react 1.47.0 [npm; ISC] — https://github.com/lucide-icons/lucide
 - markdown-table 3.0.4 [npm; MIT] — wooorm/markdown-table
 - mdast-util-find-and-replace 3.0.2 [npm; MIT] — syntax-tree/mdast-util-find-and-replace
 - mdast-util-from-markdown 2.0.3 [npm; MIT] — syntax-tree/mdast-util-from-markdown
@@ -577,19 +586,19 @@ Component inventory (586)
 - ms 2.1.3 [npm; MIT] — vercel/ms
 - parse-entities 4.0.2 [npm; MIT] — wooorm/parse-entities
 - property-information 7.2.0 [npm; MIT] — wooorm/property-information
-- react 19.2.8 [npm; MIT] — https://github.com/react/react
-- react-dom 19.2.8 [npm; MIT] — https://github.com/react/react
+- react 19.3.0 [npm; MIT] — https://github.com/react/react
+- react-dom 19.3.0 [npm; MIT] — https://github.com/react/react
 - react-markdown 10.1.0 [npm; MIT] — remarkjs/react-markdown
 - remark-gfm 4.0.1 [npm; MIT] — remarkjs/remark-gfm
 - remark-parse 11.0.0 [npm; MIT] — https://github.com/remarkjs/remark/tree/main/packages/remark-parse
 - remark-rehype 11.1.2 [npm; MIT] — remarkjs/remark-rehype
 - remark-stringify 11.0.0 [npm; MIT] — https://github.com/remarkjs/remark/tree/main/packages/remark-stringify
-- scheduler 0.27.0 [npm; MIT] — https://github.com/facebook/react
+- scheduler 0.28.0 [npm; MIT] — https://github.com/facebook/react
 - space-separated-tokens 2.0.2 [npm; MIT] — wooorm/space-separated-tokens
 - stringify-entities 4.0.4 [npm; MIT] — wooorm/stringify-entities
 - style-to-js 1.1.21 [npm; MIT] — https://github.com/remarkablemark/style-to-js
 - style-to-object 1.0.14 [npm; MIT] — https://github.com/remarkablemark/style-to-object
-- tailwind-merge 3.6.0 [npm; MIT] — https://github.com/dcastil/tailwind-merge
+- tailwind-merge 3.7.0 [npm; MIT] — https://github.com/dcastil/tailwind-merge
 - trim-lines 3.0.1 [npm; MIT] — wooorm/trim-lines
 - trough 2.2.0 [npm; MIT] — wooorm/trough
 - unified 11.0.5 [npm; MIT] — unifiedjs/unified
@@ -635,7 +644,7 @@ THE SOFTWARE.
 ================================================================================
 Apache License 2.0
 License identifier: Apache-2.0
-Used by: anyhow 1.0.104 (cargo), arboard 3.6.1 (cargo), async-trait 0.1.92 (cargo), dirs 4.0.0 (cargo), dirs 6.0.0 (cargo), dirs-sys 0.3.7 (cargo), dirs-sys 0.5.0 (cargo), dispatch2 0.3.1 (cargo), dtoa 1.0.11 (cargo), dunce 1.0.5 (cargo), dyn-clone 1.0.20 (cargo), erased-serde 0.4.10 (cargo), fdeflate 0.3.7 (cargo), field-offset 0.3.6 (cargo), half 2.7.1 (cargo), ident_case 1.0.1 (cargo), image 0.25.10 (cargo), image-webp 0.2.4 (cargo), itoa 1.0.18 (cargo), libappindicator-sys 0.9.0 (cargo), libc 0.2.189 (cargo), miniz_oxide 0.8.9 (cargo), num-conv 0.2.2 (cargo), objc2-app-kit 0.3.2 (cargo), objc2-core-foundation 0.3.2 (cargo), objc2-core-graphics 0.3.2 (cargo), objc2-exception-helper 0.1.1 (cargo), objc2-osa-kit 0.3.2 (cargo), objc2-quartz-core 0.3.2 (cargo), objc2-web-kit 0.3.2 (cargo), osakit 0.3.1 (cargo), pin-project-lite 0.2.17 (cargo), proc-macro2 1.0.107 (cargo), quote 1.0.47 (cargo), raw-window-handle 0.6.2 (cargo), rpassword 7.5.4 (cargo), rtoolbox 0.0.5 (cargo), rustc-hash 2.1.3 (cargo), semver 1.0.28 (cargo), serde 1.0.229 (cargo), serde_core 1.0.229 (cargo), serde_derive 1.0.229 (cargo), serde_derive_internals 0.29.1 (cargo), serde_json 1.0.151 (cargo), serde_repr 0.1.21 (cargo), serde-untagged 0.1.9 (cargo), siphasher 1.0.3 (cargo), syn 2.0.119 (cargo), syn 3.0.4 (cargo), sync_wrapper 1.0.2 (cargo), tauri 2.11.5 (cargo), tauri-codegen 2.6.3 (cargo), tauri-macros 2.6.3 (cargo), tauri-plugin-autostart 2.5.1 (cargo), tauri-plugin-dialog 2.7.2 (cargo), tauri-plugin-fs 2.5.1 (cargo), tauri-plugin-global-shortcut 2.3.2 (cargo), tauri-plugin-single-instance 2.4.3 (cargo), tauri-plugin-updater 2.10.1 (cargo), tauri-plugin-window-state 2.4.1 (cargo), tauri-runtime 2.11.3 (cargo), tauri-runtime-wry 2.11.4 (cargo), tauri-utils 2.9.3 (cargo), thiserror 1.0.69 (cargo), thiserror 2.0.20 (cargo), thiserror-impl 1.0.69 (cargo), thiserror-impl 2.0.20 (cargo), time 0.3.55 (cargo), time-core 0.1.9 (cargo), time-macros 0.2.32 (cargo), typeid 1.0.3 (cargo), unic-char-property 0.9.0 (cargo), unic-char-range 0.9.0 (cargo), unic-common 0.9.0 (cargo), unic-ucd-ident 0.9.0 (cargo), unic-ucd-version 0.9.0 (cargo), unicode-ident 1.0.24 (cargo), nsis_tauri_utils 0.5.3 (packaging)
+Used by: anyhow 1.0.104 (cargo), arboard 3.6.1 (cargo), async-trait 0.1.92 (cargo), dirs 4.0.0 (cargo), dirs 6.0.0 (cargo), dirs 7.0.0 (cargo), dirs-sys 0.3.7 (cargo), dirs-sys 0.5.0 (cargo), dispatch2 0.3.1 (cargo), dtoa 1.0.11 (cargo), dunce 1.0.5 (cargo), dyn-clone 1.0.20 (cargo), erased-serde 0.4.10 (cargo), fdeflate 0.3.7 (cargo), field-offset 0.3.6 (cargo), half 2.7.1 (cargo), ident_case 1.0.1 (cargo), image 0.25.10 (cargo), image-webp 0.2.4 (cargo), itoa 1.0.18 (cargo), libappindicator-sys 0.9.0 (cargo), libc 0.2.189 (cargo), miniz_oxide 0.8.9 (cargo), num-conv 0.2.2 (cargo), objc2-app-kit 0.3.2 (cargo), objc2-core-foundation 0.3.2 (cargo), objc2-core-graphics 0.3.2 (cargo), objc2-exception-helper 0.1.1 (cargo), objc2-osa-kit 0.3.2 (cargo), objc2-quartz-core 0.3.2 (cargo), objc2-web-kit 0.3.2 (cargo), osakit 0.3.1 (cargo), pin-project-lite 0.2.17 (cargo), proc-macro2 1.0.107 (cargo), quote 1.0.47 (cargo), raw-window-handle 0.6.2 (cargo), rpassword 7.5.4 (cargo), rtoolbox 0.0.5 (cargo), rustc-hash 2.1.3 (cargo), semver 1.0.28 (cargo), serde 1.0.229 (cargo), serde_core 1.0.229 (cargo), serde_derive 1.0.229 (cargo), serde_derive_internals 0.29.1 (cargo), serde_json 1.0.151 (cargo), serde_repr 0.1.21 (cargo), serde-untagged 0.1.9 (cargo), siphasher 1.0.3 (cargo), syn 2.0.119 (cargo), syn 3.0.4 (cargo), sync_wrapper 1.0.2 (cargo), tauri 2.11.5 (cargo), tauri-codegen 2.6.3 (cargo), tauri-macros 2.6.3 (cargo), tauri-plugin-autostart 2.5.1 (cargo), tauri-plugin-dialog 2.7.3 (cargo), tauri-plugin-fs 2.5.2 (cargo), tauri-plugin-global-shortcut 2.3.2 (cargo), tauri-plugin-single-instance 2.4.4 (cargo), tauri-plugin-updater 2.11.0 (cargo), tauri-plugin-window-state 2.4.1 (cargo), tauri-runtime 2.11.3 (cargo), tauri-runtime-wry 2.11.4 (cargo), tauri-utils 2.9.3 (cargo), thiserror 1.0.69 (cargo), thiserror 2.0.20 (cargo), thiserror-impl 1.0.69 (cargo), thiserror-impl 2.0.20 (cargo), time 0.3.55 (cargo), time-core 0.1.9 (cargo), time-macros 0.2.32 (cargo), typeid 1.0.3 (cargo), unic-char-property 0.9.0 (cargo), unic-char-range 0.9.0 (cargo), unic-common 0.9.0 (cargo), unic-ucd-ident 0.9.0 (cargo), unic-ucd-version 0.9.0 (cargo), unicode-ident 1.0.24 (cargo), nsis_tauri_utils 0.5.3 (packaging)
 --------------------------------------------------------------------------------
 Apache License
 Version 2.0, January 2004
@@ -867,7 +876,7 @@ licences; see files named LICENSE.*.txt for details.
 ================================================================================
 Apache License 2.0
 License identifier: Apache-2.0
-Used by: async-channel 2.5.0 (cargo), async-executor 1.14.0 (cargo), async-io 2.6.0 (cargo), async-lock 3.4.2 (cargo), async-process 2.5.0 (cargo), async-recursion 1.1.1 (cargo), async-signal 0.2.14 (cargo), async-task 4.7.1 (cargo), atomic-waker 1.1.2 (cargo), base64 0.21.7 (cargo), base64 0.22.1 (cargo), base64 0.23.1 (cargo), bitflags 1.3.2 (cargo), bitflags 2.13.1 (cargo), blocking 1.7.0 (cargo), camino 1.2.5 (cargo), cfg-if 1.0.4 (cargo), concurrent-queue 2.5.0 (cargo), core-foundation 0.10.1 (cargo), core-foundation-sys 0.8.7 (cargo), core-graphics 0.25.0 (cargo), core-graphics-types 0.2.0 (cargo), crossbeam-channel 0.5.16 (cargo), crossbeam-utils 0.8.22 (cargo), displaydoc 0.2.7 (cargo), equivalent 1.0.2 (cargo), errno 0.3.14 (cargo), event-listener 5.4.2 (cargo), event-listener-strategy 0.5.4 (cargo), fastrand 2.5.0 (cargo), filetime 0.2.29 (cargo), fixedbitset 0.5.7 (cargo), flate2 1.1.9 (cargo), fnv 1.0.7 (cargo), form_urlencoded 1.2.2 (cargo), futures-lite 2.6.1 (cargo), gethostname 1.1.0 (cargo), glob 0.3.4 (cargo), global-hotkey 0.8.0 (cargo), hashbrown 0.15.5 (cargo), hashbrown 0.17.1 (cargo), heck 0.4.1 (cargo), heck 0.5.0 (cargo), html5ever 0.38.0 (cargo), httparse 1.10.1 (cargo), hyper-rustls 0.27.9 (cargo), idna 1.1.0 (cargo), idna_adapter 1.2.2 (cargo), indexmap 2.14.0 (cargo), keyboard-types 0.7.0 (cargo), libappindicator 0.9.0 (cargo), linux-raw-sys 0.12.1 (cargo), lock_api 0.4.14 (cargo), log 0.4.34 (cargo), markup5ever 0.38.0 (cargo), mime 0.3.17 (cargo), muda 0.19.3 (cargo), num-traits 0.2.19 (cargo), once_cell 1.21.4 (cargo), openssl-probe 0.2.1 (cargo), ordered-stream 0.2.0 (cargo), parking 2.2.1 (cargo), parking_lot 0.12.5 (cargo), parking_lot_core 0.9.12 (cargo), percent-encoding 2.3.2 (cargo), petgraph 0.8.3 (cargo), piper 0.2.5 (cargo), png 0.17.16 (cargo), png 0.18.1 (cargo), polling 3.11.0 (cargo), regex 1.13.1 (cargo), regex-automata 0.4.18 (cargo), regex-syntax 0.8.11 (cargo), ring 0.17.14 (cargo), rustix 1.1.4 (cargo), rustls 0.23.43 (cargo), rustls-native-certs 0.8.4 (cargo), scopeguard 1.2.0 (cargo), security-framework 3.7.0 (cargo), security-framework-sys 2.17.0 (cargo), serde_with 3.22.0 (cargo), serde_with_macros 3.22.0 (cargo), servo_arc 0.4.3 (cargo), signal-hook-registry 1.4.8 (cargo), smallvec 1.15.2 (cargo), socket2 0.6.5 (cargo), stable_deref_trait 1.2.1 (cargo), string_cache 0.9.0 (cargo), syn 1.0.109 (cargo), tar 0.4.46 (cargo), tempfile 3.27.0 (cargo), tendril 0.5.1 (cargo), toml_datetime 0.6.3 (cargo), tray-icon 0.24.2 (cargo), unicode-normalization 0.1.25 (cargo), unicode-segmentation 1.13.3 (cargo), url 2.5.8 (cargo), uuid 1.25.0 (cargo), web_atoms 0.2.6 (cargo), weezl 0.1.12 (cargo), window-vibrancy 0.6.0 (cargo), window-vibrancy 0.8.0 (cargo), wl-clipboard-rs 0.9.3 (cargo), wry 0.55.1 (cargo), xattr 1.6.1 (cargo)
+Used by: async-channel 2.5.0 (cargo), async-executor 1.14.0 (cargo), async-io 2.6.0 (cargo), async-lock 3.4.2 (cargo), async-process 2.5.0 (cargo), async-recursion 1.1.1 (cargo), async-signal 0.2.14 (cargo), async-task 4.7.1 (cargo), atomic-waker 1.1.2 (cargo), base64 0.21.7 (cargo), base64 0.22.1 (cargo), base64 0.23.1 (cargo), bitflags 1.3.2 (cargo), bitflags 2.13.1 (cargo), blocking 1.7.0 (cargo), camino 1.2.5 (cargo), cfg-if 1.0.4 (cargo), concurrent-queue 2.5.0 (cargo), core-foundation 0.10.1 (cargo), core-foundation 0.9.4 (cargo), core-foundation-sys 0.8.7 (cargo), core-graphics 0.25.0 (cargo), core-graphics-types 0.2.0 (cargo), crossbeam-channel 0.5.16 (cargo), crossbeam-utils 0.8.22 (cargo), displaydoc 0.2.7 (cargo), equivalent 1.0.2 (cargo), errno 0.3.14 (cargo), event-listener 5.4.2 (cargo), event-listener-strategy 0.5.4 (cargo), fastrand 2.5.0 (cargo), filetime 0.2.29 (cargo), fixedbitset 0.5.7 (cargo), flate2 1.1.9 (cargo), fnv 1.0.7 (cargo), form_urlencoded 1.2.2 (cargo), futures-lite 2.6.1 (cargo), gethostname 1.1.0 (cargo), glob 0.3.4 (cargo), global-hotkey 0.8.0 (cargo), hashbrown 0.15.5 (cargo), hashbrown 0.17.1 (cargo), heck 0.4.1 (cargo), heck 0.5.0 (cargo), html5ever 0.38.0 (cargo), httparse 1.10.1 (cargo), hyper-rustls 0.27.9 (cargo), idna 1.1.0 (cargo), idna_adapter 1.2.2 (cargo), indexmap 2.14.0 (cargo), keyboard-types 0.7.0 (cargo), libappindicator 0.9.0 (cargo), linux-raw-sys 0.12.1 (cargo), lock_api 0.4.14 (cargo), log 0.4.34 (cargo), markup5ever 0.38.0 (cargo), mime 0.3.17 (cargo), muda 0.19.3 (cargo), num-traits 0.2.19 (cargo), once_cell 1.21.4 (cargo), openssl-probe 0.2.1 (cargo), ordered-stream 0.2.0 (cargo), parking 2.2.1 (cargo), parking_lot 0.12.5 (cargo), parking_lot_core 0.9.12 (cargo), percent-encoding 2.3.2 (cargo), petgraph 0.8.3 (cargo), piper 0.2.5 (cargo), png 0.17.16 (cargo), png 0.18.1 (cargo), polling 3.11.0 (cargo), regex 1.13.1 (cargo), regex-automata 0.4.18 (cargo), regex-syntax 0.8.11 (cargo), ring 0.17.14 (cargo), rustix 1.1.4 (cargo), rustls 0.23.45 (cargo), rustls-native-certs 0.8.4 (cargo), scopeguard 1.2.0 (cargo), security-framework 3.7.0 (cargo), security-framework-sys 2.17.0 (cargo), serde_with 3.22.0 (cargo), serde_with_macros 3.22.0 (cargo), servo_arc 0.4.3 (cargo), signal-hook-registry 1.4.8 (cargo), smallvec 1.15.2 (cargo), socket2 0.6.5 (cargo), stable_deref_trait 1.2.1 (cargo), string_cache 0.9.0 (cargo), syn 1.0.109 (cargo), system-configuration 0.7.0 (cargo), system-configuration-sys 0.6.0 (cargo), tar 0.4.46 (cargo), tempfile 3.27.0 (cargo), tendril 0.5.1 (cargo), toml_datetime 0.6.3 (cargo), tray-icon 0.24.2 (cargo), unicode-normalization 0.1.25 (cargo), unicode-segmentation 1.13.3 (cargo), url 2.5.8 (cargo), uuid 1.25.0 (cargo), web_atoms 0.2.6 (cargo), weezl 0.1.12 (cargo), window-vibrancy 0.6.0 (cargo), window-vibrancy 0.8.0 (cargo), wl-clipboard-rs 0.9.3 (cargo), wry 0.55.1 (cargo), xattr 1.6.1 (cargo)
 --------------------------------------------------------------------------------
 Apache License
                         Version 2.0, January 2004
@@ -2495,7 +2504,7 @@ THE SOFTWARE.
 ================================================================================
 Apache License 2.0
 License identifier: Apache-2.0
-Used by: reqwest 0.13.4 (cargo)
+Used by: reqwest 0.13.5 (cargo)
 --------------------------------------------------------------------------------
 Apache License
                         Version 2.0, January 2004
@@ -3037,7 +3046,7 @@ THE SOFTWARE.
 ================================================================================
 @types/debug — LICENSE / @types/estree — LICENSE / @types/estree-jsx — LICENSE / @types/hast — LICENSE / @types/mdast — LICENSE / @types/ms — LICENSE / @types/react — LICENSE / @types/unist — LICENSE
 License identifier: MIT
-Used by: @types/debug 4.1.13 (npm), @types/estree 1.0.9 (npm), @types/estree-jsx 1.0.5 (npm), @types/hast 3.0.5 (npm), @types/mdast 4.0.4 (npm), @types/ms 2.1.0 (npm), @types/react 19.2.18 (npm), @types/unist 2.0.11 (npm), @types/unist 3.0.3 (npm)
+Used by: @types/debug 4.1.13 (npm), @types/estree 1.0.9 (npm), @types/estree-jsx 1.0.5 (npm), @types/hast 3.0.5 (npm), @types/mdast 4.0.4 (npm), @types/ms 2.1.0 (npm), @types/react 19.3.0 (npm), @types/unist 2.0.11 (npm), @types/unist 3.0.3 (npm)
 --------------------------------------------------------------------------------
 MIT License
 
@@ -3766,7 +3775,7 @@ DEALINGS IN THE SOFTWARE.
 ================================================================================
 Apache License 2.0
 License identifier: Apache-2.0
-Used by: embed_plist 1.2.2 (cargo), rustls-platform-verifier 0.7.0 (cargo), serialize-to-javascript 0.1.2 (cargo), serialize-to-javascript-impl 0.1.2 (cargo), tinyvec 1.12.0 (cargo), utf8_iter 1.0.4 (cargo), x11rb 0.13.2 (cargo), x11rb 0.14.0 (cargo), x11rb-protocol 0.13.2 (cargo), x11rb-protocol 0.14.0 (cargo), zeroize 1.9.0 (cargo), zune-core 0.5.3 (cargo), zune-jpeg 0.5.15 (cargo)
+Used by: cmov 0.5.4 (cargo), ctutils 0.4.2 (cargo), embed_plist 1.2.2 (cargo), rustls-platform-verifier 0.7.0 (cargo), serialize-to-javascript 0.1.2 (cargo), serialize-to-javascript-impl 0.1.2 (cargo), tinyvec 1.12.0 (cargo), utf8_iter 1.0.4 (cargo), x11rb 0.13.2 (cargo), x11rb 0.14.0 (cargo), x11rb-protocol 0.13.2 (cargo), x11rb-protocol 0.14.0 (cargo), zeroize 1.9.0 (cargo), zune-core 0.5.3 (cargo), zune-jpeg 0.5.15 (cargo)
 --------------------------------------------------------------------------------
 Apache License
                            Version 2.0, January 2004
@@ -5258,7 +5267,7 @@ limitations under the License.
 ================================================================================
 Apache License 2.0
 License identifier: Apache-2.0
-Used by: argon2 0.5.3 (cargo), base64ct 1.8.3 (cargo), blake2 0.10.6 (cargo), block-buffer 0.10.4 (cargo), block-buffer 0.12.1 (cargo), const-oid 0.10.2 (cargo), cpufeatures 0.2.17 (cargo), cpufeatures 0.3.0 (cargo), crypto-common 0.1.7 (cargo), crypto-common 0.2.2 (cargo), digest 0.10.7 (cargo), digest 0.11.3 (cargo), hybrid-array 0.4.14 (cargo), password-hash 0.5.0 (cargo), sha2 0.10.9 (cargo), sha2 0.11.0 (cargo)
+Used by: argon2 0.6.0 (cargo), base64ct 1.8.3 (cargo), blake2 0.11.0 (cargo), block-buffer 0.10.4 (cargo), block-buffer 0.12.1 (cargo), const-oid 0.10.2 (cargo), cpufeatures 0.2.17 (cargo), cpufeatures 0.3.0 (cargo), crypto-common 0.1.7 (cargo), crypto-common 0.2.2 (cargo), digest 0.10.7 (cargo), digest 0.11.3 (cargo), hybrid-array 0.4.14 (cargo), password-hash 0.6.1 (cargo), phc 0.6.1 (cargo), sha2 0.10.9 (cargo), sha2 0.11.0 (cargo)
 --------------------------------------------------------------------------------
 Apache License
                         Version 2.0, January 2004
@@ -8612,7 +8621,7 @@ THIS SOFTWARE.
 ================================================================================
 lucide-react — LICENSE
 License identifier: ISC
-Used by: lucide-react 1.35.0 (npm)
+Used by: lucide-react 1.47.0 (npm)
 --------------------------------------------------------------------------------
 ISC License
 
@@ -8660,7 +8669,7 @@ SOFTWARE.
 ================================================================================
 MIT License
 License identifier: MIT
-Used by: plist 1.10.0 (cargo)
+Used by: plist 1.10.1 (cargo)
 --------------------------------------------------------------------------------
 Copyright (c) 2015 Edward Barnard
 
@@ -9527,7 +9536,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ================================================================================
 Apache License 2.0
 License identifier: Apache-2.0
-Used by: windows 0.61.3 (cargo), windows 0.62.2 (cargo), windows_x86_64_gnu 0.52.6 (cargo), windows_x86_64_gnu 0.53.1 (cargo), windows_x86_64_msvc 0.52.6 (cargo), windows_x86_64_msvc 0.53.1 (cargo), windows-collections 0.2.0 (cargo), windows-collections 0.3.2 (cargo), windows-core 0.61.2 (cargo), windows-core 0.62.2 (cargo), windows-future 0.2.1 (cargo), windows-future 0.3.2 (cargo), windows-implement 0.60.2 (cargo), windows-interface 0.59.3 (cargo), windows-link 0.1.3 (cargo), windows-link 0.2.1 (cargo), windows-numerics 0.2.0 (cargo), windows-numerics 0.3.1 (cargo), windows-result 0.3.4 (cargo), windows-result 0.4.1 (cargo), windows-strings 0.4.2 (cargo), windows-strings 0.5.1 (cargo), windows-sys 0.59.0 (cargo), windows-sys 0.60.2 (cargo), windows-sys 0.61.2 (cargo), windows-targets 0.52.6 (cargo), windows-targets 0.53.5 (cargo), windows-threading 0.1.0 (cargo), windows-threading 0.2.1 (cargo), windows-version 0.1.7 (cargo)
+Used by: windows 0.61.3 (cargo), windows 0.62.2 (cargo), windows_x86_64_gnu 0.52.6 (cargo), windows_x86_64_gnu 0.53.1 (cargo), windows_x86_64_msvc 0.52.6 (cargo), windows_x86_64_msvc 0.53.1 (cargo), windows-collections 0.2.0 (cargo), windows-collections 0.3.2 (cargo), windows-core 0.61.2 (cargo), windows-core 0.62.2 (cargo), windows-future 0.2.1 (cargo), windows-future 0.3.2 (cargo), windows-implement 0.60.2 (cargo), windows-interface 0.59.3 (cargo), windows-link 0.1.3 (cargo), windows-link 0.2.1 (cargo), windows-numerics 0.2.0 (cargo), windows-numerics 0.3.1 (cargo), windows-registry 0.6.1 (cargo), windows-result 0.3.4 (cargo), windows-result 0.4.1 (cargo), windows-strings 0.4.2 (cargo), windows-strings 0.5.1 (cargo), windows-sys 0.59.0 (cargo), windows-sys 0.60.2 (cargo), windows-sys 0.61.2 (cargo), windows-targets 0.52.6 (cargo), windows-targets 0.53.5 (cargo), windows-threading 0.1.0 (cargo), windows-threading 0.2.1 (cargo), windows-version 0.1.7 (cargo)
 --------------------------------------------------------------------------------
 Apache License
                            Version 2.0, January 2004
@@ -10022,7 +10031,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ================================================================================
 tailwind-merge — LICENSE.md
 License identifier: MIT
-Used by: tailwind-merge 3.6.0 (npm)
+Used by: tailwind-merge 3.7.0 (npm)
 --------------------------------------------------------------------------------
 MIT License
 
@@ -10048,7 +10057,7 @@ SOFTWARE.
 ================================================================================
 react — LICENSE / react-dom — LICENSE / scheduler — LICENSE
 License identifier: MIT
-Used by: react 19.2.8 (npm), react-dom 19.2.8 (npm), scheduler 0.27.0 (npm)
+Used by: react 19.3.0 (npm), react-dom 19.3.0 (npm), scheduler 0.28.0 (npm)
 --------------------------------------------------------------------------------
 MIT License
 
@@ -10616,7 +10625,7 @@ CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ================================================================================
 MIT License
 License identifier: MIT
-Used by: quick-xml 0.41.0 (cargo)
+Used by: quick-xml 0.41.0 (cargo), quick-xml 0.42.0 (cargo)
 --------------------------------------------------------------------------------
 The MIT License (MIT)
 

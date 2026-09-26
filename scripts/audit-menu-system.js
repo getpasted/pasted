@@ -5,6 +5,9 @@ const sidebar = [
   'src/components/Sidebar.tsx',
   'src/components/SidebarSearchFooter.tsx',
 ].map((path) => fs.readFileSync(path, 'utf8')).join('\n');
+const searchDialog = fs.readFileSync('src/components/SearchDialog.tsx', 'utf8');
+const searchController = fs.readFileSync('src/hooks/useSearchDialogController.ts', 'utf8');
+const appShell = fs.readFileSync('src/components/AppShellView.tsx', 'utf8');
 const nativeMenu = fs.readFileSync('src-tauri/src/app_menu.rs', 'utf8');
 const englishCatalog = JSON.parse(fs.readFileSync('src/locales/en.json', 'utf8'));
 const floatingMenus = [
@@ -55,8 +58,18 @@ if (!sharedMenu.includes('onWheelCapture') || !sharedMenu.includes('onScroll')) 
 if ((sharedMenu.match(/normalizeMenuDividers\(children, MenuDivider\)/g) || []).length < 2) {
   failures.push('Anchored menus and submenus must normalize conditional dividers');
 }
-if (!sidebar.includes('EmbeddedMenu') || !sidebar.includes('<MenuItem')) {
-  failures.push('Sidebar search helpers must use the shared embedded menu and item primitives');
+if (sidebar.includes('EmbeddedMenu') || sidebar.includes('<MenuItem')) {
+  failures.push('Sidebar Search launcher must not retain the old embedded helper menu');
+}
+if (!searchDialog.includes('<AppDialog') || !searchDialog.includes('getSearchHelpers(features)')) {
+  failures.push('Search helpers must live in the shared Search dialog');
+}
+if (!appShell.includes('<SearchDialog')) {
+  failures.push('AppShellView must compose the shared Search dialog');
+}
+if (!searchController.includes("currentTab !== 'search'")
+  || !searchController.includes('event.defaultPrevented')) {
+  failures.push('Escape must clear committed Search only after higher-priority interactions decline it');
 }
 if (sidebar.includes('className="theme-menu absolute')) {
   failures.push('Sidebar must not hand-build the shared menu surface');

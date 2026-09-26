@@ -10,6 +10,7 @@ import { ClipPreview } from './ClipPreview';
 import { ClipSelectionBatchActions } from './ClipSelectionBatchActions';
 import { MacRtlWindowControls } from './MacRtlWindowControls';
 import { SequentialQueueBar } from './SequentialQueueBar';
+import { SearchDialog } from './SearchDialog';
 import { Sidebar } from './Sidebar';
 
 type AppController = ReturnType<typeof useAppController>;
@@ -26,8 +27,9 @@ export function AppShellView({ controller }: { controller: AppController }) {
   } = data;
   const {
     currentTab, selectedBinId, setSelectedBinId,
-    searchQuery, setSearchQuery, isSidebarCollapsed, setIsSidebarCollapsed, sidebarSections,
-    handleSidebarSectionStateChange, navigateToTab, enterSearchView, exitEmptySearch,
+    searchQuery, isSidebarCollapsed, setIsSidebarCollapsed, sidebarSections,
+    handleSidebarSectionStateChange, navigateToTab, isSearchDialogOpen, searchDraft,
+    setSearchDraft, openSearchDialog, closeSearchDialog, clearSearch, submitSearchDialog,
   } = navigation;
   const {
     contextMenu, setContextMenu, binContextMenu, setBinContextMenu, isBinModalOpen,
@@ -106,9 +108,8 @@ export function AppShellView({ controller }: { controller: AppController }) {
         disabledDropBinId={disabledDropBinId}
         disabledDropActions={disabledDropActions}
         searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        onSearchFocus={enterSearchView}
-        onEmptySearchEscape={exitEmptySearch}
+        onOpenSearch={openSearchDialog}
+        onClearSearch={clearSearch}
         seqStatus={seqStatus}
         onClearHistory={handleRequestClearHistory}
         totalClipCount={totalClipCount}
@@ -279,6 +280,14 @@ export function AppShellView({ controller }: { controller: AppController }) {
         fetchClips={fetchClips}
         fetchTrashedClips={fetchTrashedClips}
         fetchClipCollectionSummary={fetchClipCollectionSummary}
+      />
+      <SearchDialog
+        isOpen={isSearchDialogOpen}
+        draft={searchDraft}
+        features={enabledFeatures}
+        onDraftChange={setSearchDraft}
+        onCancel={closeSearchDialog}
+        onSearch={submitSearchDialog}
       />
     </div>
   );

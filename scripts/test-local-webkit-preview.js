@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 const scriptPath = 'scripts/run-with-local-webkit.sh';
 const source = fs.readFileSync(scriptPath, 'utf8');
 const previewSource = fs.readFileSync('src-tauri/src/local_webkit_preview.rs', 'utf8');
+const runtimeSource = fs.readFileSync('src-tauri/src/app_runtime.rs', 'utf8');
 
 const syntax = spawnSync('bash', ['-n', scriptPath], { encoding: 'utf8' });
 assert.equal(syntax.status, 0, syntax.stderr);
@@ -45,5 +46,6 @@ assert.match(previewSource, /file_type\(\)\.is_symlink\(\)/, 'The debug override
 assert.match(previewSource, /has_valid_preview_database/, 'Full-rate rendering must require a validated isolated preview database');
 assert.match(previewSource, /PASTED_LOCAL_WEBKIT_FULL_RATE/, 'Full-rate rendering must require its explicit preview switch');
 assert.match(previewSource, /PreferPageRenderingUpdatesNear60FPSEnabled/, 'The preview must target only WebKit\'s existing near-60-fps preference');
+assert.match(runtimeSource, /library_startup::initialize\(app\.handle\(\), preview_database_path\.as_deref\(\)\)/, 'The GUI library session must use the isolated preview database');
 
 console.log('Local WebKit preview launcher checks passed.');

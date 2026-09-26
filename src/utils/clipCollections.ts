@@ -230,7 +230,7 @@ export function getClipCollection(tab: string, bin?: Bin | null): ClipCollection
       ordering: 'collection',
       capabilities: {
         acceptsClipDrop: !isSmart,
-        canReorder: true,
+        canReorder: !isSmart,
         allowsDuplicateMembership: false,
         isCalculated: isSmart,
         isReadOnly: false,

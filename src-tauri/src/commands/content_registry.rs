@@ -147,13 +147,26 @@ pub fn restore_default_content_classifiers(
         .map_err(|error| error.to_string())
 }
 
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClipDetectedContent {
+    classification_matches: Vec<crate::db::AnalysisClassification>,
+    paste_parts: Option<crate::smart_paste::parts::PastePartsAnalysis>,
+}
+
 #[tauri::command]
-pub fn get_clip_content_matches(
+pub fn get_clip_detected_content(
     clip_id: i64,
     db: State<'_, Arc<DbState>>,
-) -> Result<Vec<crate::db::AnalysisClassification>, String> {
-    db.get_analysis_classifications(clip_id)
-        .map_err(|error| error.to_string())
+) -> Result<ClipDetectedContent, String> {
+    Ok(ClipDetectedContent {
+        classification_matches: db
+            .get_analysis_classifications(clip_id)
+            .map_err(|error| error.to_string())?,
+        paste_parts: db
+            .get_paste_parts(clip_id)
+            .map_err(|error| error.to_string())?,
+    })
 }
 
 #[tauri::command]

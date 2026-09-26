@@ -66,12 +66,12 @@ mod keyboard_layout;
 #[cfg(feature = "gui")]
 pub mod keyboard_shortcuts;
 pub mod library_items;
+#[cfg(feature = "gui")]
+mod library_startup;
 pub mod library_storage;
 #[cfg(all(feature = "gui", target_os = "linux"))]
 mod linux_native_theme;
 pub mod live_app;
-#[cfg(feature = "gui")]
-mod local_webkit_preview;
 pub mod localization;
 pub mod manual_transform_service;
 pub mod ocr;
@@ -93,6 +93,7 @@ pub mod settings_activity;
 pub mod settings_contract;
 pub mod settings_service;
 pub mod smart_bins;
+pub mod smart_paste;
 pub mod storage_protection;
 pub mod structured_output;
 pub mod suggestion_execution;
@@ -151,7 +152,7 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_autostart::init(
-            tauri_plugin_autostart::MacosLauncher::AppleScript,
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--autostart"]),
         ))
         .on_page_load(|webview, payload| {
@@ -165,10 +166,13 @@ pub fn run() {
         .on_window_event(app_windows::handle_window_event)
         .invoke_handler(tauri::generate_handler![
             commands::clips::get_clips,
+            commands::clips::get_clip_detail,
+            commands::clip_collection::get_clip_collection_page,
+            commands::clip_collection::search_clip_list,
             commands::clips::get_capture_feedback_clip,
             commands::clips::get_clip_image,
             commands::analysis::analyze_content,
-            commands::file_previews::get_file_clip_previews,
+            commands::file_previews::file_preview_request::get_file_clip_previews,
             commands::clips::get_trashed_clips,
             commands::clips::restore_clip,
             commands::clips::restore_all_trashed_clips,
@@ -210,7 +214,7 @@ pub fn run() {
             commands::content_registry::duplicate_content_classifier,
             commands::content_registry::delete_content_classifier,
             commands::content_registry::restore_default_content_classifiers,
-            commands::content_registry::get_clip_content_matches,
+            commands::content_registry::get_clip_detected_content,
             commands::content_registry::rescan_content_classification_history,
             commands::content_registry::rescan_file_format_history,
             commands::content_registry::test_content_classifier,
@@ -315,6 +319,17 @@ pub fn run() {
             app_updates::check_for_app_update,
             app_updates::install_app_update,
             commands::storage::get_library_location,
+            commands::snapshots::list_snapshots,
+            commands::snapshots::get_snapshot_status,
+            commands::snapshots::enforce_snapshot_retention,
+            commands::snapshots::create_snapshot,
+            commands::snapshots::export_snapshot,
+            commands::snapshots::delete_snapshot,
+            commands::snapshots::restore_snapshot,
+            commands::library_startup::get_library_startup_status,
+            commands::library_startup::get_library_recovery_notice,
+            commands::library_startup::dismiss_library_recovery_notice,
+            commands::library_startup::retry_library_startup,
             commands::storage::get_storage_protection,
             commands::storage::move_library,
             commands::storage::restore_default_library_location,

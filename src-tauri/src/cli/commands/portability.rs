@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 pub(crate) fn run_transfer(args: &[String], db_path: PathBuf, conn: Connection) -> Result<()> {
     drop(conn);
     let db = DbState::new(db_path.clone())?;
+    super::require_feature(&db, pasted_lib::features::Feature::Backups);
     let subcommand = args.get(2).map(String::as_str).unwrap_or("inspect");
     let Some(path) = args.get(3).filter(|argument| !argument.starts_with("--")) else {
         eprintln!("Usage: pasted transfer export|inspect|import <path.json> [--json]");
@@ -80,9 +81,31 @@ pub(crate) fn run_transfer(args: &[String], db_path: PathBuf, conn: Connection) 
     Ok(())
 }
 
-pub(crate) fn run_backup(args: &[String], db_path: PathBuf, conn: Connection) -> Result<()> {
+pub(crate) fn run_backup(
+    args: &[String],
+    db_path: PathBuf,
+    conn: Connection,
+    session: &pasted_lib::library_storage::LibrarySession,
+) -> Result<()> {
+    run_backup_with_feature(
+        args,
+        db_path,
+        conn,
+        session,
+        pasted_lib::features::Feature::Backups,
+    )
+}
+
+pub(crate) fn run_backup_with_feature(
+    args: &[String],
+    db_path: PathBuf,
+    conn: Connection,
+    session: &pasted_lib::library_storage::LibrarySession,
+    feature: pasted_lib::features::Feature,
+) -> Result<()> {
     drop(conn);
     let db = DbState::new(db_path.clone())?;
+    super::require_feature(&db, feature);
     let subcommand = args.get(2).map(String::as_str).unwrap_or("create");
     let Some(path) = args.get(3).filter(|argument| !argument.starts_with("--")) else {
         eprintln!(
@@ -124,8 +147,12 @@ pub(crate) fn run_backup(args: &[String], db_path: PathBuf, conn: Connection) ->
                 );
                 std::process::exit(2);
             }
-            let (report, _, restored_window_state) =
-                db.restore_full_backup(Path::new(path), None, window_state.as_deref())?;
+            let (report, _, restored_window_state) = session
+                .exclusive(|| {
+                    db.restore_full_backup(Path::new(path), None, window_state.as_deref())
+                        .map_err(|error| error.to_string())
+                })
+                .map_err(rusqlite::Error::InvalidParameterName)?;
             if let Some(state) = restored_window_state {
                 fs::create_dir_all(get_app_config_dir())
                     .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;

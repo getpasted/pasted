@@ -9,5 +9,6 @@
   "HOTKEY_REGISTRATION_CHANGED": { "typescript": "hotkeyRegistrationChanged", "name": "hotkey-registration-changed" },
   "NAVIGATE_BIN": { "typescript": "navigateBin", "name": "navigate-bin" },
   "NAVIGATE_TAB": { "typescript": "navigateTab", "name": "navigate-tab" },
-  "SEQUENTIAL_UPDATED": { "typescript": "sequentialUpdated", "name": "sequential-updated" }
+  "SEQUENTIAL_UPDATED": { "typescript": "sequentialUpdated", "name": "sequential-updated" },
+  "SNAPSHOTS_CHANGED": { "typescript": "snapshotsChanged", "name": "snapshots-changed" }
 }

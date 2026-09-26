@@ -1,3 +1,4 @@
+import { invokeSnapshotsBrowserMock } from './snapshotsRuntime';
 import type { MockClip } from './models';
 import { mockManualTransforms } from './manualTransforms';
 import { getMockSavedTransforms } from './intelligenceRuntime';
@@ -5,6 +6,7 @@ import { unhandledValue } from './result';
 import { invokeRetentionBrowserMock } from './retentionRuntime';
 import { invokeUpdateBrowserMock } from './updateRuntime';
 
+let recoveryNoteDismissed = false;
 let mockLibraryLocation = {
   path: '/mock/Pasted/pasted.db',
   directory: '/mock/Pasted',
@@ -17,11 +19,25 @@ export async function invokeSystemBrowserMock<T>(
   args: Record<string, unknown> | undefined,
   mockClips: MockClip[],
 ): Promise<T | typeof unhandledValue> {
+  const snapshots = invokeSnapshotsBrowserMock<T>(cmd, args);
+  if (snapshots !== unhandledValue) return snapshots;
   const retention = await invokeRetentionBrowserMock<T>(cmd);
   if (retention !== unhandledValue) return retention;
   const update = invokeUpdateBrowserMock<T>(cmd);
   if (update !== unhandledValue) return update;
   switch (cmd) {
+    case 'get_library_startup_status':
+    case 'retry_library_startup':
+      return { ready: true, path: null, recoveryCreatedAt: null } as unknown as T;
+    case 'dismiss_library_recovery_notice':
+      recoveryNoteDismissed = true;
+      return undefined as T;
+    case 'get_library_recovery_notice':
+      return !recoveryNoteDismissed && new URLSearchParams(window.location.search).has('library-recovery') ? {
+        outcome: new URLSearchParams(window.location.search).get('library-recovery') === 'fresh' ? 'fresh' : 'recovered',
+        occurredAt: '2026-09-06T08:00:00Z', previousPath: '/Volumes/Archive/Pasted/pasted.db',
+        recoveryCreatedAt: '2026-09-06T07:00:00Z', preservedPath: '/mock/Pasted/library-recovery/startup-example',
+      } as unknown as T : null as T;
     case 'get_hotkey_capability_status':
       return {
         platform: 'unsupported',

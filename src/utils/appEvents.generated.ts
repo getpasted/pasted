@@ -10,4 +10,5 @@ export const APP_EVENTS = {
   navigateBin: 'navigate-bin',
   navigateTab: 'navigate-tab',
   sequentialUpdated: 'sequential-updated',
+  snapshotsChanged: 'snapshots-changed',
 } as const;

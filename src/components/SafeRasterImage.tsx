@@ -9,7 +9,7 @@ type SafeRasterImageProps = Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src
 export function SafeRasterImage({ source, ...props }: SafeRasterImageProps) {
   const [objectUrl, setObjectUrl] = React.useState<string | null>(null);
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     setObjectUrl(null);
     const raster = decodeSafeRasterDataUrl(source);
     if (!raster || typeof URL.createObjectURL !== 'function') return undefined;

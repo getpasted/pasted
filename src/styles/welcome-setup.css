@@ -212,7 +212,7 @@
 .welcome-setup-heading {
   display: flex;
   min-height: 7rem;
-  flex: 0 0 7rem;
+  flex: 0 0 auto;
   align-items: flex-start;
   gap: 1rem;
   padding-bottom: 0.5rem;
@@ -560,7 +560,6 @@
 
   .welcome-setup-heading {
     min-height: 11rem;
-    flex-basis: 11rem;
   }
 
   .welcome-setup-hotkey-card {

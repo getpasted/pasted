@@ -84,6 +84,11 @@ assert.deepEqual(
   historyFallback,
   'an authoritative Search result must remain visible',
 );
+assert.deepEqual(
+  resolveSearchDisplayItems('receipt', 'invoice', historyFallback),
+  [],
+  'a submitted replacement Search must not display results from the previous query',
+);
 
 assert.equal(searchHistoryRequestQuery({
   query: 'invoice',

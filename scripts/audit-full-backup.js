@@ -22,8 +22,15 @@ const settingsCatalogCopy = [...settings.matchAll(/translate\('([^']+)'/g)]
 const reset = read('src/components/SettingsResetPanel.tsx');
 const backupApi = read('src/api/backup.ts');
 const clientState = read('src/utils/backupClientStateCodec.ts');
+const creation = read('src-tauri/src/db/full_backup_creation.rs');
+const snapshots = readRustModuleTree(
+  'src-tauri/src/library_storage/snapshots.rs',
+  'src-tauri/src/library_storage/snapshots',
+);
 
 assert.match(database, /rusqlite::backup::Backup::new/, 'Full Backup must use SQLite online backup semantics');
+assert.match(creation, /open_pasted_database_read_only\(&self\.database_path\(\)\)/,
+  'Full Backup creation must copy from a separate connection instead of holding the live database mutex');
 assert.match(database, /CREATE TABLE pasted_backup_manifest/, 'Full Backup must carry a versioned manifest');
 assert.match(database, /PRAGMA integrity_check/, 'Full Backup and Full Restore must validate SQLite integrity');
 assert.match(database, /DbState::new\(temporary\.clone\(\)\)/, 'Full Restore must apply forward migrations before activation');
@@ -47,6 +54,8 @@ assert.match(cli, /"backup" =>/, 'CLI must expose the shared full-backup workflo
 assert.match(cli, /"restore" =>[\s\S]*?--yes/, 'CLI Full Restore must require explicit confirmation');
 assert.match(reset, /backupApi\.exportFull/, 'Factory Reset must offer a truthful Full Backup safeguard through the Backup client');
 assert.match(backupApi, /export_full_backup_file/, 'The Backup client must expose Full Backup creation');
+assert.match(snapshots, /pub fn export[\s\S]*inspect_full_backup[\s\S]*files::digest\(&temporary\)/,
+  'A Snapshot promoted to Full Backup must be validated before and after copying');
 assert.match(clientState, /BACKED_UP_LOCAL_STORAGE_KEYS/, 'Full Backup must carry meaningful interface state');
 assert.match(clientState, /pasted_scroll_positions/, 'Full Backup must carry major-surface scroll positions');
 assert.match(
@@ -74,7 +83,8 @@ assert.match(read('src/hooks/useRememberedClipListScroll.ts'), /anchorClipId[\s\
 assert.match(database, /preflight_library_archive\(&payload\)/, 'Portable transfer must complete preflight before opening a write transaction');
 assert.match(database, /inspect_library_archive_json/, 'Portable-transfer preflight must be independently testable');
 assert.match(database, /library_archive_reimport_updates_stable_identities_without_duplicates/, 'Portable transfer must retain an idempotence regression test');
-assert.match(commands, /pub async fn choose_import_file[\s\S]*?inspect_library_archive_json/, 'The GUI file chooser must preflight portable transfers asynchronously');
+assert.match(read('src-tauri/src/commands/imports.rs'), /pub async fn choose_import_file[\s\S]*?spawn_blocking[\s\S]*?inspect_import_file_path/, 'The GUI file chooser must dispatch asynchronous import preflight');
+assert.match(read('src-tauri/src/commands/import_inspection.rs'), /inspect_library_archive_json/, 'Import preflight must inspect the shared portable transfer contract');
 assert.match(commands, /choose_import_file[\s\S]*?spawn_blocking/, 'File validation must not block the app UI thread');
 assert.match(settings, /backupApi\.chooseImport/, 'The GUI import must inspect a file before presenting an action');
 assert.match(backupApi, /choose_import_file/, 'The Backup client must expose inspected file selection');

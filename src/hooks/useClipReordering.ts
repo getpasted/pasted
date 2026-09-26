@@ -30,6 +30,7 @@ export function useClipReordering({
 }: UseClipReorderingOptions) {
   const isQueueCollection = collection?.membership === 'queue';
   const isBinCollection = collection?.membership === 'bin' && selectedBinId !== null;
+  const canReorderBinCollection = isBinCollection && Boolean(collection?.capabilities.canReorder);
   const queueReorderIds = useMemo(
     () => isQueueCollection ? (sequentialStatus?.item_ids ?? []).map(String) : [],
     [isQueueCollection, sequentialStatus?.item_ids],
@@ -50,8 +51,8 @@ export function useClipReordering({
   });
 
   const binReorderIds = useMemo(
-    () => isBinCollection ? displayedClips.map((clip) => String(clip.id)) : [],
-    [displayedClips, isBinCollection],
+    () => canReorderBinCollection ? displayedClips.map((clip) => String(clip.id)) : [],
+    [canReorderBinCollection, displayedClips],
   );
   const commitBinOrder = useCallback((orderedIds: string[]) => {
     if (selectedBinId === null) return;
@@ -77,9 +78,9 @@ export function useClipReordering({
 
   const reorderIdsForClip = useCallback((clip: ClipItem, _index: number) => {
     const queueId = isQueueCollection ? String(-clip.id) : undefined;
-    const binId = isBinCollection ? String(clip.id) : undefined;
+    const binId = canReorderBinCollection ? String(clip.id) : undefined;
     return { queueId, binId, stableId: queueId ?? binId };
-  }, [isBinCollection, isQueueCollection]);
+  }, [canReorderBinCollection, isQueueCollection]);
   const settlingOrder = queueReorder.settlingOrder ?? binClipReorder.settlingOrder;
   const displayedClipsForRender = useMemo(() => orderClipsForStableReorder(
     displayedClips,

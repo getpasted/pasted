@@ -33,9 +33,8 @@ interface SidebarProps {
   onDeleteBin?: (bin: Bin) => void;
   onBinContextMenu?: (x: number, y: number, bin: Bin) => void;
   searchQuery: string;
-  setSearchQuery: (q: string) => void;
-  onSearchFocus: () => void;
-  onEmptySearchEscape: () => void;
+  onOpenSearch: () => void;
+  onClearSearch: () => void;
   seqStatus: SequentialStatus | null;
   onClearHistory?: () => void;
   totalClipCount: number;
@@ -72,9 +71,8 @@ const SidebarComponent: React.FC<SidebarProps> = ({
   disabledDropActions = [],
   features,
   searchQuery,
-  setSearchQuery,
-  onSearchFocus,
-  onEmptySearchEscape,
+  onOpenSearch,
+  onClearSearch,
   seqStatus,
   totalClipCount,
   isCollapsed,
@@ -172,6 +170,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
       <CollapsedSidebar
         binsEnabled={features.bins}
         bins={sortedBins}
+        searchEnabled={features.search}
         clipNavItems={clipNavItems}
         toolNavItems={toolNavItems}
         currentTab={currentTab}
@@ -182,6 +181,7 @@ const SidebarComponent: React.FC<SidebarProps> = ({
         hoveredControl={hoveredSidebarControl}
         isHoverMuted={isSidebarHoverMuted}
         setIsCollapsed={setIsCollapsed}
+        onOpenSearch={onOpenSearch}
         navigateTo={navigateTo}
         selectBin={(id) => {
           setCurrentTab('bin');
@@ -288,12 +288,10 @@ const SidebarComponent: React.FC<SidebarProps> = ({
 
       {features.search && (
         <SidebarSearchFooter
-          features={features}
           isDragActive={isClipDragging}
           searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          onSearchFocus={onSearchFocus}
-          onEmptySearchEscape={onEmptySearchEscape}
+          onOpenSearch={onOpenSearch}
+          onClearSearch={onClearSearch}
         />
       )}
     </aside>

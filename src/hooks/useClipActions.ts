@@ -8,6 +8,8 @@ import { htmlToPlainText } from '../utils/plainText';
 import type { ClipPropertyAssociationId } from '../utils/clipPropertyAssociations';
 import { useClipPropertyActions } from './useClipPropertyActions';
 import { useClipBinActions } from './useClipBinActions';
+import { loadFullClip } from '../utils/clipDetail';
+import { useClipQueueActions } from './useClipQueueActions';
 
 interface ClipActionsInput {
   allClips: ClipItem[];
@@ -190,9 +192,10 @@ export function useClipActions({
         soundManager.playCopySound();
         return;
       }
-      const text = settings.alwaysPastePlainText && clip.text_content
-        ? htmlToPlainText(clip.text_content)
-        : clip.text_content;
+      const fullClip = await loadFullClip(clip);
+      const text = settings.alwaysPastePlainText && fullClip.text_content
+        ? htmlToPlainText(fullClip.text_content)
+        : fullClip.text_content;
       await clipsApi.copyContent(text, null);
       soundManager.playCopySound();
     } catch (error) {
@@ -205,11 +208,12 @@ export function useClipActions({
     manualTransform: ManualTransform,
     destination: 'copy' | 'paste' = 'copy',
   ) => {
-    if (!clip.text_content) return;
     try {
       await runClipTransformationJob(clip.id, async () => {
+        const fullClip = await loadFullClip(clip);
+        if (!fullClip.text_content) return;
         const transformed = await runTransformation(
-          clip.text_content!,
+          fullClip.text_content,
           { kind: 'manual_transform', transformRef: manualTransform.stableRef },
           { sourceClipId: clip.id, destination },
         );
@@ -227,11 +231,12 @@ export function useClipActions({
   }, [runClipTransformationJob]);
 
   const runTransformForClip = useCallback(async (clip: ClipItem, transform: SavedTransform) => {
-    if (!clip.text_content) return;
     try {
       await runClipTransformationJob(clip.id, async () => {
+        const fullClip = await loadFullClip(clip);
+        if (!fullClip.text_content) return;
         const transformed = await runTransformation(
-          clip.text_content!,
+          fullClip.text_content,
           { kind: 'transform', transformRef: transform.stableRef },
           { sourceClipId: clip.id, destination: 'copy' },
         );
@@ -243,32 +248,10 @@ export function useClipActions({
     }
   }, [runClipTransformationJob]);
 
-  const addToSequentialStack = useCallback(async (clip: ClipItem) => {
-    const item = clip.content_type === 'file' ? null : clip.text_content;
-    if (!item) {
-      console.warn('Only clips containing text can be added to the Copy Queue');
-      return;
-    }
-    try {
-      await invoke('push_sequential_item', { item });
-      soundManager.playStackSound();
-      void fetchSequentialStatus();
-    } catch (error) {
-      console.error('Failed to add clip to queue:', error);
-    }
-  }, [fetchSequentialStatus]);
-
-  const toggleSequentialStack = useCallback(async (clip: ClipItem) => {
-    const item = clip.content_type === 'file' ? null : clip.text_content;
-    if (!item) return;
-    const queueIndex = queuedIndexMap.get(item);
-    if (queueIndex === undefined) {
-      await addToSequentialStack(clip);
-      return;
-    }
-    await invoke('remove_sequential_item_by_index', { index: queueIndex - 1 });
-    await fetchSequentialStatus();
-  }, [addToSequentialStack, fetchSequentialStatus, queuedIndexMap]);
+  const { addToSequentialStack, toggleSequentialStack } = useClipQueueActions({
+    queuedIndexMap,
+    fetchSequentialStatus,
+  });
 
   const updateClipNoteLocally = useCallback((clipId: number, note: string | null) => {
     setAllClips((previous) => previous.map((clip) => clip.id === clipId ? { ...clip, note } : clip));

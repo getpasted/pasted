@@ -233,6 +233,11 @@ pub(crate) fn active_application_name() -> Option<String> {
     active_application_context(false).map(|context| context.name)
 }
 
+pub(crate) fn focused_smart_paste_context() -> Result<crate::smart_paste::SmartPasteContext, String>
+{
+    platform::focused_smart_paste_context()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

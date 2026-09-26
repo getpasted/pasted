@@ -1,6 +1,7 @@
 import type { ClipItem } from '../types';
 import type { ColorFormats } from '../utils/color';
 import type { EffectiveVisualLabels, ExtractionAttempt, ExtractionResult } from './clipPreviewModel';
+import type { PastePartsAnalysis } from './pastePartModel';
 import type { FileClipPreview } from './fileClipPreviewModel';
 
 export interface ClipPreviewContentProps {
@@ -22,6 +23,7 @@ export interface ClipPreviewContentProps {
   isOcrLoading: boolean;
   ocrEnabled: boolean;
   transcriptionsEnabled: boolean;
+  pasteParts: PastePartsAnalysis | null;
   readOnly?: boolean;
   onColorChange: (value: string) => void;
   onCopyFormat: (label: string, value: string) => void;

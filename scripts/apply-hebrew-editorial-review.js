@@ -106,7 +106,6 @@ const overrides = {
   'app.deleteSelectedPermanently': 'מחיקה סופית של הנבחרים',
   'app.emptyClip': 'קטע ריק',
   'app.emptyTrash': 'ריקון האשפה',
-  'app.loadingOlderClips': 'קטעים ישנים יותר נטענים…',
   'app.moveSelectedToTrash': 'העברת הנבחרים לאשפה',
   'app.pauseHistory': 'השהיית ההיסטוריה',
   'app.pinSelected': 'הצמדת הנבחרים',

@@ -4,6 +4,8 @@ import React from 'react';
 import { translate } from '../localization/runtime';
 import { getClipFilePaths, getClipFileSummary, type ClipItem } from '../types';
 import { safeInvoke as invoke } from '../utils/tauri';
+import { cachePreview, getCachedPreview } from '../utils/previewMemoryCache';
+import { loadVisibleThumbnail, queueFileThumbnailLoad } from '../utils/thumbnailVisibility';
 import { OverflowText } from './OverflowText';
 import { SafeRasterImage } from './SafeRasterImage';
 
@@ -13,7 +15,7 @@ interface FileCardPreview {
   textContent: string | null;
 }
 
-const clipFilePreviewCache = new Map<string, FileCardPreview | null>();
+const FILE_CARD_PREVIEW_DEADLINE_MS = 500;
 
 export function ClipFileThumbnail({
   clip,
@@ -33,46 +35,49 @@ export function ClipFileThumbnail({
   const previewIndexes = React.useMemo(() => paths
     .map((path, index) => (/\.(?:jpe?g|pdf|png|txt|webp)$/i.test(path) ? index : -1))
     .filter((index) => index >= 0), [paths]);
-  const cacheKey = `${clip.id}:${clip.content_hash}:${mode}:${maxSizeMb}`;
+  const cacheKey = `file-card:${clip.id}:${clip.content_hash}:${mode}:${maxSizeMb}`;
   const [preview, setPreview] = React.useState<FileCardPreview | null | undefined>(() => (
-    clipFilePreviewCache.has(cacheKey) ? clipFilePreviewCache.get(cacheKey) : undefined
+    getCachedPreview<FileCardPreview | null>(cacheKey)
   ));
 
   React.useEffect(() => {
     let cancelled = false;
+    let timedOut = false;
+    let deadline: number | undefined;
     const stage = stageRef.current;
     if (!stage || preview !== undefined || mode === 'off' || previewIndexes.length === 0) return undefined;
 
     const load = () => {
-      invoke<FileCardPreview[]>('get_file_clip_previews', {
-        clipId: clip.id,
-        mode,
-        maxSizeMb,
-        onlyIndex: previewIndexes[0],
-      })
-        .then((previews) => {
+      let stopQueuedLoad = () => {};
+      deadline = window.setTimeout(() => {
+        timedOut = true;
+        stopQueuedLoad();
+        if (!cancelled) setPreview(null);
+      }, FILE_CARD_PREVIEW_DEADLINE_MS);
+      stopQueuedLoad = queueFileThumbnailLoad(() => {
+        return invoke<FileCardPreview[]>('get_file_clip_previews', {
+          clipId: clip.id,
+          mode,
+          maxSizeMb,
+          onlyIndex: previewIndexes[0],
+        }).then((previews) => {
           const nextPreview = previews.find((item) => previewIndexes.includes(item.index)) ?? null;
-          clipFilePreviewCache.set(cacheKey, nextPreview);
-          if (!cancelled) setPreview(nextPreview);
-        })
-        .catch(() => {
-          if (!cancelled) setPreview(null);
-        });
+          cachePreview(cacheKey, nextPreview);
+          if (!cancelled && !timedOut) setPreview(nextPreview);
+        }).catch(() => {
+          if (!cancelled && !timedOut) setPreview(null);
+        }).finally(() => window.clearTimeout(deadline));
+      });
+      return () => {
+        stopQueuedLoad();
+        window.clearTimeout(deadline);
+      };
     };
 
-    if (typeof IntersectionObserver === 'undefined') {
-      load();
-      return () => { cancelled = true; };
-    }
-    const observer = new IntersectionObserver((entries) => {
-      if (!entries.some((entry) => entry.isIntersecting)) return;
-      observer.disconnect();
-      load();
-    }, { rootMargin: '240px 0px' });
-    observer.observe(stage);
+    const stopLoading = loadVisibleThumbnail(stage, load);
     return () => {
       cancelled = true;
-      observer.disconnect();
+      stopLoading();
     };
   }, [cacheKey, clip.id, maxSizeMb, mode, preview, previewIndexes]);
 
@@ -89,13 +94,12 @@ export function ClipFileThumbnail({
   const previewPath = paths[preview?.index ?? previewIndexes[0]] ?? '';
   return <div
     ref={stageRef}
-    className={`clip-thumbnail-stage clip-thumbnail-lazy relative rounded border overflow-hidden p-1 ${preview?.dataUrl ? 'flex justify-center' : ''} ${preview ? 'is-loaded' : placeholderHeightClass}`}
+    className={`clip-thumbnail-stage clip-thumbnail-lazy relative rounded border overflow-hidden p-1 ${placeholderHeightClass} ${preview?.dataUrl ? 'flex justify-center' : ''} ${preview ? 'is-loaded' : ''}`}
   >
     {preview && <>
       {preview.dataUrl ? <SafeRasterImage
         source={preview.dataUrl}
         alt={translate('common.previewOfName', { name: previewPath.split(/[\\/]/).pop() || translate('component.clipCard.file') })}
-        loading="lazy"
         decoding="async"
         className={`${maxHeightClass} object-contain rounded`}
       /> : <pre className={`${maxHeightClass} min-h-full overflow-hidden whitespace-pre-wrap break-words p-2 pb-6 font-mono text-[10px] leading-relaxed`}>

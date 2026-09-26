@@ -1,11 +1,18 @@
 use super::json_error;
 use pasted_lib::db::DbState;
+use pasted_lib::library_storage::LibrarySession;
 use rusqlite::{Connection, Result};
 use std::path::PathBuf;
 
 mod reset_preview;
+mod snapshot_retention;
 
-pub(crate) fn run(args: &[String], db_path: PathBuf, conn: Connection) -> Result<()> {
+pub(crate) fn run(
+    args: &[String],
+    db_path: PathBuf,
+    conn: Connection,
+    session: &LibrarySession,
+) -> Result<()> {
     drop(conn);
     let db = DbState::new(db_path.clone())?;
     let subcommand = args.get(2).map(String::as_str).unwrap_or("list");
@@ -70,6 +77,7 @@ pub(crate) fn run(args: &[String], db_path: PathBuf, conn: Connection) -> Result
                 }
                 std::process::exit(2);
             }
+            snapshot_retention::after_set(&db, session, key, value)?;
             if json {
                 println!("{}", serde_json::json!({ "key": key, "value": value }));
             } else {
@@ -156,6 +164,7 @@ pub(crate) fn run(args: &[String], db_path: PathBuf, conn: Connection) -> Result
                 pasted_lib::settings_service::reset_page(&db, page)
             }
             .map_err(|error| rusqlite::Error::InvalidParameterName(error.to_string()))?;
+            snapshot_retention::after_reset(&db, session, dry_run, &outcome.changes)?;
             print_reset(
                 page,
                 json,

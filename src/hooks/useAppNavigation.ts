@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { APP_EVENTS } from '../utils/appEvents';
-import {
-  isClipCollectionRoute,
-  resolveAppNavigationTarget,
-  resolveSearchExit,
-  type ClipViewLocation,
-} from '../utils/appNavigation';
+import { resolveAppNavigationTarget } from '../utils/appNavigation';
 import { featureForRoute, type FeatureId } from '../utils/features';
 import {
   writeAppUiState,
@@ -15,6 +10,7 @@ import {
 import { wasBackupClientStateRestoredBeforeMount } from '../utils/backupClientState';
 import type { Bin } from '../types';
 import { useAppEvent } from './useAppEvent';
+import { useSearchDialogController } from './useSearchDialogController';
 
 interface UseAppNavigationOptions {
   restoredUiState: AppUiState;
@@ -45,9 +41,16 @@ export function useAppNavigation({
   const [sidebarSections, setSidebarSections] = useState(restoredUiState.sidebarSections);
   const startupViewAppliedRef = useRef(false);
   const preserveRestoredViewRef = useRef(wasBackupClientStateRestoredBeforeMount());
-  const lastClipViewRef = useRef<ClipViewLocation>({
-    tab: restoredUiState.currentTab,
-    binId: restoredUiState.selectedBinId,
+  const searchDialog = useSearchDialogController({
+    enabled: enabledFeatures.search,
+    bins,
+    currentTab,
+    selectedBinId,
+    initialClipView: { tab: restoredUiState.currentTab, binId: restoredUiState.selectedBinId },
+    committedQuery: searchQuery,
+    setCommittedQuery: setSearchQuery,
+    setCurrentTab,
+    setSelectedBinId,
   });
 
   const handleSidebarSectionStateChange = useCallback((section: SidebarSectionId, open: boolean) => {
@@ -58,6 +61,10 @@ export function useAppNavigation({
 
   const navigateToTab = useCallback((route: string) => {
     if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+    if (route === 'search') {
+      searchDialog.openSearchDialog();
+      return;
+    }
     const requiredFeature = featureForRoute(route);
     const target = resolveAppNavigationTarget(
       requiredFeature && !enabledFeatures[requiredFeature] ? 'all' : route,
@@ -67,12 +74,7 @@ export function useAppNavigation({
     if (target.transformWorkspace) setActiveTransformWorkspace(target.transformWorkspace);
     setCurrentTab(target.tab);
     if (target.tab !== 'bin') setSelectedBinId(null);
-    if (target.tab === 'search') {
-      requestAnimationFrame(() => {
-        document.querySelector<HTMLInputElement>('[data-sidebar-search-input]')?.focus();
-      });
-    }
-  }, [enabledFeatures]);
+  }, [enabledFeatures, searchDialog.openSearchDialog]);
 
   useEffect(() => {
     const requiredFeature = featureForRoute(currentTab);
@@ -105,22 +107,6 @@ export function useAppNavigation({
     setSelectedBinId(binId);
     setCurrentTab('bin');
   });
-
-  const enterSearchView = useCallback(() => {
-    if (currentTab !== 'search') setCurrentTab('search');
-  }, [currentTab]);
-
-  useEffect(() => {
-    if (isClipCollectionRoute(currentTab)) {
-      lastClipViewRef.current = { tab: currentTab, binId: currentTab === 'bin' ? selectedBinId : null };
-    }
-  }, [currentTab, selectedBinId]);
-
-  const exitEmptySearch = useCallback(() => {
-    const target = resolveSearchExit(lastClipViewRef.current, new Set(bins.map(({ id }) => id)));
-    setSelectedBinId(target.binId);
-    setCurrentTab(target.tab);
-  }, [bins]);
 
   useEffect(() => {
     if (!settingsHydrated || !initialDataLoaded) return;
@@ -160,13 +146,11 @@ export function useAppNavigation({
     selectedBinId,
     setSelectedBinId,
     searchQuery,
-    setSearchQuery,
     isSidebarCollapsed,
     setIsSidebarCollapsed,
     sidebarSections,
     handleSidebarSectionStateChange,
     navigateToTab,
-    enterSearchView,
-    exitEmptySearch,
+    ...searchDialog,
   };
 }

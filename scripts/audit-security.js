@@ -91,6 +91,17 @@ assert.equal(security.csp['frame-src'], "'none'", 'CSP must block framed content
 
 assert.ok(!capability.permissions.includes('opener:default'), 'Unused opener permission must not return');
 assert.ok(!packageJson.dependencies?.['@tauri-apps/plugin-opener'], 'Unused opener dependency must not return');
+for (const permission of ['autostart:allow-enable', 'autostart:allow-disable']) {
+  assert.ok(
+    capability.permissions.includes(permission),
+    `The Launch automatically setting requires ${permission}`,
+  );
+}
+assert.match(
+  rustSource,
+  /MacosLauncher::LaunchAgent,[\s\S]{0,80}Some\(vec!\["--autostart"\]\)/,
+  'macOS autostart must preserve the startup marker through the LaunchAgent backend',
+);
 assert.ok(
   !capability.permissions.some((permission) => permission.startsWith('shell:')),
   'The webview must not receive Tauri shell permissions',
@@ -108,6 +119,8 @@ assert.match(rustSource, /PROVIDER_EXECUTION_TIMEOUT_SECS/, 'Provider execution 
 assert.doesNotMatch(frontendSource, /dangerouslySetInnerHTML/, 'Render untrusted clip content as text, never raw HTML');
 assert.match(safeRasterImage, /decodeSafeRasterDataUrl\(source\)/, 'Dynamic image sources must pass the shared raster decoder');
 assert.match(safeRasterImage, /URL\.createObjectURL\(new Blob/, 'Validated raster bytes must render through an inert object URL');
+assert.match(safeRasterImage, /React\.useLayoutEffect\(\(\) => \{[\s\S]{0,300}URL\.createObjectURL/,
+  'Validated raster object URLs must be ready before cached thumbnails paint');
 assert.match(
   frontendSource,
   /decodedByteLength > MAX_RENDERABLE_RASTER_BYTES[\s\S]*atob\(payload\)/,
@@ -130,7 +143,7 @@ assert.match(
 assert.doesNotMatch(quickHud, /<img\b/, 'The HUD must not bypass its safe thumbnail surface');
 assert.match(rustSource, /validate_raster_data_url/, 'Native clip and icon boundaries must validate raster data URLs');
 assert.doesNotMatch(frontendSource, /\b(?:eval|Function)\s*\(/, 'Frontend dynamic code execution is forbidden');
-assert.match(clipActions, /htmlToPlainText\(clip\.text_content\)/, 'Plain-text copying must use the shared HTML parser');
+assert.match(clipActions, /htmlToPlainText\((?:fullClip|clip)\.text_content\)/, 'Plain-text copying must use the shared HTML parser');
 assert.match(plainText, /new DOMParser\(\)\.parseFromString\(value, 'text\/html'\)/, 'HTML-to-text conversion must use DOM parsing');
 assert.match(plainText, /script, style, template, noscript/, 'HTML-to-text conversion must discard non-visible executable content');
 assert.doesNotMatch(clipActions, /replace\(\/<\[\^>\]\*>\/g/, 'Do not restore one-pass regex HTML stripping');

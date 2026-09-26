@@ -90,7 +90,7 @@ Stable announcement publication is fail-closed and idempotent. The workflow requ
 
 Manual dispatch of **Desktop release** exercises native signing and packaging but intentionally does not create a GitHub Release because it has no immutable version tag.
 
-## 1.0 platform matrix
+## Stable platform matrix
 
 - **macOS:** one universal DMG with native Apple Silicon and Intel binaries.
 - **Linux:** one x86_64 AppImage. X11 and Wayland are detected at runtime rather than shipped as separate applications.

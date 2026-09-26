@@ -1,6 +1,7 @@
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -9,6 +10,8 @@ use crate::db::DbState;
 
 const MAX_QUEUE_ITEMS: usize = 1_000;
 const MAX_QUEUE_BYTES: usize = 256 * 1024 * 1024;
+const MAX_INTERNAL_CLIPBOARD_WRITES: usize = 8;
+const INTERNAL_CLIPBOARD_WRITE_TTL: Duration = Duration::from_secs(2);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SequentialStatus {
@@ -32,7 +35,7 @@ pub struct SequentialQueueState {
     pub is_active: Mutex<bool>,
     queue: Mutex<Vec<SequentialQueueItem>>,
     next_item_id: AtomicU64,
-    internal_clipboard_write: Mutex<Option<(String, Instant)>>,
+    internal_clipboard_writes: Mutex<VecDeque<(String, Instant)>>,
     db: Option<Arc<DbState>>,
 }
 
@@ -75,7 +78,7 @@ impl SequentialQueueState {
             is_active: Mutex::new(active),
             queue: Mutex::new(items),
             next_item_id: AtomicU64::new(next_item_id),
-            internal_clipboard_write: Mutex::new(None),
+            internal_clipboard_writes: Mutex::new(VecDeque::new()),
             db,
         }
     }
@@ -141,30 +144,37 @@ impl SequentialQueueState {
         self.push_item(item).is_ok()
     }
 
-    /// Consume the short-lived marker for clipboard content written by Pasted
+    /// Consume a short-lived marker for clipboard content written by Pasted
     /// itself. Text uses its exact content; image and file writes use the same
-    /// content fingerprints as the clipboard monitor. This prevents Queue and
-    /// HUD pastes from becoming duplicate clips or triggering automation.
+    /// content fingerprints as the clipboard monitor. Multiple markers allow
+    /// workflows such as Smart Paste to suppress both their temporary value
+    /// and the restored clipboard without hiding unrelated user copies.
     pub fn consume_internal_clipboard_write(&self, item: &str) -> bool {
-        let mut internal_write = self.internal_clipboard_write.lock();
-        if let Some((expected, written_at)) = internal_write.as_ref() {
-            if written_at.elapsed() <= Duration::from_secs(2) && expected == item {
-                *internal_write = None;
-                return true;
-            }
-            if written_at.elapsed() > Duration::from_secs(2) {
-                *internal_write = None;
-            }
-        }
-        false
+        let mut internal_writes = self.internal_clipboard_writes.lock();
+        internal_writes
+            .retain(|(_, written_at)| written_at.elapsed() <= INTERNAL_CLIPBOARD_WRITE_TTL);
+        let Some(index) = internal_writes
+            .iter()
+            .position(|(expected, _)| expected == item)
+        else {
+            return false;
+        };
+        internal_writes.remove(index);
+        true
     }
 
     pub fn mark_internal_clipboard_write(&self, item: &str) {
-        *self.internal_clipboard_write.lock() = Some((item.to_string(), Instant::now()));
+        let mut internal_writes = self.internal_clipboard_writes.lock();
+        internal_writes
+            .retain(|(_, written_at)| written_at.elapsed() <= INTERNAL_CLIPBOARD_WRITE_TTL);
+        while internal_writes.len() >= MAX_INTERNAL_CLIPBOARD_WRITES {
+            internal_writes.pop_front();
+        }
+        internal_writes.push_back((item.to_string(), Instant::now()));
     }
 
     pub fn clear_internal_clipboard_write(&self) {
-        *self.internal_clipboard_write.lock() = None;
+        self.internal_clipboard_writes.lock().clear();
     }
 
     pub fn peek_item(&self, index: usize) -> Option<(u64, String)> {
@@ -326,6 +336,26 @@ mod tests {
 
         assert!(seq.consume_internal_clipboard_write("Combined Queue"));
         assert!(!seq.consume_internal_clipboard_write("Combined Queue"));
+    }
+
+    #[test]
+    fn multiple_internal_writes_are_suppressed_independently() {
+        let seq = SequentialQueueState::new();
+        seq.mark_internal_clipboard_write("temporary smart value");
+        seq.mark_internal_clipboard_write("original clipboard");
+
+        assert!(seq.consume_internal_clipboard_write("original clipboard"));
+        assert!(seq.consume_internal_clipboard_write("temporary smart value"));
+        assert!(!seq.consume_internal_clipboard_write("original clipboard"));
+    }
+
+    #[test]
+    fn unrelated_copies_do_not_consume_internal_write_markers() {
+        let seq = SequentialQueueState::new();
+        seq.mark_internal_clipboard_write("temporary smart value");
+
+        assert!(!seq.consume_internal_clipboard_write("user copy"));
+        assert!(seq.consume_internal_clipboard_write("temporary smart value"));
     }
 
     #[test]

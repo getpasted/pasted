@@ -2,6 +2,9 @@ use super::super::*;
 use super::*;
 
 pub(crate) fn run_import(args: Vec<String>, db_path: PathBuf, conn: Connection) -> Result<()> {
+    let policy = DbState::open_existing(db_path.clone())?;
+    require_feature(&policy, pasted_lib::features::Feature::Backups);
+    drop(policy);
     let Some(source_name) = args.get(2) else {
         eprintln!(
         "Usage: pasted import <alfred|pastebot|pasta|paste|copyclip|maccy|flycut> [history-file-or-folder] [--json]"
@@ -71,12 +74,22 @@ pub(crate) fn run_import(args: Vec<String>, db_path: PathBuf, conn: Connection) 
     Ok(())
 }
 
-pub(crate) fn run_database(args: Vec<String>, db_path: PathBuf, conn: Connection) -> Result<()> {
-    let app_data = get_app_data_dir();
+pub(crate) fn run_database(
+    args: Vec<String>,
+    db_path: PathBuf,
+    conn: Connection,
+    session: &library_storage::LibrarySession,
+) -> Result<()> {
+    let app_data = &session.app_data;
     let subcommand = args.get(2).map(String::as_str).unwrap_or("location");
     match subcommand {
+        "status" => library_startup_cli::report_status(
+            &args,
+            app_data,
+            library_storage::LibraryStartupStatus::ready(),
+        ),
         "location" => {
-            let location = library_storage::location_info(&app_data, &db_path);
+            let location = library_storage::location_info(app_data, &db_path);
             if args.iter().any(|argument| argument == "--json") {
                 println!(
                     "{}",
@@ -102,95 +115,30 @@ pub(crate) fn run_database(args: Vec<String>, db_path: PathBuf, conn: Connection
                 println!("{}", protection.detail);
             }
         }
-        "move" => {
-            let Some(directory) = args.get(3) else {
-                eprintln!("Usage: pasted database move <folder> [--json]");
-                std::process::exit(2);
-            };
-            let directory = fs::canonicalize(directory).unwrap_or_else(|error| {
-                eprintln!("Could not resolve the database folder: {error}");
-                std::process::exit(2);
-            });
-            let target = library_storage::validate_destination_directory(&directory, &db_path)
-                .unwrap_or_else(|error| {
-                    eprintln!("{error}");
+        "move" | "default" => {
+            let directory = if subcommand == "default" {
+                session.app_data.clone()
+            } else {
+                let Some(directory) = args.get(3).filter(|value| !value.starts_with("--")) else {
+                    eprintln!("Usage: pasted database move <folder> [--json]");
                     std::process::exit(2);
-                });
-            if target == db_path {
-                println!("The database is already in that folder.");
-                return Ok(());
-            }
-            drop(conn);
-            let db = DbState::new(db_path.clone())?;
-            let previous = db.relocate_database(target.clone())?;
-            if let Err(error) = library_storage::persist_location(&app_data, &target) {
-                let _ = db.switch_to_database(previous.clone());
-                eprintln!("{error}");
-                std::process::exit(1);
-            }
-            let location = library_storage::location_info(&app_data, &target);
-            if args.iter().any(|argument| argument == "--json") {
-                println!(
-                    "{}",
-                    serde_json::to_string_pretty(&serde_json::json!({
-                        "location": location,
-                        "recoveryPath": previous,
-                    }))
-                    .map_err(|error| {
-                        rusqlite::Error::ToSqlConversionFailure(Box::new(error))
-                    })?
-                );
-            } else {
-                println!("Moved the database to {}.", location.path);
-                println!("Previous database retained at {}.", previous.display());
-            }
-        }
-        "default" => {
-            let target = library_storage::default_database_path(&app_data);
-            if target == db_path {
-                println!("The database is already in its default location.");
-                return Ok(());
-            }
-            let archived_default = library_storage::archive_existing_database(&target)
-                .unwrap_or_else(|error| {
-                    eprintln!("{error}");
-                    std::process::exit(1);
-                });
-            drop(conn);
-            let db = DbState::new(db_path.clone())?;
-            let previous = match db.relocate_database(target.clone()) {
-                Ok(previous) => previous,
-                Err(error) => {
-                    if let Some(archived) = archived_default.as_deref() {
-                        library_storage::restore_archived_database(archived, &target);
-                    }
-                    return Err(error);
-                }
+                };
+                fs::canonicalize(directory)
+                    .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?
             };
-            if let Err(error) = library_storage::persist_location(&app_data, &target) {
-                let _ = db.switch_to_database(previous.clone());
-                let _ = fs::remove_file(&target);
-                if let Some(archived) = archived_default.as_deref() {
-                    library_storage::restore_archived_database(archived, &target);
-                }
-                eprintln!("{error}");
-                std::process::exit(1);
-            }
-            let location = library_storage::location_info(&app_data, &target);
+            drop(conn);
+            let db = DbState::open_existing(db_path)?;
+            let report = db
+                .move_library(session, &directory, subcommand == "default")
+                .map_err(rusqlite::Error::InvalidParameterName)?;
             if args.iter().any(|argument| argument == "--json") {
                 println!(
                     "{}",
-                    serde_json::to_string_pretty(&serde_json::json!({
-                        "location": location,
-                        "recoveryPath": previous,
-                    }))
-                    .map_err(|error| {
-                        rusqlite::Error::ToSqlConversionFailure(Box::new(error))
-                    })?
+                    serde_json::to_string_pretty(&report).map_err(json_error)?
                 );
             } else {
-                println!("Restored the default database location.");
-                println!("Custom database retained at {}.", previous.display());
+                println!("Library location: {}", report.location.path);
+                println!("Recovery copy: {}", report.recovery_path);
             }
         }
         _ => {

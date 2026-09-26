@@ -379,6 +379,7 @@ export function ActivityEventBadge({ type, description }: { type: string; descri
       case 'transform_deleted':
       case 'transform_executed':
       case 'transformation_execution_succeeded':
+      case 'transform_smart_paste_succeeded':
       case 'bin_transform_executed':
       case 'bin_transform_no_change':
       case 'clip_transformed':
@@ -392,6 +393,7 @@ export function ActivityEventBadge({ type, description }: { type: string; descri
       case 'transform_test_failed':
       case 'transform_execution_failed':
       case 'transformation_execution_failed':
+      case 'transform_smart_paste_failed':
       case 'bin_transform_failed':
         return (
           <div className="theme-status-danger flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">

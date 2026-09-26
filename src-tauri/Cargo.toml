@@ -1,6 +1,6 @@
 [package]
 name = "pasted-app"
-version = "1.0.1"
+version = "1.2.0"
 description = "Pasted - Native, Subscription-Free Clipboard Manager"
 authors = ["Antigravity"]
 license = "MIT"
@@ -50,7 +50,7 @@ serde_json = "1"
 rusqlite = { version = "0.40", features = ["bundled", "backup"] }
 arboard = { version = "3.4", features = ["wayland-data-control"], optional = true }
 sha2 = "0.11"
-argon2 = "0.5"
+argon2 = "0.6"
 rand_core = { version = "0.6", features = ["getrandom"] }
 rpassword = "7"
 chrono = { version = "0.4", features = ["serde"] }
@@ -66,7 +66,7 @@ tauri-plugin-single-instance = { version = "2", optional = true }
 tauri-plugin-window-state = { version = "2", optional = true }
 tauri-plugin-dialog = { version = "2", optional = true }
 window-vibrancy = { version = "0.8", optional = true }
-dirs = "6.0"
+dirs = "7.0"
 unicode-normalization = "0.1"
 url = "2.5"
 tauri-plugin-updater = { version = "2", optional = true }

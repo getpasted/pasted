@@ -22,6 +22,11 @@ pub fn get_clips(
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub fn get_clip_detail(id: i64, db: State<'_, Arc<DbState>>) -> Result<ClipItem, String> {
+    db.get_clip_by_id(id).map_err(|error| error.to_string())
+}
+
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CaptureFeedbackClip {

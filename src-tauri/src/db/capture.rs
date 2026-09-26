@@ -164,11 +164,11 @@ impl DbState {
             structure,
         )?;
         if include_classifiers {
-            self.replace_analysis_classifications(
+            self.replace_capture_classifications(
                 clip.id,
                 &clip.content_hash,
+                text,
                 &classification_matches,
-                "original_text",
             )?;
             return self.get_clip_by_id(clip.id);
         }

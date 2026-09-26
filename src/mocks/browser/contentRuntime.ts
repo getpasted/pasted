@@ -101,8 +101,8 @@ export async function invokeContentBrowserMock<T>(
     }
     case 'get_clip_searchable_text':
       return (mockFileSearchableText.get(Number(args?.clipId)) ?? null) as unknown as T;
-    case 'get_clip_content_matches':
-      return [] as unknown as T;
+    case 'get_clip_detected_content':
+      return { classificationMatches: [], pasteParts: null } as unknown as T;
     case 'extract_text_from_file_clip': {
       const clipId = Number(args?.clipId);
       if (!Number.isInteger(clipId) || clipId <= 0) throw new Error('A valid clip ID is required.');

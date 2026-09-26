@@ -1840,3 +1840,14 @@ option {
   cursor: not-allowed;
   opacity: 0.4;
 }
+
+/* Keep numeric validation and keyboard behavior; the shared stepper owns buttons. */
+.settings-number-input {
+  appearance: textfield;
+}
+
+.settings-number-input::-webkit-inner-spin-button,
+.settings-number-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}

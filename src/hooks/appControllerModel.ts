@@ -1,5 +1,5 @@
 import type { ClipItem } from '../types.ts';
-
+export { mergeVisibleClipSnapshots } from '../utils/clipListItems.ts';
 export function selectionHasRestrictedClip(
   selectedClipIds: Set<number>,
   displayedClips: ClipItem[],

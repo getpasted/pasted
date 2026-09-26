@@ -4,7 +4,42 @@ Notable user-facing changes to Pasted are recorded here. The project follows sem
 
 ## Unreleased
 
-No changes yet.
+## 1.2.0 — 2026-09-25
+
+- added Smart Paste, which selects a confidently matched value from copied text for the focused field, restores the original clipboard, and exposes the same detected-content contract in clip details and the CLI;
+- added optional Apple Intelligence enrichment for detected paste values on supported Macs while keeping deterministic matching available without a model;
+- prevented Smart Paste and other internal clipboard writes from returning to History, Queue, notifications, or capture automation;
+- fixed History startup loading so the visible list fills reliably, including when saved-position restoration needs additional pages;
+- preserved independent scroll positions across History, Bins, Clip Types, Content Types, Images, and other virtualized clip collections without revealing selected-clip actions before the selected row is visible;
+- concealed pinned clip contents while the pinned roll-up is closed; and
+- refreshed reviewed frontend and GitHub Actions dependencies.
+
+## 1.1.0 — 2026-09-15
+
+- unified Search around one focused modal from expanded or collapsed navigation, with immediate progress, filter helpers, layered Escape behavior, and restoration of the previous collection;
+- made large History, Bin, type, and other collection views load in bounded pages without showing partially positioned or unstable lists;
+- coordinated saved scroll restoration with collection reveal, using a bounded fallback for slow content, and cached recent collection pages for faster repeat navigation;
+- bounded file-preview concurrency, latency, and memory use so missing external files cannot hold up an entire list;
+- removed reordering affordances from Smart Bins while preserving manual ordering where it can be saved; and
+- refreshed reviewed frontend, native, packaging, and CodeQL dependencies, including the current Rustls patch release.
+
+## 1.0.2 — 2026-09-08
+
+- added configurable automatic Snapshots when new clips arrive, with immediate creation, live countdown and list updates, restore, deletion, Full Backup export, and matching `pasted snapshots` commands;
+- added fault-tolerant startup for moved or unavailable libraries, including verified Snapshot recovery, preservation of failed library files, and a clean default-library fallback with an informative Storage notice;
+- reorganized Functionality controls around Storage, omitted disabled migration from welcome setup, and made Factory Reset remove automatic Snapshots while preserving manually exported Full Backups;
+- changed the Snapshot defaults to one recovery point per day with the five newest Snapshots retained;
+- fixed launch-at-login registration on macOS and kept capture notifications independent from main-window visibility;
+- prevented wrapped welcome headings from overlapping their content;
+- updated App Lock password hashing while preserving verification of existing saved credentials; and
+- normalized Windows release notices before checksumming and refreshed reviewed frontend and native dependencies.
+
+## 1.0.1 — 2026-09-01
+
+- prevented virtualized History rows from appearing blank during long-list navigation;
+- reduced translucent macOS window flicker and preserved window blur while App Lock opens and closes;
+- polished the Copycat menu-bar icon and menu, removed the clipped HUD shadow, and standardized window terminology across every shipped locale; and
+- refreshed reviewed build and frontend dependencies.
 
 ## 1.0.0 — 2026-08-27
 

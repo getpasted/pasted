@@ -5,6 +5,7 @@ mod extractions;
 mod inspections;
 mod ocr;
 mod ocr_queue;
+mod paste_parts;
 mod searchable_text;
 mod types;
 

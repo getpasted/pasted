@@ -1,6 +1,11 @@
 import type { AppSettings } from '../types';
 
 export type FeatureId =
+  | 'libraryMove'
+  | 'backups'
+  | 'factoryReset'
+
+  | 'snapshots'
   | 'analytics'
   | 'bins'
   | 'clipTypes'
@@ -30,6 +35,11 @@ export type FeatureId =
   | 'updates';
 
 export type FeatureSettingKey =
+  | 'enableLibraryMove'
+  | 'enableBackups'
+  | 'enableFactoryReset'
+
+  | 'enableSnapshots'
   | 'enableAnalytics'
   | 'enableBins'
   | 'enableClipTypes'
@@ -58,7 +68,7 @@ export type FeatureSettingKey =
   | 'enableHelp'
   | 'enableUpdateChecks';
 
-export type FeatureGroupId = 'library' | 'discovery' | 'workflow' | 'app';
+export type FeatureGroupId = 'library' | 'discovery' | 'workflow' | 'storage' | 'app';
 
 export interface FeatureGroupDefinition {
   id: FeatureGroupId;
@@ -70,6 +80,7 @@ export const FEATURE_GROUPS: readonly FeatureGroupDefinition[] = [
   { id: 'library', label: 'Library', description: 'Organize, preserve, and manage clipboard history.' },
   { id: 'discovery', label: 'Intelligence and discovery', description: 'Understand clip contents and browse useful collections.' },
   { id: 'workflow', label: 'Workflow Tools', description: 'Use clips faster and build more capable workflows.' },
+  { id: 'storage', label: 'Storage', description: 'Move, back up, and recover library data.' },
   { id: 'app', label: 'App and support', description: 'Control feedback and access supporting tools.' },
 ] as const;
 
@@ -117,6 +128,7 @@ export const FEATURE_DEFINITIONS: readonly FeatureDefinition[] = [
     caution: 'New edits and Transforms will not be reversible while Revision History is disabled.',
   },
 
+
   { id: 'clipTypes', group: 'discovery', settingKey: 'enableClipTypes', label: 'Clip Types', description: 'Show structural Clip Types and their collections.', simple: false },
   { id: 'types', group: 'discovery', settingKey: 'enableTypes', label: 'Content Types', description: 'Show recognized Content Types and their collections.', simple: false },
   { id: 'contentClassification', group: 'discovery', settingKey: 'enableContentClassification', label: 'Content Classification', description: 'Assign registered Content Types to analyzable text.', simple: true },
@@ -131,6 +143,11 @@ export const FEATURE_DEFINITIONS: readonly FeatureDefinition[] = [
   { id: 'transformations', group: 'workflow', settingKey: 'enableTransformations', label: 'Transformations', description: 'Run text workflows and receive Smart Action suggestions.', simple: false },
   { id: 'hud', group: 'workflow', settingKey: 'enableHud', label: 'HUD', description: 'Open the compact keyboard-driven clipboard window.', simple: false },
   { id: 'hotkeys', group: 'workflow', settingKey: 'enableHotkeys', label: 'Hotkeys', description: 'Assign and use system-wide hotkeys for actions, clips, Bins, and Transforms.', simple: false },
+
+  { id: 'libraryMove', group: 'storage', settingKey: 'enableLibraryMove', label: 'Move', description: 'Move the library between folders.', simple: true },
+  { id: 'backups', group: 'storage', settingKey: 'enableBackups', label: 'Backup', description: 'Export, import, and restore library data.', simple: true },
+  { id: 'snapshots', group: 'storage', settingKey: 'enableSnapshots', label: 'Snapshots', description: 'Automatically save library snapshots and restore earlier states.', simple: true },
+  { id: 'factoryReset', group: 'storage', settingKey: 'enableFactoryReset', label: 'Reset', description: 'Erase saved data and restore default settings.', simple: false },
 
   { id: 'notifications', group: 'app', settingKey: 'enableNotifications', label: 'Notifications', description: 'Show interactive capture feedback without interrupting the current workflow.', simple: false },
   {
@@ -198,4 +215,8 @@ export function featureForRoute(route: string): FeatureId | null {
     help: 'help',
   };
   return routes[tab] ?? null;
+}
+
+export function hasStorageFeatures(settings: Pick<AppSettings, 'enableLibraryMove' | 'enableBackups' | 'enableSnapshots' | 'enableFactoryReset'>): boolean {
+  return settings.enableLibraryMove || settings.enableBackups || settings.enableSnapshots || settings.enableFactoryReset;
 }

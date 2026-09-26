@@ -1,6 +1,6 @@
 # Settings and Features
 
-Pasted can be a full workspace or a small clipboard history. **Settings → Functionality** provides global gates for App Lock, Bins, Queue, pinning, protection, notes, Trash, Clip Search, Clip Types, Content Types, Sources, Transformations, Activity, CLI, OCR, Transcriptions, Revision History, content classification, HUD, Hotkeys, and related tools.
+Pasted can be a full workspace or a small clipboard history. **Settings → Functionality** provides global gates for App Lock, Bins, Queue, pinning, protection, notes, Trash, Clip Search, Clip Types, Content Types, Sources, Transformations, Activity, CLI, OCR, Transcriptions, Revision History, Snapshots, content classification, HUD, Hotkeys, and related tools.
 
 Disabling a feature hides its active UI and preserves existing data unless the setting explicitly describes destruction. Related settings are hidden when they cannot apply.
 
@@ -12,9 +12,16 @@ Disabling a feature hides its active UI and preserves existing data unless the s
 
 Changing presets does not erase clips or supporting records. Feature cards with an information indicator describe consequences that continue after the feature is hidden.
 
+## Storage functionality
+
+The Storage group contains Move, Backup, Snapshots, and Reset. Move controls database relocation. Backup controls import/export, Full Backup and Full Restore, and migration from another clipboard manager. Snapshots retains its own independent controls. Reset controls the full application reset; ordinary page-level setting resets remain separate.
+
+Turning off all four removes Storage from Settings navigation. If Storage is already open, it returns to General. Re-enabling any one restores the navigation item. Gates preserve existing files, snapshots, and configuration and apply to the corresponding CLI commands as well. They do not disable automatic startup repair. The welcome flow omits migration entirely when Backup is off, including its step count and Back/Next navigation. Changes to Storage gates made through the CLI also update the running app through its settings-change events.
+
 ## Important feature interactions
 
 - **Trash:** when enabled, ordinary deletion moves clips to recoverable Trash. Restore clips individually from Trash or restore every trashed clip from Settings → General. When disabled, new deletions are permanent. Existing trashed clips remain stored and become available again when Trash is re-enabled.
+- **Snapshots:** disabling it stops automatic snapshots and hides their Storage controls. Snapshot CLI commands also stop. Existing snapshots and the configured interval remain available when the feature is re-enabled. To pause automatic creation while keeping immediate creation, export, the list, and restoration available, set the snapshot count to 0 in Storage.
 - **Revision History:** disabling it preserves existing revisions, but new edits and Transform replacements do not receive restorable snapshots.
 - **Protection:** disabling the interface does not unprotect previously protected clips. Re-enable Protection to change them.
 - **Bins:** disabling it hides manual and Smart Bin interfaces without deleting definitions, membership, ordering, or connected Transforms.
@@ -43,7 +50,7 @@ Other Settings pages cover:
 - **Security:** when App Lock is enabled under Functionality, passphrase setup, system authentication, immediate lock, restart and sleep policies, inactivity auto-lock, and capture behavior while locked;
 - **Intelligence:** detected and custom intelligence providers;
 - **App Exclusions:** applications that should block selected text, image, file, or hotkey behavior;
-- **Storage:** database location and detected volume-encryption status, complete backup and restore, preflighted History and Organization transfer, Clip and Activity import/export, migration from supported clipboard managers, and Factory Reset;
+- **Storage:** database location and detected volume-encryption status, automatic recovery notes, configurable Snapshots with restoration, complete backup and restore, preflighted History and Organization transfer, Clip and Activity import/export, migration from supported clipboard managers, and Factory Reset;
 - **About:** version, installation paths, signing, runtime, and CLI installation.
 
 ## Scoped resets

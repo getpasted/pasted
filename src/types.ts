@@ -1,4 +1,5 @@
 export type { SearchHistoryEntry, SearchHistoryPage } from './searchHistoryTypes';
+export { getClipFilePaths, getClipFileSummary } from './utils/clipFiles';
 
 export interface ClipNote {
   id: string;
@@ -104,6 +105,11 @@ export interface ClipItem {
   ocr_extractor_ref?: string | null;
   ocr_extractor_name?: string | null;
   ocr_engine_version?: string | null;
+  /** True when text_content is a bounded list preview rather than full clip content. */
+  is_summary?: boolean;
+  preview_truncated?: boolean;
+  file_names?: string[];
+  file_count?: number;
 }
 
 export interface ClipSearchRequest {
@@ -165,25 +171,6 @@ export function getClipOriginKind(
   if (clip.content_type === 'file') return 'file_reference';
   if (source === 'cli terminal' || source === 'pasted cli') return 'command_line';
   return 'clipboard_content';
-}
-
-export function getClipFilePaths(clip: Pick<ClipItem, 'content_type' | 'text_content'>): string[] {
-  if (clip.content_type !== 'file' || !clip.text_content) return [];
-  try {
-    const paths = JSON.parse(clip.text_content);
-    if (Array.isArray(paths) && paths.every((path) => typeof path === 'string')) return paths;
-    if (typeof paths === 'string' && paths.trim()) return [paths.trim()];
-  } catch {
-    // Early file clips stored either one path or a newline-delimited selection.
-  }
-  return clip.text_content.split(/\r?\n/).map((path) => path.trim()).filter(Boolean);
-}
-
-export function getClipFileSummary(clip: Pick<ClipItem, 'content_type' | 'text_content'>): string {
-  const paths = getClipFilePaths(clip);
-  if (paths.length === 0) return translate('component.analyticsView.files');
-  const name = paths[0].split(/[\\/]/).filter(Boolean).pop() || paths[0];
-  return paths.length === 1 ? name : translate('format.fileSummaryMore', { name, count: paths.length - 1 });
 }
 
 export interface Bin {
@@ -486,5 +473,3 @@ export type {
   QueuePasteTarget,
   SequentialStatus,
 } from './appSettingsTypes';
-
-import { translate } from './localization/runtime';

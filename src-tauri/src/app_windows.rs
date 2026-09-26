@@ -2,6 +2,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::Manager;
 use tauri_plugin_window_state::{StateFlags, WindowExt};
 
+#[cfg(target_os = "macos")]
+mod capture_feedback;
+
 static MAIN_PAGE_LOADED: AtomicBool = AtomicBool::new(false);
 static STARTUP_SETUP_READY: AtomicBool = AtomicBool::new(false);
 static MAIN_WINDOW_REVEALED: AtomicBool = AtomicBool::new(false);
@@ -67,6 +70,9 @@ pub(crate) fn configure_initial_windows(
 
 #[cfg(target_os = "macos")]
 pub(crate) fn configure_overlay_windows(app: &tauri::AppHandle) {
+    if let Err(error) = capture_feedback::prevent_app_activation(app) {
+        eprintln!("Could not isolate capture feedback activation: {error}");
+    }
     for label in ["hud", "capture-feedback"] {
         if let Some(window) = app.get_webview_window(label) {
             setup_overlay_window_transparency(&window);

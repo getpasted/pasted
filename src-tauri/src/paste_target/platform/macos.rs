@@ -9,7 +9,7 @@ pub(in crate::paste_target) fn active_application_context(
 ) -> Option<ActiveApplicationContext> {
     let target = frontmost_application()?;
     let window_title = include_private_mode_signal
-        .then(|| focused_window_title(target.pid))
+        .then(|| super::macos_accessibility::focused_window_title(target.pid))
         .flatten();
     Some(ActiveApplicationContext {
         name: target.name,
@@ -38,6 +38,24 @@ pub(in crate::paste_target) fn frontmost_application() -> Option<PasteTarget> {
     }
 }
 
+pub(in crate::paste_target) fn focused_smart_paste_context(
+) -> Result<crate::smart_paste::SmartPasteContext, String> {
+    let target = frontmost_application()
+        .ok_or_else(|| "Smart Paste could not identify the focused application.".to_string())?;
+    let attributes = super::macos_accessibility::focused_element_attributes(target.pid)
+        .ok_or_else(|| {
+            "The focused field does not expose context to macOS Accessibility.".to_string()
+        })?;
+    Ok(crate::smart_paste::SmartPasteContext {
+        application: target.name,
+        role: attributes[0].clone(),
+        label: attributes[1].clone(),
+        description: attributes[2].clone(),
+        help: attributes[3].clone(),
+        placeholder: attributes[4].clone(),
+    })
+}
+
 unsafe fn ns_string(
     object: *mut objc::runtime::Object,
     selector: objc::runtime::Sel,
@@ -55,89 +73,6 @@ unsafe fn ns_string(
             .to_string_lossy()
             .into_owned()
     })
-}
-
-fn focused_window_title(pid: i32) -> Option<String> {
-    use std::ffi::{c_void, CStr, CString};
-    use std::ptr;
-
-    type CfTypeRef = *const c_void;
-    type CfStringRef = *const c_void;
-    type AxUiElementRef = *const c_void;
-    const UTF8: u32 = 0x0800_0100;
-
-    #[link(name = "ApplicationServices", kind = "framework")]
-    extern "C" {
-        fn AXUIElementCreateApplication(pid: i32) -> AxUiElementRef;
-        fn AXUIElementCopyAttributeValue(
-            element: AxUiElementRef,
-            attribute: CfStringRef,
-            value: *mut CfTypeRef,
-        ) -> i32;
-    }
-    #[link(name = "CoreFoundation", kind = "framework")]
-    extern "C" {
-        fn CFStringCreateWithCString(
-            allocator: *const c_void,
-            text: *const i8,
-            encoding: u32,
-        ) -> CfStringRef;
-        fn CFStringGetCString(
-            string: CfStringRef,
-            buffer: *mut i8,
-            buffer_size: isize,
-            encoding: u32,
-        ) -> bool;
-        fn CFRelease(value: CfTypeRef);
-    }
-
-    unsafe fn attribute(name: &str) -> CfStringRef {
-        let name = CString::new(name).ok();
-        name.map_or(ptr::null(), |name| {
-            CFStringCreateWithCString(ptr::null(), name.as_ptr(), UTF8)
-        })
-    }
-
-    unsafe {
-        let application = AXUIElementCreateApplication(pid);
-        if application.is_null() {
-            return None;
-        }
-        let focused_key = attribute("AXFocusedWindow");
-        if focused_key.is_null() {
-            CFRelease(application);
-            return None;
-        }
-        let mut window: CfTypeRef = ptr::null();
-        let status = AXUIElementCopyAttributeValue(application, focused_key, &mut window);
-        CFRelease(focused_key);
-        CFRelease(application);
-        if status != 0 || window.is_null() {
-            return None;
-        }
-
-        let title_key = attribute("AXTitle");
-        if title_key.is_null() {
-            CFRelease(window);
-            return None;
-        }
-        let mut title: CfTypeRef = ptr::null();
-        let status = AXUIElementCopyAttributeValue(window, title_key, &mut title);
-        CFRelease(title_key);
-        CFRelease(window);
-        if status != 0 || title.is_null() {
-            return None;
-        }
-
-        let mut buffer = vec![0i8; 2049];
-        let copied = CFStringGetCString(title, buffer.as_mut_ptr(), buffer.len() as isize, UTF8);
-        CFRelease(title);
-        copied.then(|| {
-            CStr::from_ptr(buffer.as_ptr())
-                .to_string_lossy()
-                .into_owned()
-        })
-    }
 }
 
 pub(in crate::paste_target) fn paste_to_target(

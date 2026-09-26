@@ -11,6 +11,12 @@ pub(crate) fn database_path() -> Result<Option<std::path::PathBuf>, String> {
     Ok(None)
 }
 
+pub(crate) fn prepare(app: &tauri::AppHandle) -> Result<Option<std::path::PathBuf>, String> {
+    let database_path = database_path()?;
+    configure_full_rate(app, database_path.is_some());
+    Ok(database_path)
+}
+
 #[cfg(all(debug_assertions, target_os = "macos"))]
 pub(crate) fn configure_full_rate(app: &tauri::AppHandle, has_valid_preview_database: bool) {
     if !has_valid_preview_database

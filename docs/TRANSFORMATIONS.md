@@ -149,6 +149,22 @@ Destinations may be composed only when the UI states each side effect clearly. â
 - `pasteLastPipelineHotkey` transforms the current clipboard, updates it, and
   pastes into the frontmost application.
 - `openTransformationsHotkey` opens the Transformations workspace.
+- `smartPasteHotkey` uses the focused field's accessible label to select one
+  persistent literal value detected when the text was copied, pastes it, and
+  restores the original clipboard. Registered classifiers provide deterministic
+  values on every platform. When an Apple Intelligence connection is enabled,
+  on-device background analysis adds richer values such as people,
+  organizations, roles, and locations. Paste time reads only focused-field
+  accessibility metadata, never the field's existing value or surrounding
+  interface. Dedicated password fields are supported because the selected value
+  must exist literally in the copied text. Passcode and verification-code
+  fields remain excluded.
+
+The standalone CLI exposes the same selector as `pasted smart-paste --context
+TEXT` and lists stored values with `pasted smart-paste parts --clip ID`. The GUI
+supplies context from the focused field through operating-system accessibility
+metadata; the CLI requires explicit context because it does not own the running
+app's focus state.
 
 ## Competitor lessons
 

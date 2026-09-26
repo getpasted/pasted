@@ -41,7 +41,7 @@ for (const key of featureKeys) {
 for (const [page, expectedCount] of Object.entries({
   general: 25,
   notifications: 5,
-  hotkeys: 17,
+  hotkeys: 18,
   'app-exclusions': 3,
 })) {
   assert.equal(pages.get(page)?.resetStrategy, 'settings', `${page} must use the reusable settings reset service`);

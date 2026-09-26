@@ -16,6 +16,8 @@ mod capture;
 mod classifiers;
 mod clip_collections;
 mod clip_concealment;
+mod clip_id_queries;
+mod clip_list;
 mod clip_mutations;
 mod clip_names;
 mod clip_search;
@@ -24,6 +26,7 @@ mod content_type_registry;
 mod contracts;
 mod extractors;
 mod factory_reset;
+mod full_backup_creation;
 mod full_backups;
 mod helpers;
 mod intelligence_connections;
@@ -43,6 +46,7 @@ mod clip_revisions;
 mod clip_version_delete;
 mod clip_version_queries;
 mod clip_version_restore;
+mod relocation;
 mod retention;
 mod schema;
 mod settings;
@@ -56,6 +60,7 @@ pub use clip_collections::ClipCollectionSummary;
 use clip_concealment::{
     append_clip_concealment, configure_content_type_schema, create_effective_view,
 };
+pub use clip_list::{ClipCollectionPageRequest, ClipListItem, ClipListPage};
 use clip_names::append_clip_names;
 use clip_records::{
     append_clip_content_types, append_clip_file_formats, append_clip_protection,
@@ -83,6 +88,7 @@ use contracts::{
 };
 use helpers::*;
 pub use intelligence_connections::{IntelligenceConnection, IntelligenceConnectionUpdate};
+pub(crate) use lifecycle::open_existing_database;
 pub use lifecycle::open_pasted_database;
 use lifecycle::open_pasted_database_read_only;
 pub use operations::{Operation, ResolvedCustomOperation};
