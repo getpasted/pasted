@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "Pasted-1.2.0-distributed-components",
-  "documentNamespace": "https://getpasted.app/sbom/1.2.0/7aea405f5320b0662a3f90e4b0027cdb76f77fe7ca6067f0214dcb9655d41d05",
+  "documentNamespace": "https://getpasted.app/sbom/1.2.0/68a4ae34de9ec789338f0531b7c330291202e8c5a6c97533b5ca751c329f982a",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
@@ -8869,9 +8869,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-npm-e50451daa644dd71",
+      "SPDXID": "SPDXRef-npm-39e6fd9acdec33ed",
       "name": "lucide-react",
-      "versionInfo": "1.47.0",
+      "versionInfo": "1.48.0",
       "downloadLocation": "https://github.com/lucide-icons/lucide",
       "filesAnalyzed": false,
       "licenseConcluded": "ISC",
@@ -8881,7 +8881,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:npm/lucide-react@1.47.0"
+          "referenceLocator": "pkg:npm/lucide-react@1.48.0"
         }
       ]
     },
@@ -9807,7 +9807,7 @@
       "SPDXID": "SPDXRef-npm-e06edbe7016d8d03",
       "name": "scheduler",
       "versionInfo": "0.28.0",
-      "downloadLocation": "https://github.com/facebook/react",
+      "downloadLocation": "https://github.com/react/react",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT",
       "licenseDeclared": "MIT",
@@ -12736,7 +12736,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-npm-e50451daa644dd71"
+      "relatedSpdxElement": "SPDXRef-npm-39e6fd9acdec33ed"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
