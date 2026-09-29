@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "Pasted-1.2.0-distributed-components",
-  "documentNamespace": "https://getpasted.app/sbom/1.2.0/68a4ae34de9ec789338f0531b7c330291202e8c5a6c97533b5ca751c329f982a",
+  "documentNamespace": "https://getpasted.app/sbom/1.2.0/1cadd0eb4ce2d06dd414244dfa7ccf73e2eec14ff179c1bfb9e38095f795c7b2",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
@@ -5690,9 +5690,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-23c8246e981ee97e",
+      "SPDXID": "SPDXRef-cargo-8beab52f0bf8c358",
       "name": "tauri",
-      "versionInfo": "2.11.5",
+      "versionInfo": "2.11.6",
       "downloadLocation": "https://github.com/tauri-apps/tauri",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0 OR MIT",
@@ -5702,7 +5702,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/tauri@2.11.5"
+          "referenceLocator": "pkg:cargo/tauri@2.11.6"
         }
       ]
     },
@@ -5809,9 +5809,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-626e8d94167f01d7",
+      "SPDXID": "SPDXRef-cargo-acd84bed59329abf",
       "name": "tauri-plugin-single-instance",
-      "versionInfo": "2.4.4",
+      "versionInfo": "2.4.5",
       "downloadLocation": "https://github.com/tauri-apps/plugins-workspace",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0 OR MIT",
@@ -5821,14 +5821,14 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/tauri-plugin-single-instance@2.4.4"
+          "referenceLocator": "pkg:cargo/tauri-plugin-single-instance@2.4.5"
         }
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-e543d31a909a6aa3",
+      "SPDXID": "SPDXRef-cargo-c2129cc2c6eeb4f3",
       "name": "tauri-plugin-updater",
-      "versionInfo": "2.11.0",
+      "versionInfo": "2.12.0",
       "downloadLocation": "https://github.com/tauri-apps/plugins-workspace",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0 OR MIT",
@@ -5838,7 +5838,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/tauri-plugin-updater@2.11.0"
+          "referenceLocator": "pkg:cargo/tauri-plugin-updater@2.12.0"
         }
       ]
     },
@@ -7084,9 +7084,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-1ca4b7b582284d82",
+      "SPDXID": "SPDXRef-cargo-6769e0357b7a8447",
       "name": "window-vibrancy",
-      "versionInfo": "0.8.0",
+      "versionInfo": "0.8.1",
       "downloadLocation": "https://github.com/tauri-apps/tauri-plugin-vibrancy",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0 OR MIT",
@@ -7096,7 +7096,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/window-vibrancy@0.8.0"
+          "referenceLocator": "pkg:cargo/window-vibrancy@0.8.1"
         }
       ]
     },
@@ -11801,7 +11801,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-23c8246e981ee97e"
+      "relatedSpdxElement": "SPDXRef-cargo-8beab52f0bf8c358"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -11836,12 +11836,12 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-626e8d94167f01d7"
+      "relatedSpdxElement": "SPDXRef-cargo-acd84bed59329abf"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-e543d31a909a6aa3"
+      "relatedSpdxElement": "SPDXRef-cargo-c2129cc2c6eeb4f3"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -12211,7 +12211,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-1ca4b7b582284d82"
+      "relatedSpdxElement": "SPDXRef-cargo-6769e0357b7a8447"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
