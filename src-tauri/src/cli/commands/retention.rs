@@ -16,7 +16,7 @@ pub(crate) fn run(args: &[String], db_path: PathBuf, conn: Connection) -> Result
         .get_setting("keepClipAgeDays")?
         .and_then(|value| value.parse::<i64>().ok())
         .unwrap_or(0);
-    let count =
+    let mut count =
         parse_retention_argument(args, "--count", "unlimited", 100_000).unwrap_or(current_count);
     let age_days =
         parse_retention_argument(args, "--days", "forever", 36_500).unwrap_or(current_age_days);
@@ -52,7 +52,13 @@ pub(crate) fn run(args: &[String], db_path: PathBuf, conn: Connection) -> Result
         .any(|argument| argument == "--search-count" || argument == "--search-days");
     if history_changed {
         db.configure_clip_retention(count, age_days)?;
+        count = setting_i64(&db, "keepClipCount", count)?;
     }
+    let count_auto_expanded = db
+        .get_setting("historyLimitAutoExpanded")?
+        .as_deref()
+        .and_then(|value| value.parse::<i64>().ok())
+        == Some(count);
     if trash_changed {
         db.configure_trash_retention(trash_count, trash_age_days)?;
     }
@@ -73,6 +79,7 @@ pub(crate) fn run(args: &[String], db_path: PathBuf, conn: Connection) -> Result
             "{}",
             serde_json::to_string_pretty(&serde_json::json!({
                 "maximumClips": count,
+                "maximumClipsAutoExpanded": count_auto_expanded,
                 "maximumAgeDays": age_days,
                 "maximumClipsUnlimited": count == 0,
                 "maximumAgeForever": age_days == 0,
@@ -117,6 +124,9 @@ pub(crate) fn run(args: &[String], db_path: PathBuf, conn: Connection) -> Result
             retention_count_label(search_count, "entries"),
             retention_age_label(search_age_days),
         );
+        if count_auto_expanded {
+            println!("History limit increased automatically because pinned or protected clips filled it.");
+        }
     }
     Ok(())
 }

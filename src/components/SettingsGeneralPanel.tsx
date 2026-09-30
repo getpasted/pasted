@@ -12,6 +12,7 @@ import { SettingsGeneralAppearanceSection } from './SettingsGeneralAppearanceSec
 import { SettingsGeneralLayoutSection } from './SettingsGeneralLayoutSection';
 import { SettingsGeneralRetentionSections } from './SettingsGeneralRetentionSections';
 import { SettingsGeneralHistoryLimits } from './SettingsGeneralHistoryLimits';
+import { SettingsGeneralHistoryRetentionSection } from './SettingsGeneralHistoryRetentionSection';
 import { SettingsGeneralSearchHistorySection } from './SettingsGeneralSearchHistorySection';
 import { SettingsGeneralResetFooter } from './SettingsGeneralResetFooter';
 
@@ -40,16 +41,6 @@ const filePreviewDescriptions: Record<AppSettings['filePreviewMode'], string> = 
   get safe() { return translate('component.settingsGeneralPanel.filePreviewSafeDescription'); },
   get all() { return translate('component.settingsGeneralPanel.filePreviewAllDescription'); },
 };
-
-const historyCountPresets = [
-  { value: '0', get label() { return translate('component.settingsGeneralPanel.unlimited'); } },
-  { value: '250', get label() { return translate('component.settingsGeneralPanel.value250Clips'); } },
-  { value: '500', get label() { return translate('component.settingsGeneralPanel.value500Clips'); } },
-  { value: '1000', get label() { return translate('component.settingsGeneralPanel.value1000ClipsDefault'); } },
-  { value: '5000', get label() { return translate('component.settingsGeneralPanel.value5000Clips'); } },
-  { value: '10000', get label() { return translate('component.settingsGeneralPanel.value10000Clips'); } },
-  { value: '50000', get label() { return translate('component.settingsGeneralPanel.value50000Clips'); } },
-];
 
 const trashCountPresets = [
   { value: '0', get label() { return translate('component.settingsGeneralPanel.unlimited'); } },
@@ -108,13 +99,6 @@ export function SettingsGeneralPanel({
     { value: 'clipboard', get label() { return translate('component.settingsGeneralPanel.clipboard'); } },
     { value: 'copycat', get label() { return translate('component.settingsGeneralPanel.copycat'); } },
   ];
-  const historyCountOptions = historyCountPresets.some(({ value }) => Number(value) === settings.keepClipCount)
-    ? historyCountPresets
-    : [
-        ...historyCountPresets.slice(0, 1),
-        { value: String(settings.keepClipCount), label: t('format.customValue', { value: t('format.clipCount', { count: settings.keepClipCount }), custom: t('common.custom') }) },
-        ...historyCountPresets.slice(1),
-      ];
   const historyAgeMenuOptions = retentionAgeOptions.some(({ value }) => Number(value) === settings.keepClipAgeDays)
     ? retentionAgeOptions
     : [
@@ -273,41 +257,7 @@ export function SettingsGeneralPanel({
                 description={translate('component.settingsGeneralPanel.setCapturePreviewAndHistoryRetentionBehavior')}
               />
 
-              <div className="theme-surface overflow-hidden rounded-xl border">
-                <div className="flex items-center justify-between gap-4 px-3 py-2.5">
-                  <div className="min-w-0">
-                    <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.keepClipsFor')}</span>
-                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                      {translate('component.settingsGeneralPanel.eligibleClipsOlderThanThisMoveToTrashAutomatically')}
-                    </p>
-                  </div>
-                  <MenuSelect
-                    value={String(settings.keepClipAgeDays)}
-                    options={historyAgeMenuOptions}
-                    onChange={(value) => onUpdateSettings({ keepClipAgeDays: Number(value) })}
-                    label={translate('component.settingsGeneralPanel.maximumClipAge')}
-                    className="settings-menu-select w-40 shrink-0"
-                  />
-                </div>
-                <div className="theme-divider flex items-center justify-between gap-4 border-t px-3 py-2.5">
-                  <div className="min-w-0">
-                    <span className="font-semibold theme-text-main block">{translate('component.settingsGeneralPanel.maximumClips')}</span>
-                    <p className="text-[11px] theme-text-muted leading-normal mt-0.5">
-                      {translate('component.settingsGeneralPanel.theOldestEligibleClipsMoveToTrashFirst')}
-                    </p>
-                  </div>
-                  <MenuSelect
-                    value={String(settings.keepClipCount)}
-                    options={historyCountOptions}
-                    onChange={(value) => onUpdateSettings({ keepClipCount: Number(value) })}
-                    label={translate('component.settingsGeneralPanel.maximumClipsRetained')}
-                    className="settings-menu-select w-40 shrink-0"
-                  />
-                </div>
-                <p className="theme-divider theme-text-subtle border-t px-3 py-2 text-[10px] leading-normal">
-                  {translate('component.settingsGeneralPanel.bothLimitsApplyPinnedAndProtectedClipsNeverMoveToTrashAutomatically')}
-                </p>
-              </div>
+              <SettingsGeneralHistoryRetentionSection settings={settings} ageOptions={historyAgeMenuOptions} onUpdateSettings={onUpdateSettings} />
 
               <div className="flex items-start justify-between pt-1">
                 <div className="pe-4 flex-1 min-w-0">

@@ -318,7 +318,7 @@ assert.match(database, /pub struct ClipMutationSummary/, 'GUI and CLI mutations 
 assert.match(commands, /pub async fn import_external_history/, 'GUI migration must use the shared external import service');
 assert.match(cli, /external_import::import_history/, 'CLI migration must use the shared external import service');
 assert.match(database, /pub fn configure_clip_retention/, 'Retention policy must live in the shared database domain layer');
-assert.match(commands, /db\.enforce_clip_retention/, 'GUI retention must use the shared domain policy');
+assert.match(commands, /db\.configure_clip_retention/, 'GUI retention must save and enforce the shared domain policy atomically');
 assert.match(cli, /db\.configure_clip_retention/, 'CLI retention must use the shared domain policy');
 assert.match(commands, /settings_service::update_setting/, 'GUI setting writes must use the shared Settings service');
 assert.match(commands, /settings_service::update_settings/, 'GUI setting batches must use the shared Settings service');

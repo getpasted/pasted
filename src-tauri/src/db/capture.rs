@@ -62,11 +62,7 @@ impl DbState {
         );
 
         if let Ok(id) = existing {
-            conn.execute(
-                "UPDATE clips SET created_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), is_trashed = 0, trashed_at = NULL WHERE id = ?1",
-                params![id],
-            )?;
-            let clip = self.get_clip_by_id_internal(&conn, id)?;
+            let clip = self.refresh_existing_clip(&conn, id)?;
             drop(conn);
             self.persist_capture_structure(&clip, structure);
             return Ok(clip);
@@ -96,7 +92,7 @@ impl DbState {
         )?;
 
         let id = conn.last_insert_rowid();
-        let _ = self.enforce_history_limit_internal(&conn);
+        let _ = self.enforce_history_limit_internal(&conn, id);
         let _ = self.enforce_trash_limit_internal(&conn);
         let clip = self.get_clip_by_id_internal(&conn, id)?;
         drop(conn);

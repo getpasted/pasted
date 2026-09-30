@@ -3,31 +3,13 @@ use rusqlite::{params, Connection, Result};
 use super::DbState;
 
 impl DbState {
-    pub fn configure_clip_retention(&self, keep_count: i64, keep_age_days: i64) -> Result<()> {
-        let keep_count = keep_count.clamp(0, 100_000);
-        let keep_age_days = keep_age_days.clamp(0, 36_500);
-        let mut conn = self.conn.lock();
-        let tx = conn.transaction()?;
-        tx.execute(
-            "INSERT INTO settings (key, value) VALUES ('keepClipCount', ?1)
-             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            [keep_count.to_string()],
-        )?;
-        tx.execute(
-            "INSERT INTO settings (key, value) VALUES ('keepClipAgeDays', ?1)
-             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            [keep_age_days.to_string()],
-        )?;
-        self.enforce_clip_retention_internal(&tx, keep_count, keep_age_days)?;
-        tx.commit()
-    }
-
     pub fn enforce_clip_retention(&self, keep_count: i64, keep_age_days: i64) -> Result<()> {
         let conn = self.conn.lock();
         self.enforce_clip_retention_internal(
             &conn,
             keep_count.clamp(0, 100_000),
             keep_age_days.clamp(0, 36_500),
+            None,
         )
     }
 
@@ -91,7 +73,11 @@ impl DbState {
         self.enforce_clip_retention(keep_count, 0)
     }
 
-    pub fn enforce_history_limit_internal(&self, conn: &Connection) -> Result<()> {
+    pub fn enforce_history_limit_internal(
+        &self,
+        conn: &Connection,
+        captured_id: i64,
+    ) -> Result<()> {
         let keep_count: i64 = conn
             .query_row(
                 "SELECT value FROM settings WHERE key = 'keepClipCount'",
@@ -111,14 +97,15 @@ impl DbState {
             .and_then(|v: String| v.parse().ok())
             .unwrap_or(0);
 
-        self.enforce_clip_retention_internal(conn, keep_count, keep_age_days)
+        self.enforce_clip_retention_internal(conn, keep_count, keep_age_days, Some(captured_id))
     }
 
-    fn enforce_clip_retention_internal(
+    pub(super) fn enforce_clip_retention_internal(
         &self,
         conn: &Connection,
         keep_count: i64,
         keep_age_days: i64,
+        preserve_id: Option<i64>,
     ) -> Result<()> {
         let keep_count = keep_count.max(0);
         let keep_age_days = keep_age_days.max(0);
@@ -140,21 +127,21 @@ impl DbState {
                    AND clips.id NOT IN (SELECT clip_id FROM effective_clip_protection WHERE is_protected = 1)
                    AND (is_trashed IS NULL OR is_trashed = 0)
                    AND datetime(created_at) < datetime('now', ?1)
+                   AND (?2 IS NULL OR clips.id != ?2)
                  ORDER BY created_at ASC, id ASC",
             )?;
             ids.extend(
-                stmt.query_map([age_modifier], |r| r.get::<_, i64>(0))?
+                stmt.query_map(params![age_modifier, preserve_id], |r| r.get::<_, i64>(0))?
                     .filter_map(|r| r.ok()),
             );
         }
 
         if keep_count > 0 {
+            let keep_count = self.effective_history_capacity(conn, keep_count)?;
             let active_count: i64 = conn
                 .query_row(
                     "SELECT COUNT(*) FROM clips
-                     WHERE is_pinned = 0
-                       AND clips.id NOT IN (SELECT clip_id FROM effective_clip_protection WHERE is_protected = 1)
-                       AND (is_trashed IS NULL OR is_trashed = 0)",
+                     WHERE (is_trashed IS NULL OR is_trashed = 0)",
                     [],
                     |r| r.get(0),
                 )
@@ -166,10 +153,11 @@ impl DbState {
                      WHERE is_pinned = 0
                        AND clips.id NOT IN (SELECT clip_id FROM effective_clip_protection WHERE is_protected = 1)
                        AND (is_trashed IS NULL OR is_trashed = 0)
+                       AND (?2 IS NULL OR clips.id != ?2)
                      ORDER BY created_at ASC, id ASC LIMIT ?1",
                 )?;
                 ids.extend(
-                    stmt.query_map(params![excess], |r| r.get::<_, i64>(0))?
+                    stmt.query_map(params![excess, preserve_id], |r| r.get::<_, i64>(0))?
                         .filter_map(|r| r.ok()),
                 );
             }

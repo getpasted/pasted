@@ -136,7 +136,7 @@ impl DbState {
         self.log_activity_internal_with_attributes(conn, event_type, description, "{}")
     }
 
-    fn log_activity_internal_with_attributes(
+    pub(super) fn log_activity_internal_with_attributes(
         &self,
         conn: &Connection,
         event_type: &str,

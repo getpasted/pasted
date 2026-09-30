@@ -106,6 +106,22 @@ export function useAppSettings() {
   }, []);
 
   useEffect(() => {
+    if (!(window as Window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__) return undefined;
+    let disposed = false;
+    let unlistenClip: (() => void) | undefined;
+    void listen(APP_EVENTS.clipAdded, () => {
+      void settingsApi.load().then((saved) => {
+        if (disposed) return;
+        const count = Number(saved.keepClipCount);
+        if (Number.isFinite(count)) {
+          setAppSettings((current) => current.keepClipCount === count ? current : { ...current, keepClipCount: count });
+        }
+      }).catch(console.error);
+    }).then((unlisten) => { if (disposed) unlisten(); else unlistenClip = unlisten; }).catch(console.error);
+    return () => { disposed = true; unlistenClip?.(); };
+  }, []);
+
+  useEffect(() => {
     const applyTheme = () => {
       const resolvedTheme = applyAppTheme(appSettings.themeMode);
       const root = document.documentElement;
@@ -265,6 +281,8 @@ export function useAppSettings() {
         delete pendingSettingsRef.current[key];
         continue;
       }
+      // The retention command saves both settings and applies the policy atomically.
+      if (key === 'keepClipCount' || key === 'keepClipAgeDays') continue;
       pendingSettingsRef.current[key] = String(value);
       if (saveTimersRef.current[key]) clearTimeout(saveTimersRef.current[key]);
       saveTimersRef.current[key] = setTimeout(() => {

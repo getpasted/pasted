@@ -65,6 +65,7 @@ export function ActivityEventBadge({ type, description }: { type: string; descri
           </div>
         );
       case 'setting_changed':
+      case 'setting_history_limit_expanded':
       case 'settings_changed':
         return (
           <div className="theme-status-info flex items-center space-x-1.5 px-2 py-0.5 rounded border text-[11px] font-semibold">

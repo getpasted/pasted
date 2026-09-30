@@ -91,6 +91,7 @@ fn extracted_management_adapters_preserve_structured_cli_contracts() {
         ],
     );
     assert_eq!(retention["maximumClips"], 25);
+    assert_eq!(retention["maximumClipsAutoExpanded"], false);
     assert_eq!(retention["maximumAgeDays"], 30);
     assert_eq!(retention["trashMaximumClips"], 10);
     assert_eq!(retention["activityMaximumEntries"], 50);

@@ -1,20 +1,22 @@
 use std::sync::Arc;
 
-use tauri::State;
+use tauri::{AppHandle, State};
 
 use crate::db::DbState;
 
 pub(crate) mod analysis;
+#[path = "retention/history.rs"]
+mod history;
 pub(crate) mod revisions;
 
 #[tauri::command]
 pub fn enforce_clip_retention(
     keep_count: i64,
     keep_age_days: i64,
+    app: AppHandle,
     db: State<'_, Arc<DbState>>,
 ) -> Result<(), String> {
-    db.enforce_clip_retention(keep_count, keep_age_days)
-        .map_err(|error| error.to_string())
+    history::configure(keep_count, keep_age_days, &app, &db)
 }
 
 #[tauri::command]
