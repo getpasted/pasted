@@ -2126,6 +2126,8 @@
   "component.searchIndexManagerDialog.sources": "المصادر",
   "feature.transcriptions.description": "إنشاء نصوص قابلة للبحث من ملفات الصوت التي تم نسخها.",
   "feature.transcriptions.label": "النصوص المكتوبة",
+  "feature.smartPaste.description": "اكتشف القيم في النص المنسوخ والصقها في الحقول المطابقة.",
+  "feature.smartPaste.label": "اللصق الذكي",
   "feature.transformations.description": "تشغيل سير عمل للنصوص وتلقي اقتراحات \"الإجراء الذكي\".",
   "feature.transformations.label": "التحويلات",
   "feature.trash.caution": "عند تعطيلها، يؤدي حذف مقطع إلى حذفه بشكل دائم.",

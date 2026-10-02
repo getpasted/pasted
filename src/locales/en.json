@@ -2090,6 +2090,8 @@
   "component.searchIndexManagerDialog.sources": "Sources",
   "feature.transcriptions.description": "Create searchable text from copied audio files.",
   "feature.transcriptions.label": "Transcriptions",
+  "feature.smartPaste.description": "Detect values in copied text and paste them into matching fields.",
+  "feature.smartPaste.label": "Smart Paste",
   "feature.transformations.description": "Run text workflows and receive Smart Action suggestions.",
   "feature.transformations.label": "Transformations",
   "feature.trash.caution": "When disabled, deleting a clip permanently removes it.",

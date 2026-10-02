@@ -27,6 +27,7 @@ pub enum Feature {
     Hotkeys,
     Trash,
     Transformations,
+    SmartPaste,
     ActivityLog,
     ContentTypes,
     Sources,
@@ -37,7 +38,7 @@ pub enum Feature {
 }
 
 impl Feature {
-    pub const ALL: [Feature; 31] = [
+    pub const ALL: [Feature; 32] = [
         Feature::Insights,
         Feature::Bins,
         Feature::ClipTypes,
@@ -62,6 +63,7 @@ impl Feature {
         Feature::Hotkeys,
         Feature::Trash,
         Feature::Transformations,
+        Feature::SmartPaste,
         Feature::ActivityLog,
         Feature::ContentTypes,
         Feature::Sources,
@@ -98,6 +100,7 @@ impl Feature {
             Feature::Hotkeys => "enableHotkeys",
             Feature::Trash => "enableTrash",
             Feature::Transformations => "enableTransformations",
+            Feature::SmartPaste => "enableSmartPaste",
             Feature::ActivityLog => "enableActivityLog",
             Feature::ContentTypes => "enableTypes",
             Feature::Sources => "enableSources",
@@ -141,6 +144,7 @@ impl Feature {
             Feature::Hotkeys => "Hotkeys",
             Feature::Trash => "Trash",
             Feature::Transformations => "Transformations",
+            Feature::SmartPaste => "Smart Paste",
             Feature::ActivityLog => "Activity",
             Feature::ContentTypes => "Content Types",
             Feature::Sources => "Sources",
@@ -194,7 +198,7 @@ mod tests {
 
     #[test]
     fn frontend_and_native_setting_keys_are_stable() {
-        assert_eq!(Feature::ALL.len(), 31);
+        assert_eq!(Feature::ALL.len(), 32);
         for feature in Feature::ALL {
             assert_eq!(
                 Feature::from_setting_key(feature.setting_key()),
@@ -215,6 +219,7 @@ mod tests {
 
         assert!(is_enabled(&db, Feature::Bins));
         assert!(is_enabled(&db, Feature::Hotkeys));
+        assert!(is_enabled(&db, Feature::SmartPaste));
         assert!(is_enabled(&db, Feature::Updates));
         let values = HashMap::from([
             (Feature::Bins.setting_key().to_string(), "false".to_string()),

@@ -64,7 +64,7 @@ fn apply_smart_bin_transforms(
     let content_types = clip.content_types.clone();
     let source = context.source.to_string();
     thread::spawn(move || {
-        if crate::features::is_enabled(&db, crate::features::Feature::Transformations) {
+        if crate::features::is_enabled(&db, crate::features::Feature::SmartPaste) {
             let _ = crate::smart_paste::analyzer::analyze_and_persist(
                 &db,
                 clip.id,

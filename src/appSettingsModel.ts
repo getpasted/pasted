@@ -8,6 +8,7 @@ import {
 import { storedSearchHistoryAgeDays } from './searchHistoryRetention';
 import { DEFAULT_NOTIFICATION_SETTINGS } from './appSettingsSectionDefaults';
 import { DEFAULT_GENERAL_SETTINGS } from './generalSettingsDefaults';
+import { DEFAULT_FUNCTIONALITY_SETTINGS, savedFunctionalitySettings } from './appSettingsFunctionalityModel';
 import { settingDefault } from './settingsContract.ts';
 import * as storageSettingsModel from './appSettingsStorageModel.ts';
 
@@ -16,40 +17,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   ...DEFAULT_GENERAL_SETTINGS,
   ...DEFAULT_NOTIFICATION_SETTINGS,
   ...DEFAULT_CAPTURE_POLICY_SETTINGS,
-  enableActivityLog: settingDefault('enableActivityLog'),
-  enableTrash: settingDefault('enableTrash'),
-  enableAnalytics: settingDefault('enableAnalytics'),
-  enableBins: settingDefault('enableBins'),
-  enableClipTypes: settingDefault('enableClipTypes'),
-  enableFileFormats: settingDefault('enableFileFormats'),
-  enableContentClassification: settingDefault('enableContentClassification'),
-  enableConcealment: settingDefault('enableConcealment'),
-  enableNaming: settingDefault('enableNaming'),
-  enableNotes: settingDefault('enableNotes'),
-  enableNotifications: settingDefault('enableNotifications'),
-  enableAppLock: settingDefault('enableAppLock'),
-  enableOcr: settingDefault('enableOcr'),
-  enableTranscriptions: settingDefault('enableTranscriptions'),
-  enablePinning: settingDefault('enablePinning'),
-  enableProtection: settingDefault('enableProtection'),
-  enableQueue: settingDefault('enableQueue'),
-  enableRevisions: settingDefault('enableRevisions'),
-  enableSnapshots: settingDefault('enableSnapshots'),
-  enableLibraryMove: settingDefault('enableLibraryMove'),
-  enableBackups: settingDefault('enableBackups'),
-  enableFactoryReset: settingDefault('enableFactoryReset'),
+  ...DEFAULT_FUNCTIONALITY_SETTINGS,
   snapshotIntervalMinutes: storageSettingsModel.DEFAULT_SNAPSHOT_INTERVAL_MINUTES,
   snapshotKeepCount: storageSettingsModel.DEFAULT_SNAPSHOT_KEEP_COUNT,
 
-  enableHud: settingDefault('enableHud'),
-  enableHotkeys: settingDefault('enableHotkeys'),
-  enableTransformations: settingDefault('enableTransformations'),
-  enableTypes: settingDefault('enableTypes'),
-  enableSources: settingDefault('enableSources'),
-  enableSearch: settingDefault('enableSearch'),
-  enableCli: settingDefault('enableCli'),
-  enableHelp: settingDefault('enableHelp'),
-  enableUpdateChecks: settingDefault('enableUpdateChecks'),
   hudHotkey: settingDefault('hudHotkey'),
   seqToggleHotkey: settingDefault('seqToggleHotkey'),
   seqPopHotkey: settingDefault('seqPopHotkey'),
@@ -108,16 +79,7 @@ export function parseSavedSettings(saved: Record<string, string>): AppSettings {
   if (saved.enableTrash !== undefined) next.enableTrash = saved.enableTrash === 'true';
   if (saved.trashCapacityCount !== undefined) next.trashCapacityCount = Math.max(0, numberValue('trashCapacityCount', next.trashCapacityCount ?? 500));
   if (saved.trashAgeDays !== undefined) next.trashAgeDays = Math.max(0, numberValue('trashAgeDays', next.trashAgeDays));
-  for (const key of [
-    'enableAnalytics', 'enableBins', 'enableClipTypes', 'enableFileFormats',
-    'enableContentClassification', 'enableConcealment', 'enableNaming', 'enableNotes',
-    'enableNotifications', 'enableAppLock', 'enableOcr', 'enableTranscriptions',
-    'enablePinning', 'enableProtection', 'enableQueue', 'enableRevisions', 'enableHud',
-    'enableHotkeys', 'enableTransformations', 'enableTypes', 'enableSources',
-    'enableLibraryMove', 'enableBackups', 'enableFactoryReset', 'enableSnapshots', 'enableSearch', 'enableCli', 'enableHelp', 'enableUpdateChecks',
-  ] as const) {
-    if (saved[key] !== undefined) next[key] = saved[key] === 'true';
-  }
+  Object.assign(next, savedFunctionalitySettings(saved));
 
   const hotkeyKeys = [
     'hudHotkey', 'seqToggleHotkey', 'seqPopHotkey', 'copyLastPipelineHotkey',

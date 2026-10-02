@@ -24,6 +24,7 @@ export interface FunctionalitySettings {
   enableQueue: boolean;
   enableRevisions: boolean;
   enableSearch: boolean;
+  enableSmartPaste: boolean;
   enableSources: boolean;
   enableTranscriptions: boolean;
   enableTransformations: boolean;

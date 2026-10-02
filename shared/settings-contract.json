@@ -98,6 +98,7 @@
     { "key": "enableHotkeys", "owner": "functionality", "default": true, "reset": "preserve", "visibility": "public", "mutation": "direct", "validation": { "type": "boolean" } },
     { "key": "enableTrash", "owner": "functionality", "default": true, "reset": "preserve", "visibility": "public", "mutation": "direct", "validation": { "type": "boolean" } },
     { "key": "enableTransformations", "owner": "functionality", "default": true, "reset": "preserve", "visibility": "public", "mutation": "direct", "validation": { "type": "boolean" } },
+    { "key": "enableSmartPaste", "owner": "functionality", "default": true, "reset": "preserve", "visibility": "public", "mutation": "direct", "validation": { "type": "boolean" } },
     { "key": "enableActivityLog", "owner": "functionality", "default": true, "reset": "preserve", "visibility": "public", "mutation": "direct", "validation": { "type": "boolean" } },
     { "key": "enableTypes", "owner": "functionality", "default": true, "reset": "preserve", "visibility": "public", "mutation": "direct", "validation": { "type": "boolean" } },
     { "key": "enableSources", "owner": "functionality", "default": true, "reset": "preserve", "visibility": "public", "mutation": "direct", "validation": { "type": "boolean" } },

@@ -1,14 +1,14 @@
-Paste the right bit, not the whole blob.
+Smart Paste, on your terms.
 
-Pasted 1.2 introduces Smart Paste. Copy a block containing an email address, phone number, link, or another recognized value, focus a field that describes what it needs, and use the Smart Paste hotkey. Pasted chooses a confident literal match, pastes it, and restores the original clipboard without feeding its internal write back into History or Queue. Detected Content remains visible in the clip details, and the same matching contract is available from the CLI. Optional Apple Intelligence can enrich detected values locally on supported Macs; deterministic matching works without it.
+Pasted 1.2.1 gives Smart Paste its own switch under **Settings → Functionality**. It can detect values in copied text even when Transformations or Content Classification is off. Turn Smart Paste off to stop new detection and hide its clip-detail panel and hotkey. Existing detected values stay with their clips if you turn it back on.
 
-History now fills its visible list reliably at launch and preserves each collection's scroll position when moving around the app. Selected-clip actions wait for the selected row to become visible, and closed pinned roll-ups keep their clip contents concealed.
+The CLI follows the same switch. Its Smart Paste commands decline to select or list detected values while the feature is off.
 
 The primary build is a signed, notarized, and stapled universal app for macOS 13 or newer, on Apple Silicon and Intel.
 
-**[Download Pasted 1.2.0](https://github.com/getpasted/pasted/releases/tag/v1.2.0)**
+**[Download Pasted 1.2.1](https://github.com/getpasted/pasted/releases/tag/v1.2.1)**
 
-[Read the full changelog](https://github.com/getpasted/pasted/blob/v1.2.0/CHANGELOG.md)
+[Read the full changelog](https://github.com/getpasted/pasted/blob/v1.2.1/CHANGELOG.md)
 
 Or update from **Settings → About**, or with Homebrew:
 
@@ -22,4 +22,4 @@ Tell us what happened in [Discussions](https://github.com/getpasted/pasted/discu
 
 Copy irresponsibly.
 
-<!-- pasted-release:v1.2.0 -->
+<!-- pasted-release:v1.2.1 -->

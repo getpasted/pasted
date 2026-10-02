@@ -152,7 +152,7 @@ impl HotkeyManager {
             );
         }
 
-        if feature_enabled(Feature::Transformations) {
+        if feature_enabled(Feature::SmartPaste) {
             let smart_paste_sc = get_setting("smartPasteHotkey");
             add_hotkey(
                 "smart-paste".into(),
@@ -160,7 +160,9 @@ impl HotkeyManager {
                 smart_paste_sc,
                 AppHotkeyAction::SmartPaste,
             );
+        }
 
+        if feature_enabled(Feature::Transformations) {
             // Last-Transform hotkeys
             let copy_last_manual_transform_sc = get_setting("copyLastPipelineHotkey");
             add_hotkey(

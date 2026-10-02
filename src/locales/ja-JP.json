@@ -2090,6 +2090,8 @@
   "component.searchIndexManagerDialog.sources": "ソース",
   "feature.transcriptions.description": "コピーしたオーディオファイルを検索可能なテキストに変換する。",
   "feature.transcriptions.label": "テキストの書き起こし",
+  "feature.smartPaste.description": "コピーしたテキスト内の値を検出し、対応するフィールドに貼り付けます。",
+  "feature.smartPaste.label": "スマートペースト",
   "feature.transformations.description": "テキストワークフローを実行し、スマートアクションの提案を受ける。",
   "feature.transformations.label": "変換",
   "feature.trash.caution": "オフになっている場合、クリップを削除すると完全に削除されます。",

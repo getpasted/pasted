@@ -79,7 +79,7 @@ pub fn select_value(
     source: &str,
     context: &SmartPasteContext,
 ) -> Result<SmartPasteOutcome, SmartPasteError> {
-    crate::features::require(db, crate::features::Feature::Transformations)
+    crate::features::require(db, crate::features::Feature::SmartPaste)
         .map_err(|message| SmartPasteError::new("feature_disabled", message))?;
     if source.len() > crate::resource_limits::MAX_TRANSFORM_TEXT_BYTES {
         return Err(SmartPasteError::new(

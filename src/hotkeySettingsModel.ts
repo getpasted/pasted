@@ -25,16 +25,29 @@ export const DEFAULT_HOTKEYS: Partial<AppSettings> = {
   pasteClip9Hotkey: settingDefault('pasteClip9Hotkey'),
 };
 
-export const actionHotkeys: Array<{ label: string; key: HotkeySetting; fallback?: string; feature?: 'queue' | 'transformations' | 'appLock' }> = [
+export type HotkeyFeature = 'queue' | 'transformations' | 'smartPaste' | 'appLock';
+
+export const actionHotkeys: Array<{ label: string; key: HotkeySetting; fallback?: string; feature?: HotkeyFeature }> = [
   { get label() { return translate('component.settingsHotkeysPanel.toggleMainWindow'); }, key: 'openMainWindowHotkey' },
   { get label() { return translate('component.settingsHotkeysPanel.lockApp'); }, key: 'lockAppHotkey', fallback: 'Alt+Shift+L', feature: 'appLock' },
   { get label() { return translate('component.settingsHotkeysPanel.enableOrDisableQueue'); }, key: 'seqToggleHotkey', fallback: 'Alt+Shift+C', feature: 'queue' },
   { get label() { return translate('component.settingsHotkeysPanel.pasteNextItemFromQueue'); }, key: 'seqPopHotkey', fallback: 'Alt+Shift+X', feature: 'queue' },
   { get label() { return translate('component.settingsHotkeysPanel.copyWithLastAdvancedTransform'); }, key: 'copyLastPipelineHotkey', feature: 'transformations' },
   { get label() { return translate('component.settingsHotkeysPanel.pasteWithLastAdvancedTransform'); }, key: 'pasteLastPipelineHotkey', feature: 'transformations' },
-  { get label() { return translate('component.settingsHotkeysPanel.smartPaste'); }, key: 'smartPasteHotkey', feature: 'transformations' },
+  { get label() { return translate('component.settingsHotkeysPanel.smartPaste'); }, key: 'smartPasteHotkey', feature: 'smartPaste' },
   { get label() { return translate('component.settingsHotkeysPanel.openTransformations'); }, key: 'openTransformationsHotkey', feature: 'transformations' },
 ];
+
+export function actionHotkeyEnabled(settings: AppSettings, feature?: HotkeyFeature): boolean {
+  if (!feature) return true;
+  const setting = {
+    queue: 'enableQueue',
+    transformations: 'enableTransformations',
+    smartPaste: 'enableSmartPaste',
+    appLock: 'enableAppLock',
+  } as const;
+  return settings[setting[feature]];
+}
 
 function hotkeyLabel(key: string) {
   if (key === 'hudHotkey') return translate('component.settingsHotkeysPanel.hud');

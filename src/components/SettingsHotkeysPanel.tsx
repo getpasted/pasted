@@ -13,7 +13,7 @@ import { listen } from '@tauri-apps/api/event';
 import { translate } from '../localization/runtime';
 import { ConfirmationDialog, type ConfirmationDialogRequest } from './ConfirmationDialog';
 import { SettingsPanelResetNote } from './SettingsPanelResetNote';
-import { actionHotkeys, DEFAULT_HOTKEYS, hotkeyResetChanges, type HotkeySetting } from '../hotkeySettingsModel';
+import { actionHotkeyEnabled, actionHotkeys, DEFAULT_HOTKEYS, hotkeyResetChanges, type HotkeySetting } from '../hotkeySettingsModel';
 import { SettingsResetChanges } from './SettingsResetChanges';
 
 interface SettingsHotkeysPanelProps {
@@ -277,7 +277,7 @@ export function SettingsHotkeysPanel({
               showToast({ tone: 'error', get message() { return translate('component.settingsHotkeysPanel.thatHotkeyCouldNotBeRegisteredTryADifferentKeyCombination'); } });
             }
           }} />}
-          {actionHotkeys.filter(({ feature }) => !feature || settings[feature === 'queue' ? 'enableQueue' : feature === 'transformations' ? 'enableTransformations' : 'enableAppLock']).map(({ label, key, fallback }) => (
+          {actionHotkeys.filter(({ feature }) => actionHotkeyEnabled(settings, feature)).map(({ label, key, fallback }) => (
             <HotkeyRow key={key} label={label} value={(settings[key] as string) === '' ? null : ((settings[key] as string) || fallback || null)} onChange={(value) => void updateSettingHotkey(key, value)} />
           ))}
         </div>

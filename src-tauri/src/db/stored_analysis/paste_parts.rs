@@ -3,23 +3,6 @@ use rusqlite::{params, Result};
 use super::super::DbState;
 
 impl DbState {
-    pub fn replace_capture_classifications(
-        &self,
-        clip_id: i64,
-        content_hash: &str,
-        source: &str,
-        matches: &[crate::content_classification::ClassificationMatch],
-    ) -> Result<()> {
-        self.replace_analysis_classifications(clip_id, content_hash, matches, "original_text")?;
-        self.replace_paste_parts(
-            clip_id,
-            content_hash,
-            source,
-            &crate::smart_paste::parts::from_classifications(matches),
-        )?;
-        Ok(())
-    }
-
     pub fn replace_paste_parts(
         &self,
         clip_id: i64,
