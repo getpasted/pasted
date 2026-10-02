@@ -4,6 +4,12 @@ Notable user-facing changes to Pasted are recorded here. The project follows sem
 
 ## Unreleased
 
+## 1.2.1 — 2026-10-02
+
+- gave Smart Paste its own Functionality switch, independent of Transformations and Content Classification;
+- stopped new detected-value analysis, hid its clip-detail panel and hotkey, and blocked GUI and CLI use while Smart Paste is off without deleting stored matches; and
+- reviewed the time-limited Linux GLib advisory exception against the current Tauri dependency graph while upstream migration remains tracked in issue #15.
+
 ## 1.2.0 — 2026-09-25
 
 - added Smart Paste, which selects a confidently matched value from copied text for the focused field, restores the original clipboard, and exposes the same detected-content contract in clip details and the CLI;

@@ -52,6 +52,7 @@ const analysisActivityDatabase = read('src-tauri/src/db/analysis_activity.rs');
 const analyticsDatabase = read('src-tauri/src/db/analytics.rs');
 const binDatabase = read('src-tauri/src/db/bins.rs');
 const captureDatabase = read('src-tauri/src/db/capture.rs');
+const captureStructureDatabase = read('src-tauri/src/db/capture_structure.rs');
 const clipMutationDatabase = read('src-tauri/src/db/clip_mutations.rs');
 const clipQueryDatabase = read('src-tauri/src/db/clip_queries.rs');
 const clipRecordDatabase = read('src-tauri/src/db/clip_records.rs');
@@ -380,8 +381,10 @@ assert.doesNotMatch(read('src-tauri/src/db.rs'), /fn configure_connection|pub fn
   'The database integration root must not reclaim database lifecycle operations');
 assert.match(captureDatabase, /pub fn save_clip/,
   'Shared GUI and CLI clip ingestion must remain in the capture subsystem');
-assert.match(captureDatabase, /fn persist_capture_structure/,
-  'Capture structure persistence must remain atomic with clip ingestion');
+assert.match(captureStructureDatabase, /fn persist_capture_structure/,
+  'Capture structure persistence must remain in its shared database subsystem');
+assert.match(captureDatabase, /self\.persist_capture_structure\(&clip, structure\)/,
+  'Clip ingestion must persist inspected structure');
 assert.match(captureDatabase, /pub fn reattribute_image_capture/,
   'Image capture reattribution must remain hash-safe inside the capture subsystem');
 assert.doesNotMatch(read('src-tauri/src/db.rs'), /pub fn save_clip|fn persist_capture_structure|pub fn reattribute_image_capture/,

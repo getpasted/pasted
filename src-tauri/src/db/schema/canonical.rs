@@ -33,6 +33,7 @@ impl DbState {
             )",
             [],
         )?;
+        migrate_smart_paste_feature_setting(&conn)?;
         migrate_pipelines_to_saved_transforms(&conn)?;
         migrate_analysis_terminology_schema(&conn)?;
 

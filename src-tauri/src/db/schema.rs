@@ -7,6 +7,7 @@ mod migrations {
     pub(super) mod analysis;
     pub(super) mod core;
     pub(super) mod settings;
+    pub(super) mod settings_smart_paste;
     pub(super) mod transforms;
 }
 mod registry;
@@ -19,6 +20,7 @@ pub(super) use migrations::analysis::{
 };
 pub(super) use migrations::core::{migrate_clip_source_schema, migrate_legacy_container_schema};
 pub(super) use migrations::settings::migrate_app_exclusion_hotkey_setting;
+pub(super) use migrations::settings_smart_paste::migrate_smart_paste_feature_setting;
 pub(super) use migrations::transforms::migrate_pipelines_to_saved_transforms;
 pub(super) use migrations::transforms::{
     backfill_current_transformation, migrate_transform_activity_terminology,

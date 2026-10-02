@@ -2090,6 +2090,8 @@
   "component.searchIndexManagerDialog.sources": "Sources",
   "feature.transcriptions.description": "Créer du texte de recherche à partir de fichiers audio copiés.",
   "feature.transcriptions.label": "Transcription",
+  "feature.smartPaste.description": "Détecter les valeurs dans le texte copié et les coller dans les champs correspondants.",
+  "feature.smartPaste.label": "Collage intelligent",
   "feature.transformations.description": "Exécuter des flux de travail de texte et recevoir des suggestions d'actions intelligentes.",
   "feature.transformations.label": "Transformations",
   "feature.trash.caution": "Lorsque désactivé, la suppression d'un clip le supprime définitivement.",

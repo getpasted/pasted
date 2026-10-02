@@ -29,7 +29,10 @@ pub fn analyze_and_persist(
     content_hash: &str,
     source: &str,
 ) -> Result<bool, String> {
-    if source.is_empty() || source.len() > crate::resource_limits::MAX_TRANSFORM_TEXT_BYTES {
+    if source.is_empty()
+        || source.len() > crate::resource_limits::MAX_TRANSFORM_TEXT_BYTES
+        || !crate::features::is_enabled(db, crate::features::Feature::SmartPaste)
+    {
         return Ok(false);
     }
     let Some(connection) = apple_connection(db).map_err(|error| error.message)? else {
@@ -76,6 +79,9 @@ pub fn analyze_and_persist(
             return Err(error.message);
         }
     };
+    if !crate::features::is_enabled(db, crate::features::Feature::SmartPaste) {
+        return Ok(false);
+    }
     let analysis = merge_response(source, existing, &response)?;
     db.replace_paste_parts(clip_id, content_hash, source, &analysis)
         .map_err(|error| error.to_string())

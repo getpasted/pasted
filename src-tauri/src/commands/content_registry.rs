@@ -163,9 +163,12 @@ pub fn get_clip_detected_content(
         classification_matches: db
             .get_analysis_classifications(clip_id)
             .map_err(|error| error.to_string())?,
-        paste_parts: db
-            .get_paste_parts(clip_id)
-            .map_err(|error| error.to_string())?,
+        paste_parts: if features::is_enabled(&db, Feature::SmartPaste) {
+            db.get_paste_parts(clip_id)
+                .map_err(|error| error.to_string())?
+        } else {
+            None
+        },
     })
 }
 

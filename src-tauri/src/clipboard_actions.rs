@@ -133,7 +133,7 @@ pub fn execute_smart_paste(
     db: &DbState,
     sequential: &SequentialQueueState,
 ) -> Result<crate::smart_paste::SmartPasteOutcome, String> {
-    crate::features::require(db, crate::features::Feature::Transformations)?;
+    crate::features::require(db, crate::features::Feature::SmartPaste)?;
     #[cfg(target_os = "macos")]
     if !crate::platform_capabilities::accessibility_status().is_trusted {
         return Err("Smart Paste needs Accessibility access. Allow Pasted (or the terminal/IDE running this development build) in System Settings, then try again.".to_string());

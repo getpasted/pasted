@@ -2099,6 +2099,8 @@
   "component.searchIndexManagerDialog.sources": "מקורות",
   "feature.transcriptions.description": "צור טקסט חיפוש מתוך קבצי אודיו שנשכחו.",
   "feature.transcriptions.label": "תמלולים",
+  "feature.smartPaste.description": "זהה ערכים בטקסט שהועתק והדבק אותם בשדות המתאימים.",
+  "feature.smartPaste.label": "הדבקה חכמה",
   "feature.transformations.description": "הפעל זרימות עבודה של טקסט וקבל הצעות לפעולות חכמות.",
   "feature.transformations.label": "שינויים",
   "feature.trash.caution": "כאשר מושבת, מחיקת קליפ מסירה אותו באופן סופי.",

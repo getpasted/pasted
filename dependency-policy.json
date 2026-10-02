@@ -115,8 +115,8 @@
     },
     {
       "id": "RUSTSEC-2024-0429",
-      "expires": "2026-09-30",
-      "reason": "Linux GTK/Tauri transitively requires glib 0.18; Pasted does not use VariantStrIter, and issue #15 tracks the upstream migration."
+      "expires": "2026-12-31",
+      "reason": "Reviewed 2026-10-02: Tauri 2.11.6 still pulls glib 0.18.5 through its Linux GTK3 stack. The advisory affects VariantStrIter iteration; Pasted and the resolved Rust dependency sources do not call that API. Issue #15 remains open for a supported GTK migration."
     },
     {
       "id": "RUSTSEC-2025-0075",

@@ -22,6 +22,7 @@ interface UseClipPreviewAnalysisInput {
   transformedText: string | null;
   typesEnabled: boolean;
   transformationsEnabled: boolean;
+  smartPasteEnabled: boolean;
   transcriptionsEnabled: boolean;
   canRunTransforms: boolean;
   canMutateContent: boolean;
@@ -37,6 +38,7 @@ export function useClipPreviewAnalysis({
   transformedText,
   typesEnabled,
   transformationsEnabled,
+  smartPasteEnabled,
   transcriptionsEnabled,
   canRunTransforms,
   canMutateContent,
@@ -70,7 +72,7 @@ export function useClipPreviewAnalysis({
 
   useEffect(() => {
     let cancelled = false;
-    if (!clip || (!typesEnabled && !transformationsEnabled)) {
+    if (!clip || (!typesEnabled && !smartPasteEnabled)) {
       setContentMatches([]);
       setPasteParts(null);
       return () => { cancelled = true; };
@@ -78,14 +80,14 @@ export function useClipPreviewAnalysis({
     invoke<ClipDetectedContent>('get_clip_detected_content', { clipId: clip.id }).then((result) => {
       if (cancelled) return;
       setContentMatches(typesEnabled ? result.classificationMatches : []);
-      setPasteParts(transformationsEnabled && clip.content_type === 'text' ? result.pasteParts : null);
+      setPasteParts(smartPasteEnabled && clip.content_type === 'text' ? result.pasteParts : null);
     }).catch(() => {
       if (cancelled) return;
       setContentMatches([]);
       setPasteParts(null);
     });
     return () => { cancelled = true; };
-  }, [clip?.content_hash, clip?.content_type, clip?.id, transformationsEnabled, typesEnabled]);
+  }, [clip?.content_hash, clip?.content_type, clip?.id, smartPasteEnabled, typesEnabled]);
 
   useEffect(() => {
     let cancelled = false;

@@ -108,6 +108,7 @@ export const ClipPreview: React.FC<ClipPreviewProps> = ({
     transformedText,
     typesEnabled: features.types,
     transformationsEnabled: features.transformations,
+    smartPasteEnabled: features.smartPaste,
     transcriptionsEnabled: features.transcriptions,
     canRunTransforms: viewPolicy.canRunManualTransforms,
     canMutateContent: viewPolicy.canMutateContent,

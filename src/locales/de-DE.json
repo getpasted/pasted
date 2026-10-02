@@ -2090,6 +2090,8 @@
   "component.searchIndexManagerDialog.sources": "Quellen",
   "feature.transcriptions.description": "Erzeugt durchsuchbaren Text aus kopierten Audiodateien.",
   "feature.transcriptions.label": "Transkriptionen",
+  "feature.smartPaste.description": "Werte in kopiertem Text erkennen und in passende Felder einfügen.",
+  "feature.smartPaste.label": "Intelligent einfügen",
   "feature.transformations.description": "Führt Text-Workflows aus und schlägt intelligente Aktionen vor.",
   "feature.transformations.label": "Transformationen",
   "feature.trash.caution": "Ist diese Funktion deaktiviert, werden gelöschte Clips sofort dauerhaft entfernt.",

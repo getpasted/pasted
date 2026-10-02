@@ -62,6 +62,8 @@ fn list_parts(args: &[String], db_path: PathBuf) -> Result<()> {
             std::process::exit(2);
         });
     let db = DbState::new(db_path)?;
+    pasted_lib::features::require(&db, pasted_lib::features::Feature::SmartPaste)
+        .map_err(rusqlite::Error::InvalidParameterName)?;
     let clip = db.get_clip_by_id(clip_id).unwrap_or_else(|_| {
         eprintln!("Clip not found.");
         std::process::exit(1);

@@ -160,6 +160,8 @@ Destinations may be composed only when the UI states each side effect clearly. â
   must exist literally in the copied text. Passcode and verification-code
   fields remain excluded.
 
+Smart Paste has its own switch under **Settings â†’ Functionality**, independent of Transformations and Content Classification.
+
 The standalone CLI exposes the same selector as `pasted smart-paste --context
 TEXT` and lists stored values with `pasted smart-paste parts --clip ID`. The GUI
 supplies context from the focused field through operating-system accessibility

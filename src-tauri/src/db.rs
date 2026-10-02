@@ -13,6 +13,8 @@ mod analysis_activity;
 mod analytics;
 mod bins;
 mod capture;
+mod capture_structure;
+mod capture_text_analysis;
 mod classifiers;
 mod clip_collections;
 mod clip_concealment;

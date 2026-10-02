@@ -26,6 +26,7 @@ export type FeatureId =
   | 'hotkeys'
   | 'trash'
   | 'transformations'
+  | 'smartPaste'
   | 'activityLog'
   | 'types'
   | 'sources'
@@ -60,6 +61,7 @@ export type FeatureSettingKey =
   | 'enableHotkeys'
   | 'enableTrash'
   | 'enableTransformations'
+  | 'enableSmartPaste'
   | 'enableActivityLog'
   | 'enableTypes'
   | 'enableSources'
@@ -141,6 +143,7 @@ export const FEATURE_DEFINITIONS: readonly FeatureDefinition[] = [
 
   { id: 'queue', group: 'workflow', settingKey: 'enableQueue', label: 'Copy Queue', description: 'Collect copied text and paste it back in sequence.', simple: false },
   { id: 'transformations', group: 'workflow', settingKey: 'enableTransformations', label: 'Transformations', description: 'Run text workflows and receive Smart Action suggestions.', simple: false },
+  { id: 'smartPaste', group: 'workflow', settingKey: 'enableSmartPaste', label: 'Smart Paste', description: 'Detect values in copied text and paste them into matching fields.', simple: false },
   { id: 'hud', group: 'workflow', settingKey: 'enableHud', label: 'HUD', description: 'Open the compact keyboard-driven clipboard window.', simple: false },
   { id: 'hotkeys', group: 'workflow', settingKey: 'enableHotkeys', label: 'Hotkeys', description: 'Assign and use system-wide hotkeys for actions, clips, Bins, and Transforms.', simple: false },
 

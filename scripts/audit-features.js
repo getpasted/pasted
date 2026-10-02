@@ -10,6 +10,7 @@ const settingsType = [
 ].map(read).join('\n');
 const settingsHook = read('src/hooks/useAppSettings.ts');
 const settingsModel = read('src/appSettingsModel.ts');
+const functionalitySettingsModel = read('src/appSettingsFunctionalityModel.ts');
 const settingsContract = JSON.parse(read('shared/settings-contract.json'));
 const appTheme = read('src/utils/appTheme.ts');
 const nativePolicy = read('src-tauri/src/features.rs');
@@ -67,7 +68,7 @@ const frontendKeys = [...frontendRegistry.matchAll(/settingKey:\s*'(enable[A-Za-
 const nativeKeys = [...nativePolicy.matchAll(/=>\s*"(enable[A-Za-z]+)"/g)]
   .map((match) => match[1]);
 
-assert.equal(frontendKeys.length, 31, 'The frontend feature registry must include every supported capability');
+assert.equal(frontendKeys.length, 32, 'The frontend feature registry must include every supported capability');
 const frontendGroups = [...frontendRegistry.matchAll(/group:\s*'([A-Za-z]+)'/g)]
   .map((match) => match[1]);
 assert.equal(frontendGroups.length, frontendKeys.length, 'Every feature must belong to a Functionality group');
@@ -79,7 +80,7 @@ assert.deepEqual(
 const expectedFeatureLayout = {
   library: ['bins', 'naming', 'notes', 'pinning', 'protection', 'concealment', 'trash', 'revisions'],
   discovery: ['clipTypes', 'types', 'contentClassification', 'fileFormats', 'ocr', 'transcriptions', 'sources', 'search', 'analytics'],
-  workflow: ['queue', 'transformations', 'hud', 'hotkeys'],
+  workflow: ['queue', 'transformations', 'smartPaste', 'hud', 'hotkeys'],
   storage: ['libraryMove', 'backups', 'snapshots', 'factoryReset'],
   app: ['notifications', 'appLock', 'activityLog', 'cli', 'help', 'updates'],
 };
@@ -134,11 +135,28 @@ for (const key of frontendKeys) {
   assert.match(settingsType, new RegExp(`\\b${key}\\??:\\s*boolean`), `${key} must be typed in AppSettings`);
   assert.equal(settingsContract.settings.find((setting) => setting.key === key)?.default, true,
     `${key} must default on for existing installations`);
-  assert.match(settingsModel, new RegExp(`\\b${key}:\\s*settingDefault\\('${key}'\\)`),
-    `${key} must read its default from the shared settings contract`);
-  assert.match(settingsModel, new RegExp(`(?:['\"]${key}['\"]|saved\\.${key})`), `${key} must hydrate from persisted settings`);
 }
 
+assert.match(settingsModel, /\.\.\.DEFAULT_FUNCTIONALITY_SETTINGS/, 'App settings must use centralized Functionality defaults');
+assert.match(settingsModel, /savedFunctionalitySettings\(saved\)/, 'App settings must hydrate Functionality from saved values');
+assert.match(functionalitySettingsModel, /FEATURE_SETTING_KEYS\.map\(\(key\) => \[key, settingDefault\(key\)\]\)/,
+  'Every Functionality default must come from the shared contract');
+assert.match(functionalitySettingsModel, /FEATURE_SETTING_KEYS\.filter\(\(key\) => saved\[key\] !== undefined\)/,
+  'Every Functionality setting must hydrate from saved values');
+assert.match(read('src/hotkeySettingsModel.ts'), /key: 'smartPasteHotkey', feature: 'smartPaste'/,
+  'Smart Paste hotkey visibility must use its independent gate');
+assert.match(read('src-tauri/src/clipboard_ingestion/text.rs'), /Feature::SmartPaste/,
+  'Smart Paste analysis must use its independent gate');
+assert.match(read('src-tauri/src/smart_paste.rs'), /Feature::SmartPaste/,
+  'Smart Paste selection must use its independent gate');
+assert.match(read('src/hooks/useClipPreviewAnalysis.ts'), /setPasteParts\(smartPasteEnabled && clip\.content_type === 'text' \? result\.pasteParts : null\)/,
+  'Disabling Smart Paste must clear detected values from clip details');
+assert.match(read('src/components/ClipPreviewContent.tsx'), /pasteParts && !previewingRevision && <ClipPastePartsPanel/,
+  'Clip details must hide the detected-content panel without paste parts');
+assert.match(read('src-tauri/src/hotkey_manager/registration.rs'), /if feature_enabled\(Feature::SmartPaste\)[\s\S]{0,240}AppHotkeyAction::SmartPaste/,
+  'The native Smart Paste hotkey must only register while enabled');
+assert.match(read('src-tauri/src/clipboard_actions.rs'), /execute_smart_paste\([\s\S]{0,200}Feature::SmartPaste/,
+  'Smart Paste must reject a disabled action before reading the clipboard');
 assert.match(nativeRoot, /pub mod features;/, 'The native policy must be shared with the CLI crate');
 assert.doesNotMatch(
   read('src/components/SettingsGeneralPanel.tsx'),
