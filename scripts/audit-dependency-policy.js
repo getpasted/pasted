@@ -6,11 +6,19 @@ const policy = readJson('dependency-policy.json');
 const inventory = readJson('THIRD_PARTY_LICENSES.json');
 const packageJson = readJson('package.json');
 const cargoToml = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
+const cargoLock = fs.readFileSync('src-tauri/Cargo.lock', 'utf8');
 const denyToml = fs.readFileSync('deny.toml', 'utf8');
 const tauriConfig = readJson('src-tauri/tauri.conf.json');
 
 assert.equal(policy.schemaVersion, 1, 'Unsupported dependency policy schema');
 assert.ok(policy.approvedLicenses.length > 0, 'Dependency policy must approve licenses explicitly');
+const brotliDecompressorVersions = [...cargoLock.matchAll(/\[\[package\]\]\s+name = "brotli-decompressor"\s+version = "([^"]+)"/g)]
+  .map((match) => match[1]);
+assert.equal(brotliDecompressorVersions.length, 1, 'The brotli-decompressor license exception requires one locked version');
+assert.ok(
+  ['5.0.3', '6.0.1'].includes(brotliDecompressorVersions[0]),
+  `Review the brotli-decompressor license before updating ${brotliDecompressorVersions[0]}`,
+);
 for (const component of policy.packagingComponents) {
   assert.ok(policy.approvedLicenses.includes(component.license), `${component.name} has an unapproved packaging license`);
   assert.ok(component.version && component.repository, `${component.name} packaging provenance is incomplete`);
