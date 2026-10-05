@@ -149,7 +149,7 @@ jobs:
           echo "ARTIFACT_SCAN_PATH=$scan_root" >> "$GITHUB_ENV"
           echo "ARTIFACT_SBOM_PATH=$RUNNER_TEMP/Pasted-macos.artifact.spdx.json" >> "$GITHUB_ENV"
       - name: Generate exact-artifact SBOM
-        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           path: ${{ env.ARTIFACT_SCAN_PATH }}
           format: spdx-json
@@ -242,7 +242,7 @@ jobs:
           echo "ARTIFACT_SCAN_PATH=$scan_root" >> "$GITHUB_ENV"
           echo "ARTIFACT_SBOM_PATH=$RUNNER_TEMP/Pasted-linux.artifact.spdx.json" >> "$GITHUB_ENV"
       - name: Generate exact-artifact SBOM
-        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           path: ${{ env.ARTIFACT_SCAN_PATH }}
           format: spdx-json
@@ -316,7 +316,7 @@ jobs:
           "ARTIFACT_SCAN_PATH=$scanRoot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "ARTIFACT_SBOM_PATH=$env:RUNNER_TEMP/Pasted-windows.artifact.spdx.json" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Generate exact-artifact SBOM
-        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           path: ${{ env.ARTIFACT_SCAN_PATH }}
           format: spdx-json

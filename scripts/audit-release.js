@@ -588,10 +588,18 @@ assert.match(
   /THIRD_PARTY_SBOM\.spdx\.json.*Pasted_\$\{RELEASE_VERSION\}_source\.spdx\.json/,
   'The release must publish the deterministic dependency-graph SBOM',
 );
-assert.equal(
-  (releaseWorkflow.match(/anchore\/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26/g) ?? []).length,
-  3,
-  'Every release platform must generate an exact-artifact SBOM with the reviewed action revision',
+const reviewedSbomActionRevisions = new Set([
+  '3ad7283483fc7af8ff2b4ea19663c2d5ca935e26', // v0.24.2
+  '66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c', // v0.24.3
+]);
+const sbomActionRevisions = [releaseWorkflow, desktopBuildWorkflow].flatMap((workflow) =>
+  [...workflow.matchAll(/anchore\/sbom-action@([^\s#]+)/g)].map((match) => match[1]),
+);
+assert.equal(sbomActionRevisions.length, 5, 'Build and release platforms must generate exact-artifact SBOMs');
+assert.equal(new Set(sbomActionRevisions).size, 1, 'Build and release SBOM actions must use one revision');
+assert.ok(
+  reviewedSbomActionRevisions.has(sbomActionRevisions[0]),
+  'Exact-artifact SBOMs must use a reviewed action revision',
 );
 assert.match(
   desktopBuildWorkflow,
