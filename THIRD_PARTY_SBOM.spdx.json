@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "Pasted-1.2.1-distributed-components",
-  "documentNamespace": "https://getpasted.app/sbom/1.2.1/533b49f6f90ece469c3ccc1845386f61e09b77da6dea0f9c6172f579d11705a5",
+  "documentNamespace": "https://getpasted.app/sbom/1.2.1/b5e1f9def733a973638fb3c06aebfadbace8729b74a894f3c908bf1ce100ae3b",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
@@ -8223,9 +8223,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-npm-bbb6173532aa240e",
+      "SPDXID": "SPDXRef-npm-e6ebbceb5c7d302b",
       "name": "@tauri-apps/api",
-      "versionInfo": "2.11.1",
+      "versionInfo": "2.12.1",
       "downloadLocation": "https://github.com/tauri-apps/tauri",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0 OR MIT",
@@ -8235,14 +8235,14 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:npm/%40tauri-apps/api@2.11.1"
+          "referenceLocator": "pkg:npm/%40tauri-apps/api@2.12.1"
         }
       ]
     },
     {
-      "SPDXID": "SPDXRef-npm-74d0ad25a7ef874d",
+      "SPDXID": "SPDXRef-npm-e2075573778933e5",
       "name": "@tauri-apps/plugin-autostart",
-      "versionInfo": "2.5.1",
+      "versionInfo": "2.7.0",
       "downloadLocation": "https://github.com/tauri-apps/plugins-workspace",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT OR Apache-2.0",
@@ -8252,7 +8252,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:npm/%40tauri-apps/plugin-autostart@2.5.1"
+          "referenceLocator": "pkg:npm/%40tauri-apps/plugin-autostart@2.7.0"
         }
       ]
     },
@@ -8869,9 +8869,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-npm-39e6fd9acdec33ed",
+      "SPDXID": "SPDXRef-npm-4fc66a362d504ee9",
       "name": "lucide-react",
-      "versionInfo": "1.48.0",
+      "versionInfo": "1.50.0",
       "downloadLocation": "https://github.com/lucide-icons/lucide",
       "filesAnalyzed": false,
       "licenseConcluded": "ISC",
@@ -8881,7 +8881,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:npm/lucide-react@1.48.0"
+          "referenceLocator": "pkg:npm/lucide-react@1.50.0"
         }
       ]
     },
@@ -9807,7 +9807,7 @@
       "SPDXID": "SPDXRef-npm-e06edbe7016d8d03",
       "name": "scheduler",
       "versionInfo": "0.28.0",
-      "downloadLocation": "https://github.com/facebook/react",
+      "downloadLocation": "https://github.com/react/react",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT",
       "licenseDeclared": "MIT",
@@ -12546,12 +12546,12 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-npm-bbb6173532aa240e"
+      "relatedSpdxElement": "SPDXRef-npm-e6ebbceb5c7d302b"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-npm-74d0ad25a7ef874d"
+      "relatedSpdxElement": "SPDXRef-npm-e2075573778933e5"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -12736,7 +12736,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-npm-39e6fd9acdec33ed"
+      "relatedSpdxElement": "SPDXRef-npm-4fc66a362d504ee9"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
