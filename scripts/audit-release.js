@@ -593,7 +593,7 @@ const reviewedSbomActionRevisions = new Set([
   '66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c', // v0.24.3
 ]);
 const sbomActionRevisions = [releaseWorkflow, desktopBuildWorkflow].flatMap((workflow) =>
-  [...workflow.matchAll(/anchore\/sbom-action@([a-f0-9]{40})/g)].map((match) => match[1]),
+  [...workflow.matchAll(/anchore\/sbom-action@([^\s#]+)/g)].map((match) => match[1]),
 );
 assert.equal(sbomActionRevisions.length, 5, 'Build and release platforms must generate exact-artifact SBOMs');
 assert.equal(new Set(sbomActionRevisions).size, 1, 'Build and release SBOM actions must use one revision');

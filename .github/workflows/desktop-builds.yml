@@ -83,7 +83,7 @@ jobs:
             native=false
             while IFS= read -r path; do
               case "$path" in
-                src-tauri/*|.cargo/*|rust-toolchain*|deny.toml|package.json|package-lock.json|.github/workflows/desktop-builds.yml)
+                src-tauri/*|.cargo/*|rust-toolchain*|deny.toml|package.json|package-lock.json|scripts/audit-release.js|.github/workflows/desktop-builds.yml)
                   native=true
                   break
                   ;;
