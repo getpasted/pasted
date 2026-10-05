@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "Pasted-1.2.1-distributed-components",
-  "documentNamespace": "https://getpasted.app/sbom/1.2.1/533b49f6f90ece469c3ccc1845386f61e09b77da6dea0f9c6172f579d11705a5",
+  "documentNamespace": "https://getpasted.app/sbom/1.2.1/90b05b9a394a5e4fb601c122d4cf0a7ae3041efb7b654829f5b2e46b6a4fa756",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
@@ -46,9 +46,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-8b6a004cb595d8b6",
+      "SPDXID": "SPDXRef-cargo-99755796d674117c",
       "name": "alloc-no-stdlib",
-      "versionInfo": "2.0.4",
+      "versionInfo": "3.0.0",
       "downloadLocation": "https://github.com/dropbox/rust-alloc-no-stdlib",
       "filesAnalyzed": false,
       "licenseConcluded": "BSD-3-Clause",
@@ -58,14 +58,14 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/alloc-no-stdlib@2.0.4"
+          "referenceLocator": "pkg:cargo/alloc-no-stdlib@3.0.0"
         }
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-9ce846c02fd637a0",
+      "SPDXID": "SPDXRef-cargo-a21d2e7737a385a2",
       "name": "alloc-stdlib",
-      "versionInfo": "0.2.4",
+      "versionInfo": "0.3.0",
       "downloadLocation": "https://github.com/dropbox/rust-alloc-no-stdlib",
       "filesAnalyzed": false,
       "licenseConcluded": "BSD-3-Clause",
@@ -75,7 +75,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/alloc-stdlib@0.2.4"
+          "referenceLocator": "pkg:cargo/alloc-stdlib@0.3.0"
         }
       ]
     },
@@ -369,9 +369,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-8d304eaf1f0d1c66",
+      "SPDXID": "SPDXRef-cargo-beacee1d1a57813e",
       "name": "auto-launch",
-      "versionInfo": "0.5.0",
+      "versionInfo": "0.6.0",
       "downloadLocation": "https://github.com/zzzgydi/auto-launch.git",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT",
@@ -381,7 +381,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/auto-launch@0.5.0"
+          "referenceLocator": "pkg:cargo/auto-launch@0.6.0"
         }
       ]
     },
@@ -607,9 +607,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-e532ae79b9c968ff",
+      "SPDXID": "SPDXRef-cargo-b48e254c7a62c35a",
       "name": "brotli",
-      "versionInfo": "8.0.4",
+      "versionInfo": "9.0.0",
       "downloadLocation": "https://github.com/dropbox/rust-brotli",
       "filesAnalyzed": false,
       "licenseConcluded": "BSD-3-Clause AND MIT",
@@ -619,14 +619,14 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/brotli@8.0.4"
+          "referenceLocator": "pkg:cargo/brotli@9.0.0"
         }
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-a08c8619002420bf",
+      "SPDXID": "SPDXRef-cargo-1c47739d42bdd1f9",
       "name": "brotli-decompressor",
-      "versionInfo": "5.0.3",
+      "versionInfo": "6.0.1",
       "downloadLocation": "https://github.com/dropbox/rust-brotli-decompressor",
       "filesAnalyzed": false,
       "licenseConcluded": "BSD-3-Clause OR MIT",
@@ -636,7 +636,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/brotli-decompressor@5.0.3"
+          "referenceLocator": "pkg:cargo/brotli-decompressor@6.0.1"
         }
       ]
     },
@@ -807,23 +807,6 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/cfb@0.14.0"
-        }
-      ]
-    },
-    {
-      "SPDXID": "SPDXRef-cargo-0dd04f9fd2c40303",
-      "name": "cfb",
-      "versionInfo": "0.7.3",
-      "downloadLocation": "https://github.com/mdsteele/rust-cfb",
-      "filesAnalyzed": false,
-      "licenseConcluded": "MIT",
-      "licenseDeclared": "MIT",
-      "copyrightText": "NOASSERTION",
-      "externalRefs": [
-        {
-          "referenceCategory": "PACKAGE-MANAGER",
-          "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/cfb@0.7.3"
         }
       ]
     },
@@ -1151,9 +1134,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-1ea84e23dfa46fc2",
+      "SPDXID": "SPDXRef-cargo-17845ebcc1399445",
       "name": "cssparser",
-      "versionInfo": "0.36.0",
+      "versionInfo": "0.37.0",
       "downloadLocation": "https://github.com/servo/rust-cssparser",
       "filesAnalyzed": false,
       "licenseConcluded": "MPL-2.0",
@@ -1163,14 +1146,14 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/cssparser@0.36.0"
+          "referenceLocator": "pkg:cargo/cssparser@0.37.0"
         }
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-b688fe57aa1fefdc",
+      "SPDXID": "SPDXRef-cargo-35dd64200876a378",
       "name": "cssparser-macros",
-      "versionInfo": "0.6.1",
+      "versionInfo": "0.7.1",
       "downloadLocation": "https://github.com/servo/rust-cssparser",
       "filesAnalyzed": false,
       "licenseConcluded": "MPL-2.0",
@@ -1180,15 +1163,15 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/cssparser-macros@0.6.1"
+          "referenceLocator": "pkg:cargo/cssparser-macros@0.7.1"
         }
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-ba1b5d638a71f068",
+      "SPDXID": "SPDXRef-cargo-27c78aa6b626904c",
       "name": "ctor",
-      "versionInfo": "0.8.0",
-      "downloadLocation": "https://github.com/mmastrac/rust-ctor",
+      "versionInfo": "1.0.13",
+      "downloadLocation": "https://github.com/mmastrac/linktime",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0 OR MIT",
       "licenseDeclared": "Apache-2.0 OR MIT",
@@ -1197,24 +1180,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/ctor@0.8.0"
-        }
-      ]
-    },
-    {
-      "SPDXID": "SPDXRef-cargo-5c5a75874e393dd6",
-      "name": "ctor-proc-macro",
-      "versionInfo": "0.0.7",
-      "downloadLocation": "https://github.com/mmastrac/rust-ctor",
-      "filesAnalyzed": false,
-      "licenseConcluded": "Apache-2.0 OR MIT",
-      "licenseDeclared": "Apache-2.0 OR MIT",
-      "copyrightText": "NOASSERTION",
-      "externalRefs": [
-        {
-          "referenceCategory": "PACKAGE-MANAGER",
-          "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/ctor-proc-macro@0.0.7"
+          "referenceLocator": "pkg:cargo/ctor@1.0.13"
         }
       ]
     },
@@ -1389,23 +1355,6 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-370556b431b4710f",
-      "name": "dirs",
-      "versionInfo": "4.0.0",
-      "downloadLocation": "https://github.com/soc/dirs-rs",
-      "filesAnalyzed": false,
-      "licenseConcluded": "MIT OR Apache-2.0",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "copyrightText": "NOASSERTION",
-      "externalRefs": [
-        {
-          "referenceCategory": "PACKAGE-MANAGER",
-          "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/dirs@4.0.0"
-        }
-      ]
-    },
-    {
       "SPDXID": "SPDXRef-cargo-07a092d839ebf66d",
       "name": "dirs",
       "versionInfo": "6.0.0",
@@ -1436,23 +1385,6 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/dirs@7.0.0"
-        }
-      ]
-    },
-    {
-      "SPDXID": "SPDXRef-cargo-8ec7e731444a4aa6",
-      "name": "dirs-sys",
-      "versionInfo": "0.3.7",
-      "downloadLocation": "https://github.com/dirs-dev/dirs-sys-rs",
-      "filesAnalyzed": false,
-      "licenseConcluded": "MIT OR Apache-2.0",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "copyrightText": "NOASSERTION",
-      "externalRefs": [
-        {
-          "referenceCategory": "PACKAGE-MANAGER",
-          "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/dirs-sys@0.3.7"
         }
       ]
     },
@@ -1542,9 +1474,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-6706aa6899c82ff5",
+      "SPDXID": "SPDXRef-cargo-40a5c8885d801bec",
       "name": "dom_query",
-      "versionInfo": "0.27.0",
+      "versionInfo": "0.28.0",
       "downloadLocation": "https://github.com/niklak/dom_query",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT",
@@ -1554,7 +1486,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/dom_query@0.27.0"
+          "referenceLocator": "pkg:cargo/dom_query@0.28.0"
         }
       ]
     },
@@ -2766,9 +2698,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-8e8f64ef880451a2",
+      "SPDXID": "SPDXRef-cargo-185402d6bf2bea23",
       "name": "html5ever",
-      "versionInfo": "0.38.0",
+      "versionInfo": "0.39.0",
       "downloadLocation": "https://github.com/servo/html5ever",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT OR Apache-2.0",
@@ -2778,7 +2710,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/html5ever@0.38.0"
+          "referenceLocator": "pkg:cargo/html5ever@0.39.0"
         }
       ]
     },
@@ -3174,23 +3106,6 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-db0e1eed745af5b4",
-      "name": "infer",
-      "versionInfo": "0.19.0",
-      "downloadLocation": "https://github.com/bojand/infer",
-      "filesAnalyzed": false,
-      "licenseConcluded": "MIT",
-      "licenseDeclared": "MIT",
-      "copyrightText": "NOASSERTION",
-      "externalRefs": [
-        {
-          "referenceCategory": "PACKAGE-MANAGER",
-          "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/infer@0.19.0"
-        }
-      ]
-    },
-    {
       "SPDXID": "SPDXRef-cargo-c5b527d421e9cc0e",
       "name": "infer",
       "versionInfo": "0.22.0",
@@ -3276,9 +3191,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-34023d66c302612c",
+      "SPDXID": "SPDXRef-cargo-9a4c7b87b36d2318",
       "name": "json-patch",
-      "versionInfo": "3.0.1",
+      "versionInfo": "4.2.0",
       "downloadLocation": "https://github.com/idubrov/json-patch",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT OR Apache-2.0",
@@ -3288,14 +3203,14 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/json-patch@3.0.1"
+          "referenceLocator": "pkg:cargo/json-patch@4.2.0"
         }
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-146a96391910404e",
+      "SPDXID": "SPDXRef-cargo-1c488aff7b4de2b0",
       "name": "jsonptr",
-      "versionInfo": "0.6.3",
+      "versionInfo": "0.7.1",
       "downloadLocation": "https://github.com/chanced/jsonptr",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT OR Apache-2.0",
@@ -3305,7 +3220,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/jsonptr@0.6.3"
+          "referenceLocator": "pkg:cargo/jsonptr@0.7.1"
         }
       ]
     },
@@ -3323,6 +3238,23 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/keyboard-types@0.7.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-d43e719344d6652f",
+      "name": "keyboard-types",
+      "versionInfo": "0.8.3",
+      "downloadLocation": "https://github.com/rust-windowing/keyboard-types",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/keyboard-types@0.8.3"
         }
       ]
     },
@@ -3514,9 +3446,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-aca678ab2e5fcbca",
+      "SPDXID": "SPDXRef-cargo-5706c5a828dfe4fe",
       "name": "markup5ever",
-      "versionInfo": "0.38.0",
+      "versionInfo": "0.39.0",
       "downloadLocation": "https://github.com/servo/html5ever",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT OR Apache-2.0",
@@ -3526,7 +3458,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/markup5ever@0.38.0"
+          "referenceLocator": "pkg:cargo/markup5ever@0.39.0"
         }
       ]
     },
@@ -3650,9 +3582,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-9cad9b7d678fc651",
+      "SPDXID": "SPDXRef-cargo-843c0af036858ea1",
       "name": "muda",
-      "versionInfo": "0.19.3",
+      "versionInfo": "0.20.0",
       "downloadLocation": "https://github.com/tauri-apps/muda",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0 OR MIT",
@@ -3662,7 +3594,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/muda@0.19.3"
+          "referenceLocator": "pkg:cargo/muda@0.20.0"
         }
       ]
     },
@@ -3680,6 +3612,23 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/new_debug_unreachable@1.0.6"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-0b222db49a8b7665",
+      "name": "nix",
+      "versionInfo": "0.31.3",
+      "downloadLocation": "https://github.com/nix-rust/nix",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/nix@0.31.3"
         }
       ]
     },
@@ -3905,6 +3854,40 @@
       ]
     },
     {
+      "SPDXID": "SPDXRef-cargo-9bb3ddb109c83324",
+      "name": "objc2-security",
+      "versionInfo": "0.3.2",
+      "downloadLocation": "https://github.com/madsmtm/objc2",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Zlib OR Apache-2.0 OR MIT",
+      "licenseDeclared": "Zlib OR Apache-2.0 OR MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/objc2-security@0.3.2"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-af0bcc3e9808846c",
+      "name": "objc2-service-management",
+      "versionInfo": "0.3.2",
+      "downloadLocation": "https://github.com/madsmtm/objc2",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Zlib OR Apache-2.0 OR MIT",
+      "licenseDeclared": "Zlib OR Apache-2.0 OR MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/objc2-service-management@0.3.2"
+        }
+      ]
+    },
+    {
       "SPDXID": "SPDXRef-cargo-594f74f56e6d6d65",
       "name": "objc2-web-kit",
       "versionInfo": "0.3.2",
@@ -3986,6 +3969,23 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/ordered-stream@0.2.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-132364f2efd39525",
+      "name": "os_info",
+      "versionInfo": "3.15.0",
+      "downloadLocation": "https://github.com/stanislav-tkach/os_info",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/os_info@3.15.0"
         }
       ]
     },
@@ -5010,9 +5010,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-295b754e13b066e8",
+      "SPDXID": "SPDXRef-cargo-2254f288b172ef9e",
       "name": "selectors",
-      "versionInfo": "0.36.1",
+      "versionInfo": "0.38.0",
       "downloadLocation": "https://github.com/servo/stylo",
       "filesAnalyzed": false,
       "licenseConcluded": "MPL-2.0",
@@ -5022,7 +5022,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/selectors@0.36.1"
+          "referenceLocator": "pkg:cargo/selectors@0.38.0"
         }
       ]
     },
@@ -5384,6 +5384,23 @@
       ]
     },
     {
+      "SPDXID": "SPDXRef-cargo-50b5f30c372aea45",
+      "name": "smappservice-rs",
+      "versionInfo": "0.1.3",
+      "downloadLocation": "https://github.com/gethopp/smappservice-rs",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/smappservice-rs@0.1.3"
+        }
+      ]
+    },
+    {
       "SPDXID": "SPDXRef-cargo-eeb5760a40879836",
       "name": "socket2",
       "versionInfo": "0.6.5",
@@ -5656,9 +5673,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-944ea9faf937707e",
+      "SPDXID": "SPDXRef-cargo-86b39606531881d8",
       "name": "tao",
-      "versionInfo": "0.35.3",
+      "versionInfo": "0.37.1",
       "downloadLocation": "https://github.com/tauri-apps/tao",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0",
@@ -5668,7 +5685,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/tao@0.35.3"
+          "referenceLocator": "pkg:cargo/tao@0.37.1"
         }
       ]
     },
@@ -5690,9 +5707,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-8beab52f0bf8c358",
+      "SPDXID": "SPDXRef-cargo-14c514b6ed68ba28",
       "name": "tauri",
-      "versionInfo": "2.11.6",
+      "versionInfo": "2.12.1",
       "downloadLocation": "https://github.com/tauri-apps/tauri",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0 OR MIT",
@@ -5702,14 +5719,14 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/tauri@2.11.6"
+          "referenceLocator": "pkg:cargo/tauri@2.12.1"
         }
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-2207e211ab9adf78",
+      "SPDXID": "SPDXRef-cargo-bd8cca7c505ed390",
       "name": "tauri-codegen",
-      "versionInfo": "2.6.3",
+      "versionInfo": "2.7.1",
       "downloadLocation": "https://github.com/tauri-apps/tauri",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0 OR MIT",
@@ -5719,14 +5736,14 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/tauri-codegen@2.6.3"
+          "referenceLocator": "pkg:cargo/tauri-codegen@2.7.1"
         }
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-7a98297d092023a2",
+      "SPDXID": "SPDXRef-cargo-ef4a543c31aef78c",
       "name": "tauri-macros",
-      "versionInfo": "2.6.3",
+      "versionInfo": "2.7.1",
       "downloadLocation": "https://github.com/tauri-apps/tauri",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0 OR MIT",
@@ -5736,14 +5753,14 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/tauri-macros@2.6.3"
+          "referenceLocator": "pkg:cargo/tauri-macros@2.7.1"
         }
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-b7e1e3e1c368b506",
+      "SPDXID": "SPDXRef-cargo-c67baedda064af0e",
       "name": "tauri-plugin-autostart",
-      "versionInfo": "2.5.1",
+      "versionInfo": "2.7.0",
       "downloadLocation": "https://github.com/tauri-apps/plugins-workspace",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0 OR MIT",
@@ -5753,14 +5770,14 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/tauri-plugin-autostart@2.5.1"
+          "referenceLocator": "pkg:cargo/tauri-plugin-autostart@2.7.0"
         }
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-20da9b4b5cce1b0a",
+      "SPDXID": "SPDXRef-cargo-67d1eecd43e2001a",
       "name": "tauri-plugin-dialog",
-      "versionInfo": "2.7.3",
+      "versionInfo": "2.8.1",
       "downloadLocation": "https://github.com/tauri-apps/plugins-workspace",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0 OR MIT",
@@ -5770,13 +5787,47 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/tauri-plugin-dialog@2.7.3"
+          "referenceLocator": "pkg:cargo/tauri-plugin-dialog@2.8.1"
         }
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-23b6ef58e2727bb5",
+      "SPDXID": "SPDXRef-cargo-0b83770e41a1936b",
       "name": "tauri-plugin-fs",
+      "versionInfo": "2.6.0",
+      "downloadLocation": "https://github.com/tauri-apps/plugins-workspace",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0 OR MIT",
+      "licenseDeclared": "Apache-2.0 OR MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/tauri-plugin-fs@2.6.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-6cb1592c83ff0144",
+      "name": "tauri-plugin-global-shortcut",
+      "versionInfo": "2.4.0",
+      "downloadLocation": "https://github.com/tauri-apps/plugins-workspace",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0 OR MIT",
+      "licenseDeclared": "Apache-2.0 OR MIT",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/tauri-plugin-global-shortcut@2.4.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-828db8b7a44aa600",
+      "name": "tauri-plugin-single-instance",
       "versionInfo": "2.5.2",
       "downloadLocation": "https://github.com/tauri-apps/plugins-workspace",
       "filesAnalyzed": false,
@@ -5787,48 +5838,14 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/tauri-plugin-fs@2.5.2"
+          "referenceLocator": "pkg:cargo/tauri-plugin-single-instance@2.5.2"
         }
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-a96988922163608a",
-      "name": "tauri-plugin-global-shortcut",
-      "versionInfo": "2.3.2",
-      "downloadLocation": "https://github.com/tauri-apps/plugins-workspace",
-      "filesAnalyzed": false,
-      "licenseConcluded": "Apache-2.0 OR MIT",
-      "licenseDeclared": "Apache-2.0 OR MIT",
-      "copyrightText": "NOASSERTION",
-      "externalRefs": [
-        {
-          "referenceCategory": "PACKAGE-MANAGER",
-          "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/tauri-plugin-global-shortcut@2.3.2"
-        }
-      ]
-    },
-    {
-      "SPDXID": "SPDXRef-cargo-acd84bed59329abf",
-      "name": "tauri-plugin-single-instance",
-      "versionInfo": "2.4.5",
-      "downloadLocation": "https://github.com/tauri-apps/plugins-workspace",
-      "filesAnalyzed": false,
-      "licenseConcluded": "Apache-2.0 OR MIT",
-      "licenseDeclared": "Apache-2.0 OR MIT",
-      "copyrightText": "NOASSERTION",
-      "externalRefs": [
-        {
-          "referenceCategory": "PACKAGE-MANAGER",
-          "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/tauri-plugin-single-instance@2.4.5"
-        }
-      ]
-    },
-    {
-      "SPDXID": "SPDXRef-cargo-c2129cc2c6eeb4f3",
+      "SPDXID": "SPDXRef-cargo-7662c9372ee07c0d",
       "name": "tauri-plugin-updater",
-      "versionInfo": "2.12.0",
+      "versionInfo": "2.13.1",
       "downloadLocation": "https://github.com/tauri-apps/plugins-workspace",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0 OR MIT",
@@ -5838,14 +5855,14 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/tauri-plugin-updater@2.12.0"
+          "referenceLocator": "pkg:cargo/tauri-plugin-updater@2.13.1"
         }
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-99c6889c23e77f3f",
+      "SPDXID": "SPDXRef-cargo-65443be17b233ebe",
       "name": "tauri-plugin-window-state",
-      "versionInfo": "2.4.1",
+      "versionInfo": "2.5.0",
       "downloadLocation": "https://github.com/tauri-apps/plugins-workspace",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0 OR MIT",
@@ -5855,14 +5872,14 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/tauri-plugin-window-state@2.4.1"
+          "referenceLocator": "pkg:cargo/tauri-plugin-window-state@2.5.0"
         }
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-3115fb1881cd573b",
+      "SPDXID": "SPDXRef-cargo-c53037e46073a472",
       "name": "tauri-runtime",
-      "versionInfo": "2.11.3",
+      "versionInfo": "2.12.1",
       "downloadLocation": "https://github.com/tauri-apps/tauri",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0 OR MIT",
@@ -5872,14 +5889,14 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/tauri-runtime@2.11.3"
+          "referenceLocator": "pkg:cargo/tauri-runtime@2.12.1"
         }
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-8ee3463f10a6852b",
+      "SPDXID": "SPDXRef-cargo-f7101eab74ba6e65",
       "name": "tauri-runtime-wry",
-      "versionInfo": "2.11.4",
+      "versionInfo": "2.12.1",
       "downloadLocation": "https://github.com/tauri-apps/tauri",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0 OR MIT",
@@ -5889,14 +5906,14 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/tauri-runtime-wry@2.11.4"
+          "referenceLocator": "pkg:cargo/tauri-runtime-wry@2.12.1"
         }
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-7f58fbffa55c368c",
+      "SPDXID": "SPDXRef-cargo-c55617fccdf57338",
       "name": "tauri-utils",
-      "versionInfo": "2.9.3",
+      "versionInfo": "2.10.1",
       "downloadLocation": "https://github.com/tauri-apps/tauri",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0 OR MIT",
@@ -5906,7 +5923,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/tauri-utils@2.9.3"
+          "referenceLocator": "pkg:cargo/tauri-utils@2.10.1"
         }
       ]
     },
@@ -6438,9 +6455,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-a2ec122fb867ed1b",
+      "SPDXID": "SPDXRef-cargo-1e4b5b6ef3215a8b",
       "name": "tray-icon",
-      "versionInfo": "0.24.2",
+      "versionInfo": "0.25.1",
       "downloadLocation": "https://github.com/tauri-apps/tray-icon",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT OR Apache-2.0",
@@ -6450,7 +6467,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/tray-icon@0.24.2"
+          "referenceLocator": "pkg:cargo/tray-icon@0.25.1"
         }
       ]
     },
@@ -6540,91 +6557,6 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-90bd4974bc22a5ba",
-      "name": "unic-char-property",
-      "versionInfo": "0.9.0",
-      "downloadLocation": "https://github.com/open-i18n/rust-unic/",
-      "filesAnalyzed": false,
-      "licenseConcluded": "MIT OR Apache-2.0",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "copyrightText": "NOASSERTION",
-      "externalRefs": [
-        {
-          "referenceCategory": "PACKAGE-MANAGER",
-          "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/unic-char-property@0.9.0"
-        }
-      ]
-    },
-    {
-      "SPDXID": "SPDXRef-cargo-0f926ff918b25c1c",
-      "name": "unic-char-range",
-      "versionInfo": "0.9.0",
-      "downloadLocation": "https://github.com/open-i18n/rust-unic/",
-      "filesAnalyzed": false,
-      "licenseConcluded": "MIT OR Apache-2.0",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "copyrightText": "NOASSERTION",
-      "externalRefs": [
-        {
-          "referenceCategory": "PACKAGE-MANAGER",
-          "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/unic-char-range@0.9.0"
-        }
-      ]
-    },
-    {
-      "SPDXID": "SPDXRef-cargo-3154673a60602e79",
-      "name": "unic-common",
-      "versionInfo": "0.9.0",
-      "downloadLocation": "https://github.com/open-i18n/rust-unic/",
-      "filesAnalyzed": false,
-      "licenseConcluded": "MIT OR Apache-2.0",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "copyrightText": "NOASSERTION",
-      "externalRefs": [
-        {
-          "referenceCategory": "PACKAGE-MANAGER",
-          "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/unic-common@0.9.0"
-        }
-      ]
-    },
-    {
-      "SPDXID": "SPDXRef-cargo-032baf4b7bec58bb",
-      "name": "unic-ucd-ident",
-      "versionInfo": "0.9.0",
-      "downloadLocation": "https://github.com/open-i18n/rust-unic/",
-      "filesAnalyzed": false,
-      "licenseConcluded": "MIT OR Apache-2.0",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "copyrightText": "NOASSERTION",
-      "externalRefs": [
-        {
-          "referenceCategory": "PACKAGE-MANAGER",
-          "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/unic-ucd-ident@0.9.0"
-        }
-      ]
-    },
-    {
-      "SPDXID": "SPDXRef-cargo-3ac642aa403d1a71",
-      "name": "unic-ucd-version",
-      "versionInfo": "0.9.0",
-      "downloadLocation": "https://github.com/open-i18n/rust-unic/",
-      "filesAnalyzed": false,
-      "licenseConcluded": "MIT OR Apache-2.0",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "copyrightText": "NOASSERTION",
-      "externalRefs": [
-        {
-          "referenceCategory": "PACKAGE-MANAGER",
-          "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/unic-ucd-version@0.9.0"
-        }
-      ]
-    },
-    {
       "SPDXID": "SPDXRef-cargo-312e8439d1f2f3b6",
       "name": "unicode-ident",
       "versionInfo": "1.0.24",
@@ -6710,9 +6642,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-6958994716d6aa83",
+      "SPDXID": "SPDXRef-cargo-7d964a176b191e86",
       "name": "urlpattern",
-      "versionInfo": "0.3.0",
+      "versionInfo": "0.6.0",
       "downloadLocation": "https://github.com/denoland/rust-urlpattern",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT",
@@ -6722,7 +6654,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/urlpattern@0.3.0"
+          "referenceLocator": "pkg:cargo/urlpattern@0.6.0"
         }
       ]
     },
@@ -6965,9 +6897,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-4c931e1ddaf1991f",
+      "SPDXID": "SPDXRef-cargo-b12d27b9a3b16412",
       "name": "webview2-com",
-      "versionInfo": "0.38.2",
+      "versionInfo": "0.39.1",
       "downloadLocation": "https://github.com/wravery/webview2-rs",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT",
@@ -6977,7 +6909,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/webview2-com@0.38.2"
+          "referenceLocator": "pkg:cargo/webview2-com@0.39.1"
         }
       ]
     },
@@ -6999,9 +6931,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-f578096cca74510f",
+      "SPDXID": "SPDXRef-cargo-fdd3f0f4dc9b9e91",
       "name": "webview2-com-sys",
-      "versionInfo": "0.38.2",
+      "versionInfo": "0.39.1",
       "downloadLocation": "https://github.com/wravery/webview2-rs",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT",
@@ -7011,7 +6943,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/webview2-com-sys@0.38.2"
+          "referenceLocator": "pkg:cargo/webview2-com-sys@0.39.1"
         }
       ]
     },
@@ -7067,23 +6999,6 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-915771ca84f1b9c5",
-      "name": "window-vibrancy",
-      "versionInfo": "0.6.0",
-      "downloadLocation": "https://github.com/tauri-apps/tauri-plugin-vibrancy",
-      "filesAnalyzed": false,
-      "licenseConcluded": "Apache-2.0 OR MIT",
-      "licenseDeclared": "Apache-2.0 OR MIT",
-      "copyrightText": "NOASSERTION",
-      "externalRefs": [
-        {
-          "referenceCategory": "PACKAGE-MANAGER",
-          "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/window-vibrancy@0.6.0"
-        }
-      ]
-    },
-    {
       "SPDXID": "SPDXRef-cargo-6769e0357b7a8447",
       "name": "window-vibrancy",
       "versionInfo": "0.8.1",
@@ -7097,23 +7012,6 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/window-vibrancy@0.8.1"
-        }
-      ]
-    },
-    {
-      "SPDXID": "SPDXRef-cargo-4c93c5e8058c736c",
-      "name": "windows",
-      "versionInfo": "0.61.3",
-      "downloadLocation": "https://github.com/microsoft/windows-rs",
-      "filesAnalyzed": false,
-      "licenseConcluded": "MIT OR Apache-2.0",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "copyrightText": "NOASSERTION",
-      "externalRefs": [
-        {
-          "referenceCategory": "PACKAGE-MANAGER",
-          "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/windows@0.61.3"
         }
       ]
     },
@@ -7203,23 +7101,6 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-308dac6428ae240d",
-      "name": "windows-collections",
-      "versionInfo": "0.2.0",
-      "downloadLocation": "https://github.com/microsoft/windows-rs",
-      "filesAnalyzed": false,
-      "licenseConcluded": "MIT OR Apache-2.0",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "copyrightText": "NOASSERTION",
-      "externalRefs": [
-        {
-          "referenceCategory": "PACKAGE-MANAGER",
-          "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/windows-collections@0.2.0"
-        }
-      ]
-    },
-    {
       "SPDXID": "SPDXRef-cargo-f2ef2d64df19a746",
       "name": "windows-collections",
       "versionInfo": "0.3.2",
@@ -7237,23 +7118,6 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-a58dd7c6fdeea739",
-      "name": "windows-core",
-      "versionInfo": "0.61.2",
-      "downloadLocation": "https://github.com/microsoft/windows-rs",
-      "filesAnalyzed": false,
-      "licenseConcluded": "MIT OR Apache-2.0",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "copyrightText": "NOASSERTION",
-      "externalRefs": [
-        {
-          "referenceCategory": "PACKAGE-MANAGER",
-          "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/windows-core@0.61.2"
-        }
-      ]
-    },
-    {
       "SPDXID": "SPDXRef-cargo-66fdd71423b2b0eb",
       "name": "windows-core",
       "versionInfo": "0.62.2",
@@ -7267,23 +7131,6 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/windows-core@0.62.2"
-        }
-      ]
-    },
-    {
-      "SPDXID": "SPDXRef-cargo-7bab2fdc2d486cfb",
-      "name": "windows-future",
-      "versionInfo": "0.2.1",
-      "downloadLocation": "https://github.com/microsoft/windows-rs",
-      "filesAnalyzed": false,
-      "licenseConcluded": "MIT OR Apache-2.0",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "copyrightText": "NOASSERTION",
-      "externalRefs": [
-        {
-          "referenceCategory": "PACKAGE-MANAGER",
-          "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/windows-future@0.2.1"
         }
       ]
     },
@@ -7339,23 +7186,6 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-e8962d5ce1a5761c",
-      "name": "windows-link",
-      "versionInfo": "0.1.3",
-      "downloadLocation": "https://github.com/microsoft/windows-rs",
-      "filesAnalyzed": false,
-      "licenseConcluded": "MIT OR Apache-2.0",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "copyrightText": "NOASSERTION",
-      "externalRefs": [
-        {
-          "referenceCategory": "PACKAGE-MANAGER",
-          "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/windows-link@0.1.3"
-        }
-      ]
-    },
-    {
       "SPDXID": "SPDXRef-cargo-8c02325d9c479e71",
       "name": "windows-link",
       "versionInfo": "0.2.1",
@@ -7369,23 +7199,6 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/windows-link@0.2.1"
-        }
-      ]
-    },
-    {
-      "SPDXID": "SPDXRef-cargo-5edb3fe62cb4df87",
-      "name": "windows-numerics",
-      "versionInfo": "0.2.0",
-      "downloadLocation": "https://github.com/microsoft/windows-rs",
-      "filesAnalyzed": false,
-      "licenseConcluded": "MIT OR Apache-2.0",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "copyrightText": "NOASSERTION",
-      "externalRefs": [
-        {
-          "referenceCategory": "PACKAGE-MANAGER",
-          "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/windows-numerics@0.2.0"
         }
       ]
     },
@@ -7424,23 +7237,6 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-1527ac73aaa7dfa7",
-      "name": "windows-result",
-      "versionInfo": "0.3.4",
-      "downloadLocation": "https://github.com/microsoft/windows-rs",
-      "filesAnalyzed": false,
-      "licenseConcluded": "MIT OR Apache-2.0",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "copyrightText": "NOASSERTION",
-      "externalRefs": [
-        {
-          "referenceCategory": "PACKAGE-MANAGER",
-          "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/windows-result@0.3.4"
-        }
-      ]
-    },
-    {
       "SPDXID": "SPDXRef-cargo-0795a685f0415c41",
       "name": "windows-result",
       "versionInfo": "0.4.1",
@@ -7454,23 +7250,6 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/windows-result@0.4.1"
-        }
-      ]
-    },
-    {
-      "SPDXID": "SPDXRef-cargo-77fa2a0fe2a9bf51",
-      "name": "windows-strings",
-      "versionInfo": "0.4.2",
-      "downloadLocation": "https://github.com/microsoft/windows-rs",
-      "filesAnalyzed": false,
-      "licenseConcluded": "MIT OR Apache-2.0",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "copyrightText": "NOASSERTION",
-      "externalRefs": [
-        {
-          "referenceCategory": "PACKAGE-MANAGER",
-          "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/windows-strings@0.4.2"
         }
       ]
     },
@@ -7577,23 +7356,6 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-0cda853fb8833c7f",
-      "name": "windows-threading",
-      "versionInfo": "0.1.0",
-      "downloadLocation": "https://github.com/microsoft/windows-rs",
-      "filesAnalyzed": false,
-      "licenseConcluded": "MIT OR Apache-2.0",
-      "licenseDeclared": "MIT OR Apache-2.0",
-      "copyrightText": "NOASSERTION",
-      "externalRefs": [
-        {
-          "referenceCategory": "PACKAGE-MANAGER",
-          "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/windows-threading@0.1.0"
-        }
-      ]
-    },
-    {
       "SPDXID": "SPDXRef-cargo-898f136301fac5b4",
       "name": "windows-threading",
       "versionInfo": "0.2.1",
@@ -7662,23 +7424,6 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-834f9985b67b6772",
-      "name": "winreg",
-      "versionInfo": "0.10.1",
-      "downloadLocation": "https://github.com/gentoo90/winreg-rs",
-      "filesAnalyzed": false,
-      "licenseConcluded": "MIT",
-      "licenseDeclared": "MIT",
-      "copyrightText": "NOASSERTION",
-      "externalRefs": [
-        {
-          "referenceCategory": "PACKAGE-MANAGER",
-          "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/winreg@0.10.1"
-        }
-      ]
-    },
-    {
       "SPDXID": "SPDXRef-cargo-0caefd0c998db834",
       "name": "wl-clipboard-rs",
       "versionInfo": "0.9.3",
@@ -7713,9 +7458,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-302bb3dc96711eda",
+      "SPDXID": "SPDXRef-cargo-d29c5ade030ff62e",
       "name": "wry",
-      "versionInfo": "0.55.1",
+      "versionInfo": "0.57.0",
       "downloadLocation": "https://github.com/tauri-apps/wry",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0 OR MIT",
@@ -7725,7 +7470,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/wry@0.55.1"
+          "referenceLocator": "pkg:cargo/wry@0.57.0"
         }
       ]
     },
@@ -9807,7 +9552,7 @@
       "SPDXID": "SPDXRef-npm-e06edbe7016d8d03",
       "name": "scheduler",
       "versionInfo": "0.28.0",
-      "downloadLocation": "https://github.com/facebook/react",
+      "downloadLocation": "https://github.com/react/react",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT",
       "licenseDeclared": "MIT",
@@ -10141,12 +9886,12 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-8b6a004cb595d8b6"
+      "relatedSpdxElement": "SPDXRef-cargo-99755796d674117c"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-9ce846c02fd637a0"
+      "relatedSpdxElement": "SPDXRef-cargo-a21d2e7737a385a2"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -10236,7 +9981,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-8d304eaf1f0d1c66"
+      "relatedSpdxElement": "SPDXRef-cargo-beacee1d1a57813e"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -10306,12 +10051,12 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-e532ae79b9c968ff"
+      "relatedSpdxElement": "SPDXRef-cargo-b48e254c7a62c35a"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-a08c8619002420bf"
+      "relatedSpdxElement": "SPDXRef-cargo-1c47739d42bdd1f9"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -10362,11 +10107,6 @@
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-0266912bfaae35d1"
-    },
-    {
-      "spdxElementId": "SPDXRef-DOCUMENT",
-      "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-0dd04f9fd2c40303"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -10466,22 +10206,17 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-1ea84e23dfa46fc2"
+      "relatedSpdxElement": "SPDXRef-cargo-17845ebcc1399445"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-b688fe57aa1fefdc"
+      "relatedSpdxElement": "SPDXRef-cargo-35dd64200876a378"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-ba1b5d638a71f068"
-    },
-    {
-      "spdxElementId": "SPDXRef-DOCUMENT",
-      "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-5c5a75874e393dd6"
+      "relatedSpdxElement": "SPDXRef-cargo-27c78aa6b626904c"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -10536,22 +10271,12 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-370556b431b4710f"
-    },
-    {
-      "spdxElementId": "SPDXRef-DOCUMENT",
-      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-07a092d839ebf66d"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-bd0c4b5d68db55d5"
-    },
-    {
-      "spdxElementId": "SPDXRef-DOCUMENT",
-      "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-8ec7e731444a4aa6"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -10581,7 +10306,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-6706aa6899c82ff5"
+      "relatedSpdxElement": "SPDXRef-cargo-40a5c8885d801bec"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -10941,7 +10666,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-8e8f64ef880451a2"
+      "relatedSpdxElement": "SPDXRef-cargo-185402d6bf2bea23"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -11061,11 +10786,6 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-db0e1eed745af5b4"
-    },
-    {
-      "spdxElementId": "SPDXRef-DOCUMENT",
-      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-c5b527d421e9cc0e"
     },
     {
@@ -11091,17 +10811,22 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-34023d66c302612c"
+      "relatedSpdxElement": "SPDXRef-cargo-9a4c7b87b36d2318"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-146a96391910404e"
+      "relatedSpdxElement": "SPDXRef-cargo-1c488aff7b4de2b0"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-471843ba0b74c1b0"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-d43e719344d6652f"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -11161,7 +10886,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-aca678ab2e5fcbca"
+      "relatedSpdxElement": "SPDXRef-cargo-5706c5a828dfe4fe"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -11201,12 +10926,17 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-9cad9b7d678fc651"
+      "relatedSpdxElement": "SPDXRef-cargo-843c0af036858ea1"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-eb92034b482751e2"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-0b222db49a8b7665"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -11276,6 +11006,16 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-9bb3ddb109c83324"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-af0bcc3e9808846c"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-594f74f56e6d6d65"
     },
     {
@@ -11297,6 +11037,11 @@
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-48ec0a92adebe1d0"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-132364f2efd39525"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -11601,7 +11346,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-295b754e13b066e8"
+      "relatedSpdxElement": "SPDXRef-cargo-2254f288b172ef9e"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -11711,6 +11456,11 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-50b5f30c372aea45"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-eeb5760a40879836"
     },
     {
@@ -11791,7 +11541,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-944ea9faf937707e"
+      "relatedSpdxElement": "SPDXRef-cargo-86b39606531881d8"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -11801,67 +11551,67 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-8beab52f0bf8c358"
+      "relatedSpdxElement": "SPDXRef-cargo-14c514b6ed68ba28"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-2207e211ab9adf78"
+      "relatedSpdxElement": "SPDXRef-cargo-bd8cca7c505ed390"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-7a98297d092023a2"
+      "relatedSpdxElement": "SPDXRef-cargo-ef4a543c31aef78c"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-b7e1e3e1c368b506"
+      "relatedSpdxElement": "SPDXRef-cargo-c67baedda064af0e"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-20da9b4b5cce1b0a"
+      "relatedSpdxElement": "SPDXRef-cargo-67d1eecd43e2001a"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-23b6ef58e2727bb5"
+      "relatedSpdxElement": "SPDXRef-cargo-0b83770e41a1936b"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-a96988922163608a"
+      "relatedSpdxElement": "SPDXRef-cargo-6cb1592c83ff0144"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-acd84bed59329abf"
+      "relatedSpdxElement": "SPDXRef-cargo-828db8b7a44aa600"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-c2129cc2c6eeb4f3"
+      "relatedSpdxElement": "SPDXRef-cargo-7662c9372ee07c0d"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-99c6889c23e77f3f"
+      "relatedSpdxElement": "SPDXRef-cargo-65443be17b233ebe"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-3115fb1881cd573b"
+      "relatedSpdxElement": "SPDXRef-cargo-c53037e46073a472"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-8ee3463f10a6852b"
+      "relatedSpdxElement": "SPDXRef-cargo-f7101eab74ba6e65"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-7f58fbffa55c368c"
+      "relatedSpdxElement": "SPDXRef-cargo-c55617fccdf57338"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -12021,7 +11771,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-a2ec122fb867ed1b"
+      "relatedSpdxElement": "SPDXRef-cargo-1e4b5b6ef3215a8b"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -12051,31 +11801,6 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-90bd4974bc22a5ba"
-    },
-    {
-      "spdxElementId": "SPDXRef-DOCUMENT",
-      "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-0f926ff918b25c1c"
-    },
-    {
-      "spdxElementId": "SPDXRef-DOCUMENT",
-      "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-3154673a60602e79"
-    },
-    {
-      "spdxElementId": "SPDXRef-DOCUMENT",
-      "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-032baf4b7bec58bb"
-    },
-    {
-      "spdxElementId": "SPDXRef-DOCUMENT",
-      "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-3ac642aa403d1a71"
-    },
-    {
-      "spdxElementId": "SPDXRef-DOCUMENT",
-      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-312e8439d1f2f3b6"
     },
     {
@@ -12101,7 +11826,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-6958994716d6aa83"
+      "relatedSpdxElement": "SPDXRef-cargo-7d964a176b191e86"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -12176,7 +11901,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-4c931e1ddaf1991f"
+      "relatedSpdxElement": "SPDXRef-cargo-b12d27b9a3b16412"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -12186,7 +11911,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-f578096cca74510f"
+      "relatedSpdxElement": "SPDXRef-cargo-fdd3f0f4dc9b9e91"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -12206,17 +11931,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-915771ca84f1b9c5"
-    },
-    {
-      "spdxElementId": "SPDXRef-DOCUMENT",
-      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-6769e0357b7a8447"
-    },
-    {
-      "spdxElementId": "SPDXRef-DOCUMENT",
-      "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-4c93c5e8058c736c"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -12246,27 +11961,12 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-308dac6428ae240d"
-    },
-    {
-      "spdxElementId": "SPDXRef-DOCUMENT",
-      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-f2ef2d64df19a746"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-a58dd7c6fdeea739"
-    },
-    {
-      "spdxElementId": "SPDXRef-DOCUMENT",
-      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-66fdd71423b2b0eb"
-    },
-    {
-      "spdxElementId": "SPDXRef-DOCUMENT",
-      "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-7bab2fdc2d486cfb"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -12286,17 +11986,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-e8962d5ce1a5761c"
-    },
-    {
-      "spdxElementId": "SPDXRef-DOCUMENT",
-      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-8c02325d9c479e71"
-    },
-    {
-      "spdxElementId": "SPDXRef-DOCUMENT",
-      "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-5edb3fe62cb4df87"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -12311,17 +12001,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-1527ac73aaa7dfa7"
-    },
-    {
-      "spdxElementId": "SPDXRef-DOCUMENT",
-      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-0795a685f0415c41"
-    },
-    {
-      "spdxElementId": "SPDXRef-DOCUMENT",
-      "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-77fa2a0fe2a9bf51"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -12356,11 +12036,6 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-0cda853fb8833c7f"
-    },
-    {
-      "spdxElementId": "SPDXRef-DOCUMENT",
-      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-898f136301fac5b4"
     },
     {
@@ -12381,11 +12056,6 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-834f9985b67b6772"
-    },
-    {
-      "spdxElementId": "SPDXRef-DOCUMENT",
-      "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-0caefd0c998db834"
     },
     {
@@ -12396,7 +12066,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-302bb3dc96711eda"
+      "relatedSpdxElement": "SPDXRef-cargo-d29c5ade030ff62e"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
