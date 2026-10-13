@@ -32,7 +32,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version-file: .node-version
           cache: npm
@@ -87,7 +87,7 @@ jobs:
 
       - name: Run Codex
         id: codex
-        uses: openai/codex-action@v1.12
+        uses: openai/codex-action@v1.13
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           permission-profile: ":workspace"
