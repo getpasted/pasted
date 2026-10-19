@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "Pasted-1.2.1-distributed-components",
-  "documentNamespace": "https://getpasted.app/sbom/1.2.1/666a62984a3688a12c9ac6ebe986aef09de1e8473f50b114a5cd097350c40f6c",
+  "documentNamespace": "https://getpasted.app/sbom/1.2.1/c4de4078da3292e4c15f209bb73411e49890b0a7474143570dcb818c5bf2bed4",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
@@ -97,9 +97,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-6a228936a9ac6185",
+      "SPDXID": "SPDXRef-cargo-83e32a8ebb4ef5bc",
       "name": "arboard",
-      "versionInfo": "3.6.1",
+      "versionInfo": "3.7.0",
       "downloadLocation": "https://github.com/1Password/arboard",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT OR Apache-2.0",
@@ -109,7 +109,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/arboard@3.6.1"
+          "referenceLocator": "pkg:cargo/arboard@3.7.0"
         }
       ]
     },
@@ -5112,9 +5112,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-25a9467026a3df58",
+      "SPDXID": "SPDXRef-cargo-0a8bc9687473eff2",
       "name": "serde_json",
-      "versionInfo": "1.0.152",
+      "versionInfo": "1.0.154",
       "downloadLocation": "https://github.com/serde-rs/json",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT OR Apache-2.0",
@@ -5124,7 +5124,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/serde_json@1.0.152"
+          "referenceLocator": "pkg:cargo/serde_json@1.0.154"
         }
       ]
     },
@@ -5282,9 +5282,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-0ccf799a20abc39f",
+      "SPDXID": "SPDXRef-cargo-5156ba76457a6c53",
       "name": "sha2",
-      "versionInfo": "0.11.0",
+      "versionInfo": "0.11.1",
       "downloadLocation": "https://github.com/RustCrypto/hashes",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT OR Apache-2.0",
@@ -5294,7 +5294,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/sha2@0.11.0"
+          "referenceLocator": "pkg:cargo/sha2@0.11.1"
         }
       ]
     },
@@ -5775,9 +5775,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-c4a1da34fb81946c",
+      "SPDXID": "SPDXRef-cargo-532064ddea46a447",
       "name": "tauri-plugin-dialog",
-      "versionInfo": "2.8.2",
+      "versionInfo": "2.8.3",
       "downloadLocation": "https://github.com/tauri-apps/plugins-workspace",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0 OR MIT",
@@ -5787,14 +5787,14 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/tauri-plugin-dialog@2.8.2"
+          "referenceLocator": "pkg:cargo/tauri-plugin-dialog@2.8.3"
         }
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-d76de352a6382ce9",
+      "SPDXID": "SPDXRef-cargo-4a2ca9414d3f6ce8",
       "name": "tauri-plugin-fs",
-      "versionInfo": "2.7.0",
+      "versionInfo": "2.7.1",
       "downloadLocation": "https://github.com/tauri-apps/plugins-workspace",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0 OR MIT",
@@ -5804,7 +5804,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/tauri-plugin-fs@2.7.0"
+          "referenceLocator": "pkg:cargo/tauri-plugin-fs@2.7.1"
         }
       ]
     },
@@ -5826,9 +5826,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-8cd2e3b6f7316e1e",
+      "SPDXID": "SPDXRef-cargo-39a7dfc89dc2bd3b",
       "name": "tauri-plugin-single-instance",
-      "versionInfo": "2.5.3",
+      "versionInfo": "2.5.4",
       "downloadLocation": "https://github.com/tauri-apps/plugins-workspace",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0 OR MIT",
@@ -5838,14 +5838,14 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/tauri-plugin-single-instance@2.5.3"
+          "referenceLocator": "pkg:cargo/tauri-plugin-single-instance@2.5.4"
         }
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-cadd5b18a66778e2",
+      "SPDXID": "SPDXRef-cargo-95c8185e2dfe9bb3",
       "name": "tauri-plugin-updater",
-      "versionInfo": "2.13.3",
+      "versionInfo": "2.14.0",
       "downloadLocation": "https://github.com/tauri-apps/plugins-workspace",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0 OR MIT",
@@ -5855,7 +5855,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/tauri-plugin-updater@2.13.3"
+          "referenceLocator": "pkg:cargo/tauri-plugin-updater@2.14.0"
         }
       ]
     },
@@ -9901,7 +9901,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-6a228936a9ac6185"
+      "relatedSpdxElement": "SPDXRef-cargo-83e32a8ebb4ef5bc"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -11376,7 +11376,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-25a9467026a3df58"
+      "relatedSpdxElement": "SPDXRef-cargo-0a8bc9687473eff2"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -11426,7 +11426,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-0ccf799a20abc39f"
+      "relatedSpdxElement": "SPDXRef-cargo-5156ba76457a6c53"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -11571,12 +11571,12 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-c4a1da34fb81946c"
+      "relatedSpdxElement": "SPDXRef-cargo-532064ddea46a447"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-d76de352a6382ce9"
+      "relatedSpdxElement": "SPDXRef-cargo-4a2ca9414d3f6ce8"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -11586,12 +11586,12 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-8cd2e3b6f7316e1e"
+      "relatedSpdxElement": "SPDXRef-cargo-39a7dfc89dc2bd3b"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-cadd5b18a66778e2"
+      "relatedSpdxElement": "SPDXRef-cargo-95c8185e2dfe9bb3"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
