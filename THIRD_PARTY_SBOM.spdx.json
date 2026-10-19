@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "Pasted-1.2.1-distributed-components",
-  "documentNamespace": "https://getpasted.app/sbom/1.2.1/666a62984a3688a12c9ac6ebe986aef09de1e8473f50b114a5cd097350c40f6c",
+  "documentNamespace": "https://getpasted.app/sbom/1.2.1/3186386436b2eaa8e9687a1694aa41ce0e66ee39779da716f33389ab5cc8380e",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
@@ -7968,9 +7968,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-npm-1c37c5e1af921ea6",
+      "SPDXID": "SPDXRef-npm-f449490111c66bd0",
       "name": "@tauri-apps/api",
-      "versionInfo": "2.12.2",
+      "versionInfo": "2.12.4",
       "downloadLocation": "https://github.com/tauri-apps/tauri",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0 OR MIT",
@@ -7980,7 +7980,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:npm/%40tauri-apps/api@2.12.2"
+          "referenceLocator": "pkg:npm/%40tauri-apps/api@2.12.4"
         }
       ]
     },
@@ -8614,9 +8614,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-npm-6110908954ebd5b3",
+      "SPDXID": "SPDXRef-npm-6bda66e19a1836f6",
       "name": "lucide-react",
-      "versionInfo": "1.55.0",
+      "versionInfo": "1.58.0",
       "downloadLocation": "https://github.com/lucide-icons/lucide",
       "filesAnalyzed": false,
       "licenseConcluded": "ISC",
@@ -8626,7 +8626,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:npm/lucide-react@1.55.0"
+          "referenceLocator": "pkg:npm/lucide-react@1.58.0"
         }
       ]
     },
@@ -9430,9 +9430,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-npm-bd679726788e3c19",
+      "SPDXID": "SPDXRef-npm-f4529719455f2af2",
       "name": "react",
-      "versionInfo": "19.3.0",
+      "versionInfo": "19.3.1",
       "downloadLocation": "https://github.com/react/react",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT",
@@ -9442,14 +9442,14 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:npm/react@19.3.0"
+          "referenceLocator": "pkg:npm/react@19.3.1"
         }
       ]
     },
     {
-      "SPDXID": "SPDXRef-npm-e7069d7b1afc7978",
+      "SPDXID": "SPDXRef-npm-7e691db2ae834e1c",
       "name": "react-dom",
-      "versionInfo": "19.3.0",
+      "versionInfo": "19.3.1",
       "downloadLocation": "https://github.com/react/react",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT",
@@ -9459,7 +9459,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:npm/react-dom@19.3.0"
+          "referenceLocator": "pkg:npm/react-dom@19.3.1"
         }
       ]
     },
@@ -12216,7 +12216,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-npm-1c37c5e1af921ea6"
+      "relatedSpdxElement": "SPDXRef-npm-f449490111c66bd0"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -12406,7 +12406,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-npm-6110908954ebd5b3"
+      "relatedSpdxElement": "SPDXRef-npm-6bda66e19a1836f6"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -12646,12 +12646,12 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-npm-bd679726788e3c19"
+      "relatedSpdxElement": "SPDXRef-npm-f4529719455f2af2"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-npm-e7069d7b1afc7978"
+      "relatedSpdxElement": "SPDXRef-npm-7e691db2ae834e1c"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
