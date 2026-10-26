@@ -33,10 +33,12 @@ gui = [
     "dep:tauri-plugin-autostart",
     "dep:tauri-plugin-dialog",
     "dep:tauri-plugin-global-shortcut",
-    "dep:tauri-plugin-single-instance",
     "dep:tauri-plugin-updater",
     "dep:tauri-plugin-window-state",
+    "dep:tokio",
     "dep:window-vibrancy",
+    "dep:windows-sys",
+    "dep:zbus",
 ]
 
 [build-dependencies]
@@ -62,7 +64,6 @@ infer = "0.22"
 base64 = "0.23"
 once_cell = "1.20"
 tauri-plugin-autostart = { version = "2", optional = true }
-tauri-plugin-single-instance = { version = "2", optional = true }
 tauri-plugin-window-state = { version = "2", optional = true }
 tauri-plugin-dialog = { version = "2", optional = true }
 window-vibrancy = { version = "0.8", optional = true }
@@ -78,16 +79,19 @@ objc = "0.2"
 objc2 = "0.6"
 objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSView"] }
 block2 = "0.6"
+tokio = { version = "1", features = ["io-util", "net"], optional = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.62", features = ["Foundation", "Security_Credentials_UI", "Win32_Foundation", "Win32_System_Com", "Win32_System_WinRT", "Win32_UI_Accessibility"] }
 windows-future = "0.3"
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Security", "Win32_System_DataExchange", "Win32_System_LibraryLoader", "Win32_System_Threading", "Win32_UI_WindowsAndMessaging"], optional = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-ashpd = { version = "0.13", default-features = false, features = ["tokio", "global_shortcuts"] }
+ashpd = { version = "=0.13.0", git = "https://github.com/bilelmoussaoui/ashpd.git", rev = "3ea494564e48bf0f351a13da1e18abb5a9dd45e6", default-features = false, features = ["tokio", "global_shortcuts"] }
 futures-util = "0.3"
 gtk = "0.18"
 x11rb = { version = "0.14", features = ["xkb"] }
+zbus = { version = "6.1", default-features = false, features = ["proxy", "service", "tokio"], optional = true }
 
 [lints.rust]
 unexpected_cfgs = "allow"

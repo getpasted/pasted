@@ -9,9 +9,32 @@ const cargoToml = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
 const cargoLock = fs.readFileSync('src-tauri/Cargo.lock', 'utf8');
 const denyToml = fs.readFileSync('deny.toml', 'utf8');
 const tauriConfig = readJson('src-tauri/tauri.conf.json');
+const ashpdZbus6Revision = '3ea494564e48bf0f351a13da1e18abb5a9dd45e6';
 
 assert.equal(policy.schemaVersion, 1, 'Unsupported dependency policy schema');
 assert.ok(policy.approvedLicenses.length > 0, 'Dependency policy must approve licenses explicitly');
+assert.match(
+  cargoToml,
+  new RegExp(`ashpd = \\{ version = "=0\\.13\\.0", git = "https://github\\.com/bilelmoussaoui/ashpd\\.git", rev = "${ashpdZbus6Revision}"`),
+  'The unreleased ashpd zbus 6 migration must stay version-constrained and pinned to its reviewed merge revision',
+);
+assert.match(
+  cargoLock,
+  new RegExp(`source = "git\\+https://github\\.com/bilelmoussaoui/ashpd\\.git\\?rev=${ashpdZbus6Revision}#${ashpdZbus6Revision}"`),
+  'The lockfile must resolve the reviewed ashpd merge revision exactly',
+);
+assert.match(
+  denyToml,
+  /allow-git = \["https:\/\/github\.com\/bilelmoussaoui\/ashpd\.git"\]/,
+  'The temporary Git-source policy must remain limited to the official ashpd repository',
+);
+for (const retiredCrate of ['zbus_names', 'zvariant', 'zvariant_derive']) {
+  assert.doesNotMatch(
+    cargoLock,
+    new RegExp(`name = "${retiredCrate}"`),
+    `${retiredCrate} must not return to the dependency graph`,
+  );
+}
 const brotliDecompressorVersions = [...cargoLock.matchAll(/\[\[package\]\]\s+name = "brotli-decompressor"\s+version = "([^"]+)"/g)]
   .map((match) => match[1]);
 assert.equal(brotliDecompressorVersions.length, 1, 'The brotli-decompressor license exception requires one locked version');
