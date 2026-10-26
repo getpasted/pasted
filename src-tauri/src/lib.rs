@@ -92,6 +92,8 @@ mod sequential_paste;
 pub mod settings_activity;
 pub mod settings_contract;
 pub mod settings_service;
+#[cfg(feature = "gui")]
+mod single_instance;
 pub mod smart_bins;
 pub mod smart_paste;
 pub mod storage_protection;
@@ -135,9 +137,7 @@ pub fn run() {
     }
 
     builder
-        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
-            app_runtime::handle_single_instance(app, &args);
-        }))
+        .plugin(single_instance::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(move |app, shortcut, event| {

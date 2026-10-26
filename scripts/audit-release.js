@@ -343,7 +343,6 @@ for (const dependency of [
   'tauri-plugin-autostart',
   'tauri-plugin-dialog',
   'tauri-plugin-global-shortcut',
-  'tauri-plugin-single-instance',
   'tauri-plugin-window-state',
   'window-vibrancy',
 ]) {
@@ -353,6 +352,11 @@ for (const dependency of [
     `${dependency} must remain optional for headless CLI builds`,
   );
 }
+assert.doesNotMatch(
+  cargoToml,
+  /tauri-plugin-single-instance/,
+  'The retired single-instance plugin must not reintroduce the unmaintained zbus 5 graph',
+);
 assert.match(
   cargoBuildScript,
   /#\[cfg\(feature = "gui"\)\]\s*tauri_build::build\(\)/,

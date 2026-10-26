@@ -40,6 +40,10 @@ const contentInspection = read('src-tauri/src/content_inspection.rs');
 const intelligenceConnections = read('src-tauri/src/intelligence_connections.rs');
 const queueActions = read('src-tauri/src/queue_actions.rs');
 const platformCapabilities = read('src-tauri/src/platform_capabilities.rs');
+const singleInstance = readRustModuleTree(
+  'src-tauri/src/single_instance.rs',
+  'src-tauri/src/single_instance',
+);
 const hotkeys = readRustModuleTree(
   'src-tauri/src/hotkey_manager.rs',
   'src-tauri/src/hotkey_manager',
@@ -617,8 +621,12 @@ assert.match(nativeAppRoot, /\.setup\(app_runtime::setup\)/,
   'The native crate root must delegate runtime initialization');
 assert.match(nativeAppRoot, /\.on_window_event\(app_windows::handle_window_event\)/,
   'The native crate root must delegate native window lifecycle events');
-assert.match(nativeAppRoot, /app_runtime::handle_single_instance/,
-  'The native crate root must delegate single-instance activation');
+assert.match(nativeAppRoot, /\.plugin\(single_instance::init\(\)\)/,
+  'The native crate root must install the focused single-instance adapter');
+assert.match(singleInstance, /app_runtime::handle_single_instance/,
+  'The single-instance adapter must delegate activation to the shared app runtime');
+assert.match(singleInstance, /zbus::connection::Builder::session/,
+  'Linux single-instance detection must use the maintained zbus API');
 assert.match(nativeAppRoot, /app_windows::mark_main_page_loaded/,
   'The native crate root must delegate the startup readiness handshake');
 assert.match(nativeAppRoot, /app_runtime::handle_run_event/,
