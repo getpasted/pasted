@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "Pasted-1.2.1-distributed-components",
-  "documentNamespace": "https://getpasted.app/sbom/1.2.1/a27cbee6e47a1eea6a5adc0473a541a2d9cccd2023cb38645101565606cad310",
+  "documentNamespace": "https://getpasted.app/sbom/1.2.1/25fd5512fdf06ba6e62167f9dd9db1cb7a94ee97e3b66f6efbd8081f2f035558",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
@@ -1185,9 +1185,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-7e7357f5f55da350",
+      "SPDXID": "SPDXRef-cargo-9f4cfe9286757d39",
       "name": "ctutils",
-      "versionInfo": "0.4.2",
+      "versionInfo": "0.4.4",
       "downloadLocation": "https://github.com/RustCrypto/utils",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0 OR MIT",
@@ -1197,7 +1197,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/ctutils@0.4.2"
+          "referenceLocator": "pkg:cargo/ctutils@0.4.4"
         }
       ]
     },
@@ -4874,9 +4874,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-b6baeddb76fcacbe",
+      "SPDXID": "SPDXRef-cargo-bb11c5b7f2b58651",
       "name": "rustls-webpki",
-      "versionInfo": "0.103.15",
+      "versionInfo": "0.103.16",
       "downloadLocation": "https://github.com/rustls/webpki",
       "filesAnalyzed": false,
       "licenseConcluded": "ISC",
@@ -4886,7 +4886,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/rustls-webpki@0.103.15"
+          "referenceLocator": "pkg:cargo/rustls-webpki@0.103.16"
         }
       ]
     },
@@ -10204,7 +10204,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-7e7357f5f55da350"
+      "relatedSpdxElement": "SPDXRef-cargo-9f4cfe9286757d39"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -11289,7 +11289,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-b6baeddb76fcacbe"
+      "relatedSpdxElement": "SPDXRef-cargo-bb11c5b7f2b58651"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",

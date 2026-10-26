@@ -86,7 +86,7 @@ Component inventory (579)
 - cssparser 0.37.0 [cargo; MPL-2.0] — https://github.com/servo/rust-cssparser
 - cssparser-macros 0.7.1 [cargo; MPL-2.0] — https://github.com/servo/rust-cssparser
 - ctor 1.0.13 [cargo; Apache-2.0 OR MIT] — https://github.com/mmastrac/linktime
-- ctutils 0.4.2 [cargo; Apache-2.0 OR MIT] — https://github.com/RustCrypto/utils
+- ctutils 0.4.4 [cargo; Apache-2.0 OR MIT] — https://github.com/RustCrypto/utils
 - darling 0.23.0 [cargo; MIT] — https://github.com/TedDriggs/darling
 - darling_core 0.23.0 [cargo; MIT] — https://github.com/TedDriggs/darling
 - darling_macro 0.23.0 [cargo; MIT] — https://github.com/TedDriggs/darling
@@ -303,7 +303,7 @@ Component inventory (579)
 - rustls-native-certs 0.8.4 [cargo; Apache-2.0 OR ISC OR MIT] — https://github.com/rustls/rustls-native-certs
 - rustls-pki-types 1.15.1 [cargo; MIT OR Apache-2.0] — https://github.com/rustls/pki-types
 - rustls-platform-verifier 0.7.0 [cargo; MIT OR Apache-2.0] — https://github.com/rustls/rustls-platform-verifier
-- rustls-webpki 0.103.15 [cargo; ISC] — https://github.com/rustls/webpki
+- rustls-webpki 0.103.16 [cargo; ISC] — https://github.com/rustls/webpki
 - same-file 1.0.6 [cargo; Unlicense OR MIT] — https://github.com/BurntSushi/same-file
 - schannel 0.1.29 [cargo; MIT] — https://github.com/steffengy/schannel-rs
 - schemars 0.8.22 [cargo; MIT] — https://github.com/GREsau/schemars
@@ -3756,7 +3756,7 @@ DEALINGS IN THE SOFTWARE.
 ================================================================================
 Apache License 2.0
 License identifier: Apache-2.0
-Used by: cmov 0.5.4 (cargo), ctutils 0.4.2 (cargo), embed_plist 1.2.2 (cargo), rustls-platform-verifier 0.7.0 (cargo), serialize-to-javascript 0.1.2 (cargo), serialize-to-javascript-impl 0.1.2 (cargo), tinyvec 1.12.0 (cargo), utf8_iter 1.0.4 (cargo), x11rb 0.13.2 (cargo), x11rb 0.14.0 (cargo), x11rb-protocol 0.13.2 (cargo), x11rb-protocol 0.14.0 (cargo), zeroize 1.9.0 (cargo), zune-core 0.5.3 (cargo), zune-jpeg 0.5.15 (cargo)
+Used by: cmov 0.5.4 (cargo), ctutils 0.4.4 (cargo), embed_plist 1.2.2 (cargo), rustls-platform-verifier 0.7.0 (cargo), serialize-to-javascript 0.1.2 (cargo), serialize-to-javascript-impl 0.1.2 (cargo), tinyvec 1.12.0 (cargo), utf8_iter 1.0.4 (cargo), x11rb 0.13.2 (cargo), x11rb 0.14.0 (cargo), x11rb-protocol 0.13.2 (cargo), x11rb-protocol 0.14.0 (cargo), zeroize 1.9.0 (cargo), zune-core 0.5.3 (cargo), zune-jpeg 0.5.15 (cargo)
 --------------------------------------------------------------------------------
 Apache License
                            Version 2.0, January 2004
@@ -4241,7 +4241,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 ================================================================================
 ISC License
 License identifier: ISC
-Used by: rustls-webpki 0.103.15 (cargo)
+Used by: rustls-webpki 0.103.16 (cargo)
 --------------------------------------------------------------------------------
 Except as otherwise noted, this project is licensed under the following
 (ISC-style) terms:
