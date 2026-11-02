@@ -10,6 +10,13 @@ use crate::db::DbState;
 const COPYCAT_TRAY_ICON_STYLE: &str = "copycat";
 
 fn load_tray_icon(style: &str) -> Result<tauri::image::Image<'static>, image::ImageError> {
+    #[cfg(target_os = "linux")]
+    let bytes = if style == COPYCAT_TRAY_ICON_STYLE {
+        include_bytes!("../icons/tray-icon-copycat-linux@2x.png").as_slice()
+    } else {
+        include_bytes!("../icons/tray-icon-linux@2x.png").as_slice()
+    };
+    #[cfg(not(target_os = "linux"))]
     let bytes = if style == COPYCAT_TRAY_ICON_STYLE {
         include_bytes!("../icons/tray-icon-copycat@2x.png").as_slice()
     } else {
@@ -25,20 +32,20 @@ fn load_tray_icon(style: &str) -> Result<tauri::image::Image<'static>, image::Im
 }
 
 pub(crate) fn refresh_icon(app: &tauri::AppHandle, style: &str) {
-    #[cfg(target_os = "macos")]
     if let Some(tray) = app.tray_by_id("main") {
         match load_tray_icon(style) {
             Ok(icon) => {
-                if let Err(error) = tray.set_icon_with_as_template(Some(icon), true) {
-                    eprintln!("Could not update the menu bar icon: {error}");
+                #[cfg(target_os = "macos")]
+                let update = tray.set_icon_with_as_template(Some(icon), true);
+                #[cfg(not(target_os = "macos"))]
+                let update = tray.set_icon(Some(icon));
+                if let Err(error) = update {
+                    eprintln!("Could not update the tray icon: {error}");
                 }
             }
-            Err(error) => eprintln!("Could not load the menu bar icon: {error}"),
+            Err(error) => eprintln!("Could not load the tray icon: {error}"),
         }
     }
-
-    #[cfg(not(target_os = "macos"))]
-    let _ = (app, style);
 }
 
 fn build_menu(app: &tauri::AppHandle, db: &Arc<DbState>) -> tauri::Result<Menu<tauri::Wry>> {
@@ -88,14 +95,10 @@ pub(crate) fn install(
     db: &Arc<DbState>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let menu = build_menu(app.handle(), db)?;
-    #[cfg(target_os = "macos")]
     let tray_icon_style = db
         .get_setting("menubarIconStyle")?
         .or_else(|| crate::settings_contract::default_value("menubarIconStyle"))
-        .expect("menu bar icon style must have a contract default");
-    #[cfg(not(target_os = "macos"))]
-    let tray_icon_style = crate::settings_contract::default_value("menubarIconStyle")
-        .expect("menu bar icon style must have a contract default");
+        .expect("tray icon style must have a contract default");
 
     let tray_icon = match load_tray_icon(&tray_icon_style) {
         Ok(icon) => icon,
@@ -105,14 +108,20 @@ pub(crate) fn install(
             ))
         })?,
     };
+    #[cfg(target_os = "linux")]
+    let initial_linux_icon = tray_icon.clone();
 
-    TrayIconBuilder::with_id("main")
+    let tray = TrayIconBuilder::with_id("main")
         .icon(tray_icon)
-        .icon_as_template(true)
+        .icon_as_template(cfg!(target_os = "macos"))
         .menu(&menu)
         .on_menu_event(handle_menu_event)
         .on_tray_icon_event(handle_icon_event)
         .build(app)?;
+    #[cfg(target_os = "linux")]
+    tray.set_icon(Some(initial_linux_icon))?;
+    #[cfg(not(target_os = "linux"))]
+    let _ = tray;
     Ok(())
 }
 

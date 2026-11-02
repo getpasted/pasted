@@ -1533,6 +1533,7 @@
   "component.settingsGeneralPanel.startupView2": "Vista inicial",
   "component.settingsGeneralPanel.systemIntegration": "Integración del sistema",
   "component.settingsGeneralPanel.systemTrayAndTaskbar": "Barra de tareas y bandeja del sistema",
+  "component.settingsGeneralPanel.systemTrayIcon": "Icono de la bandeja del sistema",
   "component.settingsGeneralPanel.systemTrayIconOnly": "Solo el icono de la bandeja del sistema",
   "component.settingsGeneralPanel.theOldestEligibleClipsMoveToTrashFirst": "Los clips más antiguos elegibles se mueven primero a la papelera.",
   "component.settingsGeneralPanel.theOldestEligibleItemsArePermanentlyPurgedFirst": "Los elementos más antiguos elegibles se eliminan permanentemente primero.",
