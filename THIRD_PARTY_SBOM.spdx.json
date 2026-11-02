@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "Pasted-1.2.1-distributed-components",
-  "documentNamespace": "https://getpasted.app/sbom/1.2.1/2b02d36a011e2d766dc819ad84873546e33d5e6c2452ec5c7d68fd1fe2a52a88",
+  "documentNamespace": "https://getpasted.app/sbom/1.2.1/0a3b973edba327968f386b3baf79321be512b8905206f1470fd879cbdc7ff097",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
@@ -8172,9 +8172,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-npm-e950746f0ad23572",
+      "SPDXID": "SPDXRef-npm-d4b7b993a615fa84",
       "name": "lucide-react",
-      "versionInfo": "1.61.0",
+      "versionInfo": "1.65.0",
       "downloadLocation": "https://github.com/lucide-icons/lucide",
       "filesAnalyzed": false,
       "licenseConcluded": "ISC",
@@ -8184,7 +8184,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:npm/lucide-react@1.61.0"
+          "referenceLocator": "pkg:npm/lucide-react@1.65.0"
         }
       ]
     },
@@ -11834,7 +11834,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-npm-e950746f0ad23572"
+      "relatedSpdxElement": "SPDXRef-npm-d4b7b993a615fa84"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
