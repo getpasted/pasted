@@ -17,7 +17,7 @@
     { "key": "snapshotIntervalMinutes", "owner": "storage", "default": 1440, "reset": "default", "visibility": "public", "mutation": "direct", "validation": { "type": "integer", "minimum": 1, "maximum": 10080 } },
     { "key": "snapshotKeepCount", "owner": "storage", "default": 5, "reset": "default", "visibility": "public", "mutation": "direct", "validation": { "type": "integer", "minimum": 0, "maximum": 10000 } },
     { "key": "snapshotBaselineMaxClipId", "owner": "internal", "reset": "factory_only", "visibility": "internal", "mutation": "direct", "validation": { "type": "integer", "minimum": 0, "maximum": 9223372036854775807 } },
-    { "key": "onboardingVersion", "owner": "internal", "default": 0, "reset": "factory_only", "visibility": "internal", "mutation": "dedicated", "validation": { "type": "integer", "minimum": 0, "maximum": 1000 } },
+    { "key": "onboardingVersion", "owner": "internal", "default": 0, "reset": "factory_only", "visibility": "internal", "mutation": "direct", "validation": { "type": "integer", "minimum": 0, "maximum": 1000 } },
 
     { "key": "language", "owner": "general", "default": "system", "reset": "default", "visibility": "public", "mutation": "direct", "validation": { "type": "language" } },
     { "key": "themeMode", "owner": "general", "default": "system", "reset": "default", "visibility": "public", "mutation": "direct", "validation": { "type": "choice", "values": ["system", "cool", "dark", "warm", "2894", "sauced", "vampire", "flux", "808"] } },
