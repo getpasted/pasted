@@ -265,6 +265,10 @@ export function useAppSettings() {
         delete pendingSettingsRef.current[key];
         continue;
       }
+      if (key === 'onboardingVersion') {
+        settingsApi.save(key, String(value)).catch(console.error);
+        continue;
+      }
       pendingSettingsRef.current[key] = String(value);
       if (saveTimersRef.current[key]) clearTimeout(saveTimersRef.current[key]);
       saveTimersRef.current[key] = setTimeout(() => {

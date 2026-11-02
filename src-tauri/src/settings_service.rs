@@ -227,6 +227,33 @@ mod tests {
     }
 
     #[test]
+    fn onboarding_completion_and_reopen_survive_restart() {
+        let (db, path) = test_db();
+        update_setting(&db, "onboardingVersion".into(), "1".into()).unwrap();
+        drop(db);
+
+        let reopened = DbState::new(path.clone()).unwrap();
+        assert_eq!(
+            reopened
+                .get_setting("onboardingVersion")
+                .unwrap()
+                .as_deref(),
+            Some("1")
+        );
+        update_setting(&reopened, "onboardingVersion".into(), "0".into()).unwrap();
+        assert_eq!(
+            reopened
+                .get_setting("onboardingVersion")
+                .unwrap()
+                .as_deref(),
+            Some("0")
+        );
+        assert!(update_setting(&reopened, "onboardingVersion".into(), "1001".into()).is_err());
+        drop(reopened);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
     fn updates_are_atomic_sorted_and_report_feature_changes() {
         let (db, path) = test_db();
         let outcome = update_settings(
