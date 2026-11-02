@@ -1533,6 +1533,7 @@
   "component.settingsGeneralPanel.startupView2": "Startansicht",
   "component.settingsGeneralPanel.systemIntegration": "Systemintegration",
   "component.settingsGeneralPanel.systemTrayAndTaskbar": "Systemablage und Taskleiste",
+  "component.settingsGeneralPanel.systemTrayIcon": "Symbol im Infobereich",
   "component.settingsGeneralPanel.systemTrayIconOnly": "Nur Symbol im Infobereich",
   "component.settingsGeneralPanel.theOldestEligibleClipsMoveToTrashFirst": "Die ältesten geeigneten Clips werden zuerst in den Papierkorb verschoben.",
   "component.settingsGeneralPanel.theOldestEligibleItemsArePermanentlyPurgedFirst": "Die ältesten geeigneten Elemente werden zuerst dauerhaft gelöscht.",

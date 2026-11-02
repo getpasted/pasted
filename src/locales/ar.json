@@ -1561,6 +1561,7 @@
   "component.settingsGeneralPanel.startupView2": "عرض بدء التشغيل",
   "component.settingsGeneralPanel.systemIntegration": "التكامل مع النظام",
   "component.settingsGeneralPanel.systemTrayAndTaskbar": "شريط المهام ولوحة النظام",
+  "component.settingsGeneralPanel.systemTrayIcon": "رمز لوحة النظام",
   "component.settingsGeneralPanel.systemTrayIconOnly": "رمز في لوحة النظام فقط",
   "component.settingsGeneralPanel.theOldestEligibleClipsMoveToTrashFirst": "يتم نقل أقدم المقاطع المؤهلة أولاً إلى سلة المهملات.",
   "component.settingsGeneralPanel.theOldestEligibleItemsArePermanentlyPurgedFirst": "يتم حذف أقدم العناصر المؤهلة أولاً بشكل دائم.",
