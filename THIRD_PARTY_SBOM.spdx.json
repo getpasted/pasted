@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "Pasted-1.2.1-distributed-components",
-  "documentNamespace": "https://getpasted.app/sbom/1.2.1/2b02d36a011e2d766dc819ad84873546e33d5e6c2452ec5c7d68fd1fe2a52a88",
+  "documentNamespace": "https://getpasted.app/sbom/1.2.1/80941d06f9434616b01cb996e0de76eefb5e6670a42523a09ca3b1940cc2ca7f",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
@@ -3072,9 +3072,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-5a2332d9c484cf2c",
+      "SPDXID": "SPDXRef-cargo-046bc91ba4d05578",
       "name": "libsqlite3-sys",
-      "versionInfo": "0.38.2",
+      "versionInfo": "0.39.1",
       "downloadLocation": "https://github.com/rusqlite/rusqlite",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT",
@@ -3084,7 +3084,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/libsqlite3-sys@0.38.2"
+          "referenceLocator": "pkg:cargo/libsqlite3-sys@0.39.1"
         }
       ]
     },
@@ -4415,9 +4415,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-307ff222c7cd65be",
+      "SPDXID": "SPDXRef-cargo-aed2cecf75fbe2b4",
       "name": "rusqlite",
-      "versionInfo": "0.40.2",
+      "versionInfo": "0.41.1",
       "downloadLocation": "https://github.com/rusqlite/rusqlite",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT",
@@ -4427,7 +4427,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/rusqlite@0.40.2"
+          "referenceLocator": "pkg:cargo/rusqlite@0.41.1"
         }
       ]
     },
@@ -10334,7 +10334,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-5a2332d9c484cf2c"
+      "relatedSpdxElement": "SPDXRef-cargo-046bc91ba4d05578"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -10729,7 +10729,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-307ff222c7cd65be"
+      "relatedSpdxElement": "SPDXRef-cargo-aed2cecf75fbe2b4"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
