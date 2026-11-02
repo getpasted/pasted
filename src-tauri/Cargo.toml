@@ -49,7 +49,7 @@ tauri = { version = "2", features = ["tray-icon", "macos-private-api"], optional
 tauri-plugin-global-shortcut = { version = "2", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-rusqlite = { version = "0.40", features = ["bundled", "backup"] }
+rusqlite = { version = "0.41", features = ["bundled", "backup"] }
 arboard = { version = "3.4", features = ["wayland-data-control"], optional = true }
 sha2 = "0.11"
 argon2 = "0.6"
@@ -57,7 +57,7 @@ rand_core = { version = "0.6", features = ["getrandom"] }
 rpassword = "7"
 chrono = { version = "0.4", features = ["serde"] }
 regex = "1.10"
-parking_lot = "0.12"
+parking_lot = "0.13"
 plist = "1.10"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
 infer = "0.22"
