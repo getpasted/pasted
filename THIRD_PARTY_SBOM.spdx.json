@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "Pasted-1.2.1-distributed-components",
-  "documentNamespace": "https://getpasted.app/sbom/1.2.1/2b02d36a011e2d766dc819ad84873546e33d5e6c2452ec5c7d68fd1fe2a52a88",
+  "documentNamespace": "https://getpasted.app/sbom/1.2.1/a4219a9107d75939cd9fa904e86097f7a5a3bc212b4764cd77103b9860ae659c",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
@@ -3021,9 +3021,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-2f8b541525aa91b1",
+      "SPDXID": "SPDXRef-cargo-863767a45c228ccf",
       "name": "libc",
-      "versionInfo": "0.2.189",
+      "versionInfo": "0.2.191",
       "downloadLocation": "https://github.com/rust-lang/libc",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT OR Apache-2.0",
@@ -3033,7 +3033,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/libc@0.2.189"
+          "referenceLocator": "pkg:cargo/libc@0.2.191"
         }
       ]
     },
@@ -3136,6 +3136,23 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/lock_api@0.4.14"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-1a54cc8599efd870",
+      "name": "lock_api",
+      "versionInfo": "0.5.0",
+      "downloadLocation": "https://github.com/Amanieu/parking_lot",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/lock_api@0.5.0"
         }
       ]
     },
@@ -3799,6 +3816,40 @@
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
           "referenceLocator": "pkg:cargo/parking_lot@0.12.5"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-4b14dbcb788f0499",
+      "name": "parking_lot",
+      "versionInfo": "0.13.0",
+      "downloadLocation": "https://github.com/Amanieu/parking_lot",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/parking_lot@0.13.0"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-cargo-8b957dc7e93e3819",
+      "name": "parking_lot_core",
+      "versionInfo": "0.10.0",
+      "downloadLocation": "https://github.com/Amanieu/parking_lot",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT OR Apache-2.0",
+      "licenseDeclared": "MIT OR Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [
+        {
+          "referenceCategory": "PACKAGE-MANAGER",
+          "referenceType": "purl",
+          "referenceLocator": "pkg:cargo/parking_lot_core@0.10.0"
         }
       ]
     },
@@ -10319,7 +10370,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-2f8b541525aa91b1"
+      "relatedSpdxElement": "SPDXRef-cargo-863767a45c228ccf"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -10350,6 +10401,11 @@
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-e78c9d1da859751e"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-1a54cc8599efd870"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -10545,6 +10601,16 @@
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
       "relatedSpdxElement": "SPDXRef-cargo-d13434b834151204"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-4b14dbcb788f0499"
+    },
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-cargo-8b957dc7e93e3819"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
