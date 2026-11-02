@@ -1540,6 +1540,7 @@
   "component.settingsGeneralPanel.startupView2": "תצוגה בהפעלה",
   "component.settingsGeneralPanel.systemIntegration": "אינטגרציה עם מערכת",
   "component.settingsGeneralPanel.systemTrayAndTaskbar": "סרגל המשימות וסרגל העבודה",
+  "component.settingsGeneralPanel.systemTrayIcon": "סמל מגש המערכת",
   "component.settingsGeneralPanel.systemTrayIconOnly": "רק סמל בסרגל המשימות",
   "component.settingsGeneralPanel.theOldestEligibleClipsMoveToTrashFirst": "הקליפים הישנים ביותר מתחילים להיזרק לפח.",
   "component.settingsGeneralPanel.theOldestEligibleItemsArePermanentlyPurgedFirst": "הפריטים הישנים ביותר מוחקים באופן קבוע ראשונים.",

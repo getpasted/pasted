@@ -1533,6 +1533,7 @@
   "component.settingsGeneralPanel.startupView2": "起動時の表示",
   "component.settingsGeneralPanel.systemIntegration": "システム統合",
   "component.settingsGeneralPanel.systemTrayAndTaskbar": "システムトレイとタスクバー",
+  "component.settingsGeneralPanel.systemTrayIcon": "システムトレイのアイコン",
   "component.settingsGeneralPanel.systemTrayIconOnly": "システムトレイアイコンのみ",
   "component.settingsGeneralPanel.theOldestEligibleClipsMoveToTrashFirst": "最も古い有効なクリップが最初にゴミ箱に移動します。",
   "component.settingsGeneralPanel.theOldestEligibleItemsArePermanentlyPurgedFirst": "最も古い有効な項目は最初に完全に削除されます。",

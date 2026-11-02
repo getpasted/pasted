@@ -1533,6 +1533,7 @@
   "component.settingsGeneralPanel.startupView2": "Vue au démarrage",
   "component.settingsGeneralPanel.systemIntegration": "Intégration système",
   "component.settingsGeneralPanel.systemTrayAndTaskbar": "Barre d'état et barre des tâches",
+  "component.settingsGeneralPanel.systemTrayIcon": "Icône de la zone de notification",
   "component.settingsGeneralPanel.systemTrayIconOnly": "Icône de la barre d'état uniquement",
   "component.settingsGeneralPanel.theOldestEligibleClipsMoveToTrashFirst": "Les clips les plus anciens éligibles sont d'abord déplacés vers la corbeille.",
   "component.settingsGeneralPanel.theOldestEligibleItemsArePermanentlyPurgedFirst": "Les éléments les plus anciens éligibles sont d'abord définitivement supprimés.",

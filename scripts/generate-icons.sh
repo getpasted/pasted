@@ -32,6 +32,16 @@ magick -size 128x128 xc:none \
 magick src-tauri/icons/tray-icon-copycat-128.png -resize 64x64 -define png:color-type=6 src-tauri/icons/tray-icon-copycat@2x.png
 magick src-tauri/icons/tray-icon-copycat-128.png -resize 32x32 -define png:color-type=6 src-tauri/icons/tray-icon-copycat.png
 
+# Linux tray hosts may draw PNG pixmaps without recoloring template artwork.
+# A white halo around the dark mark keeps both styles legible on light and dark bars.
+generate_linux_tray_icon() {
+  local source="$1" output="$2"
+  magick \( "$source" -channel A -morphology Dilate Disk:3 +channel -fill white -colorize 100 \) \
+    "$source" -compose over -composite -define png:color-type=6 "$output"
+}
+generate_linux_tray_icon src-tauri/icons/tray-icon@2x.png src-tauri/icons/tray-icon-linux@2x.png
+generate_linux_tray_icon src-tauri/icons/tray-icon-copycat@2x.png src-tauri/icons/tray-icon-copycat-linux@2x.png
+
 tray_alpha_max="$(magick src-tauri/icons/tray-icon@2x.png -alpha extract -format '%[fx:maxima]' info:)"
 if [[ "$tray_alpha_max" == "0" ]]; then
   echo "Generated tray icon has no visible artwork." >&2
