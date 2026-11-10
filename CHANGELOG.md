@@ -4,6 +4,12 @@ Notable user-facing changes to Pasted are recorded here. The project follows sem
 
 ## Unreleased
 
+## 1.2.2 — 2026-11-10
+
+- made the selected Clipboard or Copycat tray icon appear immediately on Linux, including Omarchy, added high-contrast assets for light and dark panels, and exposed the icon-style control in Settings;
+- preserved completed Welcome state across relaunches while keeping the explicit Settings action available to reopen it; and
+- refreshed reviewed frontend, Rust, packaging, and CodeQL dependencies.
+
 ## 1.2.1 — 2026-10-02
 
 - gave Smart Paste its own Functionality switch, independent of Transformations and Content Classification;
