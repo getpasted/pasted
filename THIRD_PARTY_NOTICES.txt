@@ -442,7 +442,7 @@ Component inventory (553)
 - xkeysym 0.2.1 [cargo; MIT OR Apache-2.0 OR Zlib] — https://github.com/notgull/xkeysym
 - yoke 0.8.3 [cargo; Unicode-3.0] — https://github.com/unicode-org/icu4x
 - yoke-derive 0.8.2 [cargo; Unicode-3.0] — https://github.com/unicode-org/icu4x
-- zbus 6.2.0 [cargo; MIT] — https://github.com/z-galaxy/zbus/
+- zbus 6.2.1 [cargo; MIT] — https://github.com/z-galaxy/zbus/
 - zbus_macros 6.2.1 [cargo; MIT] — https://github.com/z-galaxy/zbus/
 - zbus_utils 6.1.0 [cargo; MIT] — https://github.com/z-galaxy/zbus/
 - zcheapstr 1.1.0 [cargo; MIT] — https://github.com/z-galaxy/zcheapstr/
@@ -2330,7 +2330,7 @@ SOFTWARE.
 ================================================================================
 MIT License
 License identifier: MIT
-Used by: zbus 6.2.0 (cargo), zbus_macros 6.2.1 (cargo), zbus_utils 6.1.0 (cargo)
+Used by: zbus 6.2.1 (cargo), zbus_macros 6.2.1 (cargo), zbus_utils 6.1.0 (cargo)
 --------------------------------------------------------------------------------
 Copyright (c) 2024 Zeeshan Ali Khan & zbus contributors
 

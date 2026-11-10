@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "Pasted-1.2.1-distributed-components",
-  "documentNamespace": "https://getpasted.app/sbom/1.2.1/d95422c1554c8a4304e55122ca789fb85139a7a5198826e58eecdb7ecaad597d",
+  "documentNamespace": "https://getpasted.app/sbom/1.2.1/a6e787b1c4f381fa3ebecd0efca56a54c562ac63085812adec47ab2752016989",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
@@ -7237,9 +7237,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-5cfa84ca19529797",
+      "SPDXID": "SPDXRef-cargo-04fd6b06d1547005",
       "name": "zbus",
-      "versionInfo": "6.2.0",
+      "versionInfo": "6.2.1",
       "downloadLocation": "https://github.com/z-galaxy/zbus/",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT",
@@ -7249,7 +7249,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/zbus@6.2.0"
+          "referenceLocator": "pkg:cargo/zbus@6.2.1"
         }
       ]
     },
@@ -11542,7 +11542,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-5cfa84ca19529797"
+      "relatedSpdxElement": "SPDXRef-cargo-04fd6b06d1547005"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
