@@ -106,6 +106,25 @@ function buildInventory(rawCargo) {
           '',
         ));
       }
+      for (const configured of policy.cargoNoticeFiles ?? []) {
+        if (configured.name !== crate.name) continue;
+        const configuredPath = path.resolve(crateDirectory, configured.file);
+        const relativePath = path.relative(crateDirectory, configuredPath);
+        assert.ok(
+          relativePath
+          && relativePath !== '..'
+          && !relativePath.startsWith(`..${path.sep}`)
+          && !path.isAbsolute(relativePath),
+          `Configured notice for ${crate.name} must stay inside its crate directory`,
+        );
+        assert.ok(fs.statSync(configuredPath).isFile(), `Configured notice is not a file: ${configuredPath}`);
+        noticeIds.add(addNotice(
+          notices,
+          fs.readFileSync(configuredPath, 'utf8'),
+          `${crate.name} — ${configured.file}`,
+          '',
+        ));
+      }
       assert.ok(noticeIds.size > 0, `No license notice resolved for Cargo component ${key}`);
       return {
         ecosystem: 'cargo',
@@ -116,6 +135,13 @@ function buildInventory(rawCargo) {
         noticeIds: [...noticeIds].sort(),
       };
     });
+
+  for (const configured of policy.cargoNoticeFiles ?? []) {
+    assert.ok(
+      components.some(({ name }) => name === configured.name),
+      `Configured Cargo notice component is not present: ${configured.name}`,
+    );
+  }
 
   const packageLock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
   for (const [packagePath, locked] of Object.entries(packageLock.packages ?? {})) {

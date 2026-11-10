@@ -169,6 +169,13 @@
       "(^|/)pasted-windows-x86_64\\.exe$"
     ]
   },
+  "cargoNoticeFiles": [
+    {
+      "name": "rfd",
+      "file": "LICENSE",
+      "reason": "Cargo About can select the nested XDG portal license instead of the crate-root attribution."
+    }
+  ],
   "packagingComponents": [
     {
       "name": "Nullsoft Scriptable Install System",
