@@ -496,7 +496,7 @@ Component inventory (553)
 - is-hexadecimal 2.0.1 [npm; MIT] — wooorm/is-hexadecimal
 - is-plain-obj 4.1.0 [npm; MIT] — sindresorhus/is-plain-obj
 - longest-streak 3.1.0 [npm; MIT] — wooorm/longest-streak
-- lucide-react 1.65.0 [npm; ISC] — https://github.com/lucide-icons/lucide
+- lucide-react 1.70.0 [npm; ISC] — https://github.com/lucide-icons/lucide
 - markdown-table 3.0.4 [npm; MIT] — wooorm/markdown-table
 - mdast-util-find-and-replace 3.0.2 [npm; MIT] — syntax-tree/mdast-util-find-and-replace
 - mdast-util-from-markdown 2.0.3 [npm; MIT] — syntax-tree/mdast-util-from-markdown
@@ -571,7 +571,7 @@ Component inventory (553)
 - nsis_tauri_utils 0.5.3 [packaging; Apache-2.0] — https://github.com/tauri-apps/nsis-tauri-utils
 - Nullsoft Scriptable Install System 3.11 [packaging; Zlib] — https://github.com/kichik/nsis
 
-License and attribution notices (150)
+License and attribution notices (149)
 
 ================================================================================
 unified — license / vfile — license
@@ -4695,32 +4695,6 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ================================================================================
-MIT License
-License identifier: MIT
-Used by: rfd 0.17.2 (cargo)
---------------------------------------------------------------------------------
-MIT License
-
-Copyright (c) 2022 Bartłomiej Maryńczak
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-================================================================================
 Mozilla Public License 2.0
 License identifier: MPL-2.0
 Used by: option-ext 0.2.0 (cargo), selectors 0.38.0 (cargo)
@@ -8040,7 +8014,7 @@ limitations under the License.
 ================================================================================
 MIT License
 License identifier: MIT
-Used by: ashpd 0.13.0 (cargo)
+Used by: ashpd 0.13.0 (cargo), rfd 0.17.2 (cargo)
 --------------------------------------------------------------------------------
 MIT License
 
@@ -8312,7 +8286,7 @@ THIS SOFTWARE.
 ================================================================================
 lucide-react — LICENSE
 License identifier: ISC
-Used by: lucide-react 1.65.0 (npm)
+Used by: lucide-react 1.70.0 (npm)
 --------------------------------------------------------------------------------
 ISC License
 
