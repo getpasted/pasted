@@ -1,6 +1,6 @@
 [package]
 name = "pasted-app"
-version = "1.2.1"
+version = "1.2.2"
 description = "Pasted - Native, Subscription-Free Clipboard Manager"
 authors = ["Antigravity"]
 license = "MIT"

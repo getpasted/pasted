@@ -1,14 +1,14 @@
-Smart Paste, on your terms.
+Welcome once. Tray icons that show up.
 
-Pasted 1.2.1 gives Smart Paste its own switch under **Settings → Functionality**. It can detect values in copied text even when Transformations or Content Classification is off. Turn Smart Paste off to stop new detection and hide its clip-detail panel and hotkey. Existing detected values stay with their clips if you turn it back on.
+Pasted 1.2.2 fixes two persistent annoyances. On Linux, the selected Clipboard or Copycat tray icon now appears immediately, with high-contrast assets for light and dark panels and the style control available in Settings. The tray work was validated on Omarchy.
 
-The CLI follows the same switch. Its Smart Paste commands decline to select or list detected values while the feature is off.
+On every platform, completing Welcome now stays completed across launches. Use the explicit Settings action whenever it deserves an encore.
 
 The primary build is a signed, notarized, and stapled universal app for macOS 13 or newer, on Apple Silicon and Intel.
 
-**[Download Pasted 1.2.1](https://github.com/getpasted/pasted/releases/tag/v1.2.1)**
+**[Download Pasted 1.2.2](https://github.com/getpasted/pasted/releases/tag/v1.2.2)**
 
-[Read the full changelog](https://github.com/getpasted/pasted/blob/v1.2.1/CHANGELOG.md)
+[Read the full changelog](https://github.com/getpasted/pasted/blob/v1.2.2/CHANGELOG.md)
 
 Or update from **Settings → About**, or with Homebrew:
 
@@ -22,4 +22,4 @@ Tell us what happened in [Discussions](https://github.com/getpasted/pasted/discu
 
 Copy irresponsibly.
 
-<!-- pasted-release:v1.2.1 -->
+<!-- pasted-release:v1.2.2 -->
