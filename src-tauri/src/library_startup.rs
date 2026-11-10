@@ -1,6 +1,6 @@
 use crate::library_storage::{self, LibraryStartupStatus};
 use parking_lot::Mutex;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::Manager;
 
@@ -10,8 +10,14 @@ pub(crate) struct LibraryStartupState {
     action: Mutex<()>,
 }
 
-pub(crate) fn initialize(app: &tauri::AppHandle) -> Option<Arc<crate::db::DbState>> {
-    let app_data = app.path().app_data_dir().ok();
+pub(crate) fn initialize(
+    app: &tauri::AppHandle,
+    database_path: Option<&Path>,
+) -> Option<Arc<crate::db::DbState>> {
+    let app_data = database_path
+        .and_then(Path::parent)
+        .map(Path::to_path_buf)
+        .or_else(|| app.path().app_data_dir().ok());
     let opened = app_data.as_ref().and_then(|directory| {
         match library_storage::open_library_automatically(directory) {
             Ok(opened) => Some(opened),
