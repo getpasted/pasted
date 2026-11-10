@@ -4,6 +4,7 @@
 - `app-icon-source.png` retains the generated master before chroma removal.
 - `icons/tray-icon.svg` is the canonical monochrome tray mark.
 - `icons/tray-icon-copycat.svg` is the optional monochrome Copycat tray mark, derived from the head artwork shown on the About page.
+- `icons/tray-icon-linux@2x.png` and `icons/tray-icon-copycat-linux@2x.png` add a light outline to the generated tray marks so Linux bars that display raw pixmaps keep both styles visible on dark and light themes.
 - `Pasted.icon` contains clean layered source artwork for Apple's Icon Composer.
 
 Run `npm run icons:generate` after changing either canonical fallback asset. This
