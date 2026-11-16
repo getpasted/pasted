@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use tauri::{
     menu::{Menu, MenuBuilder, MenuItem},
-    tray::{TrayIconBuilder, TrayIconEvent},
+    tray::TrayIconBuilder,
     Emitter, Manager,
 };
 
@@ -116,7 +116,6 @@ pub(crate) fn install(
         .icon_as_template(cfg!(target_os = "macos"))
         .menu(&menu)
         .on_menu_event(handle_menu_event)
-        .on_tray_icon_event(handle_icon_event)
         .build(app)?;
     #[cfg(target_os = "linux")]
     tray.set_icon(Some(initial_linux_icon))?;
@@ -169,20 +168,4 @@ fn toggle_queue(app: &tauri::AppHandle) {
         queue.start_queue();
     }
     let _ = app.emit("sequential-updated", queue.get_status());
-}
-
-fn handle_icon_event(tray: &tauri::tray::TrayIcon, event: TrayIconEvent) {
-    if let TrayIconEvent::Click { .. } = event {
-        let app = tray.app_handle();
-        if let Some(window) = app.get_webview_window("main") {
-            if window.is_visible().unwrap_or(false) {
-                let _ = window.hide();
-                #[cfg(target_os = "macos")]
-                crate::app_windows::trim_main_webview_memory(app);
-            } else {
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
-        }
-    }
 }
