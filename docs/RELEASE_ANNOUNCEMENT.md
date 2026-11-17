@@ -1,14 +1,14 @@
-Welcome once. Tray icons that show up.
+Click once. Get the menu.
 
-Pasted 1.2.2 fixes two persistent annoyances. On Linux, the selected Clipboard or Copycat tray icon now appears immediately, with high-contrast assets for light and dark panels and the style control available in Settings. The tray work was validated on Omarchy.
+Pasted 1.2.3 fixes a macOS menu bar annoyance. Clicking the tray icon now opens its native menu without pulling the main window into focus and immediately dismissing the menu. **Show Main Window** still brings the window forward, but only when selected.
 
-On every platform, completing Welcome now stays completed across launches. Use the explicit Settings action whenever it deserves an encore.
+Reviewed frontend, Rust, and Linux packaging dependencies are refreshed too.
 
 The primary build is a signed, notarized, and stapled universal app for macOS 13 or newer, on Apple Silicon and Intel.
 
-**[Download Pasted 1.2.2](https://github.com/getpasted/pasted/releases/tag/v1.2.2)**
+**[Download Pasted 1.2.3](https://github.com/getpasted/pasted/releases/tag/v1.2.3)**
 
-[Read the full changelog](https://github.com/getpasted/pasted/blob/v1.2.2/CHANGELOG.md)
+[Read the full changelog](https://github.com/getpasted/pasted/blob/v1.2.3/CHANGELOG.md)
 
 Or update from **Settings → About**, or with Homebrew:
 
@@ -22,4 +22,4 @@ Tell us what happened in [Discussions](https://github.com/getpasted/pasted/discu
 
 Copy irresponsibly.
 
-<!-- pasted-release:v1.2.2 -->
+<!-- pasted-release:v1.2.3 -->

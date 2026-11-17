@@ -4,6 +4,11 @@ Notable user-facing changes to Pasted are recorded here. The project follows sem
 
 ## Unreleased
 
+## 1.2.3 (2026-11-17)
+
+- kept macOS menu bar icon clicks in the native tray menu instead of focusing the main window and dismissing the menu; and
+- refreshed reviewed frontend, Rust, and Linux packaging dependencies.
+
 ## 1.2.2 — 2026-11-10
 
 - made the selected Clipboard or Copycat tray icon appear immediately on Linux, including Omarchy, added high-contrast assets for light and dark panels, and exposed the icon-style control in Settings;
