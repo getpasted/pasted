@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "Pasted-1.2.2-distributed-components",
-  "documentNamespace": "https://getpasted.app/sbom/1.2.2/a6e787b1c4f381fa3ebecd0efca56a54c562ac63085812adec47ab2752016989",
+  "documentNamespace": "https://getpasted.app/sbom/1.2.2/979cd3368480826fab03938dafe0de9f49b618ce156a170398747301c42c3747",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
@@ -3072,9 +3072,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-046bc91ba4d05578",
+      "SPDXID": "SPDXRef-cargo-7eee421ce8a18ad9",
       "name": "libsqlite3-sys",
-      "versionInfo": "0.39.1",
+      "versionInfo": "0.40.0",
       "downloadLocation": "https://github.com/rusqlite/rusqlite",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT",
@@ -3084,7 +3084,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/libsqlite3-sys@0.39.1"
+          "referenceLocator": "pkg:cargo/libsqlite3-sys@0.40.0"
         }
       ]
     },
@@ -4432,9 +4432,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-ba5c33d6454f8b22",
+      "SPDXID": "SPDXRef-cargo-e547721470daabbe",
       "name": "rpassword",
-      "versionInfo": "7.5.4",
+      "versionInfo": "7.5.5",
       "downloadLocation": "https://github.com/conradkleinespel/rpassword",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0",
@@ -4444,7 +4444,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/rpassword@7.5.4"
+          "referenceLocator": "pkg:cargo/rpassword@7.5.5"
         }
       ]
     },
@@ -4466,9 +4466,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-aed2cecf75fbe2b4",
+      "SPDXID": "SPDXRef-cargo-5667f1b1e6e92c9f",
       "name": "rusqlite",
-      "versionInfo": "0.41.1",
+      "versionInfo": "0.42.0",
       "downloadLocation": "https://github.com/rusqlite/rusqlite",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT",
@@ -4478,7 +4478,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/rusqlite@0.41.1"
+          "referenceLocator": "pkg:cargo/rusqlite@0.42.0"
         }
       ]
     },
@@ -7237,9 +7237,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-04fd6b06d1547005",
+      "SPDXID": "SPDXRef-cargo-a4bc9ed3712a9fdd",
       "name": "zbus",
-      "versionInfo": "6.2.1",
+      "versionInfo": "6.3.0",
       "downloadLocation": "https://github.com/z-galaxy/zbus/",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT",
@@ -7249,14 +7249,14 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/zbus@6.2.1"
+          "referenceLocator": "pkg:cargo/zbus@6.3.0"
         }
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-2316a1beeffa361b",
+      "SPDXID": "SPDXRef-cargo-197104afc5651901",
       "name": "zbus_macros",
-      "versionInfo": "6.2.1",
+      "versionInfo": "6.3.0",
       "downloadLocation": "https://github.com/z-galaxy/zbus/",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT",
@@ -7266,7 +7266,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/zbus_macros@6.2.1"
+          "referenceLocator": "pkg:cargo/zbus_macros@6.3.0"
         }
       ]
     },
@@ -8155,9 +8155,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-npm-f45f33b217db04d7",
+      "SPDXID": "SPDXRef-npm-6d5ee7957197192c",
       "name": "lucide-react",
-      "versionInfo": "1.70.0",
+      "versionInfo": "1.72.0",
       "downloadLocation": "https://github.com/lucide-icons/lucide",
       "filesAnalyzed": false,
       "licenseConcluded": "ISC",
@@ -8167,7 +8167,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:npm/lucide-react@1.70.0"
+          "referenceLocator": "pkg:npm/lucide-react@1.72.0"
         }
       ]
     },
@@ -10317,7 +10317,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-046bc91ba4d05578"
+      "relatedSpdxElement": "SPDXRef-cargo-7eee421ce8a18ad9"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -10717,7 +10717,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-ba5c33d6454f8b22"
+      "relatedSpdxElement": "SPDXRef-cargo-e547721470daabbe"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -10727,7 +10727,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-aed2cecf75fbe2b4"
+      "relatedSpdxElement": "SPDXRef-cargo-5667f1b1e6e92c9f"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -11542,12 +11542,12 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-04fd6b06d1547005"
+      "relatedSpdxElement": "SPDXRef-cargo-a4bc9ed3712a9fdd"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-2316a1beeffa361b"
+      "relatedSpdxElement": "SPDXRef-cargo-197104afc5651901"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -11812,7 +11812,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-npm-f45f33b217db04d7"
+      "relatedSpdxElement": "SPDXRef-npm-6d5ee7957197192c"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
