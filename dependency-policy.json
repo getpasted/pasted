@@ -142,6 +142,11 @@
       "id": "RUSTSEC-2025-0100",
       "expires": "2026-12-31",
       "reason": "The unmaintained unic-ucd-ident crate is transitive through Tauri's URL-pattern parser; Pasted does not use it directly and no safe upgrade is available."
+    },
+    {
+      "id": "RUSTSEC-2026-0543",
+      "expires": "2027-02-17",
+      "reason": "Reviewed 2026-11-20: RustSec classifies chrono as informational and unmaintained; this notice identifies no specific vulnerability or patched version. Pasted uses chrono 0.4.45 directly for timestamp handling and through serde_with 3.22.0. Replace it with a maintained time library after compatibility testing."
     }
   ],
   "artifactUnknownLicenseAllowlist": {

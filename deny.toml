@@ -26,6 +26,7 @@ ignore = [
     { id = "RUSTSEC-2025-0081", reason = "Unmaintained Unicode crate transitive through Tauri's URL-pattern parser; no safe upgrade is available." },
     { id = "RUSTSEC-2025-0098", reason = "Unmaintained Unicode crate transitive through Tauri's URL-pattern parser; no safe upgrade is available." },
     { id = "RUSTSEC-2025-0100", reason = "Unmaintained Unicode crate transitive through Tauri's URL-pattern parser; no safe upgrade is available." },
+    { id = "RUSTSEC-2026-0543", reason = "Informational unmaintained notice for chrono; Pasted uses it directly for timestamp handling and serde_with also depends on it. Migration needs separate compatibility work." },
 ]
 
 [licenses]
