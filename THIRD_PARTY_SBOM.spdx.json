@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "Pasted-1.2.3-distributed-components",
-  "documentNamespace": "https://getpasted.app/sbom/1.2.3/571869f5ad0f3ba865a4ca9b816691a9c4ca4a03b43f9a702ef2137c8f4c3249",
+  "documentNamespace": "https://getpasted.app/sbom/1.2.3/7030e1013ce4ab3ba24f5d32d289c807ca0668c3548396b69096aa273e7b654b",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
@@ -4024,9 +4024,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-91e474a0d3f57879",
+      "SPDXID": "SPDXRef-cargo-99eb4d06faef0632",
       "name": "plist",
-      "versionInfo": "1.10.3",
+      "versionInfo": "1.10.4",
       "downloadLocation": "https://github.com/ebarnard/rust-plist/",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT",
@@ -4036,7 +4036,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/plist@1.10.3"
+          "referenceLocator": "pkg:cargo/plist@1.10.4"
         }
       ]
     },
@@ -4330,9 +4330,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-c332eb4782bba438",
+      "SPDXID": "SPDXRef-cargo-07ecce7208094d34",
       "name": "regex",
-      "versionInfo": "1.13.1",
+      "versionInfo": "1.13.2",
       "downloadLocation": "https://github.com/rust-lang/regex",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT OR Apache-2.0",
@@ -4342,14 +4342,14 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/regex@1.13.1"
+          "referenceLocator": "pkg:cargo/regex@1.13.2"
         }
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-0eaeb81a15fc6c2b",
+      "SPDXID": "SPDXRef-cargo-8a3b9afa55dee8ea",
       "name": "regex-automata",
-      "versionInfo": "0.4.18",
+      "versionInfo": "0.4.19",
       "downloadLocation": "https://github.com/rust-lang/regex",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT OR Apache-2.0",
@@ -4359,14 +4359,14 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/regex-automata@0.4.18"
+          "referenceLocator": "pkg:cargo/regex-automata@0.4.19"
         }
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-3b3cb0df03008147",
+      "SPDXID": "SPDXRef-cargo-68f23c8a5ff9dd56",
       "name": "regex-syntax",
-      "versionInfo": "0.8.11",
+      "versionInfo": "0.8.12",
       "downloadLocation": "https://github.com/rust-lang/regex",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT OR Apache-2.0",
@@ -4376,7 +4376,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/regex-syntax@0.8.11"
+          "referenceLocator": "pkg:cargo/regex-syntax@0.8.12"
         }
       ]
     },
@@ -7237,9 +7237,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-a4bc9ed3712a9fdd",
+      "SPDXID": "SPDXRef-cargo-25d0069c8528e131",
       "name": "zbus",
-      "versionInfo": "6.3.0",
+      "versionInfo": "6.4.0",
       "downloadLocation": "https://github.com/z-galaxy/zbus/",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT",
@@ -7249,14 +7249,14 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/zbus@6.3.0"
+          "referenceLocator": "pkg:cargo/zbus@6.4.0"
         }
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-197104afc5651901",
+      "SPDXID": "SPDXRef-cargo-c351d19a047fb00f",
       "name": "zbus_macros",
-      "versionInfo": "6.3.0",
+      "versionInfo": "6.5.0",
       "downloadLocation": "https://github.com/z-galaxy/zbus/",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT",
@@ -7266,7 +7266,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/zbus_macros@6.3.0"
+          "referenceLocator": "pkg:cargo/zbus_macros@6.5.0"
         }
       ]
     },
@@ -7288,9 +7288,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-482c77067ef8a5ad",
+      "SPDXID": "SPDXRef-cargo-fe9c12c23246a16f",
       "name": "zcheapstr",
-      "versionInfo": "1.1.0",
+      "versionInfo": "1.4.0",
       "downloadLocation": "https://github.com/z-galaxy/zcheapstr/",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT",
@@ -7300,7 +7300,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/zcheapstr@1.1.0"
+          "referenceLocator": "pkg:cargo/zcheapstr@1.4.0"
         }
       ]
     },
@@ -10597,7 +10597,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-91e474a0d3f57879"
+      "relatedSpdxElement": "SPDXRef-cargo-99eb4d06faef0632"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -10687,17 +10687,17 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-c332eb4782bba438"
+      "relatedSpdxElement": "SPDXRef-cargo-07ecce7208094d34"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-0eaeb81a15fc6c2b"
+      "relatedSpdxElement": "SPDXRef-cargo-8a3b9afa55dee8ea"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-3b3cb0df03008147"
+      "relatedSpdxElement": "SPDXRef-cargo-68f23c8a5ff9dd56"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -11542,12 +11542,12 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-a4bc9ed3712a9fdd"
+      "relatedSpdxElement": "SPDXRef-cargo-25d0069c8528e131"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-197104afc5651901"
+      "relatedSpdxElement": "SPDXRef-cargo-c351d19a047fb00f"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -11557,7 +11557,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-482c77067ef8a5ad"
+      "relatedSpdxElement": "SPDXRef-cargo-fe9c12c23246a16f"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
