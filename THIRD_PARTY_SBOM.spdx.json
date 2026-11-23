@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "Pasted-1.2.3-distributed-components",
-  "documentNamespace": "https://getpasted.app/sbom/1.2.3/979cd3368480826fab03938dafe0de9f49b618ce156a170398747301c42c3747",
+  "documentNamespace": "https://getpasted.app/sbom/1.2.3/aadeebd87e0220a2d8e6cd95f21515bb22e098b36645a4eb908ce95150c4b1a5",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
@@ -4466,9 +4466,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-5667f1b1e6e92c9f",
+      "SPDXID": "SPDXRef-cargo-f585588de9b65f12",
       "name": "rusqlite",
-      "versionInfo": "0.42.0",
+      "versionInfo": "0.43.0",
       "downloadLocation": "https://github.com/rusqlite/rusqlite",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT",
@@ -4478,7 +4478,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/rusqlite@0.42.0"
+          "referenceLocator": "pkg:cargo/rusqlite@0.43.0"
         }
       ]
     },
@@ -10727,7 +10727,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-5667f1b1e6e92c9f"
+      "relatedSpdxElement": "SPDXRef-cargo-f585588de9b65f12"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
