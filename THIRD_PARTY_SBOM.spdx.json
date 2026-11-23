@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "Pasted-1.2.3-distributed-components",
-  "documentNamespace": "https://getpasted.app/sbom/1.2.3/979cd3368480826fab03938dafe0de9f49b618ce156a170398747301c42c3747",
+  "documentNamespace": "https://getpasted.app/sbom/1.2.3/571869f5ad0f3ba865a4ca9b816691a9c4ca4a03b43f9a702ef2137c8f4c3249",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
@@ -675,9 +675,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-008f950b8c4ac1c6",
+      "SPDXID": "SPDXRef-cargo-9efe2c4ce8987721",
       "name": "clipboard-win",
-      "versionInfo": "5.4.1",
+      "versionInfo": "5.4.3",
       "downloadLocation": "https://github.com/DoumanAsh/clipboard-win",
       "filesAnalyzed": false,
       "licenseConcluded": "BSL-1.0",
@@ -687,7 +687,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/clipboard-win@5.4.1"
+          "referenceLocator": "pkg:cargo/clipboard-win@5.4.3"
         }
       ]
     },
@@ -726,9 +726,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-65a941835e7512c7",
+      "SPDXID": "SPDXRef-cargo-18db4b555f0aa7ea",
       "name": "cookie",
-      "versionInfo": "0.18.2",
+      "versionInfo": "0.18.3",
       "downloadLocation": "https://github.com/SergioBenitez/cookie-rs",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT OR Apache-2.0",
@@ -738,7 +738,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/cookie@0.18.2"
+          "referenceLocator": "pkg:cargo/cookie@0.18.3"
         }
       ]
     },
@@ -1763,9 +1763,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-a895bfea7a57a298",
+      "SPDXID": "SPDXRef-cargo-83f078d5f4c35087",
       "name": "form_urlencoded",
-      "versionInfo": "1.2.2",
+      "versionInfo": "1.2.3",
       "downloadLocation": "https://github.com/servo/rust-url",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT OR Apache-2.0",
@@ -1775,7 +1775,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/form_urlencoded@1.2.2"
+          "referenceLocator": "pkg:cargo/form_urlencoded@1.2.3"
         }
       ]
     },
@@ -6285,9 +6285,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-cargo-9910231023bb6bef",
+      "SPDXID": "SPDXRef-cargo-f333dafabd08b038",
       "name": "url",
-      "versionInfo": "2.5.8",
+      "versionInfo": "2.5.9",
       "downloadLocation": "https://github.com/servo/rust-url",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT OR Apache-2.0",
@@ -6297,7 +6297,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:cargo/url@2.5.8"
+          "referenceLocator": "pkg:cargo/url@2.5.9"
         }
       ]
     },
@@ -9612,7 +9612,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-008f950b8c4ac1c6"
+      "relatedSpdxElement": "SPDXRef-cargo-9efe2c4ce8987721"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -9627,7 +9627,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-65a941835e7512c7"
+      "relatedSpdxElement": "SPDXRef-cargo-18db4b555f0aa7ea"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -9932,7 +9932,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-a895bfea7a57a298"
+      "relatedSpdxElement": "SPDXRef-cargo-83f078d5f4c35087"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -11262,7 +11262,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-cargo-9910231023bb6bef"
+      "relatedSpdxElement": "SPDXRef-cargo-f333dafabd08b038"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
