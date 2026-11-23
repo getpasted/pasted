@@ -607,13 +607,13 @@ assert.ok(
 );
 assert.match(
   desktopBuildWorkflow,
-  /actions\/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294/,
+  /actions\/dependency-review-action@bbc44d14a204704ccc493733616cd1e93a0321ec/,
   'Pull requests must review new dependency licenses and vulnerabilities',
 );
 for (const workflow of [desktopBuildWorkflow, releaseWorkflow]) {
   assert.match(
     workflow,
-    /EmbarkStudios\/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25/,
+    /EmbarkStudios\/cargo-deny-action@17aeb3c839e42274e2b8adf721c8c65edfdc74dd/,
     'Build and release workflows must enforce the reviewed Rust dependency policy',
   );
   assert.match(workflow, /audit-artifact-sbom\.js/, 'Packaged payloads must pass artifact SBOM policy');
@@ -622,7 +622,7 @@ assert.match(dependencyPolicyWorkflow, /schedule:/, 'Dependency policy must run 
 assert.match(dependencyPolicyWorkflow, /npm run dependencies:check/, 'Scheduled policy must enforce mission and expiry rules');
 assert.match(
   dependencyPolicyWorkflow,
-  /EmbarkStudios\/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25/,
+  /EmbarkStudios\/cargo-deny-action@17aeb3c839e42274e2b8adf721c8c65edfdc74dd/,
   'Scheduled policy must refresh RustSec and Rust dependency findings',
 );
 assert.match(
