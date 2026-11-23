@@ -87,7 +87,7 @@ jobs:
 
       - name: Run Codex
         id: codex
-        uses: openai/codex-action@v1.13
+        uses: openai/codex-action@v1.14
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           permission-profile: ":workspace"
