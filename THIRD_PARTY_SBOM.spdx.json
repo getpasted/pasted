@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "Pasted-1.2.3-distributed-components",
-  "documentNamespace": "https://getpasted.app/sbom/1.2.3/794daf55fbaaef92e85e711faedc9b253d4dc7377efc894b8686629034f76bcd",
+  "documentNamespace": "https://getpasted.app/sbom/1.2.3/536ac928481e108085e5c6c37c91c2c1c16519461755f907f00cf66114ad49f2",
   "creationInfo": {
     "creators": [
       "Tool: Pasted deterministic dependency inventory"
@@ -7509,9 +7509,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-npm-f449490111c66bd0",
+      "SPDXID": "SPDXRef-npm-67453c528a3eea3e",
       "name": "@tauri-apps/api",
-      "versionInfo": "2.12.4",
+      "versionInfo": "2.12.5",
       "downloadLocation": "https://github.com/tauri-apps/tauri",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0 OR MIT",
@@ -7521,7 +7521,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:npm/%40tauri-apps/api@2.12.4"
+          "referenceLocator": "pkg:npm/%40tauri-apps/api@2.12.5"
         }
       ]
     },
@@ -8155,9 +8155,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-npm-6d5ee7957197192c",
+      "SPDXID": "SPDXRef-npm-a5e30e0268116dc2",
       "name": "lucide-react",
-      "versionInfo": "1.72.0",
+      "versionInfo": "1.77.0",
       "downloadLocation": "https://github.com/lucide-icons/lucide",
       "filesAnalyzed": false,
       "licenseConcluded": "ISC",
@@ -8167,7 +8167,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:npm/lucide-react@1.72.0"
+          "referenceLocator": "pkg:npm/lucide-react@1.77.0"
         }
       ]
     },
@@ -9175,9 +9175,9 @@
       ]
     },
     {
-      "SPDXID": "SPDXRef-npm-a0907c54b07f6ad1",
+      "SPDXID": "SPDXRef-npm-84cd95d7ee8efe2d",
       "name": "tailwind-merge",
-      "versionInfo": "3.7.0",
+      "versionInfo": "3.7.1",
       "downloadLocation": "https://github.com/dcastil/tailwind-merge",
       "filesAnalyzed": false,
       "licenseConcluded": "MIT",
@@ -9187,7 +9187,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:npm/tailwind-merge@3.7.0"
+          "referenceLocator": "pkg:npm/tailwind-merge@3.7.1"
         }
       ]
     },
@@ -11622,7 +11622,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-npm-f449490111c66bd0"
+      "relatedSpdxElement": "SPDXRef-npm-67453c528a3eea3e"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -11812,7 +11812,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-npm-6d5ee7957197192c"
+      "relatedSpdxElement": "SPDXRef-npm-a5e30e0268116dc2"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
@@ -12112,7 +12112,7 @@
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
       "relationshipType": "DESCRIBES",
-      "relatedSpdxElement": "SPDXRef-npm-a0907c54b07f6ad1"
+      "relatedSpdxElement": "SPDXRef-npm-84cd95d7ee8efe2d"
     },
     {
       "spdxElementId": "SPDXRef-DOCUMENT",
